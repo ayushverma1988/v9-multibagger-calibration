@@ -17,8 +17,10 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-      - run: pip install -r requirements.txt
-      - name: Probe Jan 2017 catalog
+      - run: |
+          pip install -r requirements.txt
+          pip install lxml
+      - name: Probe Jan 2017 catalog and one legacy structured result
         run: |
           mkdir -p probe
           python src/fetch_nse_fundamental_catalog.py \
@@ -26,16 +28,32 @@ jobs:
             --to-date 2017-01-31 \
             --output probe/catalog_2017_01.csv
           python - <<'PY'
-          import pandas as pd, json
+          import pandas as pd, json, requests, io
           d=pd.read_csv('probe/catalog_2017_01.csv')
-          cols=[c for c in ['symbol','broadcast_ts','statement_scope','xbrl_url','source'] if c in d]
+          raw=d.raw_json.map(json.loads)
+          detail=[r.get('resultDetailedDataLink') for r in raw]
+          x=d.xbrl_url.fillna('').astype(str)
+          valid_x=~x.str.endswith('/-') & ~x.isin(['','-','nan'])
           print(json.dumps({
             'rows':len(d),
             'symbols':d.symbol.nunique() if len(d) else 0,
-            'with_xbrl':int(d.xbrl_url.notna().sum()) if len(d) and 'xbrl_url' in d else 0,
+            'real_xbrl':int(valid_x.sum()),
+            'legacy_detail_links':sum(bool(v and v!='-') for v in detail),
             'sources':d.source.value_counts().to_dict() if len(d) else {},
           },indent=2))
-          print(d[cols].head(10).to_string(index=False))
+          url=next(v for v in detail if v and v!='-')
+          print('DETAIL_URL',url)
+          s=requests.Session()
+          s.headers.update({'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+          r=s.get(url,timeout=30)
+          print('DETAIL_STATUS',r.status_code,'LEN',len(r.content),'CTYPE',r.headers.get('content-type'))
+          r.raise_for_status()
+          open('probe/sample_legacy_result.html','wb').write(r.content)
+          tables=pd.read_html(io.BytesIO(r.content))
+          print('TABLE_COUNT',len(tables))
+          for i,t in enumerate(tables[:12]):
+              print('\nTABLE',i,'SHAPE',t.shape)
+              print(t.head(12).to_string(index=False))
           PY
       - uses: actions/upload-artifact@v4
         with:
