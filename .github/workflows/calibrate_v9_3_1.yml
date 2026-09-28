@@ -1,0 +1,59 @@
+name: V9.3.1 Constrained Risk Selection
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, v9.3.1-constrained ]
+    paths:
+      - 'src/calibrate_v9_3_1.py'
+      - 'config_v9_3_1.json'
+      - '.github/workflows/calibrate_v9_3_1.yml'
+
+jobs:
+  calibrate-v9-3-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download verified legacy NSE artifacts from canonical V9.1 run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+      - name: Run V9.3.1 constrained selection
+        run: python src/calibrate_v9_3_1.py --config config_v9_3_1.json --output outputs_v9_3_1 --legacy-dir legacy
+      - name: Upload V9.3.1 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-3-1-constrained-results
+          path: outputs_v9_3_1/
+          retention-days: 90
+      - name: Publish compact V9.3.1 results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_v9_3_1
+          cp outputs_v9_3_1/summary.json \
+             outputs_v9_3_1/calibrator_comparison.csv \
+             outputs_v9_3_1/downside_calibrator_comparison.csv \
+             outputs_v9_3_1/chosen_config_by_fold.csv \
+             outputs_v9_3_1/selection_metrics_by_fold.csv \
+             outputs_v9_3_1/constraint_search.csv \
+             outputs_v9_3_1/current_top50.csv \
+             published_v9_3_1/
+          git add published_v9_3_1
+          git diff --cached --quiet || git commit -m "Publish V9.3.1 constrained results [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
