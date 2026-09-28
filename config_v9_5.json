@@ -1,7 +1,6 @@
 {
   "model_name": "V9.5-H6-Fundamental-Turnaround",
-  "pipeline_version": "fundamental-turnaround-v9.5-foundation-1",
-
+  "pipeline_version": "fundamental-turnaround-v9.5-1",
   "exchange": "NSE",
   "start_year": 2003,
   "price_min": 20,
@@ -13,16 +12,18 @@
     "y12": 252,
     "y24": 504
   },
-  "snapshot_months": [6, 12],
+  "snapshot_months": [
+    6,
+    12
+  ],
   "rolling_train_years": 8,
   "first_oos_year": 2009,
   "bootstrap_blocks": 500,
   "random_seed": 20260928,
-
   "structural_weights": {
     "ret_20": 0.12,
     "ret_60": 0.14,
-    "ret_120": 0.10,
+    "ret_120": 0.1,
     "mom_accel": 0.15,
     "vol_accel": 0.11,
     "turnover_accel": 0.08,
@@ -32,31 +33,58 @@
     "volatility_60": -0.05,
     "drawdown_126": -0.07
   },
-
   "selection_k": 10,
   "selection_min_folds": 8,
-  "alpha_retention": 0.90,
-  "candidate_pool_sizes": [20, 30, 50, 75, 100],
-  "risk_drop_fractions": [0.0, 0.10, 0.20, 0.30, 0.40, 0.50],
-  "safety_tiebreak_weights": [0.0, 0.05, 0.10, 0.15, 0.20],
-  "consensus_tiebreak_weights": [0.0, 0.05, 0.10, 0.15],
-  "max_secondary_weight": 0.30,
+  "alpha_retention": 0.9,
+  "candidate_pool_sizes": [
+    20,
+    30,
+    50,
+    75,
+    100
+  ],
+  "risk_drop_fractions": [
+    0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5
+  ],
+  "safety_tiebreak_weights": [
+    0,
+    0.05,
+    0.1,
+    0.15,
+    0.2
+  ],
+  "consensus_tiebreak_weights": [
+    0,
+    0.05,
+    0.1,
+    0.15
+  ],
+  "max_secondary_weight": 0.3,
   "median_dd_weight": 0.35,
   "dd_iqr_weight": 0.15,
-
   "fund_first_oos_year": 2017,
   "fund_rolling_train_years": 8,
-  "fund_min_completeness": 0.30,
-  "fund_weight_grid": [0.0, 0.05, 0.10, 0.15, 0.20, 0.25],
+  "fund_min_completeness": 0.3,
+  "fund_weight_grid": [
+    0,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25
+  ],
   "fund_alpha_retention": 0.95,
   "fund_min_utility_gain": 0.02,
-
   "fund_gate_min_rows": 3000,
   "fund_gate_min_positives": 100,
   "fund_gate_min_folds": 8,
-  "fund_gate_min_pr_auc_lift": 1.10,
-  "fund_gate_min_calibration_slope": 0.50,
-
+  "fund_gate_min_pr_auc_lift": 1.1,
+  "fund_gate_min_calibration_slope": 0.5,
   "fundamental_source_policy": {
     "primary": "NSE corporate financial-results and integrated-filing XBRL",
     "availability_rule": "broadcast timestamp strictly before snapshot date",
@@ -64,5 +92,10 @@
     "scope_preference": "consolidated_then_standalone",
     "revision_policy": "latest revision known as of snapshot only",
     "historical_backfill": "never substitute current/restated values for unavailable historical filing state"
-  }
+  },
+  "fund_max_age_days": 550,
+  "fund_exclude_specialized_financial": true,
+  "fund_min_candidate_coverage": 0.7,
+  "archive_start_date": "2017-01-01",
+  "archive_end_date": "2026-09-28"
 }
