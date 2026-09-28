@@ -61,6 +61,7 @@ FEATURE_COLS = [
     "fund_quality_completeness",
     "fund_age_days",
     "fund_scope_consolidated",
+    "fund_specialized_financial",
 ]
 
 
@@ -122,6 +123,9 @@ def normalize_fundamentals(df: pd.DataFrame) -> pd.DataFrame:
         x["source_url"] = ""
     if "revision" not in x.columns:
         x["revision"] = False
+    if "taxonomy_family" not in x.columns:
+        x["taxonomy_family"] = "generic_or_unknown"
+    x["taxonomy_family"] = x["taxonomy_family"].astype(str).str.lower().str.strip()
 
     x = x.dropna(subset=["symbol", "period_end", "broadcast_ts", "period_months"])
     x = x[x["period_months"].isin([3, 6, 9, 12])].copy()
@@ -199,6 +203,9 @@ def _feature_one(symbol_rows: pd.DataFrame, snapshot_date: pd.Timestamp) -> dict
     scope = _choose_scope(known)
     known = known[known["statement_scope"] == scope].copy()
     out["fund_scope_consolidated"] = float(scope == "consolidated")
+    families = known.get("taxonomy_family", pd.Series(dtype=str)).dropna().astype(str).str.lower()
+    specialized = families.str.contains("bank|insurance|nbfc", regex=True).any() if len(families) else False
+    out["fund_specialized_financial"] = float(bool(specialized))
 
     qtr = known[known["period_months"] == 3].copy()
     ann = known[known["period_months"] == 12].copy()
@@ -277,7 +284,7 @@ def _feature_one(symbol_rows: pd.DataFrame, snapshot_date: pd.Timestamp) -> dict
 
     measurable = [
         c for c in FEATURE_COLS
-        if c not in {"fund_quality_completeness", "fund_scope_consolidated"}
+        if c not in {"fund_quality_completeness", "fund_scope_consolidated", "fund_specialized_financial"}
     ]
     vals = np.array([out[c] for c in measurable], dtype=float)
     out["fund_quality_completeness"] = float(np.isfinite(vals).mean())
