@@ -1,0 +1,70 @@
+name: V9 Full Calibration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'config.json'
+      - 'requirements.txt'
+      - '.github/workflows/calibrate.yml'
+
+jobs:
+  legacy-backfill:
+    name: NSE legacy ${{ matrix.year }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2003, 2004, 2005, 2006, 2007, 2008, 2009]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install pandas pyarrow requests
+      - run: python src/fetch_legacy_nse.py --year ${{ matrix.year }} --out legacy/nse_${{ matrix.year }}.parquet --workers 8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nse-legacy-${{ matrix.year }}
+          path: legacy/nse_${{ matrix.year }}.parquet
+          retention-days: 7
+
+  calibrate:
+    needs: legacy-backfill
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+      - name: Run V9 walk-forward calibration
+        run: python src/calibrate_v9.py --config config.json --output outputs --legacy-dir legacy
+      - name: Upload full calibration artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-calibration-results
+          path: outputs/
+          retention-days: 90
+      - name: Commit compact results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_results
+          cp outputs/summary.json outputs/calibrator_comparison.csv outputs/downside_calibrator_comparison.csv outputs/topk_by_fold.csv outputs/current_top50.csv published_results/
+          git add published_results
+          git diff --cached --quiet || git commit -m "Update V9 calibration results [skip ci]"
+          git push
