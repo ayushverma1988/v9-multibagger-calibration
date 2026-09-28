@@ -1,0 +1,52 @@
+{
+  "model_name": "V9.3-H6-Selection",
+  "exchange": "NSE",
+  "start_year": 2003,
+  "price_min": 20,
+  "price_max": 2000,
+  "min_avg_turnover_63d": 5000000,
+  "min_history_days": 126,
+  "label_days": {
+    "y6": 126,
+    "y12": 252,
+    "y24": 504
+  },
+  "snapshot_months": [6, 12],
+  "rolling_train_years": 8,
+  "first_oos_year": 2009,
+  "bootstrap_blocks": 500,
+  "random_seed": 20260928,
+  "structural_weights": {
+    "ret_20": 0.12,
+    "ret_60": 0.14,
+    "ret_120": 0.10,
+    "mom_accel": 0.15,
+    "vol_accel": 0.11,
+    "turnover_accel": 0.08,
+    "off_high_252": 0.06,
+    "above_low_252": 0.05,
+    "trend_consistency_60": 0.07,
+    "volatility_60": -0.05,
+    "drawdown_126": -0.07
+  },
+  "return_target_clip": [-0.95, 3.0],
+  "return_prediction_clip": [-0.75, 2.0],
+  "return_eval_clip": [-1.0, 3.0],
+  "return_calibration_min_rows": 1500,
+  "return_calibration_alpha": 10.0,
+  "selection_k": 10,
+  "selection_weight_step": 0.1,
+  "min_upside_weight": 0.2,
+  "min_safety_weight": 0.1,
+  "min_expected_return_weight": 0.2,
+  "max_consensus_weight": 0.3,
+  "selection_min_folds": 8,
+  "selection_iqr_penalty": 0.35,
+  "selection_bad_fold_penalty": 0.15,
+  "selection_utility_weights": {
+    "upside": 0.40,
+    "return": 0.45,
+    "downside": 0.15
+  },
+  "pipeline_version": "selection-v9.3-1"
+}
