@@ -64,7 +64,7 @@ for k in [5,10,20]:
     summary[f"recent10_precision_at_{k}_mean"]=float(recent.precision.mean())
     summary[f"recent10_lift_at_{k}_median"]=float(recent.lift.median())
 
-cur["isin_prefix"]=cur.isin.astype(str).str[:3]
+cur["isin_prefix"]=cur["isin"].astype(str).str[:3]
 non_eq=cur[cur.isin_prefix!="INE"].copy()
 non_eq.to_csv(OUT/"current_non_company_securities.csv",index=False)
 summary["current_eligible_rows_before_security_filter"]=int(len(cur))
