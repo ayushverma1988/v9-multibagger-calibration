@@ -52,7 +52,7 @@ jobs:
           path: legacy
           merge-multiple: true
       - name: Run V9 walk-forward calibration
-        run: python src/calibrate_v9.py --config config.json --output outputs --legacy-dir legacy
+        run: python src/calibrate_v9_2.py --config config.json --output outputs --legacy-dir legacy
       - name: Upload full calibration artifacts
         uses: actions/upload-artifact@v4
         with:
