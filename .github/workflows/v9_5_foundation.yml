@@ -1,0 +1,78 @@
+name: V9.5 Fundamental Foundation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - 'src/fundamentals_pit.py'
+      - 'src/fetch_nse_fundamental_catalog.py'
+      - 'src/calibrate_v9_5.py'
+      - 'config_v9_5.json'
+      - '.github/workflows/v9_5_foundation.yml'
+
+jobs:
+  validate-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile V9.5 modules
+        run: |
+          python -m py_compile src/fundamentals_pit.py
+          python -m py_compile src/fetch_nse_fundamental_catalog.py
+          python -m py_compile src/calibrate_v9_5.py
+
+      - name: Verify point-in-time leakage guard
+        run: |
+          mkdir -p outputs_v9_5_foundation
+          python src/fundamentals_pit.py --self-test | tee outputs_v9_5_foundation/pit_self_test.json
+
+      - name: Smoke-test NSE financial filing catalog
+        run: |
+          python src/fetch_nse_fundamental_catalog.py \
+            --from-date 2026-09-01 \
+            --to-date 2026-09-28 \
+            --output outputs_v9_5_foundation/nse_filing_catalog.csv \
+            --require-records
+
+      - name: Build foundation summary
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+          from pathlib import Path
+
+          p = Path("outputs_v9_5_foundation/nse_filing_catalog.csv")
+          d = pd.read_csv(p)
+          self_test = json.load(open("outputs_v9_5_foundation/pit_self_test.json"))
+          summary = {
+              "stage": "V9.5 foundation",
+              "pit_self_test": self_test,
+              "catalog_rows": int(len(d)),
+              "catalog_symbols": int(d["symbol"].nunique()) if len(d) else 0,
+              "xbrl_links": int(d["xbrl_url"].notna().sum()) if len(d) else 0,
+              "sources": d["source"].value_counts().to_dict() if len(d) else {},
+              "next_stage": "historical XBRL download/normalization then V9.5 walk-forward fundamental challenger",
+          }
+          json.dump(summary, open("outputs_v9_5_foundation/summary.json","w"), indent=2)
+          print(json.dumps(summary, indent=2))
+          PY
+
+      - name: Upload V9.5 foundation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-fundamental-foundation
+          path: outputs_v9_5_foundation/
+          retention-days: 90
