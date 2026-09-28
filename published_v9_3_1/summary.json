@@ -1,0 +1,81 @@
+{
+  "model": "V9.3.1-H6-Constrained",
+  "pipeline_version": "constrained-v9.3.1-1",
+  "data_start": "2003-01-01",
+  "data_end": "2026-09-25",
+  "best_calibrator": "platt",
+  "best_downside_calibrator": "beta",
+  "oos_rows_calibrated": 24029,
+  "oos_positive_6m": 1002,
+  "base_rate_6m": 0.04169961296766407,
+  "brier": 0.039731030131408336,
+  "logloss": 0.17060005372652853,
+  "pr_auc": 0.06237071304326124,
+  "calibration_slope": 0.7965084899432241,
+  "calibration_intercept": -0.5223382103478059,
+  "selection_k": 10,
+  "alpha_retention_required": 0.9,
+  "selector_design": {
+    "stage_1": "candidate pool ranked by V9.2 calibrated 2x probability",
+    "stage_2": "exclude high p_dd30 candidates by within-pool risk percentile",
+    "stage_3": "rank survivors with p_cal dominant; safety/consensus only small tie-break weights",
+    "optimization": "minimize drawdown and drawdown instability subject to alpha-retention gates",
+    "fallback": "V9.2 p_cal ranking when no non-baseline configuration passes gates"
+  },
+  "production_config": {
+    "name": "N100_drop0.50_s0.15_c0.05",
+    "pool_n": 100,
+    "risk_drop": 0.5,
+    "w_safety": 0.15,
+    "w_consensus": 0.05,
+    "baseline": false
+  },
+  "forward_history": {
+    "V9.3.1": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_lift_2x": 4.695953556593198,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_selected_p_cal": 0.07803569097687069,
+      "mean_selected_p_dd30": 0.2621767518788457
+    },
+    "V9.2_pcal": {
+      "folds": 18,
+      "mean_precision_2x": 0.10555555555555557,
+      "median_precision_2x": 0.1,
+      "mean_lift_2x": 4.244465031621007,
+      "median_lift_2x": 2.2440677966101696,
+      "hit_fold_rate": 0.6111111111111112,
+      "hit_folds": 11,
+      "mean_dd30_rate": 0.4555555555555555,
+      "median_dd30_rate": 0.35,
+      "mean_selected_p_cal": 0.0816213807527771,
+      "mean_selected_p_dd30": 0.29510825094014076
+    },
+    "alpha_retention_ratios": {
+      "mean_precision_2x": 0.9473684210526316,
+      "mean_lift_2x": 1.106371126068569,
+      "hit_fold_rate": 0.9090909090909091,
+      "median_precision_2x": 1.0
+    }
+  },
+  "production_search_baseline": {
+    "folds": 26,
+    "mean_precision_2x": 0.1,
+    "median_precision_2x": 0.1,
+    "mean_lift_2x": 4.413016607782671,
+    "median_lift_2x": 1.5535714285714286,
+    "hit_fold_rate": 0.6153846153846154,
+    "hit_folds": 16,
+    "mean_dd30_rate": 0.42307692307692313,
+    "median_dd30_rate": 0.35,
+    "dd30_iqr": 0.42499999999999993,
+    "mean_selected_p_cal": 0.07652595606968716,
+    "mean_selected_p_dd30": 0.292727341086213
+  }
+}
