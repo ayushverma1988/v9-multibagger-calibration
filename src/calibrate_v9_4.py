@@ -689,7 +689,7 @@ def main():
     oos, threshold_info = calibrate_thresholds(oos)
 
     print("Running V9.3.1 constrained selector...", flush=True)
-    oos, chosen931 = v931.forward_select(oos, cfg)
+    oos, chosen931, metric_cache931 = v931.forward_select(oos, cfg)
 
     print("Running V9.4 upside-ladder selector...", flush=True)
     oos, chosen94 = forward_v94(oos, chosen931, cfg)
@@ -706,7 +706,7 @@ def main():
     chosen94.to_csv(outdir / "chosen_v94_ladder_by_fold.csv", index=False)
     comp.to_csv(outdir / "selection_metrics_by_fold.csv", index=False)
 
-    production_spec, risk_search, _ = v931.optimize_config(oos, cfg)
+    production_spec, risk_search, _ = v931.optimize_from_cache(metric_cache931, cfg)
     if production_spec is None:
         production_spec = next(v931.cfg_grid(cfg))
     shares, ladder_search, ladder_baseline = optimize_ladder(oos, production_spec, cfg)
