@@ -264,6 +264,86 @@ def optimize_config(hist, cfg):
     return best_spec, table, baseline_agg
 
 
+def build_metric_cache(oos, cfg):
+    valid = oos.dropna(
+        subset=["y6", "dd30_6m", "p_cal", "p_dd30_cal", "model_dispersion"]
+    ).copy()
+    specs = list(cfg_grid(cfg))
+    k = int(cfg.get("selection_k", 10))
+    rows = []
+    for td, g in valid.groupby("date", sort=True):
+        for spec in specs:
+            m = fold_metrics(g, spec, k)
+            if m is None:
+                continue
+            rows.append({
+                "date": pd.Timestamp(td),
+                "config": spec["name"],
+                **m,
+            })
+    return pd.DataFrame(rows)
+
+
+def optimize_from_cache(cache, cfg):
+    min_folds = int(cfg.get("selection_min_folds", 8))
+    if cache.empty:
+        return None, pd.DataFrame(), None
+
+    spec_map = {s["name"]: s for s in cfg_grid(cfg)}
+    b = cache[cache["config"] == "V9.2_baseline"].copy()
+    baseline_agg = agg_metrics(b)
+    if baseline_agg is None or baseline_agg["folds"] < min_folds:
+        return None, pd.DataFrame(), baseline_agg
+
+    rows = []
+    best_spec = spec_map["V9.2_baseline"]
+    best_key = None
+
+    for name, fm in cache.groupby("config", sort=False):
+        am = agg_metrics(fm)
+        if am is None or am["folds"] < min_folds:
+            continue
+        spec = spec_map[name]
+        feasible, gates = alpha_gates(am, baseline_agg, cfg)
+        objective = (
+            float(am["mean_dd30_rate"])
+            + float(cfg.get("median_dd_weight", 0.35)) * float(am["median_dd30_rate"])
+            + float(cfg.get("dd_iqr_weight", 0.15)) * float(am["dd30_iqr"])
+        )
+        if spec.get("baseline", False):
+            feasible = True
+
+        rows.append({
+            **spec,
+            **am,
+            "feasible": bool(feasible),
+            "objective": float(objective),
+            "gate_mean_precision_required": gates.get("mean_precision", {}).get("required", np.nan),
+            "gate_mean_lift_required": gates.get("mean_lift", {}).get("required", np.nan),
+            "gate_hit_fold_rate_required": gates.get("hit_fold_rate", {}).get("required", np.nan),
+            "gate_median_precision_required": gates.get("median_precision", {}).get("required", np.nan),
+        })
+
+        if feasible and not spec.get("baseline", False):
+            key = (
+                objective,
+                -am["mean_precision_2x"],
+                -am["mean_lift_2x"],
+                -am["hit_fold_rate"],
+            )
+            if best_key is None or key < best_key:
+                best_key = key
+                best_spec = spec.copy()
+
+    table = pd.DataFrame(rows)
+    if not table.empty:
+        table = table.sort_values(
+            ["feasible", "objective", "mean_precision_2x", "mean_lift_2x"],
+            ascending=[False, True, False, False],
+        ).reset_index(drop=True)
+    return best_spec, table, baseline_agg
+
+
 def forward_select(oos, cfg):
     out = oos.copy()
     out["selection_score"] = np.nan
@@ -276,19 +356,21 @@ def forward_select(oos, cfg):
     out["chosen_w_consensus"] = np.nan
     out["chosen_train_objective"] = np.nan
 
+    print("Caching configuration metrics by fold...", flush=True)
+    metric_cache = build_metric_cache(out, cfg)
     chosen_rows = []
     dates = sorted(pd.to_datetime(out["date"].unique()))
     min_folds = int(cfg.get("selection_min_folds", 8))
 
     for td in dates:
-        prior = out[out["date"] < td].copy()
-        prior_valid_folds = prior.dropna(
-            subset=["y6", "dd30_6m", "p_cal", "p_dd30_cal", "model_dispersion"]
-        )["date"].nunique()
+        prior_cache = metric_cache[metric_cache["date"] < td].copy()
+        prior_valid_folds = prior_cache.loc[
+            prior_cache["config"] == "V9.2_baseline", "date"
+        ].nunique()
         if prior_valid_folds < min_folds:
             continue
 
-        spec, search, baseline = optimize_config(prior, cfg)
+        spec, search, baseline = optimize_from_cache(prior_cache, cfg)
         if spec is None:
             continue
 
@@ -298,17 +380,16 @@ def forward_select(oos, cfg):
         if selected.empty:
             spec = next(cfg_grid(cfg))
             selected = select_topk(cur, spec, int(cfg.get("selection_k", 10)))
-
         if selected.empty:
             continue
 
-        score_map = selected["selection_score"].to_dict()
-        rank_map = {
-            idx: rank
-            for rank, idx in enumerate(selected.index.tolist(), start=1)
-        }
-        out.loc[selected.index, "selection_score"] = pd.Series(score_map)
-        out.loc[selected.index, "selection_rank"] = pd.Series(rank_map)
+        out.loc[selected.index, "selection_score"] = selected["selection_score"]
+        rank_map = pd.Series(
+            range(1, len(selected) + 1),
+            index=selected.index,
+            dtype=float,
+        )
+        out.loc[selected.index, "selection_rank"] = rank_map
         out.loc[selected.index, "selected_v931"] = True
 
         objective = np.nan
@@ -324,21 +405,19 @@ def forward_select(oos, cfg):
         out.loc[cur_idx, "chosen_w_consensus"] = float(spec["w_consensus"])
         out.loc[cur_idx, "chosen_train_objective"] = objective
 
-        chosen_rows.append(
-            {
-                "date": td,
-                "config": spec["name"],
-                "pool_n": int(spec["pool_n"]),
-                "risk_drop": float(spec["risk_drop"]),
-                "w_safety": float(spec["w_safety"]),
-                "w_consensus": float(spec["w_consensus"]),
-                "train_objective": objective,
-                "prior_valid_folds": int(prior_valid_folds),
-                "fell_back_to_v92": bool(spec.get("baseline", False)),
-            }
-        )
+        chosen_rows.append({
+            "date": td,
+            "config": spec["name"],
+            "pool_n": int(spec["pool_n"]),
+            "risk_drop": float(spec["risk_drop"]),
+            "w_safety": float(spec["w_safety"]),
+            "w_consensus": float(spec["w_consensus"]),
+            "train_objective": objective,
+            "prior_valid_folds": int(prior_valid_folds),
+            "fell_back_to_v92": bool(spec.get("baseline", False)),
+        })
 
-    return out, pd.DataFrame(chosen_rows)
+    return out, pd.DataFrame(chosen_rows), metric_cache
 
 
 def forward_comparison(oos, cfg):
@@ -487,7 +566,7 @@ def main():
     chosen.to_csv(outdir / "chosen_config_by_fold.csv", index=False)
     comparison.to_csv(outdir / "selection_metrics_by_fold.csv", index=False)
 
-    production_spec, search, baseline_all = optimize_config(oos, cfg)
+    production_spec, search, baseline_all = optimize_from_cache(metric_cache, cfg)
     if production_spec is None:
         production_spec = next(cfg_grid(cfg))
     search.to_csv(outdir / "constraint_search.csv", index=False)
