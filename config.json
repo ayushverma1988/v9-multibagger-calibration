@@ -1,5 +1,5 @@
 {
-  "model_name": "V9.1-H6",
+  "model_name": "V9.2-H6",
   "exchange": "NSE",
   "start_year": 2003,
   "price_min": 20,
@@ -32,5 +32,5 @@
     "volatility_60": -0.05,
     "drawdown_126": -0.07
   },
-  "pipeline_version": "initial-trigger-1"
+  "pipeline_version": "clean-v9.2-1"
 }
