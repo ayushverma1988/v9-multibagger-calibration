@@ -1,0 +1,44 @@
+name: V9.5 Legacy Probe
+
+on:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_probe.yml'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Probe Jan 2017 catalog
+        run: |
+          mkdir -p probe
+          python src/fetch_nse_fundamental_catalog.py \
+            --from-date 2017-01-01 \
+            --to-date 2017-01-31 \
+            --output probe/catalog_2017_01.csv
+          python - <<'PY'
+          import pandas as pd, json
+          d=pd.read_csv('probe/catalog_2017_01.csv')
+          cols=[c for c in ['symbol','broadcast_ts','statement_scope','xbrl_url','source'] if c in d]
+          print(json.dumps({
+            'rows':len(d),
+            'symbols':d.symbol.nunique() if len(d) else 0,
+            'with_xbrl':int(d.xbrl_url.notna().sum()) if len(d) and 'xbrl_url' in d else 0,
+            'sources':d.source.value_counts().to_dict() if len(d) else {},
+          },indent=2))
+          print(d[cols].head(10).to_string(index=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-probe-2017-01
+          path: probe/
+          retention-days: 30
