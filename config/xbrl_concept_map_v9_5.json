@@ -1,0 +1,206 @@
+{
+  "version": "v9.5-concept-map-1",
+  "notes": [
+    "Concept matching is done on namespace-stripped, punctuation-free local names.",
+    "Aliases are ordered from specific to broad. Regex matches are fallback only.",
+    "If total debt is absent, current + non-current borrowings may be aggregated.",
+    "Promoter and pledge fields are normally unavailable in financial-result XBRL and remain optional."
+  ],
+  "concepts": {
+    "revenue": {
+      "aliases": [
+        "RevenueFromOperations",
+        "RevenueFromOperationsNet",
+        "RevenueFromOperationsGross",
+        "RevenueFromSaleOfProducts",
+        "RevenueFromSaleOfServices"
+      ],
+      "regex": [
+        "^revenuefromoperations",
+        "^revenuefromsale"
+      ]
+    },
+    "operating_profit": {
+      "aliases": [
+        "ProfitLossFromOperationsBeforeOtherIncomeFinanceCostsAndExceptionalItems",
+        "ProfitLossFromOperationsBeforeFinanceCostsExceptionalItemsAndTax",
+        "EarningsBeforeInterestTaxDepreciationAndAmortisation",
+        "EarningsBeforeInterestTaxDepreciationAndAmortization",
+        "OperatingProfit"
+      ],
+      "regex": [
+        "profitlossfromoperationsbefore.*finance",
+        "earningsbeforeinteresttaxdepreciation",
+        "operatingprofit"
+      ]
+    },
+    "pbt": {
+      "aliases": [
+        "ProfitLossBeforeTax",
+        "ProfitBeforeTax",
+        "ProfitLossBeforeTaxFromContinuingOperations"
+      ],
+      "regex": [
+        "profit.*beforetax"
+      ]
+    },
+    "pat": {
+      "aliases": [
+        "ProfitLossForPeriod",
+        "ProfitLossForThePeriod",
+        "ProfitLossAfterTax",
+        "ProfitAfterTax",
+        "NetProfitLossForPeriod"
+      ],
+      "regex": [
+        "profitloss.*period$",
+        "profit.*aftertax",
+        "netprofitloss"
+      ]
+    },
+    "finance_cost": {
+      "aliases": [
+        "FinanceCosts",
+        "FinanceCost",
+        "InterestExpense",
+        "InterestExpenses"
+      ],
+      "regex": [
+        "financecost",
+        "interestexpense"
+      ]
+    },
+    "total_assets": {
+      "aliases": [
+        "Assets",
+        "TotalAssets"
+      ],
+      "regex": [
+        "^totalassets$",
+        "^assets$"
+      ]
+    },
+    "total_equity": {
+      "aliases": [
+        "Equity",
+        "TotalEquity",
+        "EquityAttributableToOwnersOfParent",
+        "ShareholdersFunds"
+      ],
+      "regex": [
+        "^totalequity$",
+        "^equity$",
+        "shareholdersfunds"
+      ]
+    },
+    "total_debt": {
+      "aliases": [
+        "Borrowings",
+        "TotalBorrowings",
+        "Debt",
+        "TotalDebt"
+      ],
+      "regex": [
+        "^totalborrowings$",
+        "^totaldebt$"
+      ]
+    },
+    "noncurrent_borrowings": {
+      "aliases": [
+        "NoncurrentBorrowings",
+        "NonCurrentBorrowings",
+        "LongTermBorrowings"
+      ],
+      "regex": [
+        "noncurrentborrowings",
+        "longtermborrowings"
+      ]
+    },
+    "current_borrowings": {
+      "aliases": [
+        "CurrentBorrowings",
+        "ShortTermBorrowings"
+      ],
+      "regex": [
+        "currentborrowings",
+        "shorttermborrowings"
+      ]
+    },
+    "current_assets": {
+      "aliases": [
+        "CurrentAssets",
+        "TotalCurrentAssets"
+      ],
+      "regex": [
+        "currentassets"
+      ]
+    },
+    "current_liabilities": {
+      "aliases": [
+        "CurrentLiabilities",
+        "TotalCurrentLiabilities"
+      ],
+      "regex": [
+        "currentliabilities"
+      ]
+    },
+    "operating_cash_flow": {
+      "aliases": [
+        "CashFlowsFromUsedInOperatingActivities",
+        "NetCashFlowsFromUsedInOperatingActivities",
+        "NetCashFlowFromOperatingActivities",
+        "CashGeneratedFromOperations"
+      ],
+      "regex": [
+        "cashflows?.*operatingactivities",
+        "cashgeneratedfromoperations"
+      ]
+    },
+    "capex": {
+      "aliases": [
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PurchaseOfPropertyPlantAndEquipment",
+        "CapitalExpenditure",
+        "PurchaseOfFixedAssets"
+      ],
+      "regex": [
+        "payments?toacquire.*propertyplant",
+        "purchaseofpropertyplant",
+        "capitalexpenditure",
+        "purchaseoffixedassets"
+      ]
+    },
+    "shares_outstanding": {
+      "aliases": [
+        "NumberOfSharesOutstanding",
+        "NumberOfEquityShares",
+        "NumberOfPaidUpEquityShares",
+        "PaidUpNumberOfEquityShares"
+      ],
+      "regex": [
+        "numberof.*equityshares",
+        "sharesoutstanding"
+      ]
+    },
+    "promoter_pct": {
+      "aliases": [
+        "PromoterAndPromoterGroupShareholdingPercentage",
+        "PercentageOfSharesHeldByPromotersAndPromoterGroup"
+      ],
+      "regex": [
+        "promoter.*shareholding.*percentage",
+        "percentage.*sharesheldbypromoter"
+      ]
+    },
+    "pledged_pct": {
+      "aliases": [
+        "PercentageOfPromoterSharesPledgedOrOtherwiseEncumbered",
+        "PromoterPledgedSharesPercentage"
+      ],
+      "regex": [
+        "promoter.*pledged.*percentage",
+        "percentage.*promoter.*pledged"
+      ]
+    }
+  }
+}
