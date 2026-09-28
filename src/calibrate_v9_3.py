@@ -182,7 +182,7 @@ def selection_metrics(oos,cfg):
 
 def current_return_predictions(data,daily,cfg):
     last=pd.Timestamp(daily.date.max()); cur=daily[daily.date==last].copy()
-    cur=cur[cur.isin.notna() & cur.isin.astype(str).str.startswith('INE')]
+    cur=cur[cur['isin'].notna() & cur['isin'].astype(str).str.startswith('INE')]
     cur=cur[(cur.close>=cfg['price_min'])&(cur.close<=cfg['price_max'])]
     cur=cur[(cur.avg_turnover_63>=cfg['min_avg_turnover_63d'])&(cur.history_days>=cfg['min_history_days'])]
     cur['breadth_120']=float(np.nanmean(cur.ret_120.to_numpy()>0)); cur['market_median_ret120']=float(np.nanmedian(cur.ret_120))
