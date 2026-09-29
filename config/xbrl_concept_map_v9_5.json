@@ -1,11 +1,12 @@
 {
-  "version": "v9.5-concept-map-2",
+  "version": "v9.5-concept-map-2.1",
   "notes": [
     "Concept matching uses namespace-stripped normalized local names.",
     "Exact aliases score 1.00; regex 0.78; heuristic family-aware matches are lower-confidence fallbacks.",
     "Specialized financial taxonomies are normalized to canonical top-line/profit/assets/equity where semantically defensible, but taxonomy_family remains explicit downstream.",
     "Current + non-current borrowings may be aggregated to total_debt.",
-    "Promoter/pledge fields remain optional because they are often not present in financial-result XBRL."
+    "Promoter/pledge fields remain optional because they are often not present in financial-result XBRL.",
+    "Adds NBFC balance-sheet components and paid-up-capital/face-value share-count derivation."
   ],
   "concepts": {
     "revenue": {
@@ -361,6 +362,89 @@
         "promoter.*pledged.*percentage",
         "percentage.*promoter.*pledged",
         "sharespledgedbypromoter"
+      ]
+    },
+    "financial_assets": {
+      "aliases": [
+        "FinancialAssets",
+        "FinanicalAssets",
+        "TotalFinancialAssets"
+      ],
+      "regex": [
+        "^financialassets$",
+        "^finanicalassets$",
+        "^totalfinancialassets$"
+      ]
+    },
+    "nonfinancial_assets": {
+      "aliases": [
+        "NonFinancialAssets",
+        "TotalNonFinancialAssets"
+      ],
+      "regex": [
+        "^nonfinancialassets$",
+        "^totalnonfinancialassets$"
+      ]
+    },
+    "financial_liabilities": {
+      "aliases": [
+        "FinancialLiabilities",
+        "TotalFinancialLiabilities"
+      ],
+      "regex": [
+        "^financialliabilities$",
+        "^totalfinancialliabilities$"
+      ]
+    },
+    "nonfinancial_liabilities": {
+      "aliases": [
+        "NonFinancialLiabilities",
+        "TotalNonFinancialLiabilities"
+      ],
+      "regex": [
+        "^nonfinancialliabilities$",
+        "^totalnonfinancialliabilities$"
+      ]
+    },
+    "debt_securities": {
+      "aliases": [
+        "DebtSecurities",
+        "DebtSecuritiesIssued"
+      ],
+      "regex": [
+        "^debtsecurities",
+        "debtsecuritiesissued"
+      ]
+    },
+    "subordinated_liabilities": {
+      "aliases": [
+        "SubordinatedLiabilities",
+        "SubordinatedDebt"
+      ],
+      "regex": [
+        "subordinatedliabilit",
+        "subordinateddebt"
+      ]
+    },
+    "paid_up_equity_capital": {
+      "aliases": [
+        "PaidUpValueOfEquityShareCapital",
+        "PaidUpEquityShareCapital",
+        "EquityShareCapital"
+      ],
+      "regex": [
+        "paidup.*equitysharecapital",
+        "^equitysharecapital$"
+      ]
+    },
+    "face_value_equity_share": {
+      "aliases": [
+        "FaceValueOfEquityShareCapital",
+        "FaceValueOfEquityShares",
+        "FaceValuePerEquityShare"
+      ],
+      "regex": [
+        "facevalue.*equityshare"
       ]
     }
   }
