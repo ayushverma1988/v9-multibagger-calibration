@@ -339,6 +339,80 @@ def _parse_contexts(root) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _augment_contexts_from_period_facts(root, contexts):
+    """Reconstruct legacy NSE/BSE pseudo-contexts such as OneD/FourD/OneI.
+
+    Several 2018-2021 financial-result instances reference contextRef IDs that
+    are not declared as xbrli:context elements. Instead, the reporting-period
+    start/end dates are themselves facts sharing that contextRef. Ignoring
+    these pseudo-contexts drops the primary revenue/PAT facts and can leave only
+    segment facts. This reconstruction is deterministic and uses only dates
+    contained in the same filing.
+    """
+    period_dates = {}
+    financial_dates = {}
+
+    for el in _iter(root):
+        cref = el.attrib.get("contextRef") or el.attrib.get("contextref")
+        if not cref:
+            continue
+        concept = _fact_concept(el)
+        n = norm_name(concept)
+        txt = "".join(el.itertext()).strip() if hasattr(el, "itertext") else (el.text or "")
+        dt = pd.to_datetime(txt, errors="coerce")
+        if pd.isna(dt):
+            continue
+
+        if n == "dateofstartofreportingperiod":
+            period_dates.setdefault(cref, {})["start"] = pd.Timestamp(dt)
+        elif n == "dateofendofreportingperiod":
+            period_dates.setdefault(cref, {})["end"] = pd.Timestamp(dt)
+        elif n == "dateofstartoffinancialyear":
+            financial_dates.setdefault(cref, {})["start"] = pd.Timestamp(dt)
+        elif n == "dateofendoffinancialyear":
+            financial_dates.setdefault(cref, {})["end"] = pd.Timestamp(dt)
+
+    # Duration pseudo-contexts: reporting-period dates take precedence over
+    # full-financial-year dates.
+    for cref in set(period_dates) | set(financial_dates):
+        if cref in contexts:
+            continue
+        d = period_dates.get(cref) or financial_dates.get(cref) or {}
+        start, end = d.get("start"), d.get("end")
+        if pd.notna(start) and pd.notna(end):
+            contexts[cref] = {
+                "start": start,
+                "end": end,
+                "instant": None,
+                "dimension_count": 0,
+                "synthetic": True,
+            }
+
+    # Instant pseudo-contexts (OneI/FourI/etc.) usually correspond to the
+    # reporting end date of the same prefix's duration context.
+    referenced = set()
+    for el in _iter(root):
+        cref = el.attrib.get("contextRef") or el.attrib.get("contextref")
+        if cref:
+            referenced.add(cref)
+
+    for cref in referenced:
+        if cref in contexts or not str(cref).endswith("I"):
+            continue
+        dref = str(cref)[:-1] + "D"
+        dc = contexts.get(dref)
+        if dc and pd.notna(dc.get("end")):
+            contexts[cref] = {
+                "start": None,
+                "end": None,
+                "instant": pd.Timestamp(dc["end"]),
+                "dimension_count": 0,
+                "synthetic": True,
+            }
+
+    return contexts
+
+
 def _fact_concept(el) -> str:
     ln = local_name(el.tag)
     if ln.lower() in {"nonfraction", "nonnumeric", "fraction"}:
@@ -418,6 +492,7 @@ def normalize_xbrl(
 
     compiled = compile_map(mapping)
     contexts = _parse_contexts(root)
+    contexts = _augment_contexts_from_period_facts(root, contexts)
     facts, namespaces, concepts, family, numeric_fact_count = _parse_facts(
         root, contexts, compiled
     )
@@ -471,6 +546,7 @@ def normalize_xbrl(
             "source": metadata.get("source"),
             "taxonomy_family": family,
             "context_dimension_count": dims,
+            "synthetic_context_used": bool(contexts.get(cid, {}).get("synthetic", False)),
         }
         scores = []
         source_concepts = {}
