@@ -1,0 +1,107 @@
+name: V9.5 Legacy Warmup 2015-2016
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_legacy_warmup_2015_2016.yml'
+
+jobs:
+  monthly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        include:
+          - year: 2015
+            month: 1
+          - year: 2015
+            month: 2
+          - year: 2015
+            month: 3
+          - year: 2015
+            month: 4
+          - year: 2015
+            month: 5
+          - year: 2015
+            month: 6
+          - year: 2015
+            month: 7
+          - year: 2015
+            month: 8
+          - year: 2015
+            month: 9
+          - year: 2015
+            month: 10
+          - year: 2015
+            month: 11
+          - year: 2015
+            month: 12
+          - year: 2016
+            month: 1
+          - year: 2016
+            month: 2
+          - year: 2016
+            month: 3
+          - year: 2016
+            month: 4
+          - year: 2016
+            month: 5
+          - year: 2016
+            month: 6
+          - year: 2016
+            month: 7
+          - year: 2016
+            month: 8
+          - year: 2016
+            month: 9
+          - year: 2016
+            month: 10
+          - year: 2016
+            month: 11
+          - year: 2016
+            month: 12
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Build legacy monthly checkpoint
+        run: |
+          Y="${{ matrix.year }}"
+          M="${{ matrix.month }}"
+          MM=$(printf "%02d" "$M")
+          python src/build_fundamental_month.py \
+            --year "$Y" \
+            --month "$M" \
+            --output-dir "monthly/${Y}-${MM}" \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --workers 8
+
+      - name: Upload normalized warmup checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-warmup-${{ matrix.year }}-${{ matrix.month }}
+          path: |
+            monthly/*/catalog.parquet
+            monthly/*/fundamentals_normalized.parquet
+            monthly/*/coverage.json
+            monthly/*/errors.csv
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload raw warmup checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-warmup-raw-${{ matrix.year }}-${{ matrix.month }}
+          path: monthly/*/raw_archive.tar.gz
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: warn
