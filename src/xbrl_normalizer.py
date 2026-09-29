@@ -25,6 +25,10 @@ INSTANT_FIELDS = {
     "noncurrent_borrowings", "current_borrowings",
     "current_assets", "current_liabilities", "shares_outstanding",
     "promoter_pct", "pledged_pct",
+    "financial_assets", "nonfinancial_assets",
+    "financial_liabilities", "nonfinancial_liabilities",
+    "debt_securities", "subordinated_liabilities",
+    "paid_up_equity_capital", "face_value_equity_share",
 }
 
 
@@ -567,16 +571,51 @@ def normalize_xbrl(
                 scores.append(f["confidence"])
                 source_concepts[field] = f["concept"]
 
+        # Safe component derivations used by NBFC/current financial-result
+        # taxonomies and by older filings that omit explicit totals.
+        if not np.isfinite(row.get("total_assets", np.nan)):
+            parts = [
+                row.get("financial_assets", np.nan),
+                row.get("nonfinancial_assets", np.nan),
+            ]
+            good = [x for x in parts if np.isfinite(x)]
+            if len(good) == 2:
+                row["total_assets"] = float(sum(good))
+                scores.append(0.66)
+                source_concepts["total_assets"] = "derived:financial+nonfinancial_assets"
+
+        if not np.isfinite(row.get("total_equity", np.nan)):
+            ta = row.get("total_assets", np.nan)
+            liab_parts = [
+                row.get("financial_liabilities", np.nan),
+                row.get("nonfinancial_liabilities", np.nan),
+            ]
+            good_liab = [x for x in liab_parts if np.isfinite(x)]
+            if np.isfinite(ta) and len(good_liab) == 2:
+                row["total_equity"] = float(ta - sum(good_liab))
+                scores.append(0.60)
+                source_concepts["total_equity"] = "derived:assets-financial/nonfinancial_liabilities"
+
+        if not np.isfinite(row.get("shares_outstanding", np.nan)):
+            paid = row.get("paid_up_equity_capital", np.nan)
+            face = row.get("face_value_equity_share", np.nan)
+            if np.isfinite(paid) and np.isfinite(face) and abs(face) > 1e-12:
+                row["shares_outstanding"] = float(paid / face)
+                scores.append(0.72)
+                source_concepts["shares_outstanding"] = "derived:paid_up_equity_capital/face_value"
+
         if not np.isfinite(row.get("total_debt", np.nan)):
             parts = [
                 row.get("noncurrent_borrowings", np.nan),
                 row.get("current_borrowings", np.nan),
+                row.get("debt_securities", np.nan),
+                row.get("subordinated_liabilities", np.nan),
             ]
             good = [x for x in parts if np.isfinite(x)]
             if good:
                 row["total_debt"] = float(sum(good))
                 scores.append(0.60)
-                source_concepts["total_debt"] = "derived:current+noncurrent_borrowings"
+                source_concepts["total_debt"] = "derived:borrowings+debt_securities+subordinated_liabilities"
 
         if not np.isfinite(row.get("operating_profit", np.nan)):
             pbt = row.get("pbt", np.nan)
