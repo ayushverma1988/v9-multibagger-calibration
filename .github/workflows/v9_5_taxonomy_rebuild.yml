@@ -1,0 +1,162 @@
+name: V9.5 Full Taxonomy Audit + Rebuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_taxonomy_rebuild.yml'
+
+jobs:
+  taxonomy-rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile taxonomy modules
+        run: |
+          python -m py_compile src/xbrl_normalizer.py
+          python -m py_compile src/legacy_financial_normalizer.py
+          python -m py_compile src/taxonomy_audit.py
+          python -m py_compile src/renormalize_saved_archives.py
+          python src/xbrl_normalizer.py --self-test
+          python src/legacy_financial_normalizer.py
+
+      - name: Download 2017-2019 normalized monthly checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-[0-9]*
+          path: monthly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36551081317
+
+      - name: Download 2017-2019 raw monthly checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-raw-*
+          path: monthly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36551081317
+
+      - name: Download 2020-2026 yearly catalogs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-*
+          path: yearly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Download 2020-2026 raw XBRL archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-raw-xbrl-*
+          path: yearly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Audit all raw taxonomy concepts and legacy labels
+        run: |
+          mkdir -p raw_all outputs_v9_5_taxonomy/audit
+          cp -a monthly_raws/. raw_all/
+          cp -a yearly_raws/. raw_all/
+          python src/taxonomy_audit.py \
+            --root raw_all \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir outputs_v9_5_taxonomy/audit
+
+      - name: Re-normalize all saved filings with improved taxonomy
+        run: |
+          mkdir -p outputs_v9_5_taxonomy/rebuild
+          python src/renormalize_saved_archives.py \
+            --monthly-catalog-root monthly_catalogs \
+            --monthly-raw-root monthly_raws \
+            --yearly-catalog-root yearly_catalogs \
+            --yearly-raw-root yearly_raws \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir outputs_v9_5_taxonomy/rebuild
+
+      - name: Build compact taxonomy report
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+          from pathlib import Path
+
+          audit=json.load(open("outputs_v9_5_taxonomy/audit/summary.json"))
+          cov=json.load(open("outputs_v9_5_taxonomy/rebuild/coverage.json"))
+          by=pd.read_csv("outputs_v9_5_taxonomy/rebuild/coverage_by_year.csv")
+
+          core=["revenue","pbt","pat","finance_cost","assets","equity"]
+          years=[]
+          for _,r in by.iterrows():
+              vals=[float(r[c]) for c in core if c in r and pd.notna(r[c])]
+              years.append({
+                  "year":int(r["year"]),
+                  "rows":int(r["rows"]),
+                  "symbols":int(r["symbols"]),
+                  "core_field_mean":sum(vals)/len(vals) if vals else 0,
+                  "revenue":float(r.get("revenue",0)),
+                  "pat":float(r.get("pat",0)),
+                  "assets":float(r.get("assets",0)),
+                  "equity":float(r.get("equity",0)),
+                  "mean_fields":float(r.get("mean_fields",0)),
+              })
+
+          summary={
+              "mapping_version":"v9.5-concept-map-2",
+              "audit":audit,
+              "rebuild":{
+                  "normalized_rows":cov.get("normalized_rows"),
+                  "symbols":cov.get("symbols"),
+                  "errors":cov.get("errors"),
+                  "taxonomy_families":cov.get("taxonomy_families"),
+                  "field_coverage":cov.get("field_coverage"),
+                  "mapping_score_mean":cov.get("mapping_score_mean"),
+                  "mapped_field_count_mean":cov.get("mapped_field_count_mean"),
+              },
+              "by_year":years,
+          }
+          json.dump(summary,open("outputs_v9_5_taxonomy/summary.json","w"),indent=2)
+          print(json.dumps(summary,indent=2))
+          PY
+
+      - name: Upload full taxonomy rebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-taxonomy-rebuild
+          path: outputs_v9_5_taxonomy/
+          retention-days: 90
+
+      - name: Publish compact taxonomy diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_v9_5_taxonomy
+          cp outputs_v9_5_taxonomy/summary.json \
+             outputs_v9_5_taxonomy/audit/summary.json \
+             outputs_v9_5_taxonomy/audit/top_unmapped_concepts.csv \
+             outputs_v9_5_taxonomy/audit/taxonomy_family_counts.csv \
+             outputs_v9_5_taxonomy/audit/legacy_label_inventory.csv \
+             outputs_v9_5_taxonomy/rebuild/coverage.json \
+             outputs_v9_5_taxonomy/rebuild/coverage_by_year.csv \
+             published_v9_5_taxonomy/
+          git add published_v9_5_taxonomy
+          git diff --cached --quiet || git commit -m "Publish V9.5 taxonomy audit and rebuilt coverage [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
