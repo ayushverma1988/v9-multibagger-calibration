@@ -28,7 +28,38 @@ META_FEATURES = {
     "fund_concept_mapping_fraction",
     "fund_synthetic_context",
 }
-FUND_FEATURES = [c for c in fpit.FEATURE_COLS if c not in META_FEATURES]
+CORE_FUND_FEATURES = [
+    "fund_revenue_yoy",
+    "fund_revenue_qoq",
+    "fund_revenue_accel",
+    "fund_pat_yoy",
+    "fund_pat_qoq",
+    "fund_pat_turnaround",
+    "fund_operating_margin",
+    "fund_margin_delta_yoy",
+    "fund_interest_coverage",
+    "fund_revenue_yoy_ann",
+    "fund_pat_yoy_ann",
+]
+
+ENRICHED_FUND_FEATURES = [
+    "fund_debt_to_equity",
+    "fund_debt_change_yoy",
+    "fund_current_ratio",
+    "fund_ocf_to_pat",
+    "fund_fcf_margin",
+    "fund_shares_change_yoy",
+    "fund_promoter_change_yoy",
+    "fund_pledge_change_yoy",
+    "fund_debt_change_yoy_ann",
+    "fund_ocf_to_pat_ann",
+    "fund_roe_proxy_ann",
+]
+
+# V9.5 production challenger is deliberately core-only until the long-history
+# model passes calibration. Enriched balance-sheet/cash-flow factors are kept
+# for a later gated overlay rather than shortening the calibration history.
+FUND_FEATURES = CORE_FUND_FEATURES
 
 DIRECTION = {
     "fund_revenue_yoy": 1,
