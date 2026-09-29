@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -10,6 +9,11 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
+try:
+    from lxml import etree as LET
+except Exception:
+    LET = None
 
 
 FLOW_FIELDS = {
@@ -25,12 +29,14 @@ INSTANT_FIELDS = {
 
 
 def local_name(tag: str) -> str:
+    tag = str(tag)
     if tag.startswith("{"):
         return tag.split("}", 1)[1]
     return tag.split(":")[-1]
 
 
 def namespace_uri(tag: str) -> str:
+    tag = str(tag)
     if tag.startswith("{"):
         return tag[1:].split("}", 1)[0]
     return ""
@@ -41,27 +47,48 @@ def norm_name(s: str) -> str:
 
 
 def parse_number(text: str | None, attrs: dict[str, str]) -> float:
-    if attrs.get("{http://www.w3.org/2001/XMLSchema-instance}nil") == "true":
+    nil_keys = [
+        "{http://www.w3.org/2001/XMLSchema-instance}nil",
+        "nil",
+    ]
+    if any(str(attrs.get(k, "")).lower() == "true" for k in nil_keys):
         return np.nan
     if text is None:
         return np.nan
     s = str(text).strip()
-    if not s or s in {"-", "—", "NA", "N/A", "nil"}:
+    if not s or s in {"-", "—", "NA", "N/A", "nil", "None"}:
         return np.nan
+
     neg = False
     if s.startswith("(") and s.endswith(")"):
         neg = True
         s = s[1:-1]
-    s = s.replace(",", "").replace("₹", "").replace("%", "").strip()
+
+    # iXBRL can expose unicode minus and non-breaking spaces.
+    s = (
+        s.replace(",", "")
+        .replace("₹", "")
+        .replace("%", "")
+        .replace("\u2212", "-")
+        .replace("\xa0", "")
+        .strip()
+    )
+
+    # Strip simple currency/text wrappers while preserving exponent notation.
+    m = re.search(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", s)
+    if not m:
+        return np.nan
     try:
-        v = float(s)
+        v = float(m.group(0))
     except Exception:
         return np.nan
+
     if neg:
-        v = -v
+        v = -abs(v)
     sign = attrs.get("sign")
     if sign == "-":
         v = -abs(v)
+
     scale = attrs.get("scale")
     if scale not in (None, ""):
         try:
@@ -75,7 +102,7 @@ def context_period_months(start: pd.Timestamp, end: pd.Timestamp) -> int | None:
     days = int((end - start).days) + 1
     targets = {3: 91, 6: 182, 9: 273, 12: 365}
     month = min(targets, key=lambda m: abs(days - targets[m]))
-    tolerances = {3: 32, 6: 45, 9: 50, 12: 65}
+    tolerances = {3: 40, 6: 55, 9: 65, 12: 80}
     return month if abs(days - targets[month]) <= tolerances[month] else None
 
 
@@ -88,41 +115,203 @@ def compile_map(mapping: dict):
     for canonical, spec in mapping["concepts"].items():
         aliases = {norm_name(x) for x in spec.get("aliases", [])}
         regex = [re.compile(x, re.I) for x in spec.get("regex", [])]
-        out[canonical] = (aliases, regex)
+        out[canonical] = {
+            "aliases": aliases,
+            "regex": regex,
+            "families": set(spec.get("families", [])),
+            "exclude_regex": [
+                re.compile(x, re.I) for x in spec.get("exclude_regex", [])
+            ],
+        }
     return out
 
 
-def map_concept(concept: str, compiled: dict) -> tuple[str | None, float]:
-    n = norm_name(concept)
-    for canonical, (aliases, _) in compiled.items():
-        if n in aliases:
-            return canonical, 1.0
-    for canonical, (_, patterns) in compiled.items():
-        if any(p.search(n) for p in patterns):
-            return canonical, 0.70
+def _heuristic_concept(n: str, family: str | None = None):
+    fam = str(family or "").lower()
+
+    # Avoid common false positives first.
+    if any(x in n for x in ["segment", "perShare", "earningspershare".lower()]):
+        return None, 0.0
+
+    # Profit after tax / net profit.
+    if (
+        re.search(r"(profitloss|netprofit|profit).*(forperiod|aftertax|aftertaxation)", n)
+        or re.search(r"netprofit(loss)?$", n)
+        or n in {"profitforperiod", "profitaftertax", "netprofit"}
+    ):
+        return "pat", 0.62
+
+    if re.search(r"profit.*beforetax", n):
+        return "pbt", 0.62
+
+    # Revenue / top line. For banking and insurance, TotalIncome/PremiumIncome
+    # are treated as top-line analogues but family remains explicit downstream.
+    if (
+        "revenuefromoperations" in n
+        or "totalincomefromoperations" in n
+        or "netsales" in n
+        or "incomefromoperations" in n
+        or "salesincome" in n
+    ):
+        return "revenue", 0.62
+    if fam in {"banking", "nbfc"} and n in {
+        "totalincome", "interestearned", "interestincome", "revenue"
+    }:
+        return "revenue", 0.58
+    if "insurance" in fam and (
+        "premiumincome" in n or "grosspremium" in n or n == "totalincome"
+    ):
+        return "revenue", 0.58
+
+    if (
+        "ebitda" in n
+        or "earningsbeforeinteresttaxdepreciation" in n
+        or "operatingprofit" in n
+        or re.search(r"profitlossfromoperationsbefore.*finance", n)
+    ):
+        return "operating_profit", 0.60
+    if fam in {"banking", "nbfc"} and "operatingprofitbeforeprovision" in n:
+        return "operating_profit", 0.58
+
+    if "financecost" in n or "interestexpense" in n or "interestexpended" in n:
+        return "finance_cost", 0.62
+
+    if n in {"assets", "totalassets"} or re.fullmatch(r"totalassets.*", n):
+        return "total_assets", 0.62
+
+    if (
+        n in {"equity", "totalequity", "shareholdersfunds", "networth"}
+        or "equityattributabletoowners" in n
+        or "totalshareholdersequity" in n
+    ):
+        return "total_equity", 0.62
+
+    if n in {"borrowings", "totalborrowings", "totaldebt", "debt"}:
+        return "total_debt", 0.62
+    if "noncurrentborrowings" in n or "longtermborrowings" in n:
+        return "noncurrent_borrowings", 0.62
+    if "currentborrowings" in n or "shorttermborrowings" in n:
+        return "current_borrowings", 0.62
+
+    if n in {"currentassets", "totalcurrentassets"}:
+        return "current_assets", 0.62
+    if n in {"currentliabilities", "totalcurrentliabilities"}:
+        return "current_liabilities", 0.62
+
+    if (
+        re.search(r"(net)?cashflows?.*operatingactivities", n)
+        or "cashgeneratedfromoperations" in n
+    ):
+        return "operating_cash_flow", 0.62
+
+    if (
+        "paymentstoacquirepropertyplant" in n
+        or "purchaseofpropertyplant" in n
+        or "purchaseoffixedassets" in n
+        or n == "capitalexpenditure"
+    ):
+        return "capex", 0.60
+
+    if (
+        "numberofsharesoutstanding" in n
+        or "numberofequityshares" in n
+        or "paidupnumberofequityshares" in n
+        or "numberofpaidupequityshares" in n
+    ):
+        return "shares_outstanding", 0.60
+
+    if "promoter" in n and "shareholding" in n and "percentage" in n:
+        return "promoter_pct", 0.58
+    if "promoter" in n and "pledged" in n and "percentage" in n:
+        return "pledged_pct", 0.58
+
     return None, 0.0
 
 
+def map_concept(
+    concept: str,
+    compiled: dict,
+    family: str | None = None,
+) -> tuple[str | None, float]:
+    n = norm_name(concept)
+
+    for canonical, spec in compiled.items():
+        fams = spec["families"]
+        if fams and family and family not in fams:
+            continue
+        if any(p.search(n) for p in spec["exclude_regex"]):
+            continue
+        if n in spec["aliases"]:
+            return canonical, 1.0
+
+    for canonical, spec in compiled.items():
+        fams = spec["families"]
+        if fams and family and family not in fams:
+            continue
+        if any(p.search(n) for p in spec["exclude_regex"]):
+            continue
+        if any(p.search(n) for p in spec["regex"]):
+            return canonical, 0.78
+
+    return _heuristic_concept(n, family)
+
+
 def classify_taxonomy(namespaces: set[str], concepts: list[str]) -> str:
-    s = " ".join(sorted(namespaces)).lower() + " " + " ".join(concepts[:100]).lower()
-    if "lifeinsurance" in s or "life-insurance" in s:
+    s = (
+        " ".join(sorted(namespaces)).lower()
+        + " "
+        + " ".join(concepts[:500]).lower()
+    )
+    ns = norm_name(s)
+
+    if any(x in ns for x in ["lifeinsurance", "lifeins", "insurancelife"]):
         return "life_insurance"
-    if "generalinsurance" in s or "general-insurance" in s:
+    if any(x in ns for x in ["generalinsurance", "nonlifeinsurance", "insurancenonlife"]):
         return "general_insurance"
-    if "insurance" in s:
+    if "insurance" in ns or "premiumincome" in ns:
         return "insurance"
-    if "bank" in s or "banking" in s:
+    if any(x in ns for x in [
+        "banking", "banktaxonomy", "interestearned", "interestexpended",
+        "advances", "deposits",
+    ]):
         return "banking"
-    if "nbfc" in s:
+    if any(x in ns for x in ["nbfc", "nonbankingfinancial", "financecompany"]):
         return "nbfc"
-    if "indas" in s or "ind-as" in s:
+    if any(x in ns for x in ["indas", "indianaccountingstandards", "indasxbrl"]):
         return "ind_as"
+    if any(x in ns for x in ["ingaap", "indiangaap", "gaaptaxonomy"]):
+        return "indian_gaap"
     return "generic_or_unknown"
 
 
-def _parse_contexts(root: ET.Element) -> dict[str, dict[str, Any]]:
+def _parse_root(xml_bytes: bytes):
+    try:
+        return ET.fromstring(xml_bytes)
+    except Exception:
+        if LET is None:
+            raise
+        parser = LET.XMLParser(recover=True, huge_tree=True, resolve_entities=False)
+        try:
+            root = LET.fromstring(xml_bytes, parser=parser)
+            if root is not None:
+                return root
+        except Exception:
+            pass
+        # Last resort for malformed inline HTML/XBRL.
+        parser = LET.HTMLParser(recover=True, huge_tree=True)
+        root = LET.fromstring(xml_bytes, parser=parser)
+        if root is None:
+            raise ValueError("Unable to parse XML/iXBRL")
+        return root
+
+
+def _iter(root):
+    return root.iter()
+
+
+def _parse_contexts(root) -> dict[str, dict[str, Any]]:
     out = {}
-    for el in root.iter():
+    for el in _iter(root):
         if local_name(el.tag).lower() != "context":
             continue
         cid = el.attrib.get("id")
@@ -132,7 +321,7 @@ def _parse_contexts(root: ET.Element) -> dict[str, dict[str, Any]]:
         dim_count = 0
         for d in el.iter():
             ln = local_name(d.tag).lower()
-            txt = (d.text or "").strip()
+            txt = "".join(d.itertext()).strip() if hasattr(d, "itertext") else (d.text or "").strip()
             if ln == "startdate":
                 start = pd.to_datetime(txt, errors="coerce")
             elif ln == "enddate":
@@ -150,7 +339,7 @@ def _parse_contexts(root: ET.Element) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _fact_concept(el: ET.Element) -> str:
+def _fact_concept(el) -> str:
     ln = local_name(el.tag)
     if ln.lower() in {"nonfraction", "nonnumeric", "fraction"}:
         name = el.attrib.get("name", "")
@@ -158,39 +347,53 @@ def _fact_concept(el: ET.Element) -> str:
     return ln
 
 
-def _parse_facts(root: ET.Element, contexts: dict, compiled: dict):
-    facts = []
+def _all_numeric_concepts(root, contexts):
+    records = []
     namespaces = set()
-    concept_names = []
-    for el in root.iter():
+    concepts = []
+    for el in _iter(root):
         cref = el.attrib.get("contextRef") or el.attrib.get("contextref")
         if not cref or cref not in contexts:
             continue
         concept = _fact_concept(el)
-        canonical, conf = map_concept(concept, compiled)
-        if canonical is None:
-            continue
-        text = "".join(el.itertext()).strip()
-        val = parse_number(text, el.attrib)
+        txt = "".join(el.itertext()).strip() if hasattr(el, "itertext") else (el.text or "")
+        val = parse_number(txt, el.attrib)
         if not np.isfinite(val):
             continue
         ns = namespace_uri(el.tag)
         if ns:
             namespaces.add(ns)
-        concept_names.append(concept)
+        concepts.append(concept)
+        records.append((el, cref, concept, float(val), ns))
+    return records, namespaces, concepts
+
+
+def _parse_facts(root, contexts, compiled):
+    raw, namespaces, concept_names = _all_numeric_concepts(root, contexts)
+    family = classify_taxonomy(namespaces, concept_names)
+
+    facts = []
+    for el, cref, concept, val, ns in raw:
+        canonical, conf = map_concept(concept, compiled, family)
+        if canonical is None:
+            continue
         facts.append({
             "context": cref,
             "concept": concept,
             "canonical": canonical,
             "confidence": conf,
-            "value": float(val),
+            "value": val,
             "unit": el.attrib.get("unitRef") or el.attrib.get("unitref"),
+            "namespace": ns,
         })
-    return facts, namespaces, concept_names
+    return facts, namespaces, concept_names, family, len(raw)
 
 
 def _best_fact(facts, canonical, contexts, allowed_contexts):
-    cand = [f for f in facts if f["canonical"] == canonical and f["context"] in allowed_contexts]
+    cand = [
+        f for f in facts
+        if f["canonical"] == canonical and f["context"] in allowed_contexts
+    ]
     if not cand:
         return None
     cand.sort(
@@ -209,14 +412,15 @@ def normalize_xbrl(
     mapping: dict,
 ) -> list[dict[str, Any]]:
     try:
-        root = ET.fromstring(xml_bytes)
+        root = _parse_root(xml_bytes)
     except Exception as exc:
-        raise ValueError(f"XML parse failed: {exc}") from exc
+        raise ValueError(f"XML/iXBRL parse failed: {exc}") from exc
 
     compiled = compile_map(mapping)
     contexts = _parse_contexts(root)
-    facts, namespaces, concepts = _parse_facts(root, contexts, compiled)
-    family = classify_taxonomy(namespaces, concepts)
+    facts, namespaces, concepts, family, numeric_fact_count = _parse_facts(
+        root, contexts, compiled
+    )
 
     durations = []
     instants_by_date: dict[pd.Timestamp, list[str]] = {}
@@ -228,14 +432,34 @@ def normalize_xbrl(
             start, end = pd.Timestamp(c["start"]), pd.Timestamp(c["end"])
             months = context_period_months(start, end)
             if months is not None:
-                durations.append((cid, start.normalize(), end.normalize(), months, c["dimension_count"]))
+                durations.append(
+                    (
+                        cid,
+                        start.normalize(),
+                        end.normalize(),
+                        months,
+                        c["dimension_count"],
+                    )
+                )
 
-    # Prefer contexts without dimensions, but retain dimensional contexts if they
-    # are the only source for a period.
     candidates: dict[tuple[pd.Timestamp, int], list[dict[str, Any]]] = {}
+
     for cid, start, end, months, dims in durations:
-        flow_ctx = [cid]
+        # Include contexts with the same economic duration/end-date, then let
+        # _best_fact prefer non-dimensional contexts. This is more robust across
+        # old/current NSE taxonomies than requiring a single exact context id.
+        flow_ctx = [
+            c_id
+            for c_id, c in contexts.items()
+            if pd.notna(c["start"])
+            and pd.notna(c["end"])
+            and pd.Timestamp(c["end"]).normalize() == end
+            and context_period_months(
+                pd.Timestamp(c["start"]), pd.Timestamp(c["end"])
+            ) == months
+        ]
         instant_ctx = instants_by_date.get(end, [])
+
         row = {
             "symbol": str(metadata.get("symbol", "")).upper(),
             "period_end": end,
@@ -249,22 +473,23 @@ def normalize_xbrl(
             "context_dimension_count": dims,
         }
         scores = []
+        source_concepts = {}
 
         for field in FLOW_FIELDS:
             f = _best_fact(facts, field, contexts, flow_ctx)
             row[field] = f["value"] if f else np.nan
             if f:
                 scores.append(f["confidence"])
+                source_concepts[field] = f["concept"]
 
         for field in INSTANT_FIELDS:
             f = _best_fact(facts, field, contexts, instant_ctx)
             if f is None:
-                # Some legacy taxonomies incorrectly/loosely attach stock facts
-                # to duration contexts. Use only as a fallback.
                 f = _best_fact(facts, field, contexts, flow_ctx)
             row[field] = f["value"] if f else np.nan
             if f:
                 scores.append(f["confidence"])
+                source_concepts[field] = f["concept"]
 
         if not np.isfinite(row.get("total_debt", np.nan)):
             parts = [
@@ -275,13 +500,18 @@ def normalize_xbrl(
             if good:
                 row["total_debt"] = float(sum(good))
                 scores.append(0.60)
+                source_concepts["total_debt"] = "derived:current+noncurrent_borrowings"
 
         if not np.isfinite(row.get("operating_profit", np.nan)):
             pbt = row.get("pbt", np.nan)
             fc = row.get("finance_cost", np.nan)
-            if np.isfinite(pbt) and np.isfinite(fc):
-                row["operating_profit"] = float(pbt + fc)
-                scores.append(0.55)
+            # Derivation is useful for non-financials/NBFCs, but not a clean
+            # operating-profit proxy for banks/insurers.
+            if family not in {"banking", "insurance", "life_insurance", "general_insurance"}:
+                if np.isfinite(pbt) and np.isfinite(fc):
+                    row["operating_profit"] = float(pbt + fc)
+                    scores.append(0.50)
+                    source_concepts["operating_profit"] = "derived:pbt+finance_cost"
 
         canonical_present = [
             c for c in [
@@ -293,10 +523,18 @@ def normalize_xbrl(
             ]
             if np.isfinite(row.get(c, np.nan))
         ]
+
         row["mapped_field_count"] = len(canonical_present)
         row["mapping_score"] = float(np.mean(scores)) if scores else 0.0
         row["namespace_count"] = len(namespaces)
+        row["numeric_fact_count"] = int(numeric_fact_count)
         row["concepts_mapped"] = len(facts)
+        row["concept_mapping_fraction"] = (
+            float(len(facts) / numeric_fact_count) if numeric_fact_count else 0.0
+        )
+        row["source_concepts_json"] = json.dumps(
+            source_concepts, ensure_ascii=False, sort_keys=True
+        )
         candidates.setdefault((end, months), []).append(row)
 
     rows = []
@@ -321,8 +559,8 @@ def self_test(mapping_path: str | Path):
         <period><startDate>2025-04-01</startDate><endDate>2025-06-30</endDate></period></context>
       <context id="I"><entity><identifier scheme="x">TEST</identifier></entity>
         <period><instant>2025-06-30</instant></period></context>
-      <in:RevenueFromOperations contextRef="D3" unitRef="INR">140</in:RevenueFromOperations>
-      <in:ProfitLossForPeriod contextRef="D3" unitRef="INR">12</in:ProfitLossForPeriod>
+      <in:RevenueFromOperationsIncludingExciseDuty contextRef="D3" unitRef="INR">140</in:RevenueFromOperationsIncludingExciseDuty>
+      <in:NetProfitLossForThePeriod contextRef="D3" unitRef="INR">12</in:NetProfitLossForThePeriod>
       <in:FinanceCosts contextRef="D3" unitRef="INR">2</in:FinanceCosts>
       <in:ProfitLossBeforeTax contextRef="D3" unitRef="INR">15</in:ProfitLossBeforeTax>
       <in:Assets contextRef="I" unitRef="INR">300</in:Assets>
@@ -349,6 +587,7 @@ def self_test(mapping_path: str | Path):
     assert r["pat"] == 12
     assert r["total_debt"] == 40
     assert r["operating_profit"] == 17
+    assert r["concept_mapping_fraction"] > 0
     return r
 
 
