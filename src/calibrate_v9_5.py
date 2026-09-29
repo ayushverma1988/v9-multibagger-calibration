@@ -704,6 +704,8 @@ def fit_current_fundamental(data, current_market, fund_oos, best_fund, cfg, fund
         [
             "date", "symbol", "fund_quality_completeness",
             "fund_age_days", "fund_specialized_financial",
+            "fund_mapping_score", "fund_mapped_fields",
+            "fund_concept_mapping_fraction", "fund_synthetic_context",
         ]
     ].copy()
     out["p_fund_raw"] = np.nan
@@ -796,9 +798,6 @@ def main():
     )
     data = data.merge(ff, on=["date", "symbol"], how="left")
     data = add_fund_ranks(data)
-    # Keep a non-serialized reference for current feature construction.
-    data.attrs["fundamentals_raw"] = fundamentals
-
     cov = snapshot_coverage(data, cfg)
     cov.to_csv(outdir / "snapshot_fundamental_coverage.csv", index=False)
 
@@ -873,7 +872,7 @@ def main():
         data, daily, market_oos, best100, bestdd, cfg
     )
     current_fund = fit_current_fundamental(
-        data, current_market, fund_oos, best_fund, cfg
+        data, current_market, fund_oos, best_fund, cfg, fundamentals
     )
     current = current_market.merge(
         current_fund[
@@ -881,6 +880,8 @@ def main():
                 "date", "symbol", "p_fund_raw", "p_fund_cal",
                 "fund_model_dispersion", "fund_quality_completeness",
                 "fund_age_days", "fund_specialized_financial",
+                "fund_mapping_score", "fund_mapped_fields",
+                "fund_concept_mapping_fraction", "fund_synthetic_context",
             ]
         ],
         on=["date", "symbol"],
