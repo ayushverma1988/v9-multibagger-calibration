@@ -124,8 +124,9 @@ jobs:
                   "mean_fields":float(r.get("mean_fields",0)),
               })
 
+          concept_map=json.load(open("config/xbrl_concept_map_v9_5.json"))
           summary={
-              "mapping_version":"v9.5-concept-map-2",
+              "mapping_version":concept_map.get("version"),
               "audit":audit,
               "rebuild":{
                   "normalized_rows":cov.get("normalized_rows"),
@@ -154,14 +155,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p published_v9_5_taxonomy
-          cp outputs_v9_5_taxonomy/summary.json \
-             outputs_v9_5_taxonomy/audit/summary.json \
-             outputs_v9_5_taxonomy/audit/top_unmapped_concepts.csv \
-             outputs_v9_5_taxonomy/audit/taxonomy_family_counts.csv \
-             outputs_v9_5_taxonomy/audit/legacy_label_inventory.csv \
-             outputs_v9_5_taxonomy/rebuild/coverage.json \
-             outputs_v9_5_taxonomy/rebuild/coverage_by_year.csv \
-             published_v9_5_taxonomy/
+          cp outputs_v9_5_taxonomy/summary.json published_v9_5_taxonomy/summary.json
+          cp outputs_v9_5_taxonomy/audit/summary.json published_v9_5_taxonomy/audit_summary.json
+          cp outputs_v9_5_taxonomy/audit/top_unmapped_concepts.csv published_v9_5_taxonomy/top_unmapped_concepts.csv
+          cp outputs_v9_5_taxonomy/audit/taxonomy_family_counts.csv published_v9_5_taxonomy/taxonomy_family_counts.csv
+          cp outputs_v9_5_taxonomy/audit/legacy_label_inventory.csv published_v9_5_taxonomy/legacy_label_inventory.csv
+          cp outputs_v9_5_taxonomy/rebuild/coverage.json published_v9_5_taxonomy/coverage.json
+          cp outputs_v9_5_taxonomy/rebuild/coverage_by_year.csv published_v9_5_taxonomy/coverage_by_year.csv
           git add published_v9_5_taxonomy
           git diff --cached --quiet || git commit -m "Publish V9.5 taxonomy audit and rebuilt coverage [skip ci]"
           git pull --rebase origin "${GITHUB_REF_NAME}"
