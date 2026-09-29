@@ -115,21 +115,44 @@ def make_models(seed: int):
 
 def usable_fund_mask(df: pd.DataFrame, cfg: dict) -> pd.Series:
     min_comp = float(cfg.get("fund_min_completeness", 0.30))
+    min_core = float(cfg.get("fund_min_core_completeness", 0.34))
     max_age = float(cfg.get("fund_max_age_days", 550))
-    mask = df["fund_quality_completeness"].fillna(0) >= min_comp
+
+    overall = df["fund_quality_completeness"].fillna(0) >= min_comp
+    core = df.get(
+        "fund_core_completeness",
+        pd.Series(0.0, index=df.index),
+    ).fillna(0) >= min_core
+
+    # A row is usable if it has either the richer modern feature set OR a
+    # sufficiently complete legacy turnaround core. Missing optional features
+    # are handled by the model's imputer; they are never filled with zero.
+    mask = overall | core
+
+    # Require at least one of the two primary turnaround measurements when
+    # those columns exist, so "quality" cannot be satisfied only by metadata.
+    primary = pd.Series(False, index=df.index)
+    for col in ["fund_revenue_yoy", "fund_pat_yoy"]:
+        if col in df.columns:
+            primary |= df[col].notna()
+    mask &= primary
+
     if "fund_age_days" in df.columns:
         mask &= df["fund_age_days"].fillna(np.inf) <= max_age
+
     min_map = float(cfg.get("fund_min_mapping_score", 0.55))
     min_fields = int(cfg.get("fund_min_mapped_fields", 3))
     if "fund_mapping_score" in df.columns:
         mask &= df["fund_mapping_score"].fillna(0.0) >= min_map
     if "fund_mapped_fields" in df.columns:
         mask &= df["fund_mapped_fields"].fillna(0.0) >= min_fields
+
     if bool(cfg.get("fund_exclude_specialized_financial", True)):
         mask &= df.get(
             "fund_specialized_financial",
             pd.Series(0.0, index=df.index),
         ).fillna(0) < 0.5
+
     return mask
 
 
