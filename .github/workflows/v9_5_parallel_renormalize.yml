@@ -1,0 +1,118 @@
+name: V9.5 Parallel Re-Normalize 2017-2026
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_parallel_renormalize.yml'
+
+jobs:
+  renorm-legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2017, 2018, 2019]
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download monthly catalogs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-${{ matrix.year }}-*
+          path: monthly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36551081317
+
+      - name: Download monthly raw archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-raw-${{ matrix.year }}-*
+          path: monthly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36551081317
+
+      - name: Re-normalize legacy year
+        run: |
+          mkdir -p empty_yearly_catalog empty_yearly_raw "renorm/${{ matrix.year }}"
+          python src/renormalize_saved_archives.py \
+            --monthly-catalog-root monthly_catalogs \
+            --monthly-raw-root monthly_raws \
+            --yearly-catalog-root empty_yearly_catalog \
+            --yearly-raw-root empty_yearly_raw \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "renorm/${{ matrix.year }}"
+
+      - name: Upload re-normalized legacy year
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-renorm-${{ matrix.year }}
+          path: renorm/${{ matrix.year }}/
+          retention-days: 90
+
+  renorm-xbrl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix:
+        year: [2020, 2021, 2022, 2023, 2024, 2025, 2026]
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download yearly catalog
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-${{ matrix.year }}
+          path: yearly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Download yearly raw XBRL
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-raw-xbrl-${{ matrix.year }}
+          path: yearly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Re-normalize XBRL year
+        run: |
+          mkdir -p empty_monthly_catalog empty_monthly_raw "renorm/${{ matrix.year }}"
+          python src/renormalize_saved_archives.py \
+            --monthly-catalog-root empty_monthly_catalog \
+            --monthly-raw-root empty_monthly_raw \
+            --yearly-catalog-root yearly_catalogs \
+            --yearly-raw-root yearly_raws \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "renorm/${{ matrix.year }}"
+
+      - name: Upload re-normalized XBRL year
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-renorm-${{ matrix.year }}
+          path: renorm/${{ matrix.year }}/
+          retention-days: 90
