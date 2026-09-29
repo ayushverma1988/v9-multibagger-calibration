@@ -1,10 +1,11 @@
 {
-  "version": "v9.5-concept-map-1",
+  "version": "v9.5-concept-map-2",
   "notes": [
-    "Concept matching is done on namespace-stripped, punctuation-free local names.",
-    "Aliases are ordered from specific to broad. Regex matches are fallback only.",
-    "If total debt is absent, current + non-current borrowings may be aggregated.",
-    "Promoter and pledge fields are normally unavailable in financial-result XBRL and remain optional."
+    "Concept matching uses namespace-stripped normalized local names.",
+    "Exact aliases score 1.00; regex 0.78; heuristic family-aware matches are lower-confidence fallbacks.",
+    "Specialized financial taxonomies are normalized to canonical top-line/profit/assets/equity where semantically defensible, but taxonomy_family remains explicit downstream.",
+    "Current + non-current borrowings may be aggregated to total_debt.",
+    "Promoter/pledge fields remain optional because they are often not present in financial-result XBRL."
   ],
   "concepts": {
     "revenue": {
@@ -12,36 +13,81 @@
         "RevenueFromOperations",
         "RevenueFromOperationsNet",
         "RevenueFromOperationsGross",
+        "RevenueFromOperationsIncludingExciseDuty",
+        "RevenueFromOperationsExcludingExciseDuty",
+        "TotalRevenueFromOperations",
+        "IncomeFromOperations",
+        "TotalIncomeFromOperations",
+        "NetSales",
+        "NetSalesIncomeFromOperations",
+        "SalesIncome",
+        "SalesRevenue",
         "RevenueFromSaleOfProducts",
-        "RevenueFromSaleOfServices"
+        "RevenueFromSaleOfServices",
+        "Revenue",
+        "TotalIncome",
+        "InterestEarned",
+        "InterestIncome",
+        "GrossPremiumIncome",
+        "NetPremiumIncome"
       ],
       "regex": [
         "^revenuefromoperations",
-        "^revenuefromsale"
+        "^totalrevenuefromoperations",
+        "^incomefromoperations",
+        "^totalincomefromoperations",
+        "^netsales",
+        "^sales(income|revenue)",
+        "^revenuefromsale",
+        "^totalincome$",
+        "^interestearned$",
+        "^interestincome$",
+        "premiumincome$"
+      ],
+      "exclude_regex": [
+        "segment",
+        "pershare"
       ]
     },
     "operating_profit": {
       "aliases": [
         "ProfitLossFromOperationsBeforeOtherIncomeFinanceCostsAndExceptionalItems",
         "ProfitLossFromOperationsBeforeFinanceCostsExceptionalItemsAndTax",
+        "ProfitLossFromOperationsBeforeFinanceCostsExceptionalItems",
+        "OperatingProfit",
+        "OperatingProfitBeforeProvisionsAndContingencies",
+        "ProfitBeforeProvisionsAndContingencies",
         "EarningsBeforeInterestTaxDepreciationAndAmortisation",
         "EarningsBeforeInterestTaxDepreciationAndAmortization",
-        "OperatingProfit"
+        "EBITDA"
       ],
       "regex": [
         "profitlossfromoperationsbefore.*finance",
+        "operatingprofit",
+        "profitbeforeprovisions",
         "earningsbeforeinteresttaxdepreciation",
-        "operatingprofit"
+        "^ebitda$"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "pbt": {
       "aliases": [
         "ProfitLossBeforeTax",
         "ProfitBeforeTax",
-        "ProfitLossBeforeTaxFromContinuingOperations"
+        "ProfitLossBeforeTaxFromContinuingOperations",
+        "ProfitBeforeTaxFromContinuingOperations",
+        "ProfitLossBeforeTaxation",
+        "ProfitLossFromOrdinaryActivitiesBeforeTax",
+        "ProfitBeforeTaxation"
       ],
       "regex": [
-        "profit.*beforetax"
+        "profit.*beforetax",
+        "profit.*beforetaxation"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "pat": {
@@ -50,12 +96,27 @@
         "ProfitLossForThePeriod",
         "ProfitLossAfterTax",
         "ProfitAfterTax",
-        "NetProfitLossForPeriod"
+        "NetProfitLossForPeriod",
+        "NetProfitLossForThePeriod",
+        "NetProfitForThePeriod",
+        "NetProfitAfterTax",
+        "ProfitForPeriod",
+        "ProfitForThePeriod",
+        "ProfitLossForYear",
+        "ProfitLossForTheYear",
+        "NetProfitLoss",
+        "NetProfit",
+        "ProfitAfterTaxation"
       ],
       "regex": [
-        "profitloss.*period$",
+        "profitloss.*(forperiod|fortheperiod|aftertax|foryear|fortheyear)",
+        "netprofit.*(period|aftertax|loss)?$",
         "profit.*aftertax",
-        "netprofitloss"
+        "profit.*aftertaxation"
+      ],
+      "exclude_regex": [
+        "segment",
+        "pershare"
       ]
     },
     "finance_cost": {
@@ -63,21 +124,38 @@
         "FinanceCosts",
         "FinanceCost",
         "InterestExpense",
-        "InterestExpenses"
+        "InterestExpenses",
+        "InterestExpended",
+        "BorrowingCosts",
+        "FinanceCharges",
+        "InterestAndFinanceCharges"
       ],
       "regex": [
         "financecost",
-        "interestexpense"
+        "interestexpense",
+        "interestexpended",
+        "borrowingcost",
+        "financecharges"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "total_assets": {
       "aliases": [
         "Assets",
-        "TotalAssets"
+        "TotalAssets",
+        "TotalAssetsAndLiabilities",
+        "TotalAssetsAsAt"
       ],
       "regex": [
         "^totalassets$",
-        "^assets$"
+        "^assets$",
+        "^totalassetsasat$"
+      ],
+      "exclude_regex": [
+        "segment",
+        "currentassets"
       ]
     },
     "total_equity": {
@@ -85,12 +163,25 @@
         "Equity",
         "TotalEquity",
         "EquityAttributableToOwnersOfParent",
-        "ShareholdersFunds"
+        "ShareholdersFunds",
+        "ShareholdersEquity",
+        "TotalShareholdersEquity",
+        "NetWorth",
+        "TotalNetWorth",
+        "CapitalAndReservesAndSurplus",
+        "EquityShareholdersFunds"
       ],
       "regex": [
         "^totalequity$",
         "^equity$",
-        "shareholdersfunds"
+        "shareholdersfunds",
+        "shareholdersequity",
+        "equityattributabletoowners",
+        "^networth$",
+        "capitalandreservesandsurplus"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "total_debt": {
@@ -98,50 +189,86 @@
         "Borrowings",
         "TotalBorrowings",
         "Debt",
-        "TotalDebt"
+        "TotalDebt",
+        "TotalDebtOutstanding",
+        "LoansFunds",
+        "LoanFunds"
       ],
       "regex": [
         "^totalborrowings$",
-        "^totaldebt$"
+        "^borrowings$",
+        "^totaldebt",
+        "^debt$",
+        "loanfunds"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "noncurrent_borrowings": {
       "aliases": [
         "NoncurrentBorrowings",
         "NonCurrentBorrowings",
-        "LongTermBorrowings"
+        "LongTermBorrowings",
+        "LongtermBorrowings",
+        "SecuredLoansNonCurrent",
+        "UnsecuredLoansNonCurrent"
       ],
       "regex": [
         "noncurrentborrowings",
-        "longtermborrowings"
+        "longtermborrowings",
+        "loansnoncurrent"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "current_borrowings": {
       "aliases": [
         "CurrentBorrowings",
-        "ShortTermBorrowings"
+        "ShortTermBorrowings",
+        "ShorttermBorrowings",
+        "SecuredLoansCurrent",
+        "UnsecuredLoansCurrent"
       ],
       "regex": [
         "currentborrowings",
-        "shorttermborrowings"
+        "shorttermborrowings",
+        "loanscurrent"
+      ],
+      "exclude_regex": [
+        "noncurrent",
+        "segment"
       ]
     },
     "current_assets": {
       "aliases": [
         "CurrentAssets",
-        "TotalCurrentAssets"
+        "TotalCurrentAssets",
+        "CurrentAssetsTotal"
       ],
       "regex": [
-        "currentassets"
+        "^currentassets$",
+        "^totalcurrentassets$",
+        "currentassetstotal"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "current_liabilities": {
       "aliases": [
         "CurrentLiabilities",
-        "TotalCurrentLiabilities"
+        "TotalCurrentLiabilities",
+        "CurrentLiabilitiesTotal"
       ],
       "regex": [
-        "currentliabilities"
+        "^currentliabilities$",
+        "^totalcurrentliabilities$",
+        "currentliabilitiestotal"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "operating_cash_flow": {
@@ -149,25 +276,43 @@
         "CashFlowsFromUsedInOperatingActivities",
         "NetCashFlowsFromUsedInOperatingActivities",
         "NetCashFlowFromOperatingActivities",
-        "CashGeneratedFromOperations"
+        "NetCashFromOperatingActivities",
+        "CashGeneratedFromOperations",
+        "NetCashGeneratedFromOperatingActivities",
+        "CashFlowFromOperatingActivities"
       ],
       "regex": [
-        "cashflows?.*operatingactivities",
-        "cashgeneratedfromoperations"
+        "(net)?cashflows?.*operatingactivities",
+        "netcashfromoperatingactivities",
+        "cashgeneratedfromoperations",
+        "cashflowfromoperatingactivities"
+      ],
+      "exclude_regex": [
+        "segment"
       ]
     },
     "capex": {
       "aliases": [
         "PaymentsToAcquirePropertyPlantAndEquipment",
         "PurchaseOfPropertyPlantAndEquipment",
+        "PurchasesOfPropertyPlantAndEquipment",
         "CapitalExpenditure",
-        "PurchaseOfFixedAssets"
+        "PurchaseOfFixedAssets",
+        "PaymentsForPropertyPlantAndEquipment",
+        "AcquisitionOfPropertyPlantAndEquipment"
       ],
       "regex": [
         "payments?toacquire.*propertyplant",
-        "purchaseofpropertyplant",
+        "purchase.*propertyplant",
         "capitalexpenditure",
-        "purchaseoffixedassets"
+        "purchaseoffixedassets",
+        "paymentsforpropertyplant",
+        "acquisitionofpropertyplant"
+      ],
+      "exclude_regex": [
+        "proceeds",
+        "sale",
+        "disposal"
       ]
     },
     "shares_outstanding": {
@@ -175,17 +320,30 @@
         "NumberOfSharesOutstanding",
         "NumberOfEquityShares",
         "NumberOfPaidUpEquityShares",
-        "PaidUpNumberOfEquityShares"
+        "PaidUpNumberOfEquityShares",
+        "PaidUpEquityShares",
+        "EquitySharesOutstanding",
+        "NumberOfEquitySharesOutstanding",
+        "WeightedAverageNumberOfEquitySharesOutstanding"
       ],
       "regex": [
         "numberof.*equityshares",
-        "sharesoutstanding"
+        "sharesoutstanding",
+        "equitysharesoutstanding",
+        "paidup.*equityshares"
+      ],
+      "exclude_regex": [
+        "weightedaverage",
+        "diluted",
+        "basic"
       ]
     },
     "promoter_pct": {
       "aliases": [
         "PromoterAndPromoterGroupShareholdingPercentage",
-        "PercentageOfSharesHeldByPromotersAndPromoterGroup"
+        "PercentageOfSharesHeldByPromotersAndPromoterGroup",
+        "PromoterShareholdingPercentage",
+        "PromotersShareholdingPercentage"
       ],
       "regex": [
         "promoter.*shareholding.*percentage",
@@ -195,11 +353,14 @@
     "pledged_pct": {
       "aliases": [
         "PercentageOfPromoterSharesPledgedOrOtherwiseEncumbered",
-        "PromoterPledgedSharesPercentage"
+        "PromoterPledgedSharesPercentage",
+        "PromoterSharesPledgedPercentage",
+        "PercentageOfSharesPledgedByPromoters"
       ],
       "regex": [
         "promoter.*pledged.*percentage",
-        "percentage.*promoter.*pledged"
+        "percentage.*promoter.*pledged",
+        "sharespledgedbypromoter"
       ]
     }
   }
