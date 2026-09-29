@@ -168,6 +168,7 @@ def walk_forward_fundamental(data: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         ].copy()
         z["p_fund_raw"] = np.nanmean(arr, axis=1)
         z["fund_model_dispersion"] = np.nanstd(arr, axis=1)
+        z.attrs.clear()
         rows.append(z)
 
         print(
@@ -176,7 +177,18 @@ def walk_forward_fundamental(data: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             flush=True,
         )
 
-    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
+    if not rows:
+        return pd.DataFrame()
+    # Pandas propagates attrs from parent slices. Some upstream attrs can hold
+    # DataFrames, whose equality comparison is ambiguous during concat.
+    clean = []
+    for frame in rows:
+        frame = frame.copy()
+        frame.attrs.clear()
+        clean.append(frame)
+    out = pd.concat(clean, ignore_index=True)
+    out.attrs.clear()
+    return out
 
 
 def calibration_metrics(df, target="y6", pcol="p_fund_cal"):
