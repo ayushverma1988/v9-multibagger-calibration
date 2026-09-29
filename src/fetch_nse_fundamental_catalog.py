@@ -125,6 +125,7 @@ def _norm(row: dict, source: str) -> dict:
         "submissionDate",
     )
     xbrl = _first(row, "xbrl", "xbrlLink", "xbrl_url", "xbrlFile", "file_url")
+    detail = _first(row, "resultDetailedDataLink", "resultDetailLink", "detailedDataLink")
     scope = _first(row, "consolidated", "consolidatedOrStandalone", "typeOfResult")
     audited = _first(row, "audited", "auditedUnaudited", "auditStatus")
     relating = _first(row, "relatingTo", "period", "quarter", "filing_type")
@@ -141,6 +142,7 @@ def _norm(row: dict, source: str) -> dict:
         "relating_to": relating,
         "filing_id": filing_id,
         "xbrl_url": xbrl,
+        "detail_url": detail,
         "raw_json": json.dumps(row, ensure_ascii=False, default=str),
     }
 
@@ -205,7 +207,7 @@ def fetch_catalog(from_date: date, to_date: date) -> pd.DataFrame:
             columns=[
                 "source", "symbol", "company", "period_end", "broadcast_ts",
                 "statement_scope", "audited", "relating_to", "filing_id",
-                "xbrl_url", "raw_json",
+                "xbrl_url", "detail_url", "raw_json",
             ]
         )
     df = pd.DataFrame(rows)
