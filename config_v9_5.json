@@ -1,6 +1,6 @@
 {
   "model_name": "V9.5-H6-Fundamental-Turnaround",
-  "pipeline_version": "fundamental-turnaround-v9.5-1",
+  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy2",
   "exchange": "NSE",
   "start_year": 2003,
   "price_min": 20,
@@ -97,5 +97,8 @@
   "fund_exclude_specialized_financial": true,
   "fund_min_candidate_coverage": 0.7,
   "archive_start_date": "2017-01-01",
-  "archive_end_date": "2026-09-28"
+  "archive_end_date": "2026-09-28",
+  "fund_min_mapping_score": 0.55,
+  "fund_min_mapped_fields": 3,
+  "taxonomy_mapping_version": "v9.5-concept-map-2.1"
 }
