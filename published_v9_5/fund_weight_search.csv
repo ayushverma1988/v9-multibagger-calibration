@@ -1,0 +1,2 @@
+fund_weight,feasible,utility,folds,mean_precision_2x,median_precision_2x,mean_capped_lift_2x,hit_fold_rate,hit_folds,mean_dd30_rate,median_dd30_rate,mean_candidate_coverage,median_candidate_coverage,applied_fold_rate,applied_folds,required_mean_precision_2x,required_mean_capped_lift_2x,required_hit_fold_rate,required_median_precision_2x
+0.0,True,1.0,26,0.11538461538461539,0.1,3.2634658967237886,0.6538461538461539,17,0.34615384615384615,0.3,0.0,0.0,0.0,0,0.10961538461538461,3.100292601887599,0.6211538461538462,0.095
