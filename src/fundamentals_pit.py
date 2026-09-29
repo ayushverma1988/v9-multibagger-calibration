@@ -317,10 +317,57 @@ def _feature_one(symbol_rows: pd.DataFrame, snapshot_date: pd.Timestamp) -> dict
             "fund_mapped_fields",
             "fund_concept_mapping_fraction",
             "fund_synthetic_context",
+            "fund_core_completeness",
+            "fund_balance_completeness",
+            "fund_cashflow_completeness",
+            "fund_quality_tier",
         }
     ]
     vals = np.array([out[c] for c in measurable], dtype=float)
     out["fund_quality_completeness"] = float(np.isfinite(vals).mean())
+
+    # Era-aware quality: legacy NSE results often contain reliable income
+    # statement data but no balance-sheet/cash-flow table. Those filings should
+    # remain usable for a turnaround model rather than being rejected because
+    # optional richer fields are absent.
+    core = [
+        "fund_revenue_yoy",
+        "fund_pat_yoy",
+        "fund_pat_turnaround",
+        "fund_operating_margin",
+        "fund_margin_delta_yoy",
+        "fund_interest_coverage",
+    ]
+    balance = [
+        "fund_debt_to_equity",
+        "fund_debt_change_yoy",
+        "fund_current_ratio",
+        "fund_shares_change_yoy",
+        "fund_roe_proxy_ann",
+    ]
+    cashflow = [
+        "fund_ocf_to_pat",
+        "fund_fcf_margin",
+        "fund_ocf_to_pat_ann",
+    ]
+
+    def frac(cols):
+        a = np.array([out.get(x, np.nan) for x in cols], dtype=float)
+        return float(np.isfinite(a).mean()) if len(a) else 0.0
+
+    out["fund_core_completeness"] = frac(core)
+    out["fund_balance_completeness"] = frac(balance)
+    out["fund_cashflow_completeness"] = frac(cashflow)
+
+    if out["fund_core_completeness"] >= 0.67:
+        tier = 3.0
+    elif out["fund_core_completeness"] >= 0.34:
+        tier = 2.0
+    elif out["fund_quality_completeness"] >= 0.30:
+        tier = 1.0
+    else:
+        tier = 0.0
+    out["fund_quality_tier"] = tier
     return out
 
 
