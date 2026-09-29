@@ -6,6 +6,11 @@ on:
     branches: [ v9.5-fundamental-turnaround ]
     paths:
       - '.github/workflows/v9_5_taxonomy_rebuild.yml'
+      - 'src/xbrl_normalizer.py'
+      - 'src/legacy_financial_normalizer.py'
+      - 'src/taxonomy_audit.py'
+      - 'src/renormalize_saved_archives.py'
+      - 'config/xbrl_concept_map_v9_5.json'
 
 jobs:
   taxonomy-rebuild:
