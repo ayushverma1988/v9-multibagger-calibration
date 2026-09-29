@@ -62,6 +62,10 @@ FEATURE_COLS = [
     "fund_age_days",
     "fund_scope_consolidated",
     "fund_specialized_financial",
+    "fund_mapping_score",
+    "fund_mapped_fields",
+    "fund_concept_mapping_fraction",
+    "fund_synthetic_context",
 ]
 
 
@@ -126,6 +130,19 @@ def normalize_fundamentals(df: pd.DataFrame) -> pd.DataFrame:
     if "taxonomy_family" not in x.columns:
         x["taxonomy_family"] = "generic_or_unknown"
     x["taxonomy_family"] = x["taxonomy_family"].astype(str).str.lower().str.strip()
+    if "mapping_score" not in x.columns:
+        x["mapping_score"] = 0.0
+    if "mapped_field_count" not in x.columns:
+        x["mapped_field_count"] = 0
+    if "concept_mapping_fraction" not in x.columns:
+        x["concept_mapping_fraction"] = 0.0
+    if "synthetic_context_used" not in x.columns:
+        x["synthetic_context_used"] = False
+    x["mapping_score"] = pd.to_numeric(x["mapping_score"], errors="coerce").fillna(0.0)
+    x["mapped_field_count"] = pd.to_numeric(x["mapped_field_count"], errors="coerce").fillna(0)
+    x["concept_mapping_fraction"] = pd.to_numeric(
+        x["concept_mapping_fraction"], errors="coerce"
+    ).fillna(0.0)
 
     x = x.dropna(subset=["symbol", "period_end", "broadcast_ts", "period_months"])
     x = x[x["period_months"].isin([3, 6, 9, 12])].copy()
@@ -212,6 +229,14 @@ def _feature_one(symbol_rows: pd.DataFrame, snapshot_date: pd.Timestamp) -> dict
 
     cur = _latest_period(qtr)
     if cur is not None:
+        out["fund_mapping_score"] = float(cur.get("mapping_score", 0.0))
+        out["fund_mapped_fields"] = float(cur.get("mapped_field_count", 0.0))
+        out["fund_concept_mapping_fraction"] = float(
+            cur.get("concept_mapping_fraction", 0.0)
+        )
+        out["fund_synthetic_context"] = float(
+            bool(cur.get("synthetic_context_used", False))
+        )
         pe = pd.Timestamp(cur["period_end"])
         yoy = _near_period(qtr[qtr["period_end"] < pe], pe - pd.DateOffset(years=1))
         prevq = _near_period(qtr[qtr["period_end"] < pe], pe - pd.DateOffset(months=3))
@@ -284,7 +309,15 @@ def _feature_one(symbol_rows: pd.DataFrame, snapshot_date: pd.Timestamp) -> dict
 
     measurable = [
         c for c in FEATURE_COLS
-        if c not in {"fund_quality_completeness", "fund_scope_consolidated", "fund_specialized_financial"}
+        if c not in {
+            "fund_quality_completeness",
+            "fund_scope_consolidated",
+            "fund_specialized_financial",
+            "fund_mapping_score",
+            "fund_mapped_fields",
+            "fund_concept_mapping_fraction",
+            "fund_synthetic_context",
+        }
     ]
     vals = np.array([out[c] for c in measurable], dtype=float)
     out["fund_quality_completeness"] = float(np.isfinite(vals).mean())
