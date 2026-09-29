@@ -6,6 +6,7 @@ on:
     branches: [ v9.5-fundamental-turnaround ]
     paths:
       - '.github/workflows/v9_5_backtest_only.yml'
+      - 'src/calibrate_v9_5.py'
 
 jobs:
   backtest:
