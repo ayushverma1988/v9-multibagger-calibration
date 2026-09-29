@@ -82,38 +82,23 @@ def _is_html(blob: bytes):
 
 def audit_xbrl(blob: bytes, source: str, mapping: dict, concept_rows, family_counts, file_stats):
     try:
-        root = ET.fromstring(blob)
+        root = xn._parse_root(blob)
     except Exception:
         return False
 
     compiled = xn.compile_map(mapping)
     contexts = xn._parse_contexts(root)
-    namespaces = set()
-    all_concepts = []
-    facts = []
+    contexts = xn._augment_contexts_from_period_facts(root, contexts)
 
-    for el in root.iter():
-        cref = el.attrib.get("contextRef") or el.attrib.get("contextref")
-        if not cref or cref not in contexts:
-            continue
-        concept = xn._fact_concept(el)
-        val = xn.parse_number("".join(el.itertext()).strip(), el.attrib)
-        if not pd.notna(val):
-            continue
-        ns = xn.namespace_uri(el.tag)
-        if ns:
-            namespaces.add(ns)
-        all_concepts.append(concept)
-        canonical, conf = xn.map_concept(concept, compiled)
-        facts.append((concept, canonical, conf, cref, ns))
-
+    raw, namespaces, all_concepts = xn._all_numeric_concepts(root, contexts)
     family = xn.classify_taxonomy(namespaces, all_concepts)
     year = _year_from_source(source)
     family_counts[(year, family)] += 1
 
     mapped = 0
     unmapped = 0
-    for concept, canonical, conf, cref, ns in facts:
+    for el, cref, concept, val, ns in raw:
+        canonical, conf = xn.map_concept(concept, compiled, family)
         key = (
             year,
             family,
@@ -133,13 +118,12 @@ def audit_xbrl(blob: bytes, source: str, mapping: dict, concept_rows, family_cou
         "year": year,
         "kind": "xbrl",
         "taxonomy_family": family,
-        "numeric_facts": len(facts),
+        "numeric_facts": len(raw),
         "mapped_facts": mapped,
         "unmapped_facts": unmapped,
-        "mapped_fraction": mapped / len(facts) if facts else 0.0,
+        "mapped_fraction": mapped / len(raw) if raw else 0.0,
     })
     return True
-
 
 def audit_html(blob: bytes, source: str, label_rows, file_stats):
     try:
