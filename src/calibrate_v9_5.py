@@ -666,11 +666,11 @@ def summarize_strategy(comp, name):
     }
 
 
-def fit_current_fundamental(data, current_market, fund_oos, best_fund, cfg):
+def fit_current_fundamental(data, current_market, fund_oos, best_fund, cfg, fundamentals):
     last = pd.Timestamp(current_market["date"].max())
     cur_features = fpit.build_snapshot_features(
         current_market[["date", "symbol"]],
-        data.attrs["fundamentals_raw"],
+        fundamentals,
         min_completeness=float(cfg.get("fund_min_completeness", 0.30)),
     )
     cur_features = add_fund_ranks(cur_features)
