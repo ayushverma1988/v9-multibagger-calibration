@@ -2,14 +2,6 @@ name: V9.5 Fundamental Foundation
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ v9.5-fundamental-turnaround ]
-    paths:
-      - 'src/fundamentals_pit.py'
-      - 'src/fetch_nse_fundamental_catalog.py'
-      - 'src/calibrate_v9_5.py'
-      - 'config_v9_5.json'
-      - '.github/workflows/v9_5_foundation.yml'
 
 jobs:
   validate-foundation:
