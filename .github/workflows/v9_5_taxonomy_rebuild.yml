@@ -1,4 +1,5 @@
 name: V9.5 Full Taxonomy Audit + Rebuild
+# taxonomy-rebuild-revision: 3
 
 on:
   workflow_dispatch:
