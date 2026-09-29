@@ -279,7 +279,11 @@ def classify_taxonomy(namespaces: set[str], concepts: list[str]) -> str:
         "advances", "deposits",
     ]):
         return "banking"
-    if any(x in ns for x in ["nbfc", "nonbankingfinancial", "financecompany"]):
+    if any(x in ns for x in [
+        "nbfc", "nonbankingfinancial", "financecompany",
+        "finanicalassets", "financialassetsnonfinancialassets",
+        "debtsecurities", "subordinatedliabilities",
+    ]):
         return "nbfc"
     if any(x in ns for x in ["indas", "indianaccountingstandards", "indasxbrl"]):
         return "ind_as"
