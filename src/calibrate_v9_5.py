@@ -23,6 +23,10 @@ META_FEATURES = {
     "fund_age_days",
     "fund_scope_consolidated",
     "fund_specialized_financial",
+    "fund_mapping_score",
+    "fund_mapped_fields",
+    "fund_concept_mapping_fraction",
+    "fund_synthetic_context",
 }
 FUND_FEATURES = [c for c in fpit.FEATURE_COLS if c not in META_FEATURES]
 
@@ -115,6 +119,12 @@ def usable_fund_mask(df: pd.DataFrame, cfg: dict) -> pd.Series:
     mask = df["fund_quality_completeness"].fillna(0) >= min_comp
     if "fund_age_days" in df.columns:
         mask &= df["fund_age_days"].fillna(np.inf) <= max_age
+    min_map = float(cfg.get("fund_min_mapping_score", 0.55))
+    min_fields = int(cfg.get("fund_min_mapped_fields", 3))
+    if "fund_mapping_score" in df.columns:
+        mask &= df["fund_mapping_score"].fillna(0.0) >= min_map
+    if "fund_mapped_fields" in df.columns:
+        mask &= df["fund_mapped_fields"].fillna(0.0) >= min_fields
     if bool(cfg.get("fund_exclude_specialized_financial", True)):
         mask &= df.get(
             "fund_specialized_financial",
@@ -164,6 +174,8 @@ def walk_forward_fundamental(data: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             [
                 "date", "symbol", "y6", "fund_quality_completeness",
                 "fund_age_days", "fund_specialized_financial",
+                "fund_mapping_score", "fund_mapped_fields",
+                "fund_concept_mapping_fraction", "fund_synthetic_context",
             ]
         ].copy()
         z["p_fund_raw"] = np.nanmean(arr, axis=1)
@@ -833,6 +845,8 @@ def main():
                 "date", "symbol", "p_fund_raw", "p_fund_cal",
                 "fund_model_dispersion", "fund_quality_completeness",
                 "fund_age_days", "fund_specialized_financial",
+                "fund_mapping_score", "fund_mapped_fields",
+                "fund_concept_mapping_fraction", "fund_synthetic_context",
             ]
         ],
         on=["date", "symbol"],
