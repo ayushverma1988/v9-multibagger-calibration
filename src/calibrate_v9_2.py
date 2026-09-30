@@ -223,8 +223,10 @@ def load_market(start_year:int,end_year:int,legacy_dir:str|None=None)->pd.DataFr
 
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
     pieces=[]
-    group_col = 'security_key' if 'security_key' in df.columns else 'symbol'
-    for _,g in df.groupby(group_col,sort=False):
+    # Technical features remain symbol-local. A ticker rename starts a new
+    # observed trading-history segment unless separately proven safe for feature
+    # stitching. Security continuity is used only by future-label construction.
+    for _,g in df.groupby('symbol',sort=False):
         g=g.sort_values('date').copy()
         p=g['adj_close'].astype(float)
         v=g['volume'].astype(float)
