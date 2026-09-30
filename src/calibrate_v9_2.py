@@ -108,21 +108,71 @@ def apply_split_bonus_adjustment(df: pd.DataFrame, start_year:int,end_year:int) 
     return pd.Series(out,index=df.index)
 
 
-def add_security_key(df: pd.DataFrame) -> pd.DataFrame:
-    """Create a PIT-safe security identity for market history.
+def add_security_key(
+    df: pd.DataFrame,
+    continuity_low: float = 0.67,
+    continuity_high: float = 1.50,
+) -> pd.DataFrame:
+    """Create a PIT-safe market identity with conditional ticker stitching.
 
-    Known ISIN is the primary identity, allowing ticker renames to preserve
-    price/feature/label continuity. Rows whose ISIN is unavailable fall back
-    to the contemporaneous symbol; no future ISIN is backfilled into earlier
-    missing-ISIN rows.
+    Known ISIN is the primary identity, but a ticker rename is stitched only
+    when the split/bonus-normalized price is continuous across the transition.
+    Large scale breaks start a new segment even when the ISIN string is the
+    same. This avoids carrying momentum/labels through restructurings or bad
+    corporate-action normalization. Missing ISIN rows use contemporaneous
+    symbol only; no future identity is backfilled.
     """
     x = df.copy()
+    x["symbol"] = x["symbol"].astype(str).str.upper().str.strip()
     isin = x.get("isin", pd.Series(index=x.index, dtype=object))
     norm = isin.astype(str).str.upper().str.strip()
     valid = isin.notna() & ~norm.isin(["", "NAN", "NONE", "<NA>"])
-    x["security_key"] = "SYM:" + x["symbol"].astype(str).str.upper().str.strip()
-    x.loc[valid, "security_key"] = "ISIN:" + norm[valid]
-    return x
+
+    x["security_key"] = "SYM:" + x["symbol"]
+    if not valid.any():
+        return x
+
+    x.loc[valid, "_isin_norm"] = norm[valid]
+    x.loc[valid, "_seg"] = 0
+
+    for iv, idx in x.loc[valid].groupby("_isin_norm", sort=False).groups.items():
+        g = x.loc[list(idx)].sort_values(["date", "symbol"]).copy()
+        seg = 0
+        prev_symbol = None
+        prev_adj = np.nan
+        seg_values = {}
+
+        for ridx, row in g.iterrows():
+            sym = str(row["symbol"])
+            cur_adj = float(row["adj_close"]) if "adj_close" in row and np.isfinite(row["adj_close"]) else np.nan
+
+            if prev_symbol is not None and sym != prev_symbol:
+                ratio = (
+                    cur_adj / prev_adj
+                    if np.isfinite(cur_adj) and np.isfinite(prev_adj) and abs(prev_adj) > 1e-12
+                    else np.nan
+                )
+                continuous = (
+                    np.isfinite(ratio)
+                    and float(continuity_low) <= ratio <= float(continuity_high)
+                )
+                if not continuous:
+                    seg += 1
+
+            seg_values[ridx] = seg
+            prev_symbol = sym
+            prev_adj = cur_adj
+
+        for ridx, s in seg_values.items():
+            x.at[ridx, "_seg"] = int(s)
+
+    x.loc[valid, "security_key"] = (
+        "ISIN:"
+        + x.loc[valid, "_isin_norm"].astype(str)
+        + "#"
+        + x.loc[valid, "_seg"].astype(int).astype(str)
+    )
+    return x.drop(columns=["_isin_norm", "_seg"], errors="ignore")
 
 
 def load_market(start_year:int,end_year:int,legacy_dir:str|None=None)->pd.DataFrame:
