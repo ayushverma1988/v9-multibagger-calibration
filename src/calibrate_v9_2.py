@@ -108,6 +108,23 @@ def apply_split_bonus_adjustment(df: pd.DataFrame, start_year:int,end_year:int) 
     return pd.Series(out,index=df.index)
 
 
+def add_security_key(df: pd.DataFrame) -> pd.DataFrame:
+    """Create a PIT-safe security identity for market history.
+
+    Known ISIN is the primary identity, allowing ticker renames to preserve
+    price/feature/label continuity. Rows whose ISIN is unavailable fall back
+    to the contemporaneous symbol; no future ISIN is backfilled into earlier
+    missing-ISIN rows.
+    """
+    x = df.copy()
+    isin = x.get("isin", pd.Series(index=x.index, dtype=object))
+    norm = isin.astype(str).str.upper().str.strip()
+    valid = isin.notna() & ~norm.isin(["", "NAN", "NONE", "<NA>"])
+    x["security_key"] = "SYM:" + x["symbol"].astype(str).str.upper().str.strip()
+    x.loc[valid, "security_key"] = "ISIN:" + norm[valid]
+    return x
+
+
 def load_market(start_year:int,end_year:int,legacy_dir:str|None=None)->pd.DataFrame:
     frames=[]
     if legacy_dir and int(start_year)<2010:
@@ -150,12 +167,14 @@ def load_market(start_year:int,end_year:int,legacy_dir:str|None=None)->pd.DataFr
     out=pd.concat(frames,ignore_index=True).sort_values(['symbol','date']).drop_duplicates(['date','symbol','series']).reset_index(drop=True)
     # Apply the same company-only rule wherever an ISIN is known.
     mask=out['isin'].isna() | out['isin'].astype(str).str.startswith('INE')
-    return out[mask].reset_index(drop=True)
+    out = out[mask].reset_index(drop=True)
+    return add_security_key(out)
 
 
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
     pieces=[]
-    for sym,g in df.groupby('symbol',sort=False):
+    group_col = 'security_key' if 'security_key' in df.columns else 'symbol'
+    for _,g in df.groupby(group_col,sort=False):
         g=g.sort_values('date').copy()
         p=g['adj_close'].astype(float)
         v=g['volume'].astype(float)
@@ -208,10 +227,11 @@ def add_labels(snap:pd.DataFrame, daily:pd.DataFrame,cfg:dict)->pd.DataFrame:
     calendar=np.array(sorted(daily['date'].drop_duplicates().to_numpy(dtype='datetime64[ns]')))
     cal_lookup={d:i for i,d in enumerate(calendar)}
     maps={}
-    for sym,g in daily.groupby('symbol',sort=False):
+    key_col = 'security_key' if 'security_key' in daily.columns else 'symbol'
+    for security_key,g in daily.groupby(key_col,sort=False):
         g=g.sort_values('date')
         dates=g['date'].to_numpy(dtype='datetime64[ns]')
-        maps[sym]=(dates,
+        maps[security_key]=(dates,
                    g['adj_close'].to_numpy(float),
                    g['turnover'].to_numpy(float),
                    np.array([cal_lookup[d] for d in dates],dtype=int))
@@ -220,7 +240,8 @@ def add_labels(snap:pd.DataFrame, daily:pd.DataFrame,cfg:dict)->pd.DataFrame:
     min_hit_turnover=float(cfg['min_avg_turnover_63d'])
 
     for row in snap.itertuples(index=False):
-        dates,p,turn,calpos=maps[row.symbol]
+        row_key = getattr(row, 'security_key', row.symbol)
+        dates,p,turn,calpos=maps[row_key]
         d=np.datetime64(row.date.to_datetime64())
         i=np.searchsorted(dates,d,side='left'); ci=np.searchsorted(calendar,d,side='left')
         if i>=len(dates) or dates[i]!=d or ci>=len(calendar) or calendar[ci]!=d: continue
@@ -356,7 +377,10 @@ def walk_forward(data:pd.DataFrame,cfg:dict)->pd.DataFrame:
         dd_arr=np.vstack([p_dd_el,p_dd_g]).T
         p_dd_raw=np.nanmean(dd_arr,axis=1)
 
-        z=test[['date','symbol','isin','close','adj_close','y6','y12','y24','dd30_6m']].copy()
+        base_cols=['date','symbol','isin','close','adj_close','y6','y12','y24','dd30_6m']
+        if 'security_key' in test.columns:
+            base_cols.insert(3,'security_key')
+        z=test[base_cols].copy()
         z['p_struct']=p_struct; z['p_elastic']=p_el; z['p_gbm']=p_gbm; z['p_survival']=p_h
         z['p_raw']=p_ens; z['model_dispersion']=np.nanstd(arr,axis=1)
         z['p_dd30_raw']=p_dd_raw; z['dd_model_dispersion']=np.nanstd(dd_arr,axis=1)
