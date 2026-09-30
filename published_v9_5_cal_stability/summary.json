@@ -1,0 +1,34 @@
+{
+  "purpose": "V9.5 calibration stability challenger",
+  "leakage_policy": "all calibration fits use strictly prior OOS folds; current-fold percentile ranks use current scores only and never current labels",
+  "final_quality_gates_unchanged": {
+    "min_folds": 8,
+    "min_rows": 3000,
+    "min_positives": 100,
+    "min_pr_auc_lift": 1.1,
+    "min_calibration_slope": 0.5
+  },
+  "best_policy": {
+    "policy": "p_stab_p_fund_rank_platt_anchor_r8",
+    "n": 9187,
+    "positives": 354,
+    "folds": 9,
+    "base_rate": 0.038532709263089146,
+    "pr_auc": 0.04968092806671159,
+    "pr_auc_lift": 1.2893183224544615,
+    "brier": 0.03728487872690745,
+    "logloss": 0.16548645636311157,
+    "calibration_slope": 0.7167825338705388,
+    "calibration_intercept": -1.1639320051438784,
+    "passed": true,
+    "fail_reasons": ""
+  },
+  "raw_within_fold": {
+    "folds": 14,
+    "median_pr_auc_lift": 1.3543440861048897,
+    "mean_pr_auc_lift": 1.394604172525942,
+    "folds_above_1x": 13,
+    "folds_above_1_1x": 13
+  },
+  "production_action": "do not change V9.5 production weight unless a leakage-free policy passes every unchanged gate"
+}
