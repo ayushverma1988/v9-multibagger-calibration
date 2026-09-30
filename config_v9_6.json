@@ -1,0 +1,48 @@
+{
+  "model_name": "V9.6-H6-Regime-Aware",
+  "pipeline_version": "regime-aware-v9.6-1",
+  "selection_k": 10,
+  "selection_min_folds": 8,
+  "alpha_retention": 0.9,
+  "candidate_pool_sizes": [
+    20,
+    30,
+    50,
+    75,
+    100
+  ],
+  "risk_drop_fractions": [
+    0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5
+  ],
+  "safety_tiebreak_weights": [
+    0,
+    0.05,
+    0.1,
+    0.15,
+    0.2
+  ],
+  "consensus_tiebreak_weights": [
+    0,
+    0.05,
+    0.1,
+    0.15
+  ],
+  "max_secondary_weight": 0.3,
+  "regime_alpha_retention": 0.95,
+  "regime_min_prior_folds": 8,
+  "regime_min_effective_folds": 6,
+  "regime_bandwidth": 1.25,
+  "regime_weight_floor": 0.03,
+  "regime_lift_cap": 10,
+  "regime_min_utility_gain": 0.005,
+  "regime_min_active_folds": 4,
+  "regime_max_dd_increase": 0.03,
+  "regime_utility_lift_weight": 0.02,
+  "regime_utility_hit_weight": 0.05,
+  "regime_utility_dd_weight": 0.1
+}
