@@ -1,0 +1,30 @@
+name: V9.7 NSE Access Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.7-news-events-pit ]
+    paths:
+      - 'src/probe_nse_access_v9_7.py'
+      - '.github/workflows/v9_7_nse_access_probe.yml'
+
+concurrency:
+  group: v9-7-nse-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - run: python src/probe_nse_access_v9_7.py | tee nse_probe.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-7-nse-access-probe
+          path: nse_probe.json
+          retention-days: 30
