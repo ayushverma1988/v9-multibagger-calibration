@@ -1,19 +1,22 @@
 {
   "model": "V9.5-H6-Fundamental-Turnaround",
-  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware",
+  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware-nestedcal",
   "data_start": "2003-01-01",
   "data_end": "2026-09-29",
   "fundamental_data_rows": 127047,
   "fundamental_symbols": 2663,
   "fundamental_raw_oos_rows": 5791,
   "fundamental_calibrated_oos_rows": 0,
-  "best_fundamental_calibrator": "none",
-  "fundamental_calibration_policy": "nested_expanding_temporal_cv",
+  "best_fundamental_calibrator": "rank_platt_anchor_r8",
+  "fundamental_calibration_policy": "rank_platt_anchor_r8",
   "fundamental_calibration_policy_comparison": {
     "old_single_split": {
       "folds": 0
     },
     "nested_expanding_temporal_cv": {
+      "folds": 0
+    },
+    "stable_rank_platt_anchor_r8": {
       "folds": 0
     }
   },
