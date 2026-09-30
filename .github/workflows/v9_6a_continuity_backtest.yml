@@ -5,6 +5,7 @@ on:
   push:
     branches: [ v9.6-label-data-integrity ]
     paths:
+      - 'src/calibrate_v9_2.py'
       - '.github/workflows/v9_6a_continuity_backtest.yml'
 
 concurrency:
