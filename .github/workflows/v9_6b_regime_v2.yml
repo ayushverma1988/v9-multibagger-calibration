@@ -1,0 +1,53 @@
+name: V9.6B Regime v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.6-regime-v2 ]
+    paths:
+      - 'src/calibrate_v9_6_v2.py'
+      - '.github/workflows/v9_6b_regime_v2.yml'
+
+concurrency:
+  group: v9-6b-regime-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/calibrate_v9_6_v2.py
+
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+
+      - name: Run conservative regime v2
+        run: |
+          python src/calibrate_v9_6_v2.py \
+            --snapshot v941/snapshot_dataset.parquet \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --output outputs_v9_6b_v2
+
+      - name: Upload V9.6B v2 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-6b-regime-v2-results
+          path: outputs_v9_6b_v2/
+          retention-days: 90
