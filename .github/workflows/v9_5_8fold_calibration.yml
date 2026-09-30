@@ -1,0 +1,115 @@
+name: V9.5 Eight-Fold Calibration Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_8fold_calibration.yml'
+
+concurrency:
+  group: v9-5-eightfold-cal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Compile V9.5
+        run: python -m py_compile src/calibrate_v9_5.py
+
+      - name: Download successful canonical monthly archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-canonical-monthly-results
+          path: canonical
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36651064480
+
+      - name: Locate canonical fundamentals
+        run: |
+          F=$(find canonical -name fundamentals_all.parquet | head -1)
+          test -n "$F"
+          mkdir -p outputs_v9_5_8fold
+          cp "$F" outputs_v9_5_8fold/fundamentals_all.parquet
+
+      - name: Download verified market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run nested temporal calibration V9.5
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5_8fold/fundamentals_all.parquet \
+            --output outputs_v9_5_8fold \
+            --legacy-dir legacy
+
+      - name: Verify eight-fold target
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          d=pd.read_parquet("outputs_v9_5_8fold/fundamental_oos.parquet")
+          cal=d.dropna(subset=["y6","p_fund_cal"]).copy()
+          old=d.dropna(subset=["y6","p_fund_cal_old"]).copy()
+          summary=json.load(open("outputs_v9_5_8fold/summary.json"))
+          stats={
+              "first_calibrated_oos":str(pd.to_datetime(cal["date"]).min().date()) if len(cal) else None,
+              "calibrated_folds":int(cal["date"].nunique()),
+              "calibrated_rows":int(len(cal)),
+              "calibrated_positives":int(cal["y6"].sum()) if len(cal) else 0,
+              "old_policy_folds":int(old["date"].nunique()) if len(old) else 0,
+              "production_gate":summary.get("production_fundamental_gate"),
+              "production_requested_weight":summary.get("production_requested_fundamental_weight"),
+              "production_applied_weight":summary.get("production_applied_fundamental_weight"),
+              "target_met":bool(int(cal["date"].nunique())>=8),
+          }
+          json.dump(stats,open("outputs_v9_5_8fold/eightfold_status.json","w"),indent=2)
+          print(json.dumps(stats,indent=2))
+          PY
+
+      - name: Upload eight-fold calibration results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-eightfold-calibration-results
+          path: outputs_v9_5_8fold/
+          retention-days: 90
+
+      - name: Publish compact diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          mkdir -p published_v9_5_8fold
+          for f in \
+            summary.json eightfold_status.json \
+            fund_calibration_policy_comparison.json \
+            fund_calibrator_comparison.csv \
+            fund_calibrator_comparison_old_policy.csv \
+            chosen_v95_weight_by_fold.csv selection_metrics_by_fold.csv \
+            current_top50.csv
+          do
+            [ -f "outputs_v9_5_8fold/$f" ] && cp "outputs_v9_5_8fold/$f" published_v9_5_8fold/
+          done
+          git add published_v9_5_8fold
+          git diff --cached --quiet || git commit -m "Publish V9.5 eight-fold calibration results [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
