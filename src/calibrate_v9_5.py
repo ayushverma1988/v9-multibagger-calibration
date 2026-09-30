@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 import calibrate_v9_2 as base
 import calibrate_v9_3_1 as v931
 import fundamentals_pit as fpit
+import fund_calibration_stable as fcal
 
 
 META_FEATURES = {
@@ -952,13 +953,22 @@ def fit_current_fundamental(data, current_market, fund_oos, best_fund, cfg, fund
     raw = np.nanmean(arr, axis=1)
     disp = np.nanstd(arr, axis=1)
 
-    cal = base.fit_final_calibrator(
-        fund_oos,
-        best_fund,
-        "y6",
-        "p_fund_raw",
-    )
-    pcal = raw if cal is None else cal.predict(raw)
+    if best_fund == fcal.POLICY_NAME:
+        pcal = fcal.fit_current(
+            fund_oos,
+            raw,
+            cfg,
+            target="y6",
+            pcol="p_fund_raw",
+        )
+    else:
+        cal = base.fit_final_calibrator(
+            fund_oos,
+            best_fund,
+            "y6",
+            "p_fund_raw",
+        )
+        pcal = raw if cal is None else cal.predict(raw)
 
     out.loc[test.index, "p_fund_raw"] = raw
     out.loc[test.index, "p_fund_cal"] = pcal
@@ -1039,21 +1049,43 @@ def main():
     )
     fund_oos["p_fund_cal_old"] = old_cal["p_fund_cal_old"]
 
-    # Production challenger: nested expanding temporal calibration.
-    best_fund, fund_cal_tab, fund_cal_diag = choose_fund_calibrator_nested(
-        fund_oos,
-        cfg,
-        "y6",
-        "p_fund_raw",
+    # Keep nested expanding calibration as a diagnostic benchmark.
+    nested_best_fund, nested_fund_cal_tab, nested_fund_cal_diag = (
+        choose_fund_calibrator_nested(
+            fund_oos,
+            cfg,
+            "y6",
+            "p_fund_raw",
+        )
     )
-    best_fund = best_fund or "none"
-    fund_oos = apply_fund_forward_calibration(
+    nested_best_fund = nested_best_fund or "none"
+    nested_oos = apply_fund_forward_calibration(
         fund_oos,
         cfg,
         "y6",
         "p_fund_raw",
+        "p_fund_cal_nested",
+    )
+    fund_oos["p_fund_cal_nested"] = nested_oos["p_fund_cal_nested"]
+
+    # Production challenger: stable cross-sectional-rank Platt calibration
+    # with an 8-prior-fold base-rate anchor. All fits/anchors use strictly
+    # prior mature OOS folds; the current fold contributes scores only.
+    best_fund = fcal.POLICY_NAME
+    fund_oos, fund_cal_diag = fcal.apply_forward(
+        fund_oos,
+        cfg,
+        target="y6",
+        pcol="p_fund_raw",
+        outcol="p_fund_cal",
+    )
+    stable_metrics = calibration_metrics(
+        fund_oos,
+        "y6",
         "p_fund_cal",
     )
+    stable_metrics.update({"method": best_fund})
+    fund_cal_tab = pd.DataFrame([stable_metrics])
 
     print("Running technical/risk baseline...", flush=True)
     market_oos = base.walk_forward(data, cfg)
@@ -1183,17 +1215,35 @@ def main():
         fund_oos.dropna(subset=["y6", "p_fund_cal_old"])["date"].nunique()
     )
     nested_policy_metrics = calibration_metrics(
-        fund_oos, "y6", "p_fund_cal"
+        fund_oos, "y6", "p_fund_cal_nested"
     )
     nested_policy_metrics["folds"] = int(
+        fund_oos.dropna(
+            subset=["y6", "p_fund_cal_nested"]
+        )["date"].nunique()
+    )
+    stable_policy_metrics = calibration_metrics(
+        fund_oos, "y6", "p_fund_cal"
+    )
+    stable_policy_metrics["folds"] = int(
         fund_oos.dropna(subset=["y6", "p_fund_cal"])["date"].nunique()
+    )
+    nested_fund_cal_tab.to_csv(
+        outdir / "fund_calibrator_comparison_nested_policy.csv",
+        index=False,
+    )
+    fund_cal_diag.to_csv(
+        outdir / "fund_calibration_diagnostics_by_fold.csv",
+        index=False,
     )
     json.dump(
         {
             "old_single_split": old_policy_metrics,
             "nested_expanding_temporal_cv": nested_policy_metrics,
-            "nested_final_method": best_fund,
-            "nested_final_diagnostics": fund_cal_diag,
+            "stable_rank_platt_anchor_r8": stable_policy_metrics,
+            "production_policy": best_fund,
+            "nested_final_method": nested_best_fund,
+            "nested_final_diagnostics": nested_fund_cal_diag,
         },
         open(outdir / "fund_calibration_policy_comparison.json", "w"),
         indent=2,
@@ -1256,10 +1306,11 @@ def main():
             fund_oos["p_fund_cal"].notna().sum()
         ),
         "best_fundamental_calibrator": best_fund,
-        "fundamental_calibration_policy": "nested_expanding_temporal_cv",
+        "fundamental_calibration_policy": fcal.POLICY_NAME,
         "fundamental_calibration_policy_comparison": {
             "old_single_split": old_policy_metrics,
             "nested_expanding_temporal_cv": nested_policy_metrics,
+            "stable_rank_platt_anchor_r8": stable_policy_metrics,
         },
         "production_fundamental_gate": prod_gate,
         "production_risk_config": production_spec,
