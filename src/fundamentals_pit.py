@@ -220,14 +220,50 @@ def _feature_one(symbol_rows: pd.DataFrame, snapshot_date: pd.Timestamp) -> dict
     scope = _choose_scope(known)
     known = known[known["statement_scope"] == scope].copy()
     out["fund_scope_consolidated"] = float(scope == "consolidated")
-    families = known.get("taxonomy_family", pd.Series(dtype=str)).dropna().astype(str).str.lower()
-    specialized = families.str.contains("bank|insurance|nbfc", regex=True).any() if len(families) else False
-    out["fund_specialized_financial"] = float(bool(specialized))
-
     qtr = known[known["period_months"] == 3].copy()
     ann = known[known["period_months"] == 12].copy()
 
     cur = _latest_period(qtr)
+
+    # Specialized-financial classification must be based on the CURRENT filing,
+    # not on whether any historical filing was ever assigned a bank/insurance
+    # taxonomy. Older NSE/BSE XBRLs often contain generic concepts such as
+    # deposits/advances that previously caused false bank/NBFC labels.
+    specialized = False
+    if cur is not None:
+        family = str(cur.get("taxonomy_family", "")).lower()
+        src = str(cur.get("source_concepts_json", "")).lower()
+
+        bank_family = "bank" in family
+        insurance_family = "insurance" in family
+        nbfc_family = "nbfc" in family
+
+        bank_evidence = (
+            ("interestearned" in src or "interestincome" in src)
+            and ("interestexpended" in src or "interestexpense" in src)
+        )
+        insurance_evidence = (
+            "premium" in src
+            or "underwriting" in src
+            or "claim" in src
+            or "policyholder" in src
+        )
+        # NBFC remains excluded only when the family is explicit AND the
+        # current filing uses financial-company top-line/finance-cost concepts.
+        nbfc_evidence = (
+            nbfc_family
+            and ("totalincome" in src or "interestincome" in src)
+            and ("financecost" in src or "interestexpense" in src)
+            and "revenuefromoperations" not in src
+        )
+
+        specialized = bool(
+            (bank_family and bank_evidence)
+            or (insurance_family and insurance_evidence)
+            or nbfc_evidence
+        )
+
+    out["fund_specialized_financial"] = float(specialized)
     if cur is not None:
         out["fund_mapping_score"] = float(cur.get("mapping_score", 0.0))
         out["fund_mapped_fields"] = float(cur.get("mapped_field_count", 0.0))
