@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import tarfile
+import io
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +47,39 @@ def usable(v) -> bool:
     )
 
 
+
+def audit_xbrl_blob(blob: bytes, mapping: dict, inventory: Counter):
+    try:
+        root = xn._parse_root(blob)
+        contexts = xn._parse_contexts(root)
+        contexts = xn._augment_contexts_from_period_facts(root, contexts)
+        raw, namespaces, concepts = xn._all_numeric_concepts(root, contexts)
+        family = xn.classify_taxonomy(namespaces, concepts)
+        compiled = xn.compile_map(mapping)
+        for _, _, concept, _, _ in raw:
+            canonical, conf = xn.map_concept(concept, compiled, family)
+            inventory[(family, concept, canonical or "", float(conf))] += 1
+    except Exception:
+        return
+
+
+def audit_legacy_blob(blob: bytes, labels: Counter):
+    try:
+        tables = pd.read_html(io.BytesIO(blob))
+    except Exception:
+        return
+    for t in tables:
+        if t.shape[1] < 2:
+            continue
+        for _, r in t.iloc[:, :2].iterrows():
+            label = str(r.iloc[0]).strip()
+            val = str(r.iloc[1]).strip()
+            if not label or label.lower() in {"nan", "description"}:
+                continue
+            if any(ch.isdigit() for ch in val) or val in {"-", "—"}:
+                labels[label] += 1
+
+
 def normalize_blob(blob: bytes, mode: str, rd: dict, mapping: dict, source_url: str):
     meta = {
         "symbol": rd.get("symbol"),
@@ -78,7 +113,7 @@ def normalize_blob(blob: bytes, mode: str, rd: dict, mapping: dict, source_url: 
     return out
 
 
-def process_monthly_source(catalog_root: Path, raw_root: Path, year: int, month: int, mapping: dict):
+def process_monthly_source(catalog_root: Path, raw_root: Path, year: int, month: int, mapping: dict, concept_inventory: Counter, legacy_labels: Counter):
     cp = find_one(catalog_root, "catalog.parquet")
     tp = find_one(raw_root, "*.tar.gz")
     if cp is None or tp is None:
@@ -104,6 +139,10 @@ def process_monthly_source(catalog_root: Path, raw_root: Path, year: int, month:
                 })
                 continue
             try:
+                if mode == "legacy_html":
+                    audit_legacy_blob(blob, legacy_labels)
+                else:
+                    audit_xbrl_blob(blob, mapping, concept_inventory)
                 z = normalize_blob(blob, mode, rd, mapping, str(url))
                 for q in z:
                     q["archive_year"] = year
@@ -120,7 +159,7 @@ def process_monthly_source(catalog_root: Path, raw_root: Path, year: int, month:
     return cat, rows, errors
 
 
-def process_yearly_source(catalog_root: Path, raw_root: Path, year: int, month: int, mapping: dict):
+def process_yearly_source(catalog_root: Path, raw_root: Path, year: int, month: int, mapping: dict, concept_inventory: Counter, legacy_labels: Counter):
     cp = find_one(catalog_root, "catalog.parquet")
     tp = find_one(raw_root, "*.tar.gz")
     if cp is None or tp is None:
@@ -157,6 +196,10 @@ def process_yearly_source(catalog_root: Path, raw_root: Path, year: int, month: 
                 continue
 
             try:
+                if mode == "legacy_html":
+                    audit_legacy_blob(blob, legacy_labels)
+                else:
+                    audit_xbrl_blob(blob, mapping, concept_inventory)
                 z = normalize_blob(blob, mode, rd, mapping, source_url)
                 for q in z:
                     q["archive_year"] = year
@@ -188,15 +231,18 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     mapping = xn.load_map(args.mapping)
 
+    concept_inventory = Counter()
+    legacy_labels = Counter()
+
     if args.source_kind == "monthly":
         cat, rows, errors = process_monthly_source(
             Path(args.catalog_root), Path(args.raw_root),
-            args.year, args.month, mapping,
+            args.year, args.month, mapping, concept_inventory, legacy_labels,
         )
     else:
         cat, rows, errors = process_yearly_source(
             Path(args.catalog_root), Path(args.raw_root),
-            args.year, args.month, mapping,
+            args.year, args.month, mapping, concept_inventory, legacy_labels,
         )
 
     d = finalize(rows)
@@ -212,6 +258,26 @@ def main():
         "catalog_rows_for_month": int(len(cat)),
     })
     json.dump(rep, open(out / "coverage.json", "w"), indent=2, default=str)
+
+    ci = pd.DataFrame([
+        {
+            "taxonomy_family": family,
+            "concept": concept,
+            "canonical": canonical,
+            "confidence": conf,
+            "count": count,
+            "mapped": bool(canonical),
+        }
+        for (family, concept, canonical, conf), count in concept_inventory.items()
+    ])
+    if len(ci):
+        ci = ci.sort_values(["mapped", "count"], ascending=[True, False])
+    ci.to_csv(out / "concept_inventory.csv", index=False)
+
+    pd.DataFrame([
+        {"label": label, "count": count}
+        for label, count in legacy_labels.most_common()
+    ]).to_csv(out / "legacy_label_inventory.csv", index=False)
 
     print(json.dumps({
         "year": args.year,
