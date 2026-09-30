@@ -1,0 +1,49 @@
+{
+  "model": "V9.6-H6-Regime-Aware",
+  "pipeline_version": "regime-aware-v9.6-1",
+  "base_model": "V9.4.1-H6-Signal-Gated-Ladder",
+  "method": "similar-regime weighted prior-fold selector optimization",
+  "regime_features": [
+    "breadth_120",
+    "market_median_ret120",
+    "median_volatility_60",
+    "median_drawdown_126",
+    "dispersion_ret120",
+    "breadth_20"
+  ],
+  "leakage_policy": "current fold regime compared only with regimes and realized selection outcomes from strictly prior folds",
+  "alpha_retention_required": 0.95,
+  "active_regime_folds": 10,
+  "production_challenger_passed": false,
+  "V9.6": {
+    "folds": 18,
+    "mean_precision_2x": 0.08888888888888889,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.855378631502702,
+    "median_capped_lift_2x": 1.7900000000000003,
+    "hit_fold_rate": 0.5555555555555556,
+    "hit_folds": 10,
+    "mean_dd30_rate": 0.41666666666666663,
+    "median_dd30_rate": 0.3,
+    "utility": 0.13210757263005407
+  },
+  "V9.4.1": {
+    "folds": 18,
+    "mean_precision_2x": 0.10000000000000002,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.9645271398726636,
+    "median_capped_lift_2x": 1.5985294117647058,
+    "hit_fold_rate": 0.5555555555555556,
+    "hit_folds": 10,
+    "mean_dd30_rate": 0.41666666666666663,
+    "median_dd30_rate": 0.3,
+    "utility": 0.14540165390856444
+  },
+  "alpha_retention_ratios": {
+    "mean_precision_2x": 0.8888888888888887,
+    "mean_capped_lift_2x": 0.9631818151023405,
+    "hit_fold_rate": 1.0
+  },
+  "fallback": "exact V9.4.1 selection whenever regime history/configuration does not pass prior-fold gates",
+  "production_status": "historical challenger only; live deployment requires this gate to pass first"
+}
