@@ -131,7 +131,7 @@ def test_ticker_rename_continuity():
         "label_days": {"y6": 126, "y12": 252, "y24": 504},
         "min_avg_turnover_63d": 5_000_000,
     }
-    snap = snapshot_from_day(daily, 80)
+    snap = snapshot_from_day(daily, 40)
     z = base.add_labels(snap, daily, cfg).iloc[0]
     assert_true(
         z["y6"] == 1.0,
