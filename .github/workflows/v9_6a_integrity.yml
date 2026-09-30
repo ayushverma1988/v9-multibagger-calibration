@@ -8,6 +8,10 @@ on:
       - 'src/integrity_audit_v9_6.py'
       - '.github/workflows/v9_6a_integrity.yml'
 
+concurrency:
+  group: v9-6a-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audit:
     runs-on: ubuntu-latest
