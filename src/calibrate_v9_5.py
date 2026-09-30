@@ -257,6 +257,170 @@ def walk_forward_fundamental(data: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return out
 
 
+def choose_fund_calibrator_nested(
+    prior: pd.DataFrame,
+    cfg: dict,
+    target: str = "y6",
+    pcol: str = "p_fund_raw",
+):
+    """Choose a fundamental calibrator by expanding temporal CV.
+
+    Only strictly prior OOS folds are used. Each internal validation fold is
+    predicted by a calibrator fitted on still-earlier folds. This uses scarce
+    early fundamental history more efficiently than a single 70/30 split while
+    preserving chronological separation.
+    """
+    d = prior.dropna(subset=["date", target, pcol]).copy()
+    d["date"] = pd.to_datetime(d["date"])
+    dates = sorted(d["date"].unique())
+
+    min_prior_folds = int(cfg.get("fund_cal_min_prior_folds", 8))
+    min_train_rows = int(cfg.get("fund_cal_cv_min_train_rows", 1000))
+    min_train_pos = int(cfg.get("fund_cal_cv_min_train_positives", 25))
+    min_cv_folds = int(cfg.get("fund_cal_cv_min_validation_folds", 2))
+    min_cv_rows = int(cfg.get("fund_cal_cv_min_validation_rows", 500))
+    min_cv_pos = int(cfg.get("fund_cal_cv_min_validation_positives", 20))
+
+    diag = {
+        "prior_folds": int(len(dates)),
+        "prior_rows": int(len(d)),
+        "prior_positives": int(d[target].sum()) if len(d) else 0,
+        "cv_folds": 0,
+        "cv_rows": 0,
+        "cv_positives": 0,
+    }
+    if len(dates) < min_prior_folds:
+        return None, pd.DataFrame(), diag
+
+    methods = ["none", "platt", "beta", "isotonic"]
+    pred_store = {m: [] for m in methods}
+    y_store = []
+    used_dates = []
+
+    for vd in dates:
+        train = d[d["date"] < vd].copy()
+        val = d[d["date"] == vd].copy()
+        if val.empty:
+            continue
+        if len(train) < min_train_rows:
+            continue
+        if int(train[target].sum()) < min_train_pos:
+            continue
+        if train[target].nunique() < 2:
+            continue
+
+        fold_preds = {}
+        ok = True
+        for method in methods:
+            try:
+                if method == "none":
+                    pp = val[pcol].to_numpy(float)
+                else:
+                    cal = base._fit_cal(
+                        method,
+                        train[pcol].to_numpy(float),
+                        train[target].astype(int).to_numpy(),
+                    )
+                    pp = cal.predict(val[pcol].to_numpy(float))
+                fold_preds[method] = np.asarray(pp, float)
+            except Exception:
+                ok = False
+                break
+        if not ok:
+            continue
+
+        used_dates.append(pd.Timestamp(vd))
+        y_store.extend(val[target].astype(int).tolist())
+        for method in methods:
+            pred_store[method].extend(fold_preds[method].tolist())
+
+    diag["cv_folds"] = int(len(used_dates))
+    diag["cv_rows"] = int(len(y_store))
+    diag["cv_positives"] = int(np.sum(y_store)) if len(y_store) else 0
+
+    if (
+        diag["cv_folds"] < min_cv_folds
+        or diag["cv_rows"] < min_cv_rows
+        or diag["cv_positives"] < min_cv_pos
+    ):
+        return None, pd.DataFrame(), diag
+
+    rows = []
+    y = np.asarray(y_store, int)
+    for method in methods:
+        try:
+            met = base.metric_pack(y, np.asarray(pred_store[method], float))
+            met.update({
+                "method": method,
+                "cv_folds": diag["cv_folds"],
+                "cv_rows": diag["cv_rows"],
+                "cv_positives": diag["cv_positives"],
+            })
+            rows.append(met)
+        except Exception:
+            pass
+
+    tab = (
+        pd.DataFrame(rows).sort_values(["brier", "logloss"]).reset_index(drop=True)
+        if rows else pd.DataFrame()
+    )
+    best = str(tab.iloc[0]["method"]) if len(tab) else None
+    return best, tab, diag
+
+
+def apply_fund_forward_calibration(
+    oos: pd.DataFrame,
+    cfg: dict,
+    target: str = "y6",
+    pcol: str = "p_fund_raw",
+    outcol: str = "p_fund_cal",
+):
+    out = oos.copy()
+    out[outcol] = np.nan
+    out[f"{outcol}_method"] = ""
+    out[f"{outcol}_prior_folds"] = np.nan
+    out[f"{outcol}_cv_folds"] = np.nan
+    out[f"{outcol}_cv_rows"] = np.nan
+    out[f"{outcol}_cv_positives"] = np.nan
+
+    for td in sorted(pd.to_datetime(out["date"].unique())):
+        prior = out[out["date"] < td].dropna(subset=[target, pcol]).copy()
+        idx = out.index[
+            (out["date"] == td)
+            & out[target].notna()
+            & out[pcol].notna()
+        ]
+        if len(idx) == 0:
+            continue
+
+        method, _, diag = choose_fund_calibrator_nested(
+            prior, cfg, target, pcol
+        )
+        out.loc[idx, f"{outcol}_prior_folds"] = diag["prior_folds"]
+        out.loc[idx, f"{outcol}_cv_folds"] = diag["cv_folds"]
+        out.loc[idx, f"{outcol}_cv_rows"] = diag["cv_rows"]
+        out.loc[idx, f"{outcol}_cv_positives"] = diag["cv_positives"]
+
+        if method is None:
+            continue
+
+        raw = out.loc[idx, pcol].to_numpy(float)
+        if method == "none":
+            pred = raw
+        else:
+            cal = base._fit_cal(
+                method,
+                prior[pcol].to_numpy(float),
+                prior[target].astype(int).to_numpy(),
+            )
+            pred = cal.predict(raw)
+
+        out.loc[idx, outcol] = pred
+        out.loc[idx, f"{outcol}_method"] = method
+
+    return out
+
+
 def calibration_metrics(df, target="y6", pcol="p_fund_cal"):
     q = df.dropna(subset=[target, pcol]).copy()
     if q.empty or q[target].nunique() < 2:
@@ -860,14 +1024,32 @@ def main():
     if fund_oos.empty:
         raise RuntimeError("No fundamental OOS predictions generated")
 
-    best_fund, fund_cal_tab = base.evaluate_calibrators(
+    # Keep the original single-split policy as a diagnostic benchmark.
+    old_best_fund, old_fund_cal_tab = base.evaluate_calibrators(
         fund_oos,
         "y6",
         "p_fund_raw",
     )
-    fund_oos = base.apply_forward_calibration(
+    old_cal = base.apply_forward_calibration(
         fund_oos,
-        best_fund,
+        old_best_fund,
+        "y6",
+        "p_fund_raw",
+        "p_fund_cal_old",
+    )
+    fund_oos["p_fund_cal_old"] = old_cal["p_fund_cal_old"]
+
+    # Production challenger: nested expanding temporal calibration.
+    best_fund, fund_cal_tab, fund_cal_diag = choose_fund_calibrator_nested(
+        fund_oos,
+        cfg,
+        "y6",
+        "p_fund_raw",
+    )
+    best_fund = best_fund or "none"
+    fund_oos = apply_fund_forward_calibration(
+        fund_oos,
+        cfg,
         "y6",
         "p_fund_raw",
         "p_fund_cal",
@@ -991,6 +1173,32 @@ def main():
     fund_cal_tab.to_csv(
         outdir / "fund_calibrator_comparison.csv", index=False
     )
+    old_fund_cal_tab.to_csv(
+        outdir / "fund_calibrator_comparison_old_policy.csv", index=False
+    )
+    old_policy_metrics = calibration_metrics(
+        fund_oos, "y6", "p_fund_cal_old"
+    )
+    old_policy_metrics["folds"] = int(
+        fund_oos.dropna(subset=["y6", "p_fund_cal_old"])["date"].nunique()
+    )
+    nested_policy_metrics = calibration_metrics(
+        fund_oos, "y6", "p_fund_cal"
+    )
+    nested_policy_metrics["folds"] = int(
+        fund_oos.dropna(subset=["y6", "p_fund_cal"])["date"].nunique()
+    )
+    json.dump(
+        {
+            "old_single_split": old_policy_metrics,
+            "nested_expanding_temporal_cv": nested_policy_metrics,
+            "nested_final_method": best_fund,
+            "nested_final_diagnostics": fund_cal_diag,
+        },
+        open(outdir / "fund_calibration_policy_comparison.json", "w"),
+        indent=2,
+        default=str,
+    )
     tab100.to_csv(
         outdir / "calibrator_100_comparison.csv", index=False
     )
@@ -1048,6 +1256,11 @@ def main():
             fund_oos["p_fund_cal"].notna().sum()
         ),
         "best_fundamental_calibrator": best_fund,
+        "fundamental_calibration_policy": "nested_expanding_temporal_cv",
+        "fundamental_calibration_policy_comparison": {
+            "old_single_split": old_policy_metrics,
+            "nested_expanding_temporal_cv": nested_policy_metrics,
+        },
         "production_fundamental_gate": prod_gate,
         "production_risk_config": production_spec,
         "production_requested_fundamental_weight": production_weight,
