@@ -1,0 +1,64 @@
+{
+  "first_calibrated_oos": "2021-12-31",
+  "calibrated_folds": 9,
+  "calibrated_rows": 9187,
+  "calibrated_positives": 354,
+  "calibration_policy": "rank_platt_anchor_r8",
+  "gate": {
+    "n": 9187,
+    "positives": 354,
+    "base_rate": 0.038532709263089146,
+    "pr_auc": 0.04727527171450867,
+    "pr_auc_lift": 1.2268867831672066,
+    "brier": 0.03728787535920565,
+    "logloss": 0.16538173387482588,
+    "calibration_slope": 0.7522951670759197,
+    "calibration_intercept": -1.062654173471307,
+    "passed": true,
+    "reasons": [],
+    "folds": 9
+  },
+  "requested_weight": 0.0,
+  "applied_weight": 0.0,
+  "candidate_coverage": {
+    "survivors": 50,
+    "covered": 45,
+    "coverage": 0.9
+  },
+  "forward_history": {
+    "V9.5": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 2.9645271398726636,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_fund_weight": 0.0,
+      "active_fund_folds": 0,
+      "mean_candidate_coverage": 0.44382716049382714
+    },
+    "V9.4.1_V9.3.1": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 2.9645271398726636,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_fund_weight": 0.0,
+      "active_fund_folds": 0,
+      "mean_candidate_coverage": 0.44382716049382714
+    },
+    "V9.5_alpha_retention_ratios": {
+      "mean_precision_2x": 1.0,
+      "mean_capped_lift_2x": 1.0,
+      "hit_fold_rate": 1.0,
+      "median_precision_2x": 1.0
+    }
+  }
+}
