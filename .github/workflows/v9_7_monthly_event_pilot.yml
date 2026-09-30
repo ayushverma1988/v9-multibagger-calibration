@@ -1,0 +1,155 @@
+name: V9.7 Monthly Event Archive Pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.7-news-events-pit ]
+    paths:
+      - 'src/build_events_month_v9_7.py'
+      - '.github/workflows/v9_7_monthly_event_pilot.yml'
+
+concurrency:
+  group: v9-7-event-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  month:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - year: 2025
+            month: 1
+          - year: 2025
+            month: 2
+          - year: 2025
+            month: 3
+          - year: 2025
+            month: 4
+          - year: 2025
+            month: 5
+          - year: 2025
+            month: 6
+          - year: 2025
+            month: 7
+          - year: 2025
+            month: 8
+          - year: 2025
+            month: 9
+          - year: 2025
+            month: 10
+          - year: 2025
+            month: 11
+          - year: 2025
+            month: 12
+          - year: 2026
+            month: 1
+          - year: 2026
+            month: 2
+          - year: 2026
+            month: 3
+          - year: 2026
+            month: 4
+          - year: 2026
+            month: 5
+          - year: 2026
+            month: 6
+          - year: 2026
+            month: 7
+          - year: 2026
+            month: 8
+          - year: 2026
+            month: 9
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/build_events_month_v9_7.py
+      - name: Fetch one NSE announcement month
+        run: |
+          Y="${{ matrix.year }}"
+          M="${{ matrix.month }}"
+          MM=$(printf "%02d" "$M")
+          python src/build_events_month_v9_7.py             --year "$Y"             --month "$M"             --output-dir "event_month/${Y}-${MM}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-7-event-${{ matrix.year }}-${{ matrix.month }}
+          path: event_month/
+          retention-days: 90
+          if-no-files-found: error
+
+  merge:
+    needs: month
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v9-7-event-*
+          path: months
+      - name: Merge pilot archive and coverage
+        run: |
+          python - <<'PY'
+          import glob, json, os
+          import pandas as pd
+
+          files=sorted(glob.glob("months/**/events.parquet",recursive=True))
+          print("monthly checkpoints",len(files))
+          parts=[]
+          for f in files:
+              d=pd.read_parquet(f)
+              if len(d):
+                  parts.append(d)
+          os.makedirs("outputs_v9_7_event_pilot",exist_ok=True)
+          if parts:
+              allf=pd.concat(parts,ignore_index=True)
+              allf["published_ts"]=pd.to_datetime(allf["published_ts"],utc=True,errors="coerce")
+              allf=allf.sort_values(["published_ts","source","source_record_id"])
+              allf=allf.drop_duplicates(["source","source_record_id"],keep="first")
+          else:
+              allf=pd.DataFrame()
+          allf.to_parquet("outputs_v9_7_event_pilot/events_all.parquet",index=False)
+
+          cov=[]
+          for f in glob.glob("months/**/coverage.json",recursive=True):
+              try:
+                  cov.append(json.load(open(f)))
+              except Exception:
+                  pass
+          c=pd.DataFrame(cov)
+          if len(c):
+              c=c.sort_values(["year","month"])
+              c.to_csv("outputs_v9_7_event_pilot/coverage_by_month.csv",index=False)
+
+          summary={
+              "monthly_checkpoints":len(files),
+              "expected_months":21,
+              "all_months_present":len(files)==21,
+              "normalized_events":int(len(allf)),
+              "symbols":int(allf["symbol"].nunique()) if len(allf) and "symbol" in allf else 0,
+              "isins":int(allf["isin"].nunique()) if len(allf) and "isin" in allf else 0,
+              "start":str(allf["published_ts"].min()) if len(allf) else None,
+              "end":str(allf["published_ts"].max()) if len(allf) else None,
+              "zero_event_months":int((c["normalized_rows"]==0).sum()) if len(c) else None,
+          }
+          json.dump(summary,open("outputs_v9_7_event_pilot/summary.json","w"),indent=2,default=str)
+          print(json.dumps(summary,indent=2,default=str))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-7-event-pilot-merged
+          path: outputs_v9_7_event_pilot/
+          retention-days: 90
