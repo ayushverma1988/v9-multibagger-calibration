@@ -793,6 +793,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           mkdir -p published_v9_5_monthly
           for f in \
             summary.json oos_history_status.json coverage_summary.json \
@@ -806,5 +807,4 @@ jobs:
           done
           git add published_v9_5_monthly
           git diff --cached --quiet || git commit -m "Publish canonical monthly V9.5 results [skip ci]"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
