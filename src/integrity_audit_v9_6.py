@@ -120,11 +120,12 @@ def test_ticker_rename_continuity():
 
     first_new = feat[feat["symbol"] == "NEW"].sort_values("date").iloc[0]
     assert_true(
-        int(first_new["history_days"]) == 91,
-        "ticker rename reset feature history despite same known ISIN",
+        int(first_new["history_days"]) == 1,
+        "technical feature history must remain symbol-local after ticker rename",
     )
 
-    # A pre-rename snapshot must be able to observe a post-rename 2x event.
+    # A pre-rename snapshot must still be able to observe a post-rename 2x
+    # event when the adjusted-price transition is continuity-safe.
     daily.loc[100:102, "adj_close"] = [205.0, 210.0, 208.0]
     daily.loc[100:102, "close"] = [205.0, 210.0, 208.0]
     cfg = {
@@ -138,7 +139,7 @@ def test_ticker_rename_continuity():
         "ticker rename broke future label continuity for same ISIN",
     )
     return {
-        "feature_history_continues": True,
+        "feature_history_stays_symbol_local": True,
         "pre_rename_label_sees_post_rename_hit": True,
         "first_new_history_days": int(first_new["history_days"]),
     }
