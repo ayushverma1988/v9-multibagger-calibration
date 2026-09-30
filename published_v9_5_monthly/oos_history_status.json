@@ -1,0 +1,11 @@
+{
+  "first_raw_oos": null,
+  "raw_oos_folds": 0,
+  "raw_oos_rows": 0,
+  "first_calibrated_oos": null,
+  "calibrated_oos_folds": 0,
+  "calibrated_oos_rows": 0,
+  "calibrated_positives": 0,
+  "raw_oos_target_met": false,
+  "calibrated_fold_target_met": false
+}
