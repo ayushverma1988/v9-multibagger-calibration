@@ -1,6 +1,6 @@
 {
   "model_name": "V9.5-H6-Fundamental-Turnaround",
-  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware",
+  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware-nestedcal",
   "exchange": "NSE",
   "start_year": 2003,
   "price_min": 20,
@@ -103,5 +103,11 @@
   "taxonomy_mapping_version": "v9.5-concept-map-2.1",
   "fund_min_core_completeness": 0.34,
   "archive_extension_start_date": "2015-01-01",
-  "archive_extension_end_date": "2016-12-31"
+  "archive_extension_end_date": "2016-12-31",
+  "fund_cal_min_prior_folds": 8,
+  "fund_cal_cv_min_train_rows": 1000,
+  "fund_cal_cv_min_train_positives": 25,
+  "fund_cal_cv_min_validation_folds": 2,
+  "fund_cal_cv_min_validation_rows": 500,
+  "fund_cal_cv_min_validation_positives": 20
 }
