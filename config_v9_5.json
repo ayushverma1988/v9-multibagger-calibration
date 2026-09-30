@@ -1,6 +1,6 @@
 {
   "model_name": "V9.5-H6-Fundamental-Turnaround",
-  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware-stablecal",
+  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware-stablecal-overlay",
   "exchange": "NSE",
   "start_year": 2003,
   "price_min": 20,
@@ -110,5 +110,7 @@
   "fund_cal_cv_min_validation_folds": 2,
   "fund_cal_cv_min_validation_rows": 500,
   "fund_cal_cv_min_validation_positives": 20,
-  "fund_cal_anchor_recent_folds": 8
+  "fund_cal_anchor_recent_folds": 8,
+  "fund_overlay_min_folds": 8,
+  "fund_overlay_min_utility_gain": 0.02
 }
