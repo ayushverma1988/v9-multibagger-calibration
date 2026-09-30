@@ -7,6 +7,10 @@ on:
     paths:
       - '.github/workflows/v9_5_monthly_all_years.yml'
 
+concurrency:
+  group: v9-5-canonical-monthly-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   monthly-legacy:
     runs-on: ubuntu-latest
