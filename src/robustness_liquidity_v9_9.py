@@ -108,6 +108,7 @@ def liquidity_report(oos: pd.DataFrame):
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--oos",required=True)
+    ap.add_argument("--snapshot")
     ap.add_argument("--output",required=True)
     ap.add_argument("--bootstrap",type=int,default=10000)
     args=ap.parse_args()
@@ -115,6 +116,11 @@ def main():
     outdir=Path(args.output); outdir.mkdir(parents=True,exist_ok=True)
     oos=pd.read_parquet(args.oos)
     oos["date"]=pd.to_datetime(oos["date"])
+    if args.snapshot and "log_turnover_63" not in oos.columns:
+        snap=pd.read_parquet(args.snapshot)
+        snap["date"]=pd.to_datetime(snap["date"])
+        keep=["date","symbol"]+[x for x in ["log_turnover_63","turnover_accel"] if x in snap.columns]
+        oos=oos.merge(snap[keep],on=["date","symbol"],how="left")
 
     ft=fold_table(oos)
     ft.to_csv(outdir/"fold_metrics.csv",index=False)
