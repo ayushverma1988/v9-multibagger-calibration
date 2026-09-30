@@ -1,0 +1,33 @@
+name: V9.6A Label and PIT Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.6-label-data-integrity ]
+    paths:
+      - 'src/integrity_audit_v9_6.py'
+      - '.github/workflows/v9_6a_integrity.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Compile integrity audit
+        run: python -m py_compile src/integrity_audit_v9_6.py
+      - name: Run integrity audit
+        run: |
+          PYTHONPATH=src python src/integrity_audit_v9_6.py | tee integrity_v9_6.json
+      - name: Upload integrity result
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-6a-integrity-result
+          path: integrity_v9_6.json
+          retention-days: 90
