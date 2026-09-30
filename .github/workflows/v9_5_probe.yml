@@ -1,0 +1,62 @@
+name: V9.5 Legacy Probe
+
+on:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_probe.yml'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: |
+          pip install -r requirements.txt
+          pip install lxml
+      - name: Probe Jan 2017 catalog and one legacy structured result
+        run: |
+          mkdir -p probe
+          python src/fetch_nse_fundamental_catalog.py \
+            --from-date 2017-01-01 \
+            --to-date 2017-01-31 \
+            --output probe/catalog_2017_01.csv
+          python - <<'PY'
+          import pandas as pd, json, requests, io
+          d=pd.read_csv('probe/catalog_2017_01.csv')
+          raw=d.raw_json.map(json.loads)
+          detail=[r.get('resultDetailedDataLink') for r in raw]
+          x=d.xbrl_url.fillna('').astype(str)
+          valid_x=~x.str.endswith('/-') & ~x.isin(['','-','nan'])
+          print(json.dumps({
+            'rows':len(d),
+            'symbols':d.symbol.nunique() if len(d) else 0,
+            'real_xbrl':int(valid_x.sum()),
+            'legacy_detail_links':sum(bool(v and v!='-') for v in detail),
+            'sources':d.source.value_counts().to_dict() if len(d) else {},
+          },indent=2))
+          url=next(v for v in detail if v and v!='-')
+          print('DETAIL_URL',url)
+          s=requests.Session()
+          s.headers.update({'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+          r=s.get(url,timeout=30)
+          print('DETAIL_STATUS',r.status_code,'LEN',len(r.content),'CTYPE',r.headers.get('content-type'))
+          r.raise_for_status()
+          open('probe/sample_legacy_result.html','wb').write(r.content)
+          tables=pd.read_html(io.BytesIO(r.content))
+          print('TABLE_COUNT',len(tables))
+          for i,t in enumerate(tables[:12]):
+              print('\nTABLE',i,'SHAPE',t.shape)
+              print(t.head(12).to_string(index=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-probe-2017-01
+          path: probe/
+          retention-days: 30

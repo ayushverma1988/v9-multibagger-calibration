@@ -1,0 +1,210 @@
+name: V9.5 Re-Normalize 2023-2026 Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_renorm_2023_2026_recovery.yml'
+
+jobs:
+  renorm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        year: [2023, 2024, 2025, 2026]
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download yearly catalog
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-${{ matrix.year }}
+          path: yearly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Download yearly raw XBRL
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-raw-xbrl-${{ matrix.year }}
+          path: yearly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Re-normalize XBRL year with extended timeout
+        run: |
+          mkdir -p empty_monthly_catalog empty_monthly_raw "renorm/${{ matrix.year }}"
+          python src/renormalize_saved_archives.py \
+            --monthly-catalog-root empty_monthly_catalog \
+            --monthly-raw-root empty_monthly_raw \
+            --yearly-catalog-root yearly_catalogs \
+            --yearly-raw-root yearly_raws \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "renorm/${{ matrix.year }}"
+
+      - name: Upload re-normalized year
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-renorm-recovery-${{ matrix.year }}
+          path: renorm/${{ matrix.year }}/
+          retention-days: 90
+
+  longhistory-backtest:
+    needs: renorm
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download 2017-2022 re-normalized artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-renorm-*
+          path: renorm_2017_2022
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36617147716
+
+      - name: Download 2023-2026 re-normalized artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-renorm-recovery-*
+          path: renorm_2023_2026
+
+      - name: Download 2015-2016 warmup checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-warmup-[0-9]*
+          path: warmup_months
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36597797230
+
+      - name: Merge 2015-2026 point-in-time fundamentals
+        run: |
+          mkdir -p outputs_v9_5_longhistory
+          python - <<'PY'
+          import glob, json
+          import pandas as pd
+
+          files = sorted(
+              glob.glob("warmup_months/**/fundamentals_normalized.parquet", recursive=True)
+              + glob.glob("renorm_2017_2022/**/fundamentals_renormalized.parquet", recursive=True)
+              + glob.glob("renorm_2023_2026/**/fundamentals_renormalized.parquet", recursive=True)
+          )
+          print("source files", len(files))
+          parts=[]
+          for f in files:
+              d=pd.read_parquet(f)
+              if len(d): parts.append(d)
+          if not parts:
+              raise SystemExit("No fundamental rows")
+
+          allf=pd.concat(parts,ignore_index=True)
+          allf["period_end"]=pd.to_datetime(allf["period_end"],errors="coerce")
+          allf["broadcast_ts"]=pd.to_datetime(allf["broadcast_ts"],errors="coerce",utc=True)
+          allf=allf.dropna(subset=["symbol","period_end","broadcast_ts","period_months"])
+          allf=allf.sort_values(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope","mapped_field_count","mapping_score"],
+              ascending=[True,True,True,True,True,False,False]
+          ).drop_duplicates(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope"],
+              keep="first"
+          )
+          allf.to_parquet("outputs_v9_5_longhistory/fundamentals_all.parquet",index=False)
+
+          rows=[]
+          for year,z in allf.groupby(allf["broadcast_ts"].dt.year):
+              rows.append({
+                  "year":int(year),
+                  "rows":int(len(z)),
+                  "symbols":int(z.symbol.nunique()),
+                  "revenue":float(z["revenue"].notna().mean()),
+                  "pat":float(z["pat"].notna().mean()),
+                  "operating_profit":float(z["operating_profit"].notna().mean()),
+                  "finance_cost":float(z["finance_cost"].notna().mean()),
+                  "assets":float(z["total_assets"].notna().mean()),
+                  "equity":float(z["total_equity"].notna().mean()),
+                  "mean_fields":float(z["mapped_field_count"].mean()),
+                  "synthetic_context_fraction":float(
+                      z.get("synthetic_context_used",pd.Series(False,index=z.index))
+                       .fillna(False).astype(bool).mean()
+                  )
+              })
+          pd.DataFrame(rows).to_csv("outputs_v9_5_longhistory/coverage_by_year.csv",index=False)
+          json.dump({
+              "rows":int(len(allf)),
+              "symbols":int(allf.symbol.nunique()),
+              "start":str(allf.broadcast_ts.min()),
+              "end":str(allf.broadcast_ts.max()),
+              "years":rows,
+          },open("outputs_v9_5_longhistory/coverage_summary.json","w"),indent=2,default=str)
+          PY
+
+      - name: Download verified legacy NSE market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run long-history leakage-free V9.5
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5_longhistory/fundamentals_all.parquet \
+            --output outputs_v9_5_longhistory \
+            --legacy-dir legacy
+
+      - name: Verify target history
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          d=pd.read_parquet("outputs_v9_5_longhistory/fundamental_oos.parquet")
+          raw=d.dropna(subset=["p_fund_raw"])
+          cal=d.dropna(subset=["p_fund_cal"])
+          stats={
+              "first_raw_oos":str(raw["date"].min().date()) if len(raw) else None,
+              "raw_oos_folds":int(raw["date"].nunique()),
+              "raw_oos_rows":int(len(raw)),
+              "first_calibrated_oos":str(cal["date"].min().date()) if len(cal) else None,
+              "calibrated_oos_folds":int(cal["date"].nunique()),
+              "calibrated_oos_rows":int(len(cal)),
+              "calibrated_positives":int(cal["y6"].fillna(0).sum()) if len(cal) else 0,
+          }
+          json.dump(stats,open("outputs_v9_5_longhistory/oos_history_status.json","w"),indent=2)
+          print(json.dumps(stats,indent=2))
+          PY
+
+      - name: Upload long-history results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-longhistory-recovery-results
+          path: outputs_v9_5_longhistory/
+          retention-days: 90

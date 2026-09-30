@@ -1,0 +1,27 @@
+{
+  "first_calibrated_oos": "2021-12-31",
+  "calibrated_folds": 9,
+  "calibrated_rows": 9187,
+  "calibrated_positives": 354,
+  "old_policy_folds": 5,
+  "production_gate": {
+    "n": 9187,
+    "positives": 354,
+    "base_rate": 0.038532709263089146,
+    "pr_auc": 0.0410355677007447,
+    "pr_auc_lift": 1.0649541256122643,
+    "brier": 0.03716445915733157,
+    "logloss": 0.1646474223223738,
+    "calibration_slope": -0.5470051410713295,
+    "calibration_intercept": -4.902299394033026,
+    "passed": false,
+    "reasons": [
+      "pr_auc_lift<1.1",
+      "calibration_slope<0.5"
+    ],
+    "folds": 9
+  },
+  "production_requested_weight": 0.0,
+  "production_applied_weight": 0.0,
+  "target_met": true
+}

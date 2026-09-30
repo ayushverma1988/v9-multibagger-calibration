@@ -1,0 +1,283 @@
+name: V9.5 Parallel Re-Normalize 2017-2026
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_parallel_renormalize.yml'
+
+jobs:
+  renorm-legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2017, 2018, 2019]
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download monthly catalogs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-${{ matrix.year }}-*
+          path: monthly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36551081317
+
+      - name: Download monthly raw archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-raw-${{ matrix.year }}-*
+          path: monthly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36551081317
+
+      - name: Re-normalize legacy year
+        run: |
+          mkdir -p empty_yearly_catalog empty_yearly_raw "renorm/${{ matrix.year }}"
+          python src/renormalize_saved_archives.py \
+            --monthly-catalog-root monthly_catalogs \
+            --monthly-raw-root monthly_raws \
+            --yearly-catalog-root empty_yearly_catalog \
+            --yearly-raw-root empty_yearly_raw \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "renorm/${{ matrix.year }}"
+
+      - name: Upload re-normalized legacy year
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-renorm-${{ matrix.year }}
+          path: renorm/${{ matrix.year }}/
+          retention-days: 90
+
+  renorm-xbrl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix:
+        year: [2020, 2021, 2022, 2023, 2024, 2025, 2026]
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download yearly catalog
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-${{ matrix.year }}
+          path: yearly_catalogs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Download yearly raw XBRL
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-raw-xbrl-${{ matrix.year }}
+          path: yearly_raws
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Re-normalize XBRL year
+        run: |
+          mkdir -p empty_monthly_catalog empty_monthly_raw "renorm/${{ matrix.year }}"
+          python src/renormalize_saved_archives.py \
+            --monthly-catalog-root empty_monthly_catalog \
+            --monthly-raw-root empty_monthly_raw \
+            --yearly-catalog-root yearly_catalogs \
+            --yearly-raw-root yearly_raws \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "renorm/${{ matrix.year }}"
+
+      - name: Upload re-normalized XBRL year
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-renorm-${{ matrix.year }}
+          path: renorm/${{ matrix.year }}/
+          retention-days: 90
+
+
+  combined-backtest:
+    needs: [renorm-legacy, renorm-xbrl]
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download re-normalized 2017-2026 artifacts from this run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-renorm-*
+          path: renorm_years
+
+      - name: Download 2015-2016 normalized warmup checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-warmup-[0-9]*
+          path: warmup_months
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36597797230
+
+      - name: Merge PIT fundamentals from 2015 through 2026
+        run: |
+          mkdir -p outputs_v9_5_longhistory
+          python - <<'PY'
+          import glob, json
+          import pandas as pd
+
+          files = sorted(
+              glob.glob("warmup_months/**/fundamentals_normalized.parquet", recursive=True)
+              + glob.glob("renorm_years/**/fundamentals_renormalized.parquet", recursive=True)
+          )
+          print("fundamental source files", len(files))
+          if not files:
+              raise SystemExit("No fundamental files found")
+
+          parts=[]
+          for f in files:
+              d=pd.read_parquet(f)
+              if len(d):
+                  parts.append(d)
+          if not parts:
+              raise SystemExit("No fundamental rows found")
+
+          allf=pd.concat(parts,ignore_index=True)
+          allf["period_end"]=pd.to_datetime(allf["period_end"],errors="coerce")
+          allf["broadcast_ts"]=pd.to_datetime(allf["broadcast_ts"],errors="coerce",utc=True)
+          allf=allf.dropna(subset=["symbol","period_end","broadcast_ts","period_months"])
+          allf=allf.sort_values(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope","mapped_field_count","mapping_score"],
+              ascending=[True,True,True,True,True,False,False]
+          ).drop_duplicates(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope"],
+              keep="first"
+          )
+          allf.to_parquet("outputs_v9_5_longhistory/fundamentals_all.parquet",index=False)
+
+          rows=[]
+          for year,z in allf.groupby(allf["broadcast_ts"].dt.year):
+              rows.append({
+                  "year":int(year),
+                  "rows":int(len(z)),
+                  "symbols":int(z.symbol.nunique()),
+                  "revenue":float(z["revenue"].notna().mean()),
+                  "pat":float(z["pat"].notna().mean()),
+                  "operating_profit":float(z["operating_profit"].notna().mean()),
+                  "finance_cost":float(z["finance_cost"].notna().mean()),
+                  "assets":float(z["total_assets"].notna().mean()),
+                  "equity":float(z["total_equity"].notna().mean()),
+                  "mean_fields":float(z["mapped_field_count"].mean()),
+                  "synthetic_context_fraction":float(z.get("synthetic_context_used",pd.Series(False,index=z.index)).fillna(False).astype(bool).mean())
+              })
+          pd.DataFrame(rows).to_csv("outputs_v9_5_longhistory/coverage_by_year.csv",index=False)
+          summary={
+              "rows":int(len(allf)),
+              "symbols":int(allf.symbol.nunique()),
+              "start":str(allf.broadcast_ts.min()),
+              "end":str(allf.broadcast_ts.max()),
+              "years":rows
+          }
+          json.dump(summary,open("outputs_v9_5_longhistory/coverage_summary.json","w"),indent=2,default=str)
+          print(json.dumps(summary,indent=2,default=str))
+          PY
+
+      - name: Download verified legacy NSE market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run long-history leakage-free V9.5 walk-forward
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5_longhistory/fundamentals_all.parquet \
+            --output outputs_v9_5_longhistory \
+            --legacy-dir legacy
+
+      - name: Verify OOS and calibration targets
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          p="outputs_v9_5_longhistory/fundamental_oos.parquet"
+          d=pd.read_parquet(p)
+          raw=d.dropna(subset=["p_fund_raw"])
+          cal=d.dropna(subset=["p_fund_cal"])
+          stats={
+              "first_raw_oos":str(raw["date"].min().date()) if len(raw) else None,
+              "raw_oos_folds":int(raw["date"].nunique()),
+              "raw_oos_rows":int(len(raw)),
+              "first_calibrated_oos":str(cal["date"].min().date()) if len(cal) else None,
+              "calibrated_oos_folds":int(cal["date"].nunique()),
+              "calibrated_oos_rows":int(len(cal)),
+              "calibrated_positives":int(cal["y6"].fillna(0).sum()) if len(cal) else 0,
+          }
+          json.dump(stats,open("outputs_v9_5_longhistory/oos_history_status.json","w"),indent=2)
+          print(json.dumps(stats,indent=2))
+          if not len(raw) or pd.Timestamp(raw["date"].min()).year > 2018:
+              raise SystemExit("Target not met: first raw OOS is later than 2018")
+          if int(cal["date"].nunique()) < 8:
+              raise SystemExit("Target not met: fewer than 8 calibrated forward folds")
+          PY
+
+      - name: Upload long-history V9.5 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-longhistory-results
+          path: outputs_v9_5_longhistory/
+          retention-days: 90
+
+      - name: Publish compact long-history results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_v9_5_longhistory
+          cp outputs_v9_5_longhistory/summary.json \
+             outputs_v9_5_longhistory/oos_history_status.json \
+             outputs_v9_5_longhistory/coverage_summary.json \
+             outputs_v9_5_longhistory/coverage_by_year.csv \
+             outputs_v9_5_longhistory/snapshot_fundamental_coverage.csv \
+             outputs_v9_5_longhistory/fund_calibrator_comparison.csv \
+             outputs_v9_5_longhistory/chosen_v95_weight_by_fold.csv \
+             outputs_v9_5_longhistory/selection_metrics_by_fold.csv \
+             outputs_v9_5_longhistory/current_top50.csv \
+             published_v9_5_longhistory/
+          git add published_v9_5_longhistory
+          git diff --cached --quiet || git commit -m "Publish V9.5 long-history calibration results [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

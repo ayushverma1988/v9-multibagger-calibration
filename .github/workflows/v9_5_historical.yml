@@ -1,0 +1,261 @@
+name: V9.5 Historical XBRL + Walk-Forward
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile V9.5 modules
+        run: |
+          python -m py_compile src/xbrl_normalizer.py
+          python -m py_compile src/build_fundamental_archive.py
+          python -m py_compile src/fundamentals_pit.py
+          python -m py_compile src/fetch_nse_fundamental_catalog.py
+          python -m py_compile src/calibrate_v9_5.py
+
+      - name: XBRL taxonomy normalizer self-test
+        run: python src/xbrl_normalizer.py --self-test
+
+      - name: Point-in-time leakage self-test
+        run: python src/fundamentals_pit.py --self-test
+
+  archive:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        year: [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Resolve archive dates
+        id: dates
+        shell: bash
+        run: |
+          YEAR="${{ matrix.year }}"
+          echo "from_date=${YEAR}-01-01" >> "$GITHUB_OUTPUT"
+          if [ "$YEAR" = "2026" ]; then
+            echo "to_date=2026-09-28" >> "$GITHUB_OUTPUT"
+          else
+            echo "to_date=${YEAR}-12-31" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download and normalize NSE financial XBRLs
+        run: |
+          python src/build_fundamental_archive.py \
+            --from-date "${{ steps.dates.outputs.from_date }}" \
+            --to-date "${{ steps.dates.outputs.to_date }}" \
+            --output-dir "fund_archive/${{ matrix.year }}" \
+            --mapping config/xbrl_concept_map_v9_5.json
+
+      - name: Compress raw XBRL source archive
+        shell: bash
+        run: |
+          YEAR="${{ matrix.year }}"
+          if [ -d "fund_archive/${YEAR}/raw_xbrl" ]; then
+            tar -czf "fund_archive/${YEAR}/raw_xbrl_${YEAR}.tar.gz" \
+              -C "fund_archive/${YEAR}" raw_xbrl
+          fi
+
+      - name: Upload normalized annual archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-normalized-${{ matrix.year }}
+          path: |
+            fund_archive/${{ matrix.year }}/catalog.parquet
+            fund_archive/${{ matrix.year }}/fundamentals_normalized.parquet
+            fund_archive/${{ matrix.year }}/coverage.json
+            fund_archive/${{ matrix.year }}/errors.csv
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload compressed raw XBRL archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-raw-xbrl-${{ matrix.year }}
+          path: fund_archive/${{ matrix.year }}/raw_xbrl_${{ matrix.year }}.tar.gz
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: warn
+
+  backtest:
+    needs: archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Download normalized yearly fundamental archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-*
+          path: fund_years
+
+      - name: Merge normalized fundamentals and measure archive coverage
+        run: |
+          mkdir -p outputs_v9_5
+          python - <<'PY'
+          import glob
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          files = sorted(glob.glob("fund_years/**/fundamentals_normalized.parquet", recursive=True))
+          if not files:
+              raise SystemExit("No normalized fundamental archive files found")
+
+          parts = []
+          annual = []
+          for f in files:
+              d = pd.read_parquet(f)
+              if len(d):
+                  parts.append(d)
+
+          cov_files = sorted(glob.glob("fund_years/**/coverage.json", recursive=True))
+          for f in cov_files:
+              x = json.load(open(f))
+              year = None
+              for p in Path(f).parts:
+                  if p.isdigit() and len(p) == 4:
+                      year = int(p)
+              if year is None:
+                  import re
+                  m = re.search(r"(20\d{2})", f)
+                  year = int(m.group(1)) if m else None
+              annual.append({"year": year, **x})
+
+          if not parts:
+              raise SystemExit("Archive downloaded but produced zero normalized rows")
+
+          allf = pd.concat(parts, ignore_index=True)
+          allf["period_end"] = pd.to_datetime(allf["period_end"], errors="coerce")
+          allf["broadcast_ts"] = pd.to_datetime(allf["broadcast_ts"], errors="coerce", utc=True)
+          allf = allf.sort_values(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope","mapping_score"]
+          ).drop_duplicates(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope"],
+              keep="last"
+          )
+          allf.to_parquet("outputs_v9_5/fundamentals_all.parquet", index=False)
+
+          field_cols = [
+              "revenue","operating_profit","pbt","pat","finance_cost",
+              "total_assets","total_equity","total_debt","current_assets",
+              "current_liabilities","operating_cash_flow","capex",
+              "shares_outstanding","promoter_pct","pledged_pct"
+          ]
+          summary = {
+              "normalized_rows": int(len(allf)),
+              "symbols": int(allf["symbol"].nunique()),
+              "broadcast_start": str(allf["broadcast_ts"].min()),
+              "broadcast_end": str(allf["broadcast_ts"].max()),
+              "taxonomy_families": allf["taxonomy_family"].value_counts(dropna=False).to_dict(),
+              "period_months": {str(k): int(v) for k,v in allf["period_months"].value_counts().sort_index().items()},
+              "field_coverage": {
+                  c: float(allf[c].notna().mean()) if c in allf else 0.0
+                  for c in field_cols
+              },
+              "mapping_score_mean": float(allf["mapping_score"].mean()),
+              "mapped_field_count_mean": float(allf["mapped_field_count"].mean()),
+          }
+          json.dump(summary, open("outputs_v9_5/archive_coverage.json","w"), indent=2, default=str)
+
+          rows = []
+          for a in annual:
+              rows.append({
+                  "year": a.get("year"),
+                  "catalog_rows": a.get("catalog_rows",0),
+                  "catalog_symbols": a.get("catalog_symbols",0),
+                  "catalog_xbrl_links": a.get("catalog_xbrl_links",0),
+                  "downloaded_xbrl_files": a.get("downloaded_xbrl_files",0),
+                  "normalized_rows": a.get("normalized_rows",0),
+                  "normalized_symbols": a.get("normalized_symbols",0),
+                  "errors": a.get("errors",0),
+              })
+          pd.DataFrame(rows).sort_values("year").to_csv(
+              "outputs_v9_5/archive_coverage_by_year.csv", index=False
+          )
+          print(json.dumps(summary, indent=2, default=str))
+          PY
+
+      - name: Download verified legacy NSE market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run first full leakage-free V9.5 walk-forward
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5/fundamentals_all.parquet \
+            --output outputs_v9_5 \
+            --legacy-dir legacy
+
+      - name: Upload full V9.5 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-walk-forward-results
+          path: outputs_v9_5/
+          retention-days: 90
+
+      - name: Publish compact V9.5 results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_v9_5
+          cp outputs_v9_5/summary.json \
+             outputs_v9_5/archive_coverage.json \
+             outputs_v9_5/archive_coverage_by_year.csv \
+             outputs_v9_5/snapshot_fundamental_coverage.csv \
+             outputs_v9_5/fund_calibrator_comparison.csv \
+             outputs_v9_5/calibrator_100_comparison.csv \
+             outputs_v9_5/downside_calibrator_comparison.csv \
+             outputs_v9_5/chosen_v931_config_by_fold.csv \
+             outputs_v9_5/chosen_v95_weight_by_fold.csv \
+             outputs_v9_5/selection_metrics_by_fold.csv \
+             outputs_v9_5/fund_weight_search.csv \
+             outputs_v9_5/current_top50.csv \
+             published_v9_5/
+          git add published_v9_5
+          git diff --cached --quiet || git commit -m "Publish V9.5 fundamental walk-forward results [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

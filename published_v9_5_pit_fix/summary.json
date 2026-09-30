@@ -1,0 +1,100 @@
+{
+  "model": "V9.5-H6-Fundamental-Turnaround",
+  "pipeline_version": "fundamental-turnaround-v9.5-taxonomy3-era-aware",
+  "data_start": "2003-01-01",
+  "data_end": "2026-09-29",
+  "fundamental_data_rows": 169679,
+  "fundamental_symbols": 2757,
+  "fundamental_raw_oos_rows": 12368,
+  "fundamental_calibrated_oos_rows": 5588,
+  "best_fundamental_calibrator": "beta",
+  "production_fundamental_gate": {
+    "n": 5588,
+    "positives": 158,
+    "base_rate": 0.028274874731567645,
+    "pr_auc": 0.03355951757838614,
+    "pr_auc_lift": 1.1869024318229224,
+    "brier": 0.02778266947129372,
+    "logloss": 0.13259876356993858,
+    "calibration_slope": 1.055439596097243,
+    "calibration_intercept": -0.3477454940077516,
+    "passed": false,
+    "reasons": [
+      "folds<8"
+    ],
+    "folds": 5
+  },
+  "production_risk_config": {
+    "name": "N100_drop0.50_s0.15_c0.05",
+    "pool_n": 100,
+    "risk_drop": 0.5,
+    "w_safety": 0.15,
+    "w_consensus": 0.05,
+    "baseline": false
+  },
+  "production_requested_fundamental_weight": 0.0,
+  "production_applied_fundamental_weight": 0.0,
+  "production_candidate_coverage": {
+    "survivors": 50,
+    "covered": 45,
+    "coverage": 0.9
+  },
+  "forward_history": {
+    "V9.5": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 2.9645271398726636,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_fund_weight": 0.0,
+      "active_fund_folds": 0,
+      "mean_candidate_coverage": 0.25111111111111106
+    },
+    "V9.4.1_V9.3.1": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 2.9645271398726636,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_fund_weight": 0.0,
+      "active_fund_folds": 0,
+      "mean_candidate_coverage": 0.25111111111111106
+    },
+    "V9.5_alpha_retention_ratios": {
+      "mean_precision_2x": 1.0,
+      "mean_capped_lift_2x": 1.0,
+      "hit_fold_rate": 1.0,
+      "median_precision_2x": 1.0
+    }
+  },
+  "baseline_production_search": {
+    "folds": 26,
+    "mean_precision_2x": 0.11538461538461539,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 3.2634658967237886,
+    "hit_fold_rate": 0.6538461538461539,
+    "hit_folds": 17,
+    "mean_dd30_rate": 0.34615384615384615,
+    "median_dd30_rate": 0.3,
+    "mean_candidate_coverage": 0.17384615384615382,
+    "median_candidate_coverage": 0.0,
+    "applied_fold_rate": 0.0,
+    "applied_folds": 0
+  },
+  "policy": {
+    "point_in_time": "only filings broadcast strictly before each snapshot may be used",
+    "same_day_filings": "excluded conservatively",
+    "scope": "prefer consolidated; standalone fallback",
+    "specialized_financial_taxonomies": "excluded from first generic challenger",
+    "selection": "fundamental P(2x) may receive 5-25% alpha weight only after signal-quality, coverage and 95% alpha-retention gates",
+    "fallback": "exact full-universe V9.4.1/V9.3.1 selector"
+  }
+}

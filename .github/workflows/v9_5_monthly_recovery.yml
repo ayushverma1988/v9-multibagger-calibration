@@ -1,0 +1,304 @@
+name: V9.5 Monthly Recovery 2017-2019
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_monthly_recovery.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: |
+          python -m py_compile src/legacy_financial_normalizer.py
+          python -m py_compile src/build_fundamental_month.py
+          python src/legacy_financial_normalizer.py
+
+  monthly:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        include:
+          - year: 2017
+            month: 1
+          - year: 2017
+            month: 2
+          - year: 2017
+            month: 3
+          - year: 2017
+            month: 4
+          - year: 2017
+            month: 5
+          - year: 2017
+            month: 6
+          - year: 2017
+            month: 7
+          - year: 2017
+            month: 8
+          - year: 2017
+            month: 9
+          - year: 2017
+            month: 10
+          - year: 2017
+            month: 11
+          - year: 2017
+            month: 12
+          - year: 2018
+            month: 1
+          - year: 2018
+            month: 2
+          - year: 2018
+            month: 3
+          - year: 2018
+            month: 4
+          - year: 2018
+            month: 5
+          - year: 2018
+            month: 6
+          - year: 2018
+            month: 7
+          - year: 2018
+            month: 8
+          - year: 2018
+            month: 9
+          - year: 2018
+            month: 10
+          - year: 2018
+            month: 11
+          - year: 2018
+            month: 12
+          - year: 2019
+            month: 1
+          - year: 2019
+            month: 2
+          - year: 2019
+            month: 3
+          - year: 2019
+            month: 4
+          - year: 2019
+            month: 5
+          - year: 2019
+            month: 6
+          - year: 2019
+            month: 7
+          - year: 2019
+            month: 8
+          - year: 2019
+            month: 9
+          - year: 2019
+            month: 10
+          - year: 2019
+            month: 11
+          - year: 2019
+            month: 12
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Build monthly fundamental checkpoint
+        run: |
+          Y="${{ matrix.year }}"
+          M="${{ matrix.month }}"
+          MM=$(printf "%02d" "$M")
+          python src/build_fundamental_month.py \
+            --year "$Y" \
+            --month "$M" \
+            --output-dir "monthly/${Y}-${MM}" \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --workers 8
+
+      - name: Upload normalized monthly checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-month-${{ matrix.year }}-${{ matrix.month }}
+          path: |
+            monthly/*/catalog.parquet
+            monthly/*/fundamentals_normalized.parquet
+            monthly/*/coverage.json
+            monthly/*/errors.csv
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload raw monthly source checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-month-raw-${{ matrix.year }}-${{ matrix.month }}
+          path: monthly/*/raw_archive.tar.gz
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: warn
+
+  backtest:
+    needs: monthly
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download recovered 2017-2019 monthly checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-month-[0-9]*
+          path: recovered_months
+
+      - name: Download successful 2020-2026 normalized archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-*
+          path: later_years
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Merge all normalized fundamentals and measure coverage
+        run: |
+          mkdir -p outputs_v9_5
+          python - <<'PY'
+          import glob, json, re
+          from pathlib import Path
+          import pandas as pd
+
+          files = sorted(
+              glob.glob("recovered_months/**/fundamentals_normalized.parquet", recursive=True)
+              + glob.glob("later_years/**/fundamentals_normalized.parquet", recursive=True)
+          )
+          print("normalized files", len(files))
+          if not files:
+              raise SystemExit("No normalized files found")
+
+          parts=[]
+          for f in files:
+              try:
+                  d=pd.read_parquet(f)
+                  if len(d): parts.append(d)
+              except Exception as e:
+                  print("WARN read",f,e)
+          if not parts:
+              raise SystemExit("No normalized rows found")
+
+          allf=pd.concat(parts,ignore_index=True)
+          allf["period_end"]=pd.to_datetime(allf["period_end"],errors="coerce")
+          allf["broadcast_ts"]=pd.to_datetime(allf["broadcast_ts"],errors="coerce",utc=True)
+          allf=allf.dropna(subset=["symbol","period_end","broadcast_ts","period_months"])
+          allf=allf.sort_values(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope","mapping_score"]
+          ).drop_duplicates(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope"],
+              keep="last"
+          )
+          allf.to_parquet("outputs_v9_5/fundamentals_all.parquet",index=False)
+
+          fields=[
+              "revenue","operating_profit","pbt","pat","finance_cost",
+              "total_assets","total_equity","total_debt","current_assets",
+              "current_liabilities","operating_cash_flow","capex","shares_outstanding"
+          ]
+          summary={
+              "normalized_files":len(files),
+              "normalized_rows":int(len(allf)),
+              "symbols":int(allf.symbol.nunique()),
+              "broadcast_start":str(allf.broadcast_ts.min()),
+              "broadcast_end":str(allf.broadcast_ts.max()),
+              "taxonomy_families":allf.taxonomy_family.value_counts(dropna=False).to_dict(),
+              "field_coverage":{c:float(allf[c].notna().mean()) if c in allf else 0.0 for c in fields},
+              "mapping_score_mean":float(allf.mapping_score.mean()),
+              "mapped_field_count_mean":float(allf.mapped_field_count.mean()),
+          }
+          json.dump(summary,open("outputs_v9_5/archive_coverage.json","w"),indent=2,default=str)
+
+          rows=[]
+          for f in sorted(
+              glob.glob("recovered_months/**/coverage.json",recursive=True)
+              + glob.glob("later_years/**/coverage.json",recursive=True)
+          ):
+              x=json.load(open(f))
+              m=re.search(r"(20\d{2})[-_/](\d{1,2})",f)
+              y=re.search(r"(20\d{2})",f)
+              rows.append({
+                  "source_file":f,
+                  "year":int(y.group(1)) if y else None,
+                  "month":int(m.group(2)) if m else None,
+                  "catalog_rows":x.get("catalog_rows",0),
+                  "normalized_rows":x.get("normalized_rows",0),
+                  "normalized_symbols":x.get("normalized_symbols",0),
+                  "errors":x.get("errors",0),
+                  "success_fraction":x.get("success_fraction"),
+              })
+          pd.DataFrame(rows).to_csv("outputs_v9_5/archive_coverage_chunks.csv",index=False)
+          print(json.dumps(summary,indent=2,default=str))
+          PY
+
+      - name: Download verified legacy NSE market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run leakage-free V9.5 walk-forward
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5/fundamentals_all.parquet \
+            --output outputs_v9_5 \
+            --legacy-dir legacy
+
+      - name: Upload V9.5 recovery + backtest results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-recovered-walk-forward-results
+          path: outputs_v9_5/
+          retention-days: 90
+
+      - name: Publish compact V9.5 results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_v9_5
+          cp outputs_v9_5/summary.json \
+             outputs_v9_5/archive_coverage.json \
+             outputs_v9_5/archive_coverage_chunks.csv \
+             outputs_v9_5/snapshot_fundamental_coverage.csv \
+             outputs_v9_5/fund_calibrator_comparison.csv \
+             outputs_v9_5/calibrator_100_comparison.csv \
+             outputs_v9_5/downside_calibrator_comparison.csv \
+             outputs_v9_5/chosen_v931_config_by_fold.csv \
+             outputs_v9_5/chosen_v95_weight_by_fold.csv \
+             outputs_v9_5/selection_metrics_by_fold.csv \
+             outputs_v9_5/fund_weight_search.csv \
+             outputs_v9_5/current_top50.csv \
+             published_v9_5/
+          git add published_v9_5
+          git diff --cached --quiet || git commit -m "Publish recovered V9.5 walk-forward results [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -1,0 +1,67 @@
+name: V9.5 Retry XBRL 2017-2019
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_retry_2017_2019.yml'
+
+jobs:
+  retry-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        year: [2017, 2018, 2019]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Download and normalize NSE financial XBRLs
+        run: |
+          YEAR="${{ matrix.year }}"
+          python src/build_fundamental_archive.py \
+            --from-date "${YEAR}-01-01" \
+            --to-date "${YEAR}-12-31" \
+            --output-dir "fund_archive/${YEAR}" \
+            --mapping config/xbrl_concept_map_v9_5.json
+
+      - name: Compress raw XBRL source archive
+        shell: bash
+        run: |
+          YEAR="${{ matrix.year }}"
+          if [ -d "fund_archive/${YEAR}/raw_xbrl" ]; then
+            tar -czf "fund_archive/${YEAR}/raw_xbrl_${YEAR}.tar.gz" \
+              -C "fund_archive/${YEAR}" raw_xbrl
+          fi
+
+      - name: Upload normalized annual archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-normalized-${{ matrix.year }}
+          path: |
+            fund_archive/${{ matrix.year }}/catalog.parquet
+            fund_archive/${{ matrix.year }}/fundamentals_normalized.parquet
+            fund_archive/${{ matrix.year }}/coverage.json
+            fund_archive/${{ matrix.year }}/errors.csv
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload compressed raw XBRL archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-raw-xbrl-${{ matrix.year }}
+          path: fund_archive/${{ matrix.year }}/raw_xbrl_${{ matrix.year }}.tar.gz
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: warn

@@ -1,0 +1,118 @@
+name: V9.5 Stable Calibration Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_stable_calibration.yml'
+
+concurrency:
+  group: v9-5-stable-calibration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Compile stable V9.5
+        run: |
+          python -m py_compile src/fund_calibration_stable.py
+          python -m py_compile src/calibrate_v9_5.py
+
+      - name: Download canonical monthly fundamentals
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-canonical-monthly-results
+          path: canonical
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36671379470
+
+      - name: Locate canonical fundamentals
+        run: |
+          F=$(find canonical -name fundamentals_all.parquet | head -1)
+          test -n "$F"
+          mkdir -p outputs_v9_5_stable
+          cp "$F" outputs_v9_5_stable/fundamentals_all.parquet
+
+      - name: Download verified market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run full stable-calibration V9.5
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5_stable/fundamentals_all.parquet \
+            --output outputs_v9_5_stable \
+            --legacy-dir legacy
+
+      - name: Verify production gates
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          s=json.load(open("outputs_v9_5_stable/summary.json"))
+          d=pd.read_parquet("outputs_v9_5_stable/fundamental_oos.parquet")
+          cal=d.dropna(subset=["y6","p_fund_cal"])
+          gate=s["production_fundamental_gate"]
+          status={
+              "first_calibrated_oos":str(pd.to_datetime(cal["date"]).min().date()) if len(cal) else None,
+              "calibrated_folds":int(cal["date"].nunique()),
+              "calibrated_rows":int(len(cal)),
+              "calibrated_positives":int(cal["y6"].sum()) if len(cal) else 0,
+              "calibration_policy":s.get("fundamental_calibration_policy"),
+              "gate":gate,
+              "requested_weight":s.get("production_requested_fundamental_weight"),
+              "applied_weight":s.get("production_applied_fundamental_weight"),
+              "candidate_coverage":s.get("production_candidate_coverage"),
+              "forward_history":s.get("forward_history"),
+          }
+          json.dump(status,open("outputs_v9_5_stable/stable_status.json","w"),indent=2,default=str)
+          print(json.dumps(status,indent=2,default=str))
+          PY
+
+      - name: Upload stable V9.5 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-stable-calibration-results
+          path: outputs_v9_5_stable/
+          retention-days: 90
+
+      - name: Publish compact stable results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          mkdir -p published_v9_5_stable
+          for f in \
+            summary.json stable_status.json \
+            fund_calibration_policy_comparison.json \
+            fund_calibration_diagnostics_by_fold.csv \
+            fund_calibrator_comparison.csv \
+            chosen_v95_weight_by_fold.csv fund_weight_search.csv \
+            selection_metrics_by_fold.csv current_top50.csv
+          do
+            [ -f "outputs_v9_5_stable/$f" ] && cp "outputs_v9_5_stable/$f" published_v9_5_stable/
+          done
+          git add published_v9_5_stable
+          git diff --cached --quiet || git commit -m "Publish stable-calibration V9.5 results [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

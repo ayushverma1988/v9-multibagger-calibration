@@ -9,3 +9,4 @@ lifelines>=0.30
 venn-abers>=1.4
 joblib>=1.4
 requests>=2.32
+lxml>=5.3

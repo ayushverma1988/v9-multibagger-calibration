@@ -1,0 +1,124 @@
+name: V9.5 Monthly PIT Eligibility Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_monthly_pit_recovery.yml'
+
+concurrency:
+  group: v9-5-monthly-pit-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download successful canonical monthly archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-canonical-monthly-results
+          path: canonical
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36651064480
+
+      - name: Locate canonical fundamentals
+        run: |
+          find canonical -maxdepth 4 -type f | sort | head -100
+          F=$(find canonical -name fundamentals_all.parquet | head -1)
+          test -n "$F"
+          mkdir -p outputs_v9_5_pit_fix
+          cp "$F" outputs_v9_5_pit_fix/fundamentals_all.parquet
+
+      - name: Download verified market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run V9.5 with corrected PIT specialization
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5_pit_fix/fundamentals_all.parquet \
+            --output outputs_v9_5_pit_fix \
+            --legacy-dir legacy
+
+      - name: Verify historical fundamental eligibility
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+
+          d=pd.read_parquet("outputs_v9_5_pit_fix/fundamental_oos.parquet")
+          raw=d.dropna(subset=["p_fund_raw"])
+          cal=d.dropna(subset=["p_fund_cal"])
+          cov=pd.read_csv("outputs_v9_5_pit_fix/snapshot_fundamental_coverage.csv")
+          live=cov[cov["date"]>="2015-01-01"].copy()
+
+          stats={
+              "first_raw_oos":str(pd.to_datetime(raw["date"]).min().date()) if len(raw) else None,
+              "raw_oos_folds":int(raw["date"].nunique()) if len(raw) else 0,
+              "raw_oos_rows":int(len(raw)),
+              "first_calibrated_oos":str(pd.to_datetime(cal["date"]).min().date()) if len(cal) else None,
+              "calibrated_oos_folds":int(cal["date"].nunique()) if len(cal) else 0,
+              "calibrated_oos_rows":int(len(cal)),
+              "calibrated_positives":int(cal["y6"].fillna(0).sum()) if len(cal) else 0,
+              "mean_usable_fraction_2018_plus":float(
+                  live[pd.to_datetime(live["date"]).dt.year>=2018]["fund_usable_fraction"].mean()
+              ) if len(live) else 0.0,
+              "mean_specialized_fraction_2018_plus":float(
+                  live[pd.to_datetime(live["date"]).dt.year>=2018]["specialized_financial_fraction"].mean()
+              ) if len(live) else 0.0,
+          }
+          stats["raw_oos_target_met"]=bool(
+              len(raw) and pd.to_datetime(raw["date"]).min().year<=2018
+          )
+          stats["calibrated_fold_target_met"]=bool(
+              int(cal["date"].nunique())>=8
+          )
+          json.dump(stats,open("outputs_v9_5_pit_fix/oos_history_status.json","w"),indent=2)
+          print(json.dumps(stats,indent=2))
+          PY
+
+      - name: Upload corrected PIT backtest
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-monthly-pit-recovery-results
+          path: outputs_v9_5_pit_fix/
+          retention-days: 90
+
+      - name: Publish compact corrected diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          mkdir -p published_v9_5_pit_fix
+          for f in \
+            summary.json oos_history_status.json snapshot_fundamental_coverage.csv \
+            fund_calibrator_comparison.csv chosen_v95_weight_by_fold.csv \
+            selection_metrics_by_fold.csv current_top50.csv
+          do
+            [ -f "outputs_v9_5_pit_fix/$f" ] && cp "outputs_v9_5_pit_fix/$f" published_v9_5_pit_fix/
+          done
+          git add published_v9_5_pit_fix
+          git diff --cached --quiet || git commit -m "Publish corrected V9.5 PIT eligibility results [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

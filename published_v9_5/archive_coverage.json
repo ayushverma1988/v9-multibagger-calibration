@@ -1,0 +1,28 @@
+{
+  "normalized_files": 43,
+  "normalized_rows": 127047,
+  "symbols": 2663,
+  "broadcast_start": "2017-01-02 18:42:04+00:00",
+  "broadcast_end": "2026-09-28 22:35:08+00:00",
+  "taxonomy_families": {
+    "generic_or_unknown": 123554,
+    "legacy_html_nonbanking": 3493
+  },
+  "field_coverage": {
+    "revenue": 0.6773634953993404,
+    "operating_profit": 0.6691696773634954,
+    "pbt": 0.8113926342219808,
+    "pat": 0.6880367108235534,
+    "finance_cost": 0.6851007894716129,
+    "total_assets": 0.3895881051894181,
+    "total_equity": 0.3826772769132683,
+    "total_debt": 0.032153455020582936,
+    "current_assets": 0.3790093429990476,
+    "current_liabilities": 0.37946586696262014,
+    "operating_cash_flow": 0.27444961313529637,
+    "capex": 0.2703251552575031,
+    "shares_outstanding": 0.0
+  },
+  "mapping_score_mean": 0.717032562970572,
+  "mapped_field_count_mean": 5.63873212275772
+}
