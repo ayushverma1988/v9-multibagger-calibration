@@ -5,6 +5,7 @@ on:
   push:
     branches: [ v9.6-label-data-integrity ]
     paths:
+      - 'src/calibrate_v9_2.py'
       - 'src/integrity_audit_v9_6.py'
       - '.github/workflows/v9_6a_integrity.yml'
 
