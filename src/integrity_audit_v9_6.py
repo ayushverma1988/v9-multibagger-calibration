@@ -30,11 +30,14 @@ def synthetic_market(days=140):
 
 def snapshot_from_day(daily, idx):
     r = daily.iloc[idx]
-    return pd.DataFrame([{
+    rec = {
         "date": r["date"],
         "symbol": r["symbol"],
         "adj_close": float(r["adj_close"]),
-    }])
+    }
+    if "security_key" in daily.columns:
+        rec["security_key"] = r["security_key"]
+    return pd.DataFrame([rec])
 
 
 def test_label_maturity():
@@ -99,6 +102,46 @@ def test_split_artifact_protection():
     z = base.add_labels(snapshot_from_day(daily, 0), daily, cfg).iloc[0]
     assert_true(z["y6"] == 0.0, "raw close split artifact leaked into 2x label")
     return {"split_artifact_rejected": True}
+
+
+def test_ticker_rename_continuity():
+    dates = pd.bdate_range("2024-01-02", periods=180)
+    daily = pd.DataFrame({
+        "date": dates,
+        "symbol": ["OLD"] * 90 + ["NEW"] * 90,
+        "isin": ["INE000TEST01"] * 180,
+        "close": 100.0,
+        "adj_close": 100.0,
+        "volume": 100_000.0,
+        "turnover": 10_000_000.0,
+    })
+    daily = base.add_security_key(daily)
+    feat = base.add_features(daily)
+
+    first_new = feat[feat["symbol"] == "NEW"].sort_values("date").iloc[0]
+    assert_true(
+        int(first_new["history_days"]) == 91,
+        "ticker rename reset feature history despite same known ISIN",
+    )
+
+    # A pre-rename snapshot must be able to observe a post-rename 2x event.
+    daily.loc[100:102, "adj_close"] = [205.0, 210.0, 208.0]
+    daily.loc[100:102, "close"] = [205.0, 210.0, 208.0]
+    cfg = {
+        "label_days": {"y6": 126, "y12": 252, "y24": 504},
+        "min_avg_turnover_63d": 5_000_000,
+    }
+    snap = snapshot_from_day(daily, 80)
+    z = base.add_labels(snap, daily, cfg).iloc[0]
+    assert_true(
+        z["y6"] == 1.0,
+        "ticker rename broke future label continuity for same ISIN",
+    )
+    return {
+        "feature_history_continues": True,
+        "pre_rename_label_sees_post_rename_hit": True,
+        "first_new_history_days": int(first_new["history_days"]),
+    }
 
 
 def fundamentals_fixture():
@@ -179,6 +222,7 @@ def main():
         "label_maturity": test_label_maturity(),
         "three_session_2x": test_three_session_2x_rule(),
         "corporate_action": test_split_artifact_protection(),
+        "ticker_rename_continuity": test_ticker_rename_continuity(),
         "fundamental_pit": test_fundamental_pit_and_revisions(),
         "static_checks": static_source_checks(),
     }
