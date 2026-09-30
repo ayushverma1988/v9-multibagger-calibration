@@ -1,0 +1,121 @@
+name: V9.6A Continuity-Aware Backtest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.6-label-data-integrity ]
+    paths:
+      - '.github/workflows/v9_6a_continuity_backtest.yml'
+
+concurrency:
+  group: v9-6a-continuity-backtest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Compile continuity-aware model
+        run: |
+          python -m py_compile src/calibrate_v9_2.py
+          python -m py_compile src/calibrate_v9_5.py
+
+      - name: Download canonical monthly fundamentals
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-canonical-monthly-results
+          path: canonical
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36671379470
+
+      - name: Locate canonical fundamentals
+        run: |
+          F=$(find canonical -name fundamentals_all.parquet | head -1)
+          test -n "$F"
+          mkdir -p outputs_v9_6a
+          cp "$F" outputs_v9_6a/fundamentals_all.parquet
+
+      - name: Download verified market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Download frozen V9.5 stable benchmark
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-stable-calibration-results
+          path: benchmark
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36700936515
+
+      - name: Run continuity-aware V9.6A
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_6a/fundamentals_all.parquet \
+            --output outputs_v9_6a \
+            --legacy-dir legacy
+
+      - name: Compare with frozen V9.5
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          old=json.load(open("benchmark/summary.json"))
+          new=json.load(open("outputs_v9_6a/summary.json"))
+          od=pd.read_parquet("benchmark/oos_predictions.parquet")
+          nd=pd.read_parquet("outputs_v9_6a/oos_predictions.parquet")
+
+          def top_summary(s):
+              return s.get("baseline_production_search",{})
+
+          ob=top_summary(old); nb=top_summary(new)
+          keys=["mean_precision_2x","mean_capped_lift_2x","hit_fold_rate","mean_dd30_rate"]
+          delta={k:(nb.get(k)-ob.get(k)) if nb.get(k) is not None and ob.get(k) is not None else None for k in keys}
+
+          old_sel=set(
+              od.loc[od.get("selected_v931",False)==True,["date","symbol"]]
+                .astype(str).agg("|".join,axis=1)
+          ) if "selected_v931" in od.columns else set()
+          new_sel=set(
+              nd.loc[nd.get("selected_v931",False)==True,["date","symbol"]]
+                .astype(str).agg("|".join,axis=1)
+          ) if "selected_v931" in nd.columns else set()
+
+          status={
+              "identity_policy":"known ISIN else contemporaneous symbol fallback",
+              "v95_baseline":ob,
+              "v96a_baseline":nb,
+              "delta":delta,
+              "selected_rows_changed":len(old_sel.symmetric_difference(new_sel)),
+              "new_fundamental_gate":new.get("production_fundamental_gate"),
+              "old_fundamental_gate":old.get("production_fundamental_gate"),
+              "new_calibration_policy":new.get("fundamental_calibration_policy"),
+          }
+          json.dump(status,open("outputs_v9_6a/continuity_comparison.json","w"),indent=2,default=str)
+          print(json.dumps(status,indent=2,default=str))
+          PY
+
+      - name: Upload V9.6A backtest
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-6a-continuity-backtest
+          path: outputs_v9_6a/
+          retention-days: 90
