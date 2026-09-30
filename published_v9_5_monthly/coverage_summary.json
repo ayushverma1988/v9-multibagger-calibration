@@ -81,13 +81,13 @@
       "symbols": 1692,
       "revenue": 0.9872469722257885,
       "pat": 0.9871185860401421,
-      "operating_profit": 0.7417297898746095,
+      "operating_profit": 0.9872469722257885,
       "pbt": 0.987375358411435,
       "finance_cost": 0.9872469722257885,
       "assets": 0.056061967732272004,
       "equity": 0.056061967732272004,
-      "mean_fields": 6.021140925236445,
-      "mean_mapping_score": 0.9021235966730442
+      "mean_fields": 6.266658107587624,
+      "mean_mapping_score": 0.8909343346067059
     },
     {
       "year": 2021,
@@ -95,13 +95,13 @@
       "symbols": 1785,
       "revenue": 0.9906850607239712,
       "pat": 0.9906850607239712,
-      "operating_profit": 0.3159611681012459,
+      "operating_profit": 0.9906850607239712,
       "pbt": 0.9906850607239712,
       "finance_cost": 0.9906850607239712,
       "assets": 0.06119561372479661,
       "equity": 0.06119561372479661,
-      "mean_fields": 6.077506583343159,
-      "mean_mapping_score": 0.92641484422218
+      "mean_fields": 6.752230475965884,
+      "mean_mapping_score": 0.893458778409167
     },
     {
       "year": 2022,
@@ -109,13 +109,13 @@
       "symbols": 1872,
       "revenue": 0.9944852941176471,
       "pat": 0.9944852941176471,
-      "operating_profit": 0.2992196878751501,
+      "operating_profit": 0.9944852941176471,
       "pbt": 0.9944852941176471,
       "finance_cost": 0.9944852941176471,
       "assets": 0.27093337334933976,
       "equity": 0.26740696278511406,
-      "mean_fields": 7.161952280912365,
-      "mean_mapping_score": 0.9247182760438654
+      "mean_fields": 7.857217887154862,
+      "mean_mapping_score": 0.8956286092100663
     },
     {
       "year": 2023,
@@ -123,13 +123,13 @@
       "symbols": 1976,
       "revenue": 0.9889483480688692,
       "pat": 0.9889483480688692,
-      "operating_profit": 0.41513494648673804,
+      "operating_profit": 0.9889483480688692,
       "pbt": 0.9889483480688692,
       "finance_cost": 0.9889483480688692,
       "assets": 0.5751512331316891,
       "equity": 0.5720684039087948,
-      "mean_fields": 9.141344811540252,
-      "mean_mapping_score": 0.903074025632743
+      "mean_fields": 9.715158213122383,
+      "mean_mapping_score": 0.8887067793029949
     },
     {
       "year": 2024,
@@ -137,13 +137,13 @@
       "symbols": 2098,
       "revenue": 1.0,
       "pat": 1.0,
-      "operating_profit": 0.3930563460443939,
+      "operating_profit": 1.0,
       "pbt": 1.0,
       "finance_cost": 1.0,
       "assets": 0.6188389299943085,
       "equity": 0.6076266363118953,
-      "mean_fields": 9.457882754695504,
-      "mean_mapping_score": 0.9142714697488501
+      "mean_fields": 10.06482640865111,
+      "mean_mapping_score": 0.8991496786145032
     },
     {
       "year": 2025,
@@ -151,13 +151,13 @@
       "symbols": 2270,
       "revenue": 0.9999560458880928,
       "pat": 0.9999560458880928,
-      "operating_profit": 0.3308865544371676,
+      "operating_profit": 0.9983297437475276,
       "pbt": 0.9999560458880928,
       "finance_cost": 0.9965715792712408,
       "assets": 0.67241000395587,
       "equity": 0.6607621643004703,
-      "mean_fields": 9.204254758032613,
-      "mean_mapping_score": 0.9170219183009468
+      "mean_fields": 9.871697947342973,
+      "mean_mapping_score": 0.8991039050002019
     },
     {
       "year": 2026,
@@ -165,13 +165,13 @@
       "symbols": 2372,
       "revenue": 1.0,
       "pat": 1.0,
-      "operating_profit": 0.5620667617127968,
+      "operating_profit": 0.9980826901332285,
       "pbt": 1.0,
       "finance_cost": 0.9962145420579126,
       "assets": 0.4122216213558822,
       "equity": 0.40253674843911313,
-      "mean_fields": 7.920013765301608,
-      "mean_mapping_score": 0.9133532571146418
+      "mean_fields": 8.35602969372204,
+      "mean_mapping_score": 0.900683679574125
     }
   ]
 }

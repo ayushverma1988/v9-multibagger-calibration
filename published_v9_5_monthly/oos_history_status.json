@@ -1,11 +1,11 @@
 {
-  "first_raw_oos": null,
-  "raw_oos_folds": 0,
-  "raw_oos_rows": 0,
-  "first_calibrated_oos": null,
-  "calibrated_oos_folds": 0,
-  "calibrated_oos_rows": 0,
-  "calibrated_positives": 0,
-  "raw_oos_target_met": false,
+  "first_raw_oos": "2017-12-29",
+  "raw_oos_folds": 18,
+  "raw_oos_rows": 12368,
+  "first_calibrated_oos": "2023-12-29",
+  "calibrated_oos_folds": 5,
+  "calibrated_oos_rows": 5588,
+  "calibrated_positives": 158,
+  "raw_oos_target_met": true,
   "calibrated_fold_target_met": false
 }

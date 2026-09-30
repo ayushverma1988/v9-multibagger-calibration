@@ -5,19 +5,24 @@
   "data_end": "2026-09-29",
   "fundamental_data_rows": 169679,
   "fundamental_symbols": 2757,
-  "fundamental_raw_oos_rows": 0,
-  "fundamental_calibrated_oos_rows": 0,
-  "best_fundamental_calibrator": "none",
+  "fundamental_raw_oos_rows": 12368,
+  "fundamental_calibrated_oos_rows": 5588,
+  "best_fundamental_calibrator": "isotonic",
   "production_fundamental_gate": {
+    "n": 5588,
+    "positives": 158,
+    "base_rate": 0.028274874731567645,
+    "pr_auc": 0.03657737378020802,
+    "pr_auc_lift": 1.2936352195177367,
+    "brier": 0.027753941610362962,
+    "logloss": 0.13216822989064383,
+    "calibration_slope": 1.0503813418031547,
+    "calibration_intercept": -0.3437250046338006,
     "passed": false,
     "reasons": [
-      "n<3000",
-      "positives<100",
-      "folds<8",
-      "pr_auc_lift<1.1",
-      "calibration_slope<0.5"
+      "folds<8"
     ],
-    "folds": 0
+    "folds": 5
   },
   "production_risk_config": {
     "name": "N100_drop0.50_s0.15_c0.05",
@@ -31,8 +36,8 @@
   "production_applied_fundamental_weight": 0.0,
   "production_candidate_coverage": {
     "survivors": 50,
-    "covered": 0,
-    "coverage": 0.0
+    "covered": 45,
+    "coverage": 0.9
   },
   "forward_history": {
     "V9.5": {
@@ -47,7 +52,7 @@
       "median_dd30_rate": 0.3,
       "mean_fund_weight": 0.0,
       "active_fund_folds": 0,
-      "mean_candidate_coverage": 0.0
+      "mean_candidate_coverage": 0.25111111111111106
     },
     "V9.4.1_V9.3.1": {
       "folds": 18,
@@ -61,7 +66,7 @@
       "median_dd30_rate": 0.3,
       "mean_fund_weight": 0.0,
       "active_fund_folds": 0,
-      "mean_candidate_coverage": 0.0
+      "mean_candidate_coverage": 0.25111111111111106
     },
     "V9.5_alpha_retention_ratios": {
       "mean_precision_2x": 1.0,
@@ -79,7 +84,7 @@
     "hit_folds": 17,
     "mean_dd30_rate": 0.34615384615384615,
     "median_dd30_rate": 0.3,
-    "mean_candidate_coverage": 0.0,
+    "mean_candidate_coverage": 0.17384615384615382,
     "median_candidate_coverage": 0.0,
     "applied_fold_rate": 0.0,
     "applied_folds": 0
