@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 
 BASE = "https://www.nseindia.com"
+ANNOUNCEMENTS_PAGE = BASE + "/companies-listing/corporate-filings-announcements"
 API = BASE + "/api/corporate-announcements"
 
 HEADERS = {
@@ -22,7 +23,7 @@ HEADERS = {
     ),
     "accept-language": "en-US,en;q=0.9",
     "accept": "application/json,text/plain,*/*",
-    "referer": BASE + "/companies-listing/corporate-filings-announcements",
+    "referer": ANNOUNCEMENTS_PAGE,
 }
 
 EVENT_RULES = [
@@ -46,7 +47,10 @@ EVENT_RULES = [
 
 def request_session() -> requests.Session:
     s = requests.Session()
-    r = s.get(BASE, headers=HEADERS, timeout=45)
+    # NSE's root page can return Akamai 403 to cloud runners even when the
+    # corporate-filings page/API are accessible. Warm cookies from the exact
+    # filings page used by this endpoint instead of from the site root.
+    r = s.get(ANNOUNCEMENTS_PAGE, headers=HEADERS, timeout=45)
     r.raise_for_status()
     return s
 
