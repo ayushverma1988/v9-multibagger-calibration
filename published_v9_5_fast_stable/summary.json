@@ -1,0 +1,82 @@
+{
+  "calibration_policy": "rank_platt_anchor_r8",
+  "fundamental_gate": {
+    "n": 9187,
+    "positives": 354,
+    "base_rate": 0.038532709263089146,
+    "pr_auc": 0.04968092806671159,
+    "pr_auc_lift": 1.2893183224544615,
+    "brier": 0.03728487872690745,
+    "logloss": 0.16548645636311157,
+    "calibration_slope": 0.7167829245036684,
+    "calibration_intercept": -1.1639308912377873,
+    "passed": true,
+    "reasons": [],
+    "folds": 9
+  },
+  "requested_weight": 0.0,
+  "applied_current_weight": 0.0,
+  "current_candidate_coverage": {
+    "survivors": 50,
+    "covered": 45,
+    "coverage": 0.9
+  },
+  "forward_history": {
+    "V9.5": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 2.9645271398726636,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_fund_weight": 0.0,
+      "active_fund_folds": 0,
+      "mean_candidate_coverage": 0.44382716049382714
+    },
+    "baseline": {
+      "folds": 18,
+      "mean_precision_2x": 0.10000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 2.9645271398726636,
+      "median_lift_2x": 1.5985294117647058,
+      "hit_fold_rate": 0.5555555555555556,
+      "hit_folds": 10,
+      "mean_dd30_rate": 0.41666666666666663,
+      "median_dd30_rate": 0.3,
+      "mean_fund_weight": 0.0,
+      "active_fund_folds": 0,
+      "mean_candidate_coverage": 0.44382716049382714
+    },
+    "alpha_retention_ratios": {
+      "mean_precision_2x": 1.0,
+      "mean_capped_lift_2x": 1.0,
+      "hit_fold_rate": 1.0,
+      "median_precision_2x": 1.0
+    }
+  },
+  "baseline_search": {
+    "folds": 26,
+    "mean_precision_2x": 0.11538461538461539,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 3.2634658967237886,
+    "hit_fold_rate": 0.6538461538461539,
+    "hit_folds": 17,
+    "mean_dd30_rate": 0.34615384615384615,
+    "median_dd30_rate": 0.3,
+    "mean_candidate_coverage": 0.30230769230769233,
+    "median_candidate_coverage": 0.0,
+    "applied_fold_rate": 0.0,
+    "applied_folds": 0
+  },
+  "production_risk_config": {
+    "name": "N100_drop0.50_s0.15_c0.05",
+    "pool_n": 100,
+    "risk_drop": 0.5,
+    "w_safety": 0.15,
+    "w_consensus": 0.05,
+    "baseline": false
+  }
+}
