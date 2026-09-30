@@ -1,0 +1,74 @@
+name: V9.5 Conditional Fundamental Overlay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_fundamental_overlay.yml'
+
+concurrency:
+  group: v9-5-fundamental-overlay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  overlay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Compile overlay challenger
+        run: python -m py_compile src/fundamental_overlay_v9_5.py
+
+      - name: Download stable V9.5 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-stable-calibration-results
+          path: stable
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36700936515
+
+      - name: Run conditional overlay
+        run: |
+          python src/fundamental_overlay_v9_5.py \
+            --oos stable/oos_predictions.parquet \
+            --chosen931 stable/chosen_v931_config_by_fold.csv \
+            --current stable/current_selection.csv \
+            --summary stable/summary.json \
+            --config config_v9_5.json \
+            --output outputs_v9_5_overlay
+
+      - name: Upload overlay results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-conditional-overlay-results
+          path: outputs_v9_5_overlay/
+          retention-days: 90
+
+      - name: Publish compact overlay diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          mkdir -p published_v9_5_overlay
+          cp outputs_v9_5_overlay/summary.json \
+             outputs_v9_5_overlay/overlay_policy_diagnostic.csv \
+             outputs_v9_5_overlay/overlay_decisions_by_fold.csv \
+             outputs_v9_5_overlay/overlay_forward_metrics.csv \
+             outputs_v9_5_overlay/current_overlay_search.csv \
+             outputs_v9_5_overlay/current_top50.csv \
+             published_v9_5_overlay/
+          git add published_v9_5_overlay
+          git diff --cached --quiet || git commit -m "Publish V9.5 conditional overlay results [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
