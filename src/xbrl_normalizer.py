@@ -261,33 +261,72 @@ def map_concept(
 
 
 def classify_taxonomy(namespaces: set[str], concepts: list[str]) -> str:
-    s = (
-        " ".join(sorted(namespaces)).lower()
-        + " "
-        + " ".join(concepts[:500]).lower()
-    )
-    ns = norm_name(s)
+    ns_text = " ".join(sorted(namespaces)).lower()
+    concept_norm = {norm_name(x) for x in concepts[:1200]}
 
-    if any(x in ns for x in ["lifeinsurance", "lifeins", "insurancelife"]):
+    # Strong namespace evidence takes precedence.
+    ns_norm = norm_name(ns_text)
+    if any(x in ns_norm for x in ["lifeinsurance", "lifeinsurancetaxonomy"]):
         return "life_insurance"
-    if any(x in ns for x in ["generalinsurance", "nonlifeinsurance", "insurancenonlife"]):
+    if any(x in ns_norm for x in ["generalinsurance", "nonlifeinsurance"]):
         return "general_insurance"
-    if "insurance" in ns or "premiumincome" in ns:
+    if "insurancetaxonomy" in ns_norm:
         return "insurance"
-    if any(x in ns for x in [
-        "banking", "banktaxonomy", "interestearned", "interestexpended",
-        "advances", "deposits",
-    ]):
+    if any(x in ns_norm for x in ["bankingtaxonomy", "banktaxonomy"]):
         return "banking"
-    if any(x in ns for x in [
-        "nbfc", "nonbankingfinancial", "financecompany",
-        "finanicalassets", "financialassetsnonfinancialassets",
-        "debtsecurities", "subordinatedliabilities",
-    ]):
+    if any(x in ns_norm for x in ["nbfctaxonomy", "nonbankingfinancial"]):
         return "nbfc"
-    if any(x in ns for x in ["indas", "indianaccountingstandards", "indasxbrl"]):
+
+    # Concept-cluster evidence. A single generic word such as deposits,
+    # advances, insurance or interest must never be enough by itself.
+    bank_markers = [
+        "interestearned",
+        "interestexpended",
+        "deposits",
+        "advances",
+        "provisionsandcontingencies",
+        "grossnonperformingassets",
+        "netnonperformingassets",
+        "capitaladequacyratio",
+    ]
+    bank_hits = sum(any(m in x for x in concept_norm) for m in bank_markers)
+    if bank_hits >= 4 and (
+        any("interestearned" in x for x in concept_norm)
+        and any("interestexpended" in x for x in concept_norm)
+    ):
+        return "banking"
+
+    insurance_markers = [
+        "premiumincome",
+        "premiumearned",
+        "grosspremium",
+        "claimsincurred",
+        "underwritingprofit",
+        "policyholder",
+        "solvencymargin",
+    ]
+    insurance_hits = sum(any(m in x for x in concept_norm) for m in insurance_markers)
+    if insurance_hits >= 3:
+        if any("lifeinsurance" in x for x in concept_norm):
+            return "life_insurance"
+        if any("generalinsurance" in x or "nonlife" in x for x in concept_norm):
+            return "general_insurance"
+        return "insurance"
+
+    nbfc_markers = [
+        "nonbankingfinancial",
+        "financialassetsatamortisedcost",
+        "impairmentonfinancialinstruments",
+        "debtsecurities",
+        "subordinatedliabilities",
+    ]
+    nbfc_hits = sum(any(m in x for x in concept_norm) for m in nbfc_markers)
+    if nbfc_hits >= 3:
+        return "nbfc"
+
+    if any(x in ns_norm for x in ["indas", "indianaccountingstandards", "indasxbrl"]):
         return "ind_as"
-    if any(x in ns for x in ["ingaap", "indiangaap", "gaaptaxonomy"]):
+    if any(x in ns_norm for x in ["ingaap", "indiangaap", "gaaptaxonomy"]):
         return "indian_gaap"
     return "generic_or_unknown"
 
