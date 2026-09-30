@@ -1,0 +1,71 @@
+name: V9.5 Calibration Stability
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - 'src/calibration_stability_v9_5.py'
+      - '.github/workflows/v9_5_calibration_stability.yml'
+
+concurrency:
+  group: v9-5-calibration-stability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Compile stability diagnostic
+        run: python -m py_compile src/calibration_stability_v9_5.py
+
+      - name: Download nine-fold V9.5 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-eightfold-calibration-results
+          path: source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36688186328
+
+      - name: Run leakage-free calibration stability challengers
+        run: |
+          F=$(find source -name fundamental_oos.parquet | head -1)
+          test -n "$F"
+          python src/calibration_stability_v9_5.py \
+            --input "$F" \
+            --config config_v9_5.json \
+            --output outputs_v9_5_cal_stability
+
+      - name: Upload stability results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-calibration-stability-results
+          path: outputs_v9_5_cal_stability/
+          retention-days: 90
+
+      - name: Publish compact diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          mkdir -p published_v9_5_cal_stability
+          cp outputs_v9_5_cal_stability/summary.json \
+             outputs_v9_5_cal_stability/calibration_policy_comparison.csv \
+             outputs_v9_5_cal_stability/calibration_by_fold.csv \
+             outputs_v9_5_cal_stability/raw_signal_by_fold.csv \
+             published_v9_5_cal_stability/
+          git add published_v9_5_cal_stability
+          git diff --cached --quiet || git commit -m "Publish V9.5 calibration stability diagnostics [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
