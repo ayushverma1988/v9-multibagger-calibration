@@ -1,0 +1,130 @@
+{
+  "version": "v9.7-events-1",
+  "event_types": {
+    "order_win": [
+      "order win",
+      "contract award",
+      "letter of award",
+      "purchase order"
+    ],
+    "capacity_expansion": [
+      "capacity expansion",
+      "new plant",
+      "commissioning",
+      "capex completion"
+    ],
+    "debt_reduction": [
+      "debt reduction",
+      "prepayment",
+      "repayment",
+      "deleveraging"
+    ],
+    "credit_rating": [
+      "rating upgrade",
+      "rating downgrade",
+      "outlook revision",
+      "credit watch"
+    ],
+    "promoter_activity": [
+      "promoter purchase",
+      "promoter sale",
+      "insider transaction"
+    ],
+    "pledge_change": [
+      "pledge created",
+      "pledge released",
+      "pledge invoked"
+    ],
+    "dilution": [
+      "preferential allotment",
+      "warrant",
+      "qip",
+      "rights issue",
+      "esop dilution"
+    ],
+    "buyback": [
+      "buyback",
+      "share repurchase"
+    ],
+    "management_change": [
+      "ceo appointment",
+      "cfo appointment",
+      "resignation",
+      "key managerial personnel"
+    ],
+    "auditor_change": [
+      "auditor resignation",
+      "auditor appointment",
+      "qualified opinion"
+    ],
+    "regulatory": [
+      "regulatory action",
+      "show cause",
+      "penalty",
+      "ban",
+      "inspection"
+    ],
+    "litigation": [
+      "litigation",
+      "court order",
+      "arbitration"
+    ],
+    "customer_supplier": [
+      "customer win",
+      "customer loss",
+      "supplier disruption"
+    ],
+    "earnings": [
+      "results",
+      "profit warning",
+      "guidance",
+      "earnings surprise"
+    ],
+    "corporate_action": [
+      "split",
+      "bonus",
+      "merger",
+      "demerger",
+      "scheme of arrangement"
+    ]
+  },
+  "required_columns": [
+    "event_id",
+    "published_ts",
+    "source",
+    "source_record_id",
+    "symbol",
+    "isin",
+    "security_key",
+    "headline",
+    "event_type",
+    "event_direction",
+    "event_strength",
+    "document_url",
+    "raw_text_hash"
+  ],
+  "pit_rules": {
+    "known_only_after_published_ts": true,
+    "same_timestamp_snapshot_excluded": true,
+    "no_current_company_metadata_backfill": true,
+    "revisions_append_only": true,
+    "duplicate_key": [
+      "source",
+      "source_record_id"
+    ],
+    "security_identity": "known ISIN at event time else contemporaneous symbol fallback"
+  },
+  "modeling_policy": {
+    "initial_features": [
+      "event_count_30d",
+      "event_count_90d",
+      "positive_event_strength_90d",
+      "negative_event_strength_90d",
+      "event_novelty_90d",
+      "days_since_positive_event",
+      "days_since_negative_event"
+    ],
+    "initial_weight": 0,
+    "promotion_gate": "must improve strictly forward OOS while retaining >=95% validated alpha"
+  }
+}
