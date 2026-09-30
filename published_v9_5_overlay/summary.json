@@ -1,0 +1,257 @@
+{
+  "experiment": "V9.5 conditional fundamental overlay",
+  "production_calibration": "rank_platt_anchor_r8",
+  "policy_types": [
+    "bottom-fundamental veto inside risk survivors",
+    "high-fundamental confirmation bonus inside risk survivors",
+    "veto+confirmation hybrid"
+  ],
+  "leakage_policy": "each historical policy is selected only from strictly prior folds; current fold outcomes are never used; low coverage or failed prior fundamental gate falls back exactly to V9.4.1",
+  "diagnostic_best": {
+    "name": "confirm70_b10",
+    "veto_q": 0.0,
+    "confirm_q": 0.7,
+    "confirm_bonus": 0.1,
+    "folds": 9,
+    "mean_precision_2x": 0.13333333333333333,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 3.2171427963911623,
+    "hit_fold_rate": 0.5555555555555556,
+    "hit_folds": 5,
+    "mean_dd30_rate": 0.3333333333333333,
+    "median_dd30_rate": 0.2,
+    "mean_coverage": 0.8876543209876542,
+    "applied_folds": 9,
+    "feasible": true,
+    "utility": 1.0965384445744097,
+    "utility_gain": 0.09653844457440974
+  },
+  "forward_active_folds": 1,
+  "forward_decisions": [
+    {
+      "date": "2017-06-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2017-12-29 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2018-06-29 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2018-12-31 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2019-06-28 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2019-12-31 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2020-06-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2020-12-31 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2021-06-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.0,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2021-12-31 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 0,
+      "current_coverage": 0.8888888888888888,
+      "eligible_prior_folds": 0,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2022-06-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 1,
+      "current_coverage": 0.9,
+      "eligible_prior_folds": 1,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2022-12-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 2,
+      "current_coverage": 0.86,
+      "eligible_prior_folds": 2,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2023-06-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 3,
+      "current_coverage": 0.82,
+      "eligible_prior_folds": 3,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2023-12-29 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 4,
+      "current_coverage": 0.92,
+      "eligible_prior_folds": 4,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2024-06-28 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 5,
+      "current_coverage": 0.86,
+      "eligible_prior_folds": 5,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2024-12-31 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 6,
+      "current_coverage": 0.94,
+      "eligible_prior_folds": 6,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2025-06-30 00:00:00",
+      "policy": "baseline",
+      "overlay_applied": false,
+      "prior_fund_gate": false,
+      "prior_fund_folds": 7,
+      "current_coverage": 0.88,
+      "eligible_prior_folds": 7,
+      "train_utility_gain": NaN,
+      "train_precision": NaN
+    },
+    {
+      "date": "2025-12-31 00:00:00",
+      "policy": "confirm70_b10",
+      "overlay_applied": true,
+      "prior_fund_gate": true,
+      "prior_fund_folds": 8,
+      "current_coverage": 0.92,
+      "eligible_prior_folds": 8,
+      "train_utility_gain": 0.09563889434952211,
+      "train_precision": 0.15
+    }
+  ],
+  "current_policy": {
+    "name": "confirm70_b10",
+    "veto_q": 0.0,
+    "confirm_q": 0.7,
+    "confirm_bonus": 0.1
+  },
+  "current_overlay_applied": true,
+  "current_coverage": {
+    "survivors": 50,
+    "covered": 45,
+    "coverage": 0.9
+  },
+  "prior_fundamental_gate": {
+    "n": 9187,
+    "positives": 354,
+    "base_rate": 0.038532709263089146,
+    "pr_auc": 0.04727527171450867,
+    "pr_auc_lift": 1.2268867831672066,
+    "brier": 0.03728787535920565,
+    "logloss": 0.16538173387482588,
+    "calibration_slope": 0.7522951670759143,
+    "calibration_intercept": -1.0626541734713226,
+    "passed": true,
+    "reasons": [],
+    "folds": 9
+  },
+  "remaining_requirement": "promote overlay only if prior-fold search finds a non-baseline policy with >=95% alpha retention and >= configured utility gain"
+}
