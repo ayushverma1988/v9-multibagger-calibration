@@ -23,7 +23,9 @@ jobs:
       - name: Compile integrity audit
         run: python -m py_compile src/integrity_audit_v9_6.py
       - name: Run integrity audit
+        shell: bash
         run: |
+          set -o pipefail
           PYTHONPATH=src python src/integrity_audit_v9_6.py | tee integrity_v9_6.json
       - name: Upload integrity result
         uses: actions/upload-artifact@v4
