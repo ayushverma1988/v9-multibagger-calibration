@@ -40,6 +40,7 @@ jobs:
         run: |
           python src/robustness_liquidity_v9_9.py \
             --oos v941/oos_predictions.parquet \
+            --snapshot v941/snapshot_dataset.parquet \
             --bootstrap 10000 \
             --output outputs_v9_9
 
