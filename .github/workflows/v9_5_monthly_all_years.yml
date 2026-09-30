@@ -1,0 +1,806 @@
+name: V9.5 Canonical Monthly 2015-2026
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.5-fundamental-turnaround ]
+    paths:
+      - '.github/workflows/v9_5_monthly_all_years.yml'
+
+jobs:
+  monthly-legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - year: 2015
+            month: 1
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-1
+            raw_pattern: v9-5-warmup-raw-2015-1
+          - year: 2015
+            month: 2
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-2
+            raw_pattern: v9-5-warmup-raw-2015-2
+          - year: 2015
+            month: 3
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-3
+            raw_pattern: v9-5-warmup-raw-2015-3
+          - year: 2015
+            month: 4
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-4
+            raw_pattern: v9-5-warmup-raw-2015-4
+          - year: 2015
+            month: 5
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-5
+            raw_pattern: v9-5-warmup-raw-2015-5
+          - year: 2015
+            month: 6
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-6
+            raw_pattern: v9-5-warmup-raw-2015-6
+          - year: 2015
+            month: 7
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-7
+            raw_pattern: v9-5-warmup-raw-2015-7
+          - year: 2015
+            month: 8
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-8
+            raw_pattern: v9-5-warmup-raw-2015-8
+          - year: 2015
+            month: 9
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-9
+            raw_pattern: v9-5-warmup-raw-2015-9
+          - year: 2015
+            month: 10
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-10
+            raw_pattern: v9-5-warmup-raw-2015-10
+          - year: 2015
+            month: 11
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-11
+            raw_pattern: v9-5-warmup-raw-2015-11
+          - year: 2015
+            month: 12
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2015-12
+            raw_pattern: v9-5-warmup-raw-2015-12
+          - year: 2016
+            month: 1
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-1
+            raw_pattern: v9-5-warmup-raw-2016-1
+          - year: 2016
+            month: 2
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-2
+            raw_pattern: v9-5-warmup-raw-2016-2
+          - year: 2016
+            month: 3
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-3
+            raw_pattern: v9-5-warmup-raw-2016-3
+          - year: 2016
+            month: 4
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-4
+            raw_pattern: v9-5-warmup-raw-2016-4
+          - year: 2016
+            month: 5
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-5
+            raw_pattern: v9-5-warmup-raw-2016-5
+          - year: 2016
+            month: 6
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-6
+            raw_pattern: v9-5-warmup-raw-2016-6
+          - year: 2016
+            month: 7
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-7
+            raw_pattern: v9-5-warmup-raw-2016-7
+          - year: 2016
+            month: 8
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-8
+            raw_pattern: v9-5-warmup-raw-2016-8
+          - year: 2016
+            month: 9
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-9
+            raw_pattern: v9-5-warmup-raw-2016-9
+          - year: 2016
+            month: 10
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-10
+            raw_pattern: v9-5-warmup-raw-2016-10
+          - year: 2016
+            month: 11
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-11
+            raw_pattern: v9-5-warmup-raw-2016-11
+          - year: 2016
+            month: 12
+            run_id: 36597797230
+            catalog_pattern: v9-5-warmup-2016-12
+            raw_pattern: v9-5-warmup-raw-2016-12
+          - year: 2017
+            month: 1
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-1
+            raw_pattern: v9-5-month-raw-2017-1
+          - year: 2017
+            month: 2
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-2
+            raw_pattern: v9-5-month-raw-2017-2
+          - year: 2017
+            month: 3
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-3
+            raw_pattern: v9-5-month-raw-2017-3
+          - year: 2017
+            month: 4
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-4
+            raw_pattern: v9-5-month-raw-2017-4
+          - year: 2017
+            month: 5
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-5
+            raw_pattern: v9-5-month-raw-2017-5
+          - year: 2017
+            month: 6
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-6
+            raw_pattern: v9-5-month-raw-2017-6
+          - year: 2017
+            month: 7
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-7
+            raw_pattern: v9-5-month-raw-2017-7
+          - year: 2017
+            month: 8
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-8
+            raw_pattern: v9-5-month-raw-2017-8
+          - year: 2017
+            month: 9
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-9
+            raw_pattern: v9-5-month-raw-2017-9
+          - year: 2017
+            month: 10
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-10
+            raw_pattern: v9-5-month-raw-2017-10
+          - year: 2017
+            month: 11
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-11
+            raw_pattern: v9-5-month-raw-2017-11
+          - year: 2017
+            month: 12
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2017-12
+            raw_pattern: v9-5-month-raw-2017-12
+          - year: 2018
+            month: 1
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-1
+            raw_pattern: v9-5-month-raw-2018-1
+          - year: 2018
+            month: 2
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-2
+            raw_pattern: v9-5-month-raw-2018-2
+          - year: 2018
+            month: 3
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-3
+            raw_pattern: v9-5-month-raw-2018-3
+          - year: 2018
+            month: 4
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-4
+            raw_pattern: v9-5-month-raw-2018-4
+          - year: 2018
+            month: 5
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-5
+            raw_pattern: v9-5-month-raw-2018-5
+          - year: 2018
+            month: 6
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-6
+            raw_pattern: v9-5-month-raw-2018-6
+          - year: 2018
+            month: 7
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-7
+            raw_pattern: v9-5-month-raw-2018-7
+          - year: 2018
+            month: 8
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-8
+            raw_pattern: v9-5-month-raw-2018-8
+          - year: 2018
+            month: 9
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-9
+            raw_pattern: v9-5-month-raw-2018-9
+          - year: 2018
+            month: 10
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-10
+            raw_pattern: v9-5-month-raw-2018-10
+          - year: 2018
+            month: 11
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-11
+            raw_pattern: v9-5-month-raw-2018-11
+          - year: 2018
+            month: 12
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2018-12
+            raw_pattern: v9-5-month-raw-2018-12
+          - year: 2019
+            month: 1
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-1
+            raw_pattern: v9-5-month-raw-2019-1
+          - year: 2019
+            month: 2
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-2
+            raw_pattern: v9-5-month-raw-2019-2
+          - year: 2019
+            month: 3
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-3
+            raw_pattern: v9-5-month-raw-2019-3
+          - year: 2019
+            month: 4
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-4
+            raw_pattern: v9-5-month-raw-2019-4
+          - year: 2019
+            month: 5
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-5
+            raw_pattern: v9-5-month-raw-2019-5
+          - year: 2019
+            month: 6
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-6
+            raw_pattern: v9-5-month-raw-2019-6
+          - year: 2019
+            month: 7
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-7
+            raw_pattern: v9-5-month-raw-2019-7
+          - year: 2019
+            month: 8
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-8
+            raw_pattern: v9-5-month-raw-2019-8
+          - year: 2019
+            month: 9
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-9
+            raw_pattern: v9-5-month-raw-2019-9
+          - year: 2019
+            month: 10
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-10
+            raw_pattern: v9-5-month-raw-2019-10
+          - year: 2019
+            month: 11
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-11
+            raw_pattern: v9-5-month-raw-2019-11
+          - year: 2019
+            month: 12
+            run_id: 36551081317
+            catalog_pattern: v9-5-month-2019-12
+            raw_pattern: v9-5-month-raw-2019-12
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Compile month normalizer
+        run: python -m py_compile src/renormalize_saved_month.py
+
+      - name: Download month catalog checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ matrix.catalog_pattern }}
+          path: source_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: ${{ matrix.run_id }}
+
+      - name: Download month raw checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ matrix.raw_pattern }}
+          path: source_raw
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: ${{ matrix.run_id }}
+
+      - name: Re-normalize and audit one month
+        run: |
+          Y="${{ matrix.year }}"
+          M="${{ matrix.month }}"
+          MM=$(printf "%02d" "$M")
+          python src/renormalize_saved_month.py \
+            --year "$Y" \
+            --month "$M" \
+            --source-kind monthly \
+            --catalog-root source_catalog \
+            --raw-root source_raw \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "month_out/${Y}-${MM}"
+
+      - name: Upload canonical monthly checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-monthly-renorm-${{ matrix.year }}-${{ matrix.month }}
+          path: month_out/
+          retention-days: 90
+          if-no-files-found: error
+
+  monthly-modern:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - year: 2020
+            month: 1
+          - year: 2020
+            month: 2
+          - year: 2020
+            month: 3
+          - year: 2020
+            month: 4
+          - year: 2020
+            month: 5
+          - year: 2020
+            month: 6
+          - year: 2020
+            month: 7
+          - year: 2020
+            month: 8
+          - year: 2020
+            month: 9
+          - year: 2020
+            month: 10
+          - year: 2020
+            month: 11
+          - year: 2020
+            month: 12
+          - year: 2021
+            month: 1
+          - year: 2021
+            month: 2
+          - year: 2021
+            month: 3
+          - year: 2021
+            month: 4
+          - year: 2021
+            month: 5
+          - year: 2021
+            month: 6
+          - year: 2021
+            month: 7
+          - year: 2021
+            month: 8
+          - year: 2021
+            month: 9
+          - year: 2021
+            month: 10
+          - year: 2021
+            month: 11
+          - year: 2021
+            month: 12
+          - year: 2022
+            month: 1
+          - year: 2022
+            month: 2
+          - year: 2022
+            month: 3
+          - year: 2022
+            month: 4
+          - year: 2022
+            month: 5
+          - year: 2022
+            month: 6
+          - year: 2022
+            month: 7
+          - year: 2022
+            month: 8
+          - year: 2022
+            month: 9
+          - year: 2022
+            month: 10
+          - year: 2022
+            month: 11
+          - year: 2022
+            month: 12
+          - year: 2023
+            month: 1
+          - year: 2023
+            month: 2
+          - year: 2023
+            month: 3
+          - year: 2023
+            month: 4
+          - year: 2023
+            month: 5
+          - year: 2023
+            month: 6
+          - year: 2023
+            month: 7
+          - year: 2023
+            month: 8
+          - year: 2023
+            month: 9
+          - year: 2023
+            month: 10
+          - year: 2023
+            month: 11
+          - year: 2023
+            month: 12
+          - year: 2024
+            month: 1
+          - year: 2024
+            month: 2
+          - year: 2024
+            month: 3
+          - year: 2024
+            month: 4
+          - year: 2024
+            month: 5
+          - year: 2024
+            month: 6
+          - year: 2024
+            month: 7
+          - year: 2024
+            month: 8
+          - year: 2024
+            month: 9
+          - year: 2024
+            month: 10
+          - year: 2024
+            month: 11
+          - year: 2024
+            month: 12
+          - year: 2025
+            month: 1
+          - year: 2025
+            month: 2
+          - year: 2025
+            month: 3
+          - year: 2025
+            month: 4
+          - year: 2025
+            month: 5
+          - year: 2025
+            month: 6
+          - year: 2025
+            month: 7
+          - year: 2025
+            month: 8
+          - year: 2025
+            month: 9
+          - year: 2025
+            month: 10
+          - year: 2025
+            month: 11
+          - year: 2025
+            month: 12
+          - year: 2026
+            month: 1
+          - year: 2026
+            month: 2
+          - year: 2026
+            month: 3
+          - year: 2026
+            month: 4
+          - year: 2026
+            month: 5
+          - year: 2026
+            month: 6
+          - year: 2026
+            month: 7
+          - year: 2026
+            month: 8
+          - year: 2026
+            month: 9
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Compile month normalizer
+        run: python -m py_compile src/renormalize_saved_month.py
+
+      - name: Download annual catalog source
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-normalized-${{ matrix.year }}
+          path: source_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Download annual raw source
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-raw-xbrl-${{ matrix.year }}
+          path: source_raw
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36481305055
+
+      - name: Re-normalize and audit one month
+        run: |
+          Y="${{ matrix.year }}"
+          M="${{ matrix.month }}"
+          MM=$(printf "%02d" "$M")
+          python src/renormalize_saved_month.py \
+            --year "$Y" \
+            --month "$M" \
+            --source-kind yearly \
+            --catalog-root source_catalog \
+            --raw-root source_raw \
+            --mapping config/xbrl_concept_map_v9_5.json \
+            --output-dir "month_out/${Y}-${MM}"
+
+      - name: Upload canonical monthly checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-monthly-renorm-${{ matrix.year }}-${{ matrix.month }}
+          path: month_out/
+          retention-days: 90
+          if-no-files-found: error
+
+  merge-and-test:
+    needs: [monthly-legacy, monthly-modern]
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download every successful monthly checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-5-monthly-renorm-*
+          path: monthly_checkpoints
+
+      - name: Merge canonical 2015-2026 monthly PIT archive
+        run: |
+          mkdir -p outputs_v9_5_monthly
+          python - <<'PY'
+          import glob, json
+          import pandas as pd
+
+          files=sorted(glob.glob(
+              "monthly_checkpoints/**/fundamentals_renormalized.parquet",
+              recursive=True
+          ))
+          print("monthly parquet files",len(files))
+          parts=[]
+          for f in files:
+              d=pd.read_parquet(f)
+              if len(d): parts.append(d)
+          if not parts:
+              raise SystemExit("No normalized monthly fundamentals")
+
+          allf=pd.concat(parts,ignore_index=True)
+          allf["period_end"]=pd.to_datetime(allf["period_end"],errors="coerce")
+          allf["broadcast_ts"]=pd.to_datetime(allf["broadcast_ts"],errors="coerce",utc=True)
+          allf=allf.dropna(subset=["symbol","period_end","broadcast_ts","period_months"])
+          allf=allf.sort_values(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope",
+               "mapped_field_count","mapping_score"],
+              ascending=[True,True,True,True,True,False,False]
+          ).drop_duplicates(
+              ["symbol","period_end","period_months","broadcast_ts","statement_scope"],
+              keep="first"
+          )
+          allf.to_parquet("outputs_v9_5_monthly/fundamentals_all.parquet",index=False)
+
+          month_rows=[]
+          for (y,m),z in allf.groupby(
+              [allf["broadcast_ts"].dt.year,allf["broadcast_ts"].dt.month]
+          ):
+              month_rows.append({
+                  "year":int(y),"month":int(m),
+                  "rows":int(len(z)),
+                  "symbols":int(z["symbol"].nunique()),
+                  "revenue":float(z["revenue"].notna().mean()),
+                  "pat":float(z["pat"].notna().mean()),
+                  "operating_profit":float(z["operating_profit"].notna().mean()),
+                  "pbt":float(z["pbt"].notna().mean()),
+                  "finance_cost":float(z["finance_cost"].notna().mean()),
+                  "assets":float(z["total_assets"].notna().mean()),
+                  "equity":float(z["total_equity"].notna().mean()),
+                  "mean_fields":float(z["mapped_field_count"].mean()),
+                  "mean_mapping_score":float(z["mapping_score"].mean()),
+              })
+          pd.DataFrame(month_rows).to_csv(
+              "outputs_v9_5_monthly/coverage_by_month.csv",index=False
+          )
+
+          years=[]
+          for y,z in allf.groupby(allf["broadcast_ts"].dt.year):
+              years.append({
+                  "year":int(y),"rows":int(len(z)),
+                  "symbols":int(z["symbol"].nunique()),
+                  "revenue":float(z["revenue"].notna().mean()),
+                  "pat":float(z["pat"].notna().mean()),
+                  "operating_profit":float(z["operating_profit"].notna().mean()),
+                  "pbt":float(z["pbt"].notna().mean()),
+                  "finance_cost":float(z["finance_cost"].notna().mean()),
+                  "assets":float(z["total_assets"].notna().mean()),
+                  "equity":float(z["total_equity"].notna().mean()),
+                  "mean_fields":float(z["mapped_field_count"].mean()),
+                  "mean_mapping_score":float(z["mapping_score"].mean()),
+              })
+          pd.DataFrame(years).to_csv(
+              "outputs_v9_5_monthly/coverage_by_year.csv",index=False
+          )
+
+          inv=[]
+          for f in glob.glob("monthly_checkpoints/**/concept_inventory.csv",recursive=True):
+              try:
+                  d=pd.read_csv(f)
+                  if len(d): inv.append(d)
+              except Exception: pass
+          if inv:
+              ci=pd.concat(inv,ignore_index=True)
+              ci=(ci.groupby(
+                  ["taxonomy_family","concept","canonical","confidence","mapped"],
+                  dropna=False,as_index=False
+              )["count"].sum()
+                .sort_values(["mapped","count"],ascending=[True,False]))
+              ci.to_csv("outputs_v9_5_monthly/concept_inventory_all.csv",index=False)
+              ci[ci["mapped"]==False].to_csv(
+                  "outputs_v9_5_monthly/top_unmapped_concepts.csv",index=False
+              )
+
+          labels=[]
+          for f in glob.glob("monthly_checkpoints/**/legacy_label_inventory.csv",recursive=True):
+              try:
+                  d=pd.read_csv(f)
+                  if len(d): labels.append(d)
+              except Exception: pass
+          if labels:
+              ld=pd.concat(labels,ignore_index=True)
+              ld=(ld.groupby("label",as_index=False)["count"].sum()
+                    .sort_values("count",ascending=False))
+              ld.to_csv("outputs_v9_5_monthly/legacy_label_inventory_all.csv",index=False)
+
+          summary={
+              "monthly_checkpoint_files":len(files),
+              "normalized_rows":int(len(allf)),
+              "symbols":int(allf["symbol"].nunique()),
+              "start":str(allf["broadcast_ts"].min()),
+              "end":str(allf["broadcast_ts"].max()),
+              "years":years,
+          }
+          json.dump(summary,open(
+              "outputs_v9_5_monthly/coverage_summary.json","w"
+          ),indent=2,default=str)
+          print(json.dumps(summary,indent=2,default=str))
+          PY
+
+      - name: Download verified legacy NSE market artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run leakage-free long-history V9.5
+        run: |
+          python src/calibrate_v9_5.py \
+            --config config_v9_5.json \
+            --fundamentals outputs_v9_5_monthly/fundamentals_all.parquet \
+            --output outputs_v9_5_monthly \
+            --legacy-dir legacy
+
+      - name: Record OOS/calibration targets
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          d=pd.read_parquet("outputs_v9_5_monthly/fundamental_oos.parquet")
+          raw=d.dropna(subset=["p_fund_raw"])
+          cal=d.dropna(subset=["p_fund_cal"])
+          stats={
+              "first_raw_oos":str(raw["date"].min().date()) if len(raw) else None,
+              "raw_oos_folds":int(raw["date"].nunique()),
+              "raw_oos_rows":int(len(raw)),
+              "first_calibrated_oos":str(cal["date"].min().date()) if len(cal) else None,
+              "calibrated_oos_folds":int(cal["date"].nunique()),
+              "calibrated_oos_rows":int(len(cal)),
+              "calibrated_positives":int(cal["y6"].fillna(0).sum()) if len(cal) else 0,
+          }
+          stats["raw_oos_target_met"]=bool(
+              len(raw) and pd.Timestamp(raw["date"].min()).year<=2018
+          )
+          stats["calibrated_fold_target_met"]=bool(
+              int(cal["date"].nunique())>=8
+          )
+          json.dump(stats,open(
+              "outputs_v9_5_monthly/oos_history_status.json","w"
+          ),indent=2)
+          print(json.dumps(stats,indent=2))
+          PY
+
+      - name: Upload canonical monthly V9.5 result
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-5-canonical-monthly-results
+          path: outputs_v9_5_monthly/
+          retention-days: 90
+
+      - name: Publish compact canonical monthly diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p published_v9_5_monthly
+          for f in \
+            summary.json oos_history_status.json coverage_summary.json \
+            coverage_by_month.csv coverage_by_year.csv \
+            top_unmapped_concepts.csv legacy_label_inventory_all.csv \
+            snapshot_fundamental_coverage.csv fund_calibrator_comparison.csv \
+            chosen_v95_weight_by_fold.csv selection_metrics_by_fold.csv \
+            current_top50.csv
+          do
+            [ -f "outputs_v9_5_monthly/$f" ] && cp "outputs_v9_5_monthly/$f" published_v9_5_monthly/
+          done
+          git add published_v9_5_monthly
+          git diff --cached --quiet || git commit -m "Publish canonical monthly V9.5 results [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
