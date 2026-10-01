@@ -25,7 +25,7 @@ def spec_from_row(r):
 
 
 def selected_baseline(g,spec,cfg):
-    return v931.select_topk(g,spec,cfg)
+    return v931.select_topk(g,spec,int(cfg.get("selection_k",10)))
 
 
 def turnover_from_row(df):
