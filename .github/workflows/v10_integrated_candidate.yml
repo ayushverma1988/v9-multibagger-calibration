@@ -1,0 +1,111 @@
+name: V10 Integrated Candidate Test Run
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10-integrated-candidate ]
+    paths:
+      - 'src/build_v10_candidate.py'
+      - '.github/workflows/v10_integrated_candidate.yml'
+
+concurrency:
+  group: v10-integrated-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/build_v10_candidate.py
+
+      - name: Download frozen V9.4.1 baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+
+      - name: Download stable V9.5
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-stable-calibration-results
+          path: v95
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36700936515
+
+      - name: Download V9.6B v2
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-6b-regime-v2-results
+          path: v96b
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36789252798
+
+      - name: Download V9.7 event backtest
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-event-backtest-results
+          path: v97
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36832007179
+
+      - name: Download V9.8 path backtest
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-8-path-shape-results
+          path: v98path
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36786673198
+
+      - name: Download V9.8 sector backtest
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-8-sector-relative-results
+          path: v98sector
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36832152360
+
+      - name: Download V9.9 robustness
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-9-robustness-liquidity-results
+          path: v99
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36791331572
+
+      - name: Build V10 integrated candidate
+        run: |
+          python src/build_v10_candidate.py \
+            --baseline-summary v941/summary.json \
+            --baseline-current v941/current_selection.csv \
+            --v95-summary v95/summary.json \
+            --v96b-summary v96b/summary.json \
+            --v97-summary v97/summary.json \
+            --v98-path-summary v98path/summary.json \
+            --v98-sector-summary v98sector/summary.json \
+            --v99-summary v99/summary.json \
+            --output outputs_v10_candidate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-integrated-candidate-test-run
+          path: outputs_v10_candidate/
+          retention-days: 90
