@@ -1,0 +1,62 @@
+name: V9.8 Sector-Relative Backtest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.8-sector-relative ]
+    paths:
+      - 'src/calibrate_v9_8_sector.py'
+      - '.github/workflows/v9_8_sector_relative.yml'
+
+concurrency:
+  group: v9-8-sector-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/calibrate_v9_8_sector.py
+
+      - name: Download canonical V9.7 event history
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+
+      - name: Run PIT sector-relative overlay
+        run: |
+          python src/calibrate_v9_8_sector.py \
+            --events events/events_all_2016_2026.parquet \
+            --snapshot v941/snapshot_dataset.parquet \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --output outputs_v9_8_sector
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-8-sector-relative-results
+          path: outputs_v9_8_sector/
+          retention-days: 90
