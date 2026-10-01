@@ -1,0 +1,50 @@
+name: V10.2 Fragile-Fold Adaptive Stability
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - 'src/v10_2_fragile_adaptive.py'
+      - '.github/workflows/v10_2_fragile_adaptive.yml'
+
+concurrency:
+  group: v10-2-fragile-adaptive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_fragile_adaptive.py src/v10_2_raw_rank_stability.py
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run fragile-fold adaptive selector
+        run: |
+          python src/v10_2_fragile_adaptive.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --internal-sims 150 \
+            --external-sims 500 \
+            --output outputs_v10_2_fragile_adaptive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-fragile-adaptive-results
+          path: outputs_v10_2_fragile_adaptive/
+          retention-days: 90
