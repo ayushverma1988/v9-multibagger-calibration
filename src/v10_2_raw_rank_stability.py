@@ -15,14 +15,18 @@ class Policy:
     risk_col: str
     pool_floor: int = 0
     alpha_cal_blend: float = 0.0
+    secondary_scale: float = 1.0
 
 
 POLICIES=[
     Policy("incumbent","p_cal","p_dd30_cal"),
     Policy("raw_alpha","p_raw","p_dd30_cal"),
     Policy("raw_alpha_raw_risk","p_raw","p_dd30_raw"),
-    Policy("raw_both_floor30","p_raw","p_dd30_raw",pool_floor=30),
-    Policy("raw75_cal25","p_raw","p_dd30_raw",alpha_cal_blend=.25),
+    Policy("raw_secondary50","p_raw","p_dd30_raw",secondary_scale=.50),
+    Policy("raw_secondary25","p_raw","p_dd30_raw",secondary_scale=.25),
+    Policy("raw_pure_alpha","p_raw","p_dd30_raw",secondary_scale=0.0),
+    Policy("raw_pure_alpha_f30","p_raw","p_dd30_raw",pool_floor=30,secondary_scale=0.0),
+    Policy("raw_pure_alpha_f50","p_raw","p_dd30_raw",pool_floor=50,secondary_scale=0.0),
 ]
 
 
@@ -87,11 +91,13 @@ def select_policy(g,spec,policy,k=10):
         surv=pool.copy()
     if len(surv)<k:return pd.DataFrame()
 
-    wa=max(0.0,1.0-float(spec["w_safety"])-float(spec["w_consensus"]))
+    ws=float(spec["w_safety"])*float(policy.secondary_scale)
+    wc=float(spec["w_consensus"])*float(policy.secondary_scale)
+    wa=max(0.0,1.0-ws-wc)
     surv["selection_score_stable"]=(
         wa*rank_high(surv[alpha_col])
-        +float(spec["w_safety"])*rank_low(surv[policy.risk_col])
-        +float(spec["w_consensus"])*rank_low(surv["model_dispersion"])
+        +ws*rank_low(surv[policy.risk_col])
+        +wc*rank_low(surv["model_dispersion"])
     )
     return surv.sort_values(
         ["selection_score_stable",alpha_col,"model_dispersion","symbol"],
