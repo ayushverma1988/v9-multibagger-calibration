@@ -1,0 +1,52 @@
+name: V9.9 Stage 2 Execution and Stability
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.9-robustness-liquidity ]
+    paths:
+      - 'src/robustness_execution_v9_9_stage2.py'
+      - '.github/workflows/v9_9_stage2_execution.yml'
+
+concurrency:
+  group: v9-9-stage2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/robustness_execution_v9_9_stage2.py
+
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+
+      - name: Run stage-2 robustness
+        run: |
+          python src/robustness_execution_v9_9_stage2.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --output outputs_v9_9_stage2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-9-stage2-execution-stability-results
+          path: outputs_v9_9_stage2/
+          retention-days: 90
