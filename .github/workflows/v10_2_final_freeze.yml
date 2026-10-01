@@ -35,7 +35,7 @@ jobs:
           python - <<'PY'
           import json, os, time, urllib.request
           repo="ayushverma1988/v9-multibagger-calibration"
-          runs=[36849031311,36849397264]
+          runs=[36849031311,36849989565]
           token=os.environ["GH_TOKEN"]
           headers={
               "Authorization":f"Bearer {token}",
@@ -98,7 +98,7 @@ jobs:
           path: v99s2
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
-          run-id: 36849397264
+          run-id: 36849989565
 
       - name: Download fresh-current results
         uses: actions/download-artifact@v4
