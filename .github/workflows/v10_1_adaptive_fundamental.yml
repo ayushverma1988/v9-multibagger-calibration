@@ -1,0 +1,52 @@
+name: V10.1 Adaptive Fundamental Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.1-adaptive-fundamental ]
+    paths:
+      - 'src/v10_1_adaptive_fundamental.py'
+      - '.github/workflows/v10_1_adaptive_fundamental.yml'
+
+concurrency:
+  group: v10-1-adaptive-fundamental-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_1_adaptive_fundamental.py
+
+      - name: Download stable V9.5 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-5-stable-calibration-results
+          path: v95
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36700936515
+
+      - name: Run adaptive fundamental integration
+        run: |
+          python src/v10_1_adaptive_fundamental.py \
+            --oos v95/oos_predictions.parquet \
+            --chosen931 v95/chosen_v931_config_by_fold.csv \
+            --config config_v9_5.json \
+            --output outputs_v10_1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-1-adaptive-fundamental-results
+          path: outputs_v10_1/
+          retention-days: 90
