@@ -158,7 +158,10 @@ def main():
     ap.add_argument("--chosen931",required=True)
     ap.add_argument("--config",required=True)
     ap.add_argument("--output",required=True)
-    ap.add_argument("--sims",type=int,default=500)
+    ap.add_argument("--grid-sims",type=int,default=80)
+    ap.add_argument("--grid-inner-sims",type=int,default=30)
+    ap.add_argument("--confirm-sims",type=int,default=500)
+    ap.add_argument("--confirm-inner-sims",type=int,default=60)
     args=ap.parse_args()
 
     cfg=json.load(open(args.config)); k=int(cfg.get("selection_k",10))
@@ -177,8 +180,16 @@ def main():
         if m:base_rows.append({"date":td,**m})
     baseline=agg(pd.DataFrame(base_rows))
 
+    # Stage 1: cheap policy grid.  Nested perturbation-of-perturbation is
+    # computationally expensive, so use a small inner simulation count here.
+    grid_policies=[
+        CorePolicy(
+            p.name,p.base_name,p.core_n,p.candidate_limit,
+            int(args.grid_inner_sims)
+        ) for p in POLICIES
+    ]
     mets=[]; sts=[]
-    for cp in POLICIES:
+    for cp in grid_policies:
         for td,r in cmap.items():
             g=oos[oos["date"]==td].copy()
             if g.empty:continue
@@ -186,7 +197,7 @@ def main():
             s=stable_core_select(g,spec,cp,k)
             m=outcome(g,s,k)
             if m:mets.append({"policy":cp.name,"date":td,**m})
-            st=external_stability(g,spec,cp,k,args.sims)
+            st=external_stability(g,spec,cp,k,int(args.grid_sims))
             if st:sts.append({"policy":cp.name,"date":td,**st})
 
     mt=pd.DataFrame(mets); st=pd.DataFrame(sts)
@@ -218,19 +229,70 @@ def main():
         ["all_gates_passed","stability_passed","alpha_retention_passed","mean_jaccard","mean_precision_2x"],
         ascending=[False,False,False,False,False],
     )
+    # Stage 2: confirm exactly one candidate with the full 500 external
+    # simulations. Prefer a grid-passing candidate. Otherwise confirm the
+    # highest-stability alpha-retaining candidate so a near-miss is measured
+    # accurately without spending hours on every policy.
     passing=table[table["all_gates_passed"]]
-    chosen_policy=None if passing.empty else str(passing.iloc[0]["name"])
+    if len(passing):
+        best_row=passing.iloc[0]
+    else:
+        eligible=table[table["alpha_retention_passed"] & table["dd_not_worse_3pp"]]
+        best_row=(eligible if len(eligible) else table).sort_values(
+            ["worst_p05_jaccard","mean_jaccard","mean_precision_2x"],
+            ascending=[False,False,False]
+        ).iloc[0]
+
+    base_cp=next(p for p in POLICIES if p.name==str(best_row["name"]))
+    confirm_cp=CorePolicy(
+        base_cp.name,base_cp.base_name,base_cp.core_n,base_cp.candidate_limit,
+        int(args.confirm_inner_sims)
+    )
+    confirm_rows=[]
+    confirm_metric=[]
+    for td,r in cmap.items():
+        g=oos[oos["date"]==td].copy()
+        if g.empty:continue
+        spec=spec_from_row(r)
+        s=stable_core_select(g,spec,confirm_cp,k)
+        m=outcome(g,s,k)
+        if m:confirm_metric.append({"date":td,**m})
+        stc=external_stability(g,spec,confirm_cp,k,int(args.confirm_sims))
+        if stc:confirm_rows.append({"date":td,**stc})
+    confirm=pd.DataFrame(confirm_rows)
+    ca=agg(pd.DataFrame(confirm_metric))
+    confirmation={
+        "policy":confirm_cp.name,
+        "metrics":ca,
+        "mean_jaccard":float(confirm["mean_jaccard"].mean()) if len(confirm) else None,
+        "worst_p05_jaccard":float(confirm["p05_jaccard"].min()) if len(confirm) else None,
+        "mean_top1_stability":float(confirm["top1_stability"].mean()) if len(confirm) else None,
+        "worst_fold":str(confirm.loc[confirm["p05_jaccard"].idxmin(),"date"]) if len(confirm) else None,
+    }
+    confirm_alpha=bool(ca and alpha_pass(ca,baseline,.95))
+    confirm_stab=bool(
+        len(confirm)
+        and confirmation["mean_jaccard"]>=.80
+        and confirmation["worst_p05_jaccard"]>=.60
+        and confirmation["mean_top1_stability"]>=.70
+    )
+    confirm_dd=bool(ca and ca["mean_dd30_rate"]<=baseline["mean_dd30_rate"]+.03)
+    promotion=bool(confirm_alpha and confirm_stab and confirm_dd)
 
     out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
     mt.to_csv(out/"stable_core_metrics_by_fold.csv",index=False)
     st.to_csv(out/"stable_core_stability_by_fold.csv",index=False)
     table.to_csv(out/"stable_core_policy_comparison.csv",index=False)
+    confirm.to_csv(out/"stable_core_confirmation_500.csv",index=False)
     summary={
         "model":"V10.2 stable-core top-k selector",
         "principle":"robust perturbation survival core + alpha-driven flexible boundary slots",
         "baseline":baseline,
-        "chosen_policy":chosen_policy,
-        "promotion_gate":bool(chosen_policy is not None),
+        "grid_best_policy":str(best_row["name"]),
+        "confirmation_500":confirmation,
+        "confirmation_alpha_retention_passed":confirm_alpha,
+        "confirmation_dd_not_worse_3pp":confirm_dd,
+        "promotion_gate":promotion,
         "required":{
             "alpha_retention":.95,
             "mean_jaccard":.80,
