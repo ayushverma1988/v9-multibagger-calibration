@@ -42,6 +42,7 @@ jobs:
           python src/robustness_execution_v9_9_stage2.py \
             --oos v941/oos_predictions.parquet \
             --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --snapshot v941/snapshot_dataset.parquet \
             --config config_v9_4_1.json \
             --output outputs_v9_9_stage2
 
