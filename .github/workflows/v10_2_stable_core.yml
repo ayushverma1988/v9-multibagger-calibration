@@ -1,0 +1,49 @@
+name: V10.2 Stable-Core Top-K
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - 'src/v10_2_stable_core.py'
+      - '.github/workflows/v10_2_stable_core.yml'
+
+concurrency:
+  group: v10-2-stable-core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_rank_aggregation.py src/v10_2_stable_core.py
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run stable-core selector
+        run: |
+          python src/v10_2_stable_core.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --sims 500 \
+            --output outputs_v10_2_stable_core
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-stable-core-results
+          path: outputs_v10_2_stable_core/
+          retention-days: 90
