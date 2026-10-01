@@ -40,7 +40,10 @@ jobs:
             --oos v941/oos_predictions.parquet \
             --chosen931 v941/chosen_v931_config_by_fold.csv \
             --config config_v9_4_1.json \
-            --sims 500 \
+            --grid-sims 80 \
+            --grid-inner-sims 30 \
+            --confirm-sims 500 \
+            --confirm-inner-sims 60 \
             --output outputs_v10_2_stable_core
       - uses: actions/upload-artifact@v4
         with:
