@@ -1,0 +1,63 @@
+name: V10.2 Pathological Fold Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - '.github/workflows/v10_2_pathological_fold.yml'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow numpy
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Inspect 2018-12 score collapse
+        run: |
+          python - <<'PY'
+          import json, numpy as np, pandas as pd
+          d=pd.read_parquet("v941/oos_predictions.parquet")
+          d["date"]=pd.to_datetime(d["date"])
+          g=d[d["date"]==pd.Timestamp("2018-12-31")].copy()
+          cols=[c for c in [
+            "symbol","p_raw","p_cal","p_cal_method","p_struct","p_elastic",
+            "p_gbm","p_survival","p_dd30_raw","p_dd30_cal","model_dispersion",
+            "y6","dd30_6m"
+          ] if c in g.columns]
+          print("columns",list(g.columns))
+          print("rows",len(g))
+          for c in ["p_raw","p_cal","p_struct","p_elastic","p_gbm","p_survival","p_dd30_cal","model_dispersion"]:
+              if c in g:
+                  x=pd.to_numeric(g[c],errors="coerce").dropna()
+                  print(c,{
+                    "n":len(x),"unique":int(x.nunique()),
+                    "min":float(x.min()) if len(x) else None,
+                    "p50":float(x.median()) if len(x) else None,
+                    "max":float(x.max()) if len(x) else None,
+                    "top20_range":float(x.nlargest(min(20,len(x))).max()-x.nlargest(min(20,len(x))).min()) if len(x) else None,
+                  })
+          if "p_cal_method" in g:
+              print("methods",g["p_cal_method"].value_counts(dropna=False).to_dict())
+          if "p_raw" in g and "p_cal" in g:
+              q=g.dropna(subset=["p_raw","p_cal"])
+              print("spearman raw-cal",q[["p_raw","p_cal"]].corr(method="spearman").iloc[0,1])
+              print("top50")
+              print(q.sort_values(["p_cal","p_raw"],ascending=False)[cols].head(50).to_string(index=False))
+              ties=(q.groupby("p_cal").size().sort_values(ascending=False).head(20))
+              print("largest p_cal tie groups")
+              print(ties.to_string())
+          PY
