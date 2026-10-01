@@ -1,0 +1,348 @@
+name: V9.7 Historical Event Archive 2016-2024
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v9.7-news-events-pit ]
+    paths:
+      - '.github/workflows/v9_7_historical_events_2016_2024.yml'
+
+concurrency:
+  group: v9-7-historical-events-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  month:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - year: 2016
+            month: 1
+          - year: 2016
+            month: 2
+          - year: 2016
+            month: 3
+          - year: 2016
+            month: 4
+          - year: 2016
+            month: 5
+          - year: 2016
+            month: 6
+          - year: 2016
+            month: 7
+          - year: 2016
+            month: 8
+          - year: 2016
+            month: 9
+          - year: 2016
+            month: 10
+          - year: 2016
+            month: 11
+          - year: 2016
+            month: 12
+          - year: 2017
+            month: 1
+          - year: 2017
+            month: 2
+          - year: 2017
+            month: 3
+          - year: 2017
+            month: 4
+          - year: 2017
+            month: 5
+          - year: 2017
+            month: 6
+          - year: 2017
+            month: 7
+          - year: 2017
+            month: 8
+          - year: 2017
+            month: 9
+          - year: 2017
+            month: 10
+          - year: 2017
+            month: 11
+          - year: 2017
+            month: 12
+          - year: 2018
+            month: 1
+          - year: 2018
+            month: 2
+          - year: 2018
+            month: 3
+          - year: 2018
+            month: 4
+          - year: 2018
+            month: 5
+          - year: 2018
+            month: 6
+          - year: 2018
+            month: 7
+          - year: 2018
+            month: 8
+          - year: 2018
+            month: 9
+          - year: 2018
+            month: 10
+          - year: 2018
+            month: 11
+          - year: 2018
+            month: 12
+          - year: 2019
+            month: 1
+          - year: 2019
+            month: 2
+          - year: 2019
+            month: 3
+          - year: 2019
+            month: 4
+          - year: 2019
+            month: 5
+          - year: 2019
+            month: 6
+          - year: 2019
+            month: 7
+          - year: 2019
+            month: 8
+          - year: 2019
+            month: 9
+          - year: 2019
+            month: 10
+          - year: 2019
+            month: 11
+          - year: 2019
+            month: 12
+          - year: 2020
+            month: 1
+          - year: 2020
+            month: 2
+          - year: 2020
+            month: 3
+          - year: 2020
+            month: 4
+          - year: 2020
+            month: 5
+          - year: 2020
+            month: 6
+          - year: 2020
+            month: 7
+          - year: 2020
+            month: 8
+          - year: 2020
+            month: 9
+          - year: 2020
+            month: 10
+          - year: 2020
+            month: 11
+          - year: 2020
+            month: 12
+          - year: 2021
+            month: 1
+          - year: 2021
+            month: 2
+          - year: 2021
+            month: 3
+          - year: 2021
+            month: 4
+          - year: 2021
+            month: 5
+          - year: 2021
+            month: 6
+          - year: 2021
+            month: 7
+          - year: 2021
+            month: 8
+          - year: 2021
+            month: 9
+          - year: 2021
+            month: 10
+          - year: 2021
+            month: 11
+          - year: 2021
+            month: 12
+          - year: 2022
+            month: 1
+          - year: 2022
+            month: 2
+          - year: 2022
+            month: 3
+          - year: 2022
+            month: 4
+          - year: 2022
+            month: 5
+          - year: 2022
+            month: 6
+          - year: 2022
+            month: 7
+          - year: 2022
+            month: 8
+          - year: 2022
+            month: 9
+          - year: 2022
+            month: 10
+          - year: 2022
+            month: 11
+          - year: 2022
+            month: 12
+          - year: 2023
+            month: 1
+          - year: 2023
+            month: 2
+          - year: 2023
+            month: 3
+          - year: 2023
+            month: 4
+          - year: 2023
+            month: 5
+          - year: 2023
+            month: 6
+          - year: 2023
+            month: 7
+          - year: 2023
+            month: 8
+          - year: 2023
+            month: 9
+          - year: 2023
+            month: 10
+          - year: 2023
+            month: 11
+          - year: 2023
+            month: 12
+          - year: 2024
+            month: 1
+          - year: 2024
+            month: 2
+          - year: 2024
+            month: 3
+          - year: 2024
+            month: 4
+          - year: 2024
+            month: 5
+          - year: 2024
+            month: 6
+          - year: 2024
+            month: 7
+          - year: 2024
+            month: 8
+          - year: 2024
+            month: 9
+          - year: 2024
+            month: 10
+          - year: 2024
+            month: 11
+          - year: 2024
+            month: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/build_events_month_v9_7.py
+      - name: Fetch one historical NSE announcement month
+        run: |
+          Y="${{ matrix.year }}"
+          M="${{ matrix.month }}"
+          MM=$(printf "%02d" "$M")
+          python src/build_events_month_v9_7.py             --year "$Y"             --month "$M"             --output-dir "event_month/${Y}-${MM}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-7-event-${{ matrix.year }}-${{ matrix.month }}
+          path: event_month/
+          retention-days: 90
+          if-no-files-found: error
+
+  merge:
+    needs: month
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download 2016-2024 checkpoints from this run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-7-event-*
+          path: historical
+
+      - name: Download successful 2025-Sep2026 pilot checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v9-7-event-*
+          path: recent
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36791380451
+
+      - name: Merge canonical V9.7 archive
+        run: |
+          python - <<'PY'
+          import glob, json, os
+          import pandas as pd
+
+          files=sorted(
+              glob.glob("historical/**/events.parquet",recursive=True)
+              + glob.glob("recent/**/events.parquet",recursive=True)
+          )
+          os.makedirs("outputs_v9_7_history",exist_ok=True)
+          parts=[]
+          month_keys=set()
+          for f in files:
+              d=pd.read_parquet(f)
+              if len(d):
+                  parts.append(d)
+                  if "published_ts" in d:
+                      ts=pd.to_datetime(d["published_ts"],utc=True,errors="coerce")
+                      for y,m in zip(ts.dt.year.dropna(),ts.dt.month.dropna()):
+                          month_keys.add((int(y),int(m)))
+          if not parts:
+              raise SystemExit("No event data")
+          allf=pd.concat(parts,ignore_index=True)
+          allf["published_ts"]=pd.to_datetime(allf["published_ts"],utc=True,errors="coerce")
+          allf=allf.dropna(subset=["published_ts","source","source_record_id"])
+          allf=allf.sort_values(["published_ts","source","source_record_id"])
+          allf=allf.drop_duplicates(["source","source_record_id"],keep="first")
+          allf.to_parquet("outputs_v9_7_history/events_all_2016_2026.parquet",index=False)
+
+          coverage=[]
+          for f in glob.glob("historical/**/coverage.json",recursive=True)+glob.glob("recent/**/coverage.json",recursive=True):
+              try: coverage.append(json.load(open(f)))
+              except Exception: pass
+          c=pd.DataFrame(coverage)
+          if len(c):
+              c=c.drop_duplicates(["year","month"],keep="last").sort_values(["year","month"])
+              c.to_csv("outputs_v9_7_history/coverage_by_month.csv",index=False)
+
+          expected=9*12+21
+          summary={
+              "expected_monthly_checkpoints":expected,
+              "coverage_rows":int(len(c)) if len(c) else 0,
+              "all_expected_months_present":bool(len(c)==expected) if len(c) else False,
+              "events":int(len(allf)),
+              "symbols":int(allf["symbol"].nunique()),
+              "isins":int(allf["isin"].nunique()),
+              "start":str(allf["published_ts"].min()),
+              "end":str(allf["published_ts"].max()),
+              "event_types":allf["event_type"].value_counts(dropna=False).to_dict(),
+          }
+          json.dump(summary,open("outputs_v9_7_history/summary.json","w"),indent=2,default=str)
+          print(json.dumps(summary,indent=2,default=str))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: outputs_v9_7_history/
+          retention-days: 90
