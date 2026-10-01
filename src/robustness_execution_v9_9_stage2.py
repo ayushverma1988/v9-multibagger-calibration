@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 import calibrate_v9_3_1 as v931
+import calibrate_v9_4 as v94
 
 
 CAPITALS=[1e5,5e5,1e6,2.5e6,5e6,1e7]
@@ -25,7 +26,13 @@ def spec_from_row(r):
 
 
 def selected_baseline(g,spec,cfg):
-    return v931.select_topk(g,spec,int(cfg.get("selection_k",10)))
+    k=int(cfg.get("selection_k",10))
+    shares=(
+        float(g["v941_share_p100"].dropna().iloc[0]) if "v941_share_p100" in g and g["v941_share_p100"].notna().any() else 1.0,
+        float(g["v941_share_p50"].dropna().iloc[0]) if "v941_share_p50" in g and g["v941_share_p50"].notna().any() else 0.0,
+        float(g["v941_share_p25"].dropna().iloc[0]) if "v941_share_p25" in g and g["v941_share_p25"].notna().any() else 0.0,
+    )
+    return v94.select_ladder_topk(g,spec,shares,k)
 
 
 def turnover_from_row(df):
@@ -102,6 +109,17 @@ def perturbation_stability(oos,chosen,cfg,n_sims=500,seed=20261001):
                 pd.to_numeric(z["p_cal"],errors="coerce").to_numpy(float)
                 * np.exp(rng.normal(0,0.01,len(z))),0,1
             )
+            if "p100_cal" in z.columns:
+                z["p100_cal"]=np.clip(
+                    pd.to_numeric(z["p100_cal"],errors="coerce").to_numpy(float)
+                    * np.exp(rng.normal(0,0.01,len(z))),0,1
+                )
+            for pc in ["p50_cal","p25_cal"]:
+                if pc in z.columns:
+                    z[pc]=np.clip(
+                        pd.to_numeric(z[pc],errors="coerce").to_numpy(float)
+                        * np.exp(rng.normal(0,0.01,len(z))),0,1
+                    )
             z["p_dd30_cal"]=np.clip(
                 pd.to_numeric(z["p_dd30_cal"],errors="coerce").to_numpy(float)
                 * np.exp(rng.normal(0,0.01,len(z))),0,1
@@ -148,6 +166,7 @@ def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--oos",required=True)
     ap.add_argument("--chosen931",required=True)
+    ap.add_argument("--snapshot",required=True)
     ap.add_argument("--config",required=True)
     ap.add_argument("--output",required=True)
     args=ap.parse_args()
@@ -156,6 +175,18 @@ def main():
     oos=pd.read_parquet(args.oos);oos["date"]=pd.to_datetime(oos["date"])
     chosen=pd.read_csv(args.chosen931)
     cfg=json.load(open(args.config))
+    snap=pd.read_parquet(args.snapshot)
+    snap["date"]=pd.to_datetime(snap["date"])
+    turnover_cols=[c for c in ["avg_turnover_63","log_turnover_63"] if c in snap.columns]
+    if turnover_cols:
+        oos=oos.merge(
+            snap[["date","symbol"]+turnover_cols].drop_duplicates(["date","symbol"]),
+            on=["date","symbol"],how="left",suffixes=("","_snap")
+        )
+        for col in turnover_cols:
+            if f"{col}_snap" in oos.columns:
+                oos[col]=oos[col].where(oos[col].notna(),oos[f"{col}_snap"])
+                oos=oos.drop(columns=[f"{col}_snap"])
 
     caps,limits=execution_capacity(oos,cfg)
     pert=perturbation_stability(oos,chosen,cfg)
