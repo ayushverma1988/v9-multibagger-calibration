@@ -1,0 +1,67 @@
+name: V10 Fresh Current Market Run
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10-fresh-current ]
+    paths:
+      - '.github/workflows/v10_fresh_current.yml'
+
+concurrency:
+  group: v10-fresh-current-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  current:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Download verified legacy NSE history
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Rebuild validated V9.4.1 with latest available NSE data
+        run: |
+          python src/calibrate_v9_4_1.py \
+            --config config_v9_4_1.json \
+            --output outputs_v10_fresh_current \
+            --legacy-dir legacy
+
+      - name: Record current-data freshness
+        run: |
+          python - <<'PY'
+          import json, pandas as pd, os
+          s=json.load(open("outputs_v10_fresh_current/summary.json"))
+          cur=pd.read_csv("outputs_v10_fresh_current/current_selection.csv")
+          info={
+              "data_start":s.get("data_start"),
+              "data_end":s.get("data_end"),
+              "current_rows":int(len(cur)),
+              "selected_rows":int(cur.get("selected_v941",False).fillna(False).astype(bool).sum()) if "selected_v941" in cur else None,
+              "model":"V9.4.1 frozen rules refreshed on latest available NSE data",
+          }
+          json.dump(info,open("outputs_v10_fresh_current/freshness.json","w"),indent=2)
+          print(json.dumps(info,indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-fresh-current-results
+          path: outputs_v10_fresh_current/
+          retention-days: 90
