@@ -1,0 +1,48 @@
+name: V10.2 Raw-Rank Stability Fix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - 'src/v10_2_raw_rank_stability.py'
+      - '.github/workflows/v10_2_raw_rank_stability.yml'
+
+concurrency:
+  group: v10-2-raw-rank-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_raw_rank_stability.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run 500-sim raw-rank stability test
+        run: |
+          python src/v10_2_raw_rank_stability.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --sims 500 \
+            --output outputs_v10_2_raw_rank
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-raw-rank-stability-results
+          path: outputs_v10_2_raw_rank/
+          retention-days: 90
