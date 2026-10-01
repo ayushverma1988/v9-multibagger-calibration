@@ -1,0 +1,127 @@
+name: V10.2 Final Freeze Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-final-freeze ]
+    paths:
+      - 'src/v10_2_final_freeze.py'
+      - '.github/workflows/v10_2_final_freeze.yml'
+
+concurrency:
+  group: v10-2-final-freeze-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_final_freeze.py
+
+      - name: Wait for fresh-current and V9.9-stage2 dependencies
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          repo="ayushverma1988/v9-multibagger-calibration"
+          runs=[36849031311,36849397264]
+          token=os.environ["GH_TOKEN"]
+          headers={
+              "Authorization":f"Bearer {token}",
+              "Accept":"application/vnd.github+json",
+              "X-GitHub-Api-Version":"2022-11-28",
+              "User-Agent":"v10-2-freeze-audit",
+          }
+          deadline=time.time()+5*60*60
+          pending=set(runs)
+          while pending:
+              if time.time()>deadline:
+                  raise SystemExit(f"Timed out waiting for runs: {sorted(pending)}")
+              for rid in list(pending):
+                  req=urllib.request.Request(
+                      f"https://api.github.com/repos/{repo}/actions/runs/{rid}",
+                      headers=headers,
+                  )
+                  with urllib.request.urlopen(req,timeout=30) as r:
+                      d=json.load(r)
+                  print(rid,d.get("status"),d.get("conclusion"),flush=True)
+                  if d.get("status")=="completed":
+                      if d.get("conclusion")!="success":
+                          raise SystemExit(f"Dependency run {rid} ended {d.get('conclusion')}")
+                      pending.remove(rid)
+              if pending:
+                  time.sleep(30)
+          PY
+
+      - name: Download V10 integrated candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-integrated-candidate-test-run
+          path: v10
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36833437140
+
+      - name: Download V10.1
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-1-adaptive-fundamental-results
+          path: v101
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36849326424
+
+      - name: Download V9.9 stage 1
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-9-robustness-liquidity-results
+          path: v99s1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36791331572
+
+      - name: Download V9.9 stage 2
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-9-stage2-execution-stability-results
+          path: v99s2
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36849397264
+
+      - name: Download fresh-current results
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-fresh-current-results
+          path: fresh
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36849031311
+
+      - name: Run V10.2 freeze audit
+        run: |
+          python src/v10_2_final_freeze.py \
+            --v10-manifest v10/manifest.json \
+            --v101-summary v101/summary.json \
+            --v99-stage1 v99s1/summary.json \
+            --v99-stage2 v99s2/summary.json \
+            --freshness fresh/freshness.json \
+            --fresh-current fresh/current_selection.csv \
+            --output outputs_v10_2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-final-freeze-audit
+          path: outputs_v10_2/
+          retention-days: 90
