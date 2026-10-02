@@ -110,6 +110,9 @@ def main():
         market_integrity.install_on_base()
     market=base.load_market(2003,2026,args.legacy_dir)
     market["date"]=pd.to_datetime(market["date"])
+    if args.resolve_split_bonus_symbol_history:
+        market=market_integrity.normalize_split_bonus_volume(market,2003,2026)
+        market=market_integrity.stitch_symbol_changes_same_isin(market)
     market=market.sort_values(["symbol","date"]).copy()
     market["symbol_norm"]=market["symbol"].map(norm_str)
     market["isin_norm"]=market.get("isin",pd.Series(index=market.index,dtype=object)).map(norm_str)
@@ -191,6 +194,53 @@ def main():
         if classes is not None:q=q[q["jump_class"].isin(classes)]
         return int(q[["selected_date","symbol"]].drop_duplicates().shape[0])
 
+    # Explicit merger/demerger exposure audit independent of jump magnitude.
+    structural=market_integrity.structured_identity_events(2010,2026)
+    structural=structural[structural["type"].isin(["merger","demerger"])].copy() if len(structural) else structural
+    calendar=np.array(sorted(market["date"].drop_duplicates().to_numpy(dtype="datetime64[ns]")))
+    structural_exposure=[]
+    for srow in sel.itertuples(index=False):
+        sd=pd.Timestamp(srow.date)
+        ci=int(np.searchsorted(calendar,np.datetime64(sd),side="left"))
+        isin=norm_str(getattr(srow,"isin",None))
+        sym=norm_str(srow.symbol)
+        q=structural.copy()
+        if len(q):
+            if isin:
+                qi=q[q["isin"].map(norm_str)==isin]
+                q=qi if len(qi) else q[q["resolved_symbol"].map(norm_str)==sym]
+            else:
+                q=q[q["resolved_symbol"].map(norm_str)==sym]
+        for er in q.itertuples(index=False):
+            ed=pd.Timestamp(getattr(er,"ex_date"))
+            ei=int(np.searchsorted(calendar,np.datetime64(ed),side="left"))
+            off=ei-ci
+            windows=[]
+            if -252<=off<=0: windows.append("feature_252")
+            if 1<=off<=126: windows.append("label_y6_126")
+            if 1<=off<=252: windows.append("label_y12_252")
+            if 1<=off<=504: windows.append("label_y24_504")
+            for w in windows:
+                structural_exposure.append({
+                    "selected_date":sd,"symbol":srow.symbol,
+                    "selected_isin":getattr(srow,"isin",None),
+                    "event_date":ed,"trading_day_offset":off,"window":w,
+                    "event_type":getattr(er,"type",None),
+                    "event_symbol":getattr(er,"symbol",None),
+                    "resolved_symbol":getattr(er,"resolved_symbol",None),
+                    "event_isin":getattr(er,"isin",None),
+                    "raw_subject":getattr(er,"raw_subject",None),
+                })
+    sex=pd.DataFrame(structural_exposure)
+    if len(sex):
+        sex=sex.drop_duplicates(["selected_date","symbol","event_date","window","event_type"])
+        sex.to_csv(out/"selected_structural_event_exposures.csv",index=False)
+
+    def structural_rows_exposed(window):
+        if sex.empty:return 0
+        q=sex[sex["window"]==window]
+        return int(q[["selected_date","symbol"]].drop_duplicates().shape[0])
+
     blocking_classes={"adjustment_factor_discontinuity","corporate_action_or_restructuring"}
     summary={
         "model":"V10.2 selected-window residual integrity audit",
@@ -207,9 +257,15 @@ def main():
         "selected_rows_exposed_y6_blocking":rows_exposed("label_y6_126",blocking_classes),
         "selected_rows_exposed_y12_blocking":rows_exposed("label_y12_252",blocking_classes),
         "selected_rows_exposed_y24_blocking":rows_exposed("label_y24_504",blocking_classes),
+        "selected_rows_exposed_feature_252_structural":structural_rows_exposed("feature_252"),
+        "selected_rows_exposed_y6_structural":structural_rows_exposed("label_y6_126"),
+        "selected_rows_exposed_y12_structural":structural_rows_exposed("label_y12_252"),
+        "selected_rows_exposed_y24_structural":structural_rows_exposed("label_y24_504"),
         "primary_integrity_pass":bool(
             rows_exposed("feature_252",blocking_classes)==0 and
-            rows_exposed("label_y6_126",blocking_classes)==0
+            rows_exposed("label_y6_126",blocking_classes)==0 and
+            structural_rows_exposed("feature_252")==0 and
+            structural_rows_exposed("label_y6_126")==0
         ),
         "primary_scope":"V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
         "note":"No model parameters or outcome-based selection rules are changed by this audit.",
