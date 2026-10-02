@@ -265,8 +265,11 @@ def main():
     rp = next((p for p in POLICIES if p.name == chosen_name), None)
 
     confirmation = None
+    confirm_mt = None
+    confirm_st = None
     if rp:
-        mt, st = evaluate(oos, cmap, cfg, rp, args.confirm_sims)
+        confirm_mt, confirm_st = evaluate(oos, cmap, cfg, rp, args.confirm_sims)
+        mt, st = confirm_mt, confirm_st
         a = agg(mt)
         mj = float(st["mean_jaccard"].mean())
         wp = float(st["p05_jaccard"].min())
@@ -296,10 +299,9 @@ def main():
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     table.to_csv(out / "robust_quantile_grid.csv", index=False)
-    if rp:
-        mt, st = evaluate(oos, cmap, cfg, rp, args.confirm_sims)
-        mt.to_csv(out / "chosen_metrics_by_fold.csv", index=False)
-        st.to_csv(out / "chosen_stability_by_fold.csv", index=False)
+    if rp and confirm_mt is not None and confirm_st is not None:
+        confirm_mt.to_csv(out / "chosen_metrics_by_fold.csv", index=False)
+        confirm_st.to_csv(out / "chosen_stability_by_fold.csv", index=False)
 
     summary = {
         "model": "V10.2 robust rank-quantile stability selector",
