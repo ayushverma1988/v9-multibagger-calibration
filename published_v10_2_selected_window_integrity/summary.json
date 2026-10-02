@@ -17,6 +17,10 @@
   "selected_rows_exposed_y6_blocking": 0,
   "selected_rows_exposed_y12_blocking": 0,
   "selected_rows_exposed_y24_blocking": 1,
+  "selected_rows_exposed_feature_252_structural": 3,
+  "selected_rows_exposed_y6_structural": 1,
+  "selected_rows_exposed_y12_structural": 1,
+  "selected_rows_exposed_y24_structural": 2,
   "primary_integrity_pass": false,
   "primary_scope": "V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
   "note": "No model parameters or outcome-based selection rules are changed by this audit."
