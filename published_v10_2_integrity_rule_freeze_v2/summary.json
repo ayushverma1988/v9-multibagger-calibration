@@ -1,0 +1,52 @@
+{
+  "stage": "V10.2 residual integrity correction v2",
+  "frozen_on": "2026-10-03",
+  "status": "corporate_action_rules_frozen_before_v2_performance_results",
+  "corporate_action_logic": {
+    "split": {
+      "policy": "multiplicative price normalization from structured face-value factor",
+      "identity": "resolve action ISIN through point-in-time symbol_history to the symbol active on ex-date",
+      "volume": "normalize pre-event share volume by inverse price factor",
+      "turnover": "leave monetary turnover unchanged",
+      "blocking": "only if a large residual discontinuity remains after normalization"
+    },
+    "bonus": {
+      "policy": "multiplicative price normalization from structured bonus ratio",
+      "identity": "same point-in-time symbol-history resolution as split",
+      "volume": "normalize pre-event share volume by inverse price factor",
+      "blocking": "only if residual discontinuity remains"
+    },
+    "name_or_symbol_change": {
+      "policy": "same-ISIN symbol history is stitched into one continuous security history",
+      "price_reset": false,
+      "label_censor": false,
+      "fallback": "if identity continuity cannot be established, do not synthetically stitch across different ISINs"
+    },
+    "demerger": {
+      "policy": "structural reset; never infer a synthetic multiplicative factor",
+      "feature_gate": "exclude snapshots whose -252..0 trading-session feature window crosses the event",
+      "label_gate": "censor y6/DD30/+25/+50 labels crossing 1..126 sessions; y12/y24 censored at their own horizons"
+    },
+    "merger": {
+      "policy": "same structural reset/censor logic as demerger",
+      "disappearing_security": "map event to first session on/after ex-date, or last session within 30 calendar days when the target ceases trading"
+    }
+  },
+  "audit_logic": {
+    "large_jump_audit": true,
+    "explicit_merger_demerger_exposure_audit_independent_of_jump_size": true,
+    "primary_integrity_pass_requires_zero_feature_and_y6_blocking_exposures": true
+  },
+  "acceptance_gates_unchanged": {
+    "primary_integrity_pass": true,
+    "oos_folds_min": 18,
+    "mean_precision_retention_min": 0.95,
+    "median_precision_retention_min": 0.95,
+    "mean_capped_lift_retention_min": 0.95,
+    "hit_fold_rate_retention_min": 0.95,
+    "max_dd30_degradation": 0.03,
+    "p100_pr_auc_lift_min": 1.05,
+    "p100_calibration_slope_min": 0.25
+  },
+  "note": "These are data-integrity rules, not performance tuning. They were defined before reviewing v2 corrected validation results."
+}
