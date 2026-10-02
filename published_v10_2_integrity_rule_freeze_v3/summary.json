@@ -1,0 +1,27 @@
+{
+  "stage": "V10.2 residual integrity correction v3",
+  "frozen_on": "2026-10-03",
+  "status": "point_in_time_identity_resolution_frozen_before_v3_performance_results",
+  "additions_since_v2": {
+    "stale_action_identity_bridge": "If an action's recorded ISIN is not active on the event date, use that ISIN's nearest symbol-history segment as a bridge, then resolve the symbol/ISIN actually active on the event date.",
+    "structural_mapping_guard": "Merger/demerger may map only to a trading row within 30 calendar days before or after the effective date; otherwise it remains unmapped rather than attaching to a distant future row.",
+    "audit_identity": "Explicit structural exposure audit matches selected rows against resolved point-in-time ISIN first, then resolved symbol."
+  },
+  "existing_rules_unchanged": {
+    "split_bonus": "price and share-volume normalization; turnover unchanged",
+    "same_isin_symbol_name_change": "stitch identity continuity",
+    "merger_demerger": "structural reset/censor, no synthetic multiplicative price factor",
+    "outcome_labels_used_to_define_rules": false
+  },
+  "acceptance_gates_unchanged": {
+    "primary_integrity_pass": true,
+    "oos_folds_min": 18,
+    "mean_precision_retention_min": 0.95,
+    "median_precision_retention_min": 0.95,
+    "mean_capped_lift_retention_min": 0.95,
+    "hit_fold_rate_retention_min": 0.95,
+    "max_dd30_degradation": 0.03,
+    "p100_pr_auc_lift_min": 1.05,
+    "p100_calibration_slope_min": 0.25
+  }
+}
