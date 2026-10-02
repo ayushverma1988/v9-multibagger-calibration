@@ -51,33 +51,70 @@ def resolve_action_table(start_year:int,end_year:int,types=None) -> pd.DataFrame
         print("WARNING: symbol-history resolution unavailable:",repr(exc),flush=True)
         h=pd.DataFrame()
 
-    resolved=[]; audit=[]
+    resolved=[]; resolved_isins=[]; audit=[]
     for r in a.itertuples(index=False):
         orig=_norm(getattr(r,"symbol",None))
         isin=_norm(getattr(r,"isin",None))
         ex=pd.Timestamp(getattr(r,"ex_date"))
-        rs=orig; method="action_symbol"
+        rs=orig; risin=isin; method="action_symbol"
+
         if len(h) and isin:
+            # First choice: the action ISIN is genuinely active on the event date.
             q=h[
                 (h["isin_norm"]==isin)
                 & (h["valid_from"]<=ex)
                 & ((h["valid_to"].isna()) | (h["valid_to"]>=ex))
             ]
             if len(q):
-                rs=_norm(q.sort_values("valid_from").iloc[-1]["symbol"]) or orig
+                z=q.sort_values("valid_from").iloc[-1]
+                rs=_norm(z["symbol"]) or orig
+                risin=_norm(z["isin"]) or isin
                 method="isin_symbol_history"
+            else:
+                # Some action files are backfilled with a later ISIN. Bridge
+                # through the nearest symbol used by that ISIN, then find the
+                # predecessor ISIN/symbol that was actually active at ex-date.
+                q2=h[h["isin_norm"]==isin].copy()
+                if len(q2):
+                    q2=q2.assign(
+                        dist=np.where(
+                            q2["valid_from"]>=ex,
+                            (q2["valid_from"]-ex).dt.days,
+                            (ex-q2["valid_to"].fillna(q2["valid_from"])).dt.days.abs()+100000
+                        )
+                    )
+                    bridge=q2.sort_values(["dist","valid_from"]).iloc[0]
+                    bridge_symbol=_norm(bridge["symbol"])
+                    if bridge_symbol:
+                        q3=h[
+                            (h["symbol_norm"]==bridge_symbol)
+                            & (h["valid_from"]<=ex)
+                            & ((h["valid_to"].isna()) | (h["valid_to"]>=ex))
+                        ]
+                        if len(q3):
+                            z=q3.sort_values("valid_from").iloc[-1]
+                            rs=_norm(z["symbol"]) or bridge_symbol
+                            risin=_norm(z["isin"]) or isin
+                            method="future_isin_symbol_bridge_to_event_identity"
+                        else:
+                            rs=bridge_symbol
+                            method="future_isin_symbol_bridge_no_event_interval"
+
         resolved.append(rs)
-        if rs!=orig:
+        resolved_isins.append(risin)
+        if rs!=orig or risin!=isin or method!="action_symbol":
             audit.append({
                 "ex_date":str(ex.date()) if pd.notna(ex) else None,
                 "type":getattr(r,"type",None),
-                "isin":isin,
+                "action_isin":isin,
+                "resolved_isin":risin,
                 "action_symbol":orig,
                 "resolved_symbol":rs,
                 "resolution_method":method,
                 "raw_subject":getattr(r,"raw_subject",None),
             })
     a["resolved_symbol"]=resolved
+    a["resolved_isin"]=resolved_isins
     LAST_ACTION_RESOLUTION_AUDIT=audit
     return a
 
