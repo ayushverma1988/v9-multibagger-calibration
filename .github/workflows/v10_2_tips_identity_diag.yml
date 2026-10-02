@@ -1,0 +1,45 @@
+name: V10.2 TIPS Identity Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-residual-integrity ]
+    paths:
+      - '.github/workflows/v10_2_tips_identity_diag.yml'
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-residual-integrity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow huggingface_hub
+      - name: Trace TIPS actions
+        run: |
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          import pandas as pd, json, os
+          repo='tejhq/indian-markets'
+          z=[]
+          for y in range(2010,2027):
+              try:
+                  p=hf_hub_download(repo,f'actions/nse_{y}.parquet',repo_type='dataset')
+                  d=pd.read_parquet(p)
+                  q=d[(d['isin'].astype(str).str.upper()=='INE716B01029') | d['symbol'].astype(str).str.upper().isin(['TIPSINDLTD','TIPSMUSIC'])]
+                  if len(q): z.append(q)
+              except Exception: pass
+          out=pd.concat(z,ignore_index=True) if z else pd.DataFrame()
+          os.makedirs('published_v10_2_tips_diag',exist_ok=True)
+          out.to_csv('published_v10_2_tips_diag/actions.csv',index=False)
+          print(out.to_string(index=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-tips-identity-diag
+          path: published_v10_2_tips_diag/
+          retention-days: 30
