@@ -8,7 +8,7 @@ on:
       - '.github/workflows/v10_2_bag50_w50_parallel_confirm.yml'
 
 concurrency:
-  group: v10-2-bag50-w50-parallel-${{ github.ref }}
+  group: v10-2-bag50-w50-confirm-parallel-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
