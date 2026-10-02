@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 import calibrate_v9_2 as base
+import v10_2_market_integrity as market_integrity
 
 
 CA_RE = re.compile(
@@ -92,6 +93,7 @@ def main():
     ap.add_argument("--events",required=True)
     ap.add_argument("--legacy-dir",required=True)
     ap.add_argument("--output",required=True)
+    ap.add_argument("--resolve-split-bonus-symbol-history",action="store_true")
     args=ap.parse_args()
 
     out=Path(args.output); out.mkdir(parents=True,exist_ok=True)
@@ -104,6 +106,8 @@ def main():
     sel["symbol_norm"]=sel["symbol"].map(norm_str)
     sel["isin_norm"]=sel.get("isin",pd.Series(index=sel.index,dtype=object)).map(norm_str)
 
+    if args.resolve_split_bonus_symbol_history:
+        market_integrity.install_on_base()
     market=base.load_market(2003,2026,args.legacy_dir)
     market["date"]=pd.to_datetime(market["date"])
     market=market.sort_values(["symbol","date"]).copy()
