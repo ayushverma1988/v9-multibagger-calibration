@@ -1,0 +1,91 @@
+name: V10.2 Fast Corporate Action Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-residual-integrity ]
+    paths:
+      - '.github/workflows/v10_2_fast_action_smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-residual-integrity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Test split merger demerger and rename
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          import numpy as np, pandas as pd
+          sys.path.insert(0,'src')
+          import calibrate_v9_2 as base
+          import v10_2_market_integrity as mi
+          import calibrate_v9_4_1_integrity as ci
+
+          mi.install_on_base()
+          z=[]
+          for y in [2016,2023]:
+              p=base.hf_hub_download(base.REPO,f'nse/year={y}/nse_{y}.parquet',repo_type='dataset')
+              z.append(pd.read_parquet(p,columns=['date','symbol','series','isin','close','volume','turnover']))
+          d=pd.concat(z,ignore_index=True)
+          d['date']=pd.to_datetime(d['date'])
+          d=d[d['series'].isin(['EQ','BE','BZ'])].sort_values(['symbol','date']).reset_index(drop=True)
+          d['adj_close']=mi.apply_split_bonus_adjustment_resolved(d,2016,2023)
+          d=mi.normalize_split_bonus_volume(d,2016,2023)
+          d=mi.stitch_symbol_changes_same_isin(d)
+          d=base.add_features(d)
+
+          ev=pd.DataFrame({
+              'published_ts':pd.Series([],dtype='datetime64[ns, UTC]'),
+              'symbol':pd.Series([],dtype=object),'isin':pd.Series([],dtype=object),
+              'headline':pd.Series([],dtype=object),'details':pd.Series([],dtype=object),
+              'event_type':pd.Series([],dtype=object)
+          })
+          ev.to_parquet('empty_events.parquet',index=False)
+          d=ci.mark_integrity(d,'empty_events.parquet')
+
+          tips=d[(d['symbol']=='TIPSINDLTD')&(d['date']==pd.Timestamp('2023-04-21'))]
+          mir=d[(d['symbol']=='MIRZAINT')&(d['date']==pd.Timestamp('2023-03-29'))]
+          sab=d[d['symbol']=='SABTN']
+
+          # Pure identifier continuity test with same ISIN and two symbols.
+          ren=pd.DataFrame([
+              {'date':pd.Timestamp('2020-01-01'),'symbol':'OLDNAME','series':'EQ','isin':'INE000X01010','close':100.0,'adj_close':100.0,'volume':1000.0,'turnover':100000.0},
+              {'date':pd.Timestamp('2020-01-02'),'symbol':'NEWNAME','series':'EQ','isin':'INE000X01010','close':101.0,'adj_close':101.0,'volume':1100.0,'turnover':111100.0},
+          ])
+          ren2=mi.stitch_symbol_changes_same_isin(ren)
+
+          rec={
+              'tips_split_adj_ret':float(tips.iloc[0]['_adj_ret_i']) if len(tips) else None,
+              'tips_blocking':bool(tips.iloc[0]['_blocking_jump']) if len(tips) else None,
+              'mirza_blocking':bool(mir.iloc[0]['_blocking_jump']) if len(mir) else None,
+              'mirza_type':str(mir.iloc[0]['_blocking_type']) if len(mir) else None,
+              'sabtn_merger_rows':int((sab['_blocking_type'].astype(str)=='merger').sum()) if len(sab) else 0,
+              'rename_symbols_after':sorted(ren2['symbol'].astype(str).unique().tolist()),
+          }
+          rec['assertions']={
+              'split_normalized':len(tips)>0 and abs(rec['tips_split_adj_ret'])<0.50 and not rec['tips_blocking'],
+              'demerger_reset':len(mir)>0 and rec['mirza_blocking'] and rec['mirza_type']=='demerger',
+              'merger_reset':rec['sabtn_merger_rows']>=1,
+              'same_isin_rename_stitched':len(rec['rename_symbols_after'])==1,
+          }
+          rec['all_passed']=all(rec['assertions'].values())
+          os.makedirs('published_v10_2_fast_action_smoke',exist_ok=True)
+          json.dump(rec,open('published_v10_2_fast_action_smoke/summary.json','w'),indent=2)
+          print(json.dumps(rec,indent=2))
+          if not rec['all_passed']:
+              raise SystemExit('Fast corporate-action smoke failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v10-2-fast-action-smoke
+          path: published_v10_2_fast_action_smoke/
+          retention-days: 90
