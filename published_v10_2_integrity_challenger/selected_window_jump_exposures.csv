@@ -1,4 +1,3 @@
 selected_date,symbol,selected_isin,jump_date,trading_day_offset,window,adj_ret,raw_ret,jump_class,ca_match,ca_event_count,nearest_ca_event_date,nearest_ca_event_type,nearest_ca_headline,days_from_nearest_ca_event
-2021-06-30,TIPSINDLTD,INE716B01011,2023-04-21,446,label_y24_504,-0.9040297397769517,-0.9040297397769517,corporate_action_or_restructuring,True,3,2023-04-03,corporate_action,Record Date,-18
-2023-06-30,MIRZAINT,INE771A01026,2023-03-29,-61,feature_252,-0.862962230571485,-0.862962230571485,corporate_action_or_restructuring,True,11,2023-03-31,dilution,Updates,2
-2023-06-30,TIPSINDLTD,INE716B01029,2023-04-21,-48,feature_252,-0.9040297397769517,-0.9040297397769517,corporate_action_or_restructuring,True,3,2023-04-03,corporate_action,Record Date,-18
+2021-12-31,KRITI,INE479D01038,2021-11-01,-41,feature_252,13.576687116564417,13.576687116564417,raw_market_move_or_unresolved,False,0,,,,
+2023-06-30,ROSSELLIND,INE847C01020,2024-09-20,302,label_y24_504,-0.7251668945548138,-0.7251668945548138,corporate_action_or_restructuring,True,3,2024-09-25,corporate_action,General Updates,5.0

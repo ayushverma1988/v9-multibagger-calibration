@@ -1,0 +1,1085 @@
+ex_date,type,action_isin,resolved_isin,action_symbol,resolved_symbol,resolution_method,raw_subject
+2010-09-23,split,INE742F01042,INE742F01042,ADANIPORTS,MUNDRAPORT,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2010-08-18,bonus,INE208C01025,INE208C01017,AEGISLOG,AEGISCHEM,future_isin_symbol_bridge_to_event_identity,Bonus 2:3
+2010-12-31,bonus,INE818A01017,INE818A01017,ANTELOPUS,SELAN,isin_symbol_history,Bonus 1:10
+2010-12-30,bonus,INE386C01029,INE386C01029,ASTRAMICRO,ASTRAMICRO,isin_symbol_history,Bonus 1:2
+2010-11-08,split,INE285H01022,INE285H01022,ATLANTAA,ATLANTA,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2010-09-08,bonus,INE917I01010,INE917I01010,BAJAJ-AUTO,BAJAJ-AUTO,isin_symbol_history,Bonus 1:1
+2010-01-28,split,INE193E01025,INE193E01025,BAJAJELEC,BAJAJELEC,isin_symbol_history,Fv Split Rs.10 To Rs.2
+2010-09-29,bonus,INE655I01024,INE655I01024,BIRLACOT,BIRLACOT,isin_symbol_history,Bonus 1:5
+2010-10-20,bonus,INE224B01024,INE224B01024,BIRLAPOWER,BIRLAPOWER,isin_symbol_history,Bonus 1:5
+2010-04-09,bonus,INE172A01019,INE172A01019,CASTROL,CASTROL,isin_symbol_history,Bonus 1:1
+2010-02-10,split,INE429I01024,INE429I01024,CCCL,CCCL,isin_symbol_history,Fv Split Rs.10 To Rs.2
+2010-09-02,bonus,INE739E01017,INE739E01017,CERA,CERA,isin_symbol_history,Bonus 1:1
+2010-03-08,bonus,INE067A01029,INE067A01029,CGPOWER,CROMPGREAV,isin_symbol_history,Bonus 3:4
+2010-06-10,bonus,INE136B01020,INE136B01020,CYIENT,INFOTECENT,isin_symbol_history,Bonus 1:1
+2010-09-08,bonus,INE016A01026,INE016A01026,DABUR,DABUR,isin_symbol_history,Bonus 1:1
+2010-07-23,bonus,INE738I01010,INE738I01010,ECLERX,ECLERX,isin_symbol_history,Bonus 1:2
+2010-12-14,bonus,INE285A01027,INE285A01027,ELGIEQUIP,ELGIEQUIP,isin_symbol_history,Bonus 1:1
+2010-02-26,bonus,INE512B01022,INE512B01022,FCSSOFT,FCSSOFT,isin_symbol_history,Bonus 1:1
+2010-09-14,bonus,INE047B01011,INE047B01011,GILLANDERS,GILLANDERS,isin_symbol_history,Bonus 1:2
+2010-05-06,bonus,INE110D01013,INE110D01013,GUJNRECOKE,GUJNRECOKE,isin_symbol_history,Bonus 1 Dvr : 10 Eq Share
+2010-08-10,bonus,INE549A01026,INE549A01026,HCC,HCC,isin_symbol_history,Bonus 1:1
+2010-03-15,bonus,INE551A01022,INE551A01022,HINDDORROL,HINDDORROL,isin_symbol_history,Bonus 1:1
+2010-12-01,bonus,INE127B01011,INE127B01011,HITECHGEAR,HITECHGEAR,isin_symbol_history,Bonus 1:1
+2010-11-08,split,INE019C01026,INE019C01026,HSCL,HCIL,isin_symbol_history,Face Value Split From Rs.10/- To Re.1/-
+2010-03-22,split,INE571A01020,INE571A01020,IPCALAB,IPCALAB,isin_symbol_history,Fv Split Rs.10 To Rs.2
+2010-08-03,bonus,INE154A01025,INE154A01025,ITC,ITC,isin_symbol_history,Bonus 1:1
+2010-05-20,bonus,INE414I01018,INE414I01018,IVRCLAH,IVRCLAH,isin_symbol_history,Bonus 1:2
+2010-03-18,bonus,INE875A01025,INE875A01025,IVRCLINFRA,IVRCLINFRA,isin_symbol_history,Bonus 1:1
+2010-10-22,bonus,INE197D01010,INE197D01010,JINDALPOLY,JINDALPOLY,isin_symbol_history,Bonus 1:1
+2010-06-23,bonus,INE531A01016,INE531A01016,KANSAINER,KANSAINER,isin_symbol_history,Bonus 1:1
+2010-09-16,bonus,INE036D01010,INE036D01010,KARURVYSYA,KARURVYSYA,isin_symbol_history,Bonus 2:5
+2010-03-26,split,INE157H01023,INE157H01023,KMSUGAR,KMSUGAR,future_isin_symbol_bridge_no_event_interval,Fv Split Rs.10 To Rs.2
+2010-09-08,split,INE220B01022,INE220B01022,KPIL,KALPATPOWR,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2010-02-10,split,INE001B01026,INE001B01026,KRBL,KRBL,isin_symbol_history,Fv Spl-Rs10tore1/Div-1.50
+2010-06-15,bonus,INE775B01025,INE775B01025,KWALITY,KWALITY,isin_symbol_history,Bonus 5:7
+2010-01-04,split,INE785C01048,INE785C01048,LITL,LITL,isin_symbol_history,Fv Split Rs.10 To Re.1
+2010-03-29,split,INE101A01026,INE101A01026,M&M,M&M,isin_symbol_history,Fv Split Rs.10 To Rs.5
+2010-03-18,split,INE806B01028,INE806B01028,MURLIIND,MURLIIND,isin_symbol_history,Fv Split Rs.10 To Rs.2
+2010-09-27,bonus,INE663F01024,INE663F01024,NAUKRI,NAUKRI,isin_symbol_history,Bonus 1:1
+2010-07-20,bonus,INE317F01027,INE317F01027,NESCO,NESCO,isin_symbol_history,Bonus 1:1
+2010-09-03,bonus,INE349A01021,INE349A01021,NRBBEARING,NRBBEARING,isin_symbol_history,Bonus 1:1
+2010-06-29,bonus,INE628H01015,INE628H01015,ORBITCORP,ORBITCORP,isin_symbol_history,Bonus 1:1
+2010-06-21,bonus,INE194B01029,INE194B01029,PANORAMUNI,PANORAMUNI,isin_symbol_history,Bonus 5:1
+2010-09-13,bonus,INE904D01019,INE904D01019,PDPL,PDPL,isin_symbol_history,Annual General Meeting/Dividend Rs.2/- Per Share/Bonus 1:3
+2010-03-15,bonus,INE318A01026,INE318A01026,PIDILITIND,PIDILITIND,isin_symbol_history,Bonus 1:1
+2010-12-23,bonus,INE633B01018,INE633B01018,POLYPLEX,POLYPLEX,isin_symbol_history,Bonus 1:1
+2010-08-13,split,INE511C01022,INE511C01022,POONAWALLA,MAGMA,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2010-08-11,split,INE028D01025,INE028D01025,RAINBOWPAP,RAINBOWPAP,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2010-06-08,bonus,INE613A01012,INE613A01012,RALLIS,RALLIS,isin_symbol_history,Bonus 1: 2
+2010-03-15,bonus,INE087H01022,INE087H01022,RENUKA,RENUKA,isin_symbol_history,Bonus 1:1
+2010-06-21,bonus,INE165B01011,INE165B01011,RSSOFTWARE,RSSOFTWARE,isin_symbol_history,Bonus 28:100
+2010-10-25,bonus,INE104E01014,INE104E01014,SAVERA,SAVERA,isin_symbol_history,Bonus 1:1
+2010-02-01,bonus,INE538H01024,INE538H01024,SHREEASHTA,SHREEASHTA,isin_symbol_history,Bonus 4:1
+2010-03-09,split,INE089C01029,INE089C01029,STLTECH,STRTECH,isin_symbol_history,Bon 1:1/Fv Spl Rs.5tors.2
+2010-03-18,split,INE399C01030,INE399C01030,SUPRAJIT,SUPRAJIT,isin_symbol_history,Bon 1:1/Fv Spl Rs.5tore.1
+2010-06-30,split,INE192A01025,INE192A01025,TATACONSUM,TATAGLOBAL,future_isin_symbol_bridge_no_event_interval,Face Value Split From Rs.10/- To Re.1/-
+2010-09-21,split,INE824B01021,INE824B01021,TATASTLBSL,BHUSANSTL,isin_symbol_history,Annual General Meeting / Dividend Rs.2.50 Per Share And Face Value Split From Rs.10/- To Rs.2/-
+2010-09-28,bonus,INE133E01013,INE133E01013,TI,TI,isin_symbol_history,Bonus 2:1
+2010-04-07,split,INE466H01028,INE466H01028,UNITY,UNITY,isin_symbol_history,Fv Split Rs.10 To Rs.2
+2010-01-21,split,INE784B01027,INE784B01027,WINSOMYARN,WINSOMYARN,isin_symbol_history,Fv Split Rs.10 To Re.1
+2010-06-15,bonus,INE075A01022,INE075A01022,WIPRO,WIPRO,isin_symbol_history,Bonus 2:3 And Final Dividend Rs.6/- Per Share
+2010-11-11,bonus,INE256A01028,INE256A01028,ZEEL,ZEEL,isin_symbol_history,Bonus 1:1
+2010-08-11,bonus,INE318D01020,INE318D01020,ZENITHSTL,ZENITHBIR,isin_symbol_history,Bonus 1:5
+2010-07-21,bonus,INE520A01019,INE520A01019,ZENSARTECH,ZENSARTECH,isin_symbol_history,Dividend Rs.5.50 Per Share And Bonus 1:1
+2010-08-23,bonus,INE206B01013,INE206B01013,ZODIACLOTH,ZODIACLOTH,isin_symbol_history,Bonus 1:2
+2010-04-05,bonus,INE010B01027,INE010B01019,ZYDUSLIFE,CADILAHC,future_isin_symbol_bridge_to_event_identity,Bonus 1: 2
+2011-08-02,bonus,INE208A01029,INE208A01029,ASHOKLEY,ASHOKLEY,isin_symbol_history,Bonus 1:1
+2011-05-05,split,INE933K01021,INE933K01021,BAJAJCON,BAJAJCORP,isin_symbol_history,Face Value Split From Rs.5/- To Re.1/-
+2011-10-03,split,INE257A01018,INE257A01018,BHEL,BHEL,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2011-10-05,split,INE120A01026,INE120A01026,CARBORUNIV,CARBORUNIV,isin_symbol_history,Face Value Split From Rs.2/- To Re.1/-
+2011-11-21,bonus,INE068D01021,INE068D01021,CASTEXTECH,AMTEKINDIA,isin_symbol_history,Bonus 1:1
+2011-06-08,bonus,INE314A01017,INE314A01017,CMC,CMC,isin_symbol_history,Dividend Rs.20/- Per Share And Bonus 1:1
+2011-09-28,split,INE007A01017,INE007A01017,CRISIL,CRISIL,isin_symbol_history,Face Value Split From Rs.10/- To Re.1/-
+2011-09-20,bonus,INE298A01020,INE298A01020,CUMMINSIND,CUMMINSIND,isin_symbol_history,Bonus 2:5
+2011-08-29,bonus,INE406H01016,INE406H01016,DHANUS,DHANUS,isin_symbol_history,Bonus 12:5
+2011-12-15,split,INE360C01016,INE360C01016,DPSCLTD,DPSCLTD,isin_symbol_history,Bonus 22:1 And Face Value Split From Rs.10/- To Re.1/-
+2011-03-17,bonus,INE089A01023,INE089A01023,DRREDDY,DRREDDY,isin_symbol_history,Scheme Of Arrangement - Bonus Debentures 6:1
+2011-09-26,bonus,INE826A01028,INE826A01028,ENTEGRA,ENTEGRA,isin_symbol_history,Bonus 4:13
+2011-07-14,split,INE040A01018,INE040A01018,HDFCBANK,HDFCBANK,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2011-02-24,bonus,INE093A01033,INE093A01033,HEXAWARE,HEXAWARE,isin_symbol_history,Dividend Rs 1.40 Per Share / Bonus 1:1
+2011-09-20,bonus,INE092B01017,INE092B01017,INDNIPPON,INDNIPPON,isin_symbol_history,Bonus 2:5
+2011-09-27,bonus,INE839G01010,INE839G01010,JOCIL,JOCIL,isin_symbol_history,Bonus 1:1
+2011-04-18,bonus,INE999A01015,INE999A01015,KSB,KSBPUMPS,isin_symbol_history,Bonus 1:1
+2011-06-09,bonus,INE522D01027,INE522D01027,MANAPPURAM,MANAPPURAM,isin_symbol_history,Bonus Shares In The Ratio Of 1:1
+2011-11-03,split,INE592I01029,INE592I01011,METKORE,CRONIMET,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs.10/- To Rs.2/-
+2011-10-05,bonus,INE274B01011,INE274B01011,MONSANTO,MONSANTO,isin_symbol_history,Bonus 1:1
+2011-12-29,split,INE672B01024,INE672B01024,MUNJALAU,MUNJALAU,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2011-09-06,split,INE189I01016,INE189I01016,NELCAST,NELCAST,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2011-05-03,bonus,INE809I01019,INE809I01019,ONMOBILE,ONMOBILE,isin_symbol_history,Bonus 1:1
+2011-08-17,split,INE603J01014,INE603J01014,PIIND,PIIND,isin_symbol_history,Face Value Split From Rs.10/- To Rs.5/-
+2011-06-15,split,INE855B01025,INE855B01025,RAIN,RAINCOM,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2011-07-13,bonus,INE296E01026,INE296E01026,RAJPALAYAM,RAJPALAYAM,isin_symbol_history,Final Dividend Rs.7.50 Per Share And Special Dividend Rs.7.50 Per Share/Bonus 1:1 (Purpose Revised)
+2011-07-15,split,INE613A01012,INE613A01012,RALLIS,RALLIS,isin_symbol_history,Face Value Split From Rs.10/- To Re.1/-
+2011-04-07,bonus,INE890C01046,INE890C01046,SANWARIA,SANWARIA,isin_symbol_history,Bonus 1:1
+2011-02-10,bonus,INE872A01014,INE872A01014,SREINFRA,SREINFRA,isin_symbol_history,Bonus 4:5 (Pursuant To Scheme Of Amalgamation)
+2011-09-12,split,IN9155A01012,IN9155A01012,TATAMTRDVR,TATAMTRDVR,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2011-09-26,split,INE245A01013,INE245A01013,TATAPOWER,TATAPOWER,isin_symbol_history,Face Value Split From Rs.10/- To Re.1/-
+2011-06-23,split,INE280A01010,INE280A01010,TITAN,TITAN,isin_symbol_history,Bonus 1:1 / Face Value Split From Rs.10/- To Re.1/-
+2011-09-12,split,INE155A01022,INE155A01014,TMPV,TATAMOTORS,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs.10/- To Rs.2/-
+2011-01-07,bonus,INE474I01012,INE474I01012,TULSI,TULSI,isin_symbol_history,Bonus 1:10 (Record Date Revised)
+2011-09-29,bonus,INE590L01019,INE590L01019,VASWANI,VASWANI,future_isin_symbol_bridge_no_event_interval,Bonus 1:4
+2011-10-31,split,INE054A01019,INE054A01019,VIPIND,VIPIND,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2011-08-16,split,INE956G01020,INE956G01020,WABAG,WABAG,isin_symbol_history,Face Value Split From Rs.5/- To Rs.2/-
+2011-09-27,bonus,INE206B01013,INE206B01013,ZODIACLOTH,ZODIACLOTH,isin_symbol_history,Bonus 1:2
+2012-02-15,split,INE225D01019,INE225D01019,SYMPHONY,SYMPHONY,isin_symbol_history,Face Value Split Rs.10/- To Rs.2/-
+2012-02-29,split,INE083C01014,INE083C01014,PLASTIBLEN,PLASTIBLEN,isin_symbol_history,Face Value Split From Rs.10/- To Rs.5/-
+2012-03-13,bonus,INE836A01035,INE836A01035,BSOFT,KPIT,isin_symbol_history,Bonus 1:1
+2012-03-27,bonus,INE842C01013,INE842C01013,MINDACORP,MINDACORP,isin_symbol_history,Bonus 1:1
+2012-03-29,bonus,INE808B01016,INE808B01016,OPTOCIRCUI,OPTOCIRCUI,isin_symbol_history,Bonus 3:10
+2012-03-29,bonus,INE274J01014,INE274J01014,OIL,OIL,isin_symbol_history,Bonus 3:2
+2012-04-12,split,INE051B01021,INE051B01013,VAKRANGEE,VAKRANSOFT,future_isin_symbol_bridge_to_event_identity,Bonus 1:1 And Face Value Split From Rs.10/- To Re.1/-
+2012-04-13,bonus,INE108E01023,INE108E01023,SUNDARAM,SUNDARAM,isin_symbol_history,Bonus 2:1
+2012-05-17,split,INE873D01016,INE873D01016,INDOCO,INDOCO,isin_symbol_history,Bonus 1:2 And Face Value Split From Rs.10 To Rs.2
+2012-05-22,bonus,INE878H01016,INE878H01016,INVENTURE,INVENTURE,isin_symbol_history,Bonus - 3:1
+2012-05-25,split,INE024L01019,INE024L01019,GRAVITA,GRAVITA,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2012-06-07,split,INE488D01013,INE488D01013,AVTNPL,AVTNPL,isin_symbol_history,Face Value Split From Rs 10 To Re 1
+2012-06-22,bonus,INE663F01024,INE663F01024,NAUKRI,NAUKRI,isin_symbol_history,Annual General Meeting/Dividend-Re.1/- Per Share/Bonus 1:1
+2012-06-29,split,INE225I01018,INE225I01018,ZYLOG,ZYLOG,isin_symbol_history,Face Value Split From Rs 10 To Rs 5
+2012-07-11,bonus,INE688E01024,INE688E01024,HERCULES,HERCULES,isin_symbol_history,Annual General Meeting/Dividend Rs.3.50 Per Share/Bonus 1:1 (Purpose Revised)
+2012-07-12,bonus,INE524A01029,INE524A01029,GABRIEL,GABRIEL,isin_symbol_history,Bonus 1:1
+2012-07-12,bonus,INE668F01031,INE668F01031,JYOTHYLAB,JYOTHYLAB,isin_symbol_history,Annual General Meeting/Dividend Of Rs.2.50 Per Share/ Bonus 1:1
+2012-07-13,bonus,INE029A01011,INE029A01011,BPCL,BPCL,isin_symbol_history,Annual General Meeting/ Dividend Rs 11/- Per Share/ Bonus 1:1
+2012-07-17,bonus,INE358B01012,INE358B01012,MICROTECH,MICROTECH,isin_symbol_history,Bonus 1:1
+2012-07-24,split,INE580B01011,INE580B01011,GRUH,GRUH,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2012-08-09,split,INE031B01015,INE031B01015,AJANTPHARM,AJANTPHARM,isin_symbol_history,Face Value Split From Rs. 10/- To Rs. 5/-
+2012-08-16,split,INE222F01011,INE222F01011,VTMLTD,VTMLTD,isin_symbol_history,Face Value Split From  Rs.10/- To Re.1/-
+2012-09-04,bonus,INE172A01019,INE172A01019,CASTROL,CASTROL,isin_symbol_history,Bonus 1:1
+2012-09-10,bonus,INE547E01014,INE547E01014,IMPAL,IMPAL,isin_symbol_history,Bonus 1:1
+2012-09-20,split,INE026A01017,INE026A01017,GSFC,GSFC,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2012-09-25,split,INE885A01032,INE885A01024,ARE&M,AMARAJABAT,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs.2/- To Re.1/-
+2012-10-03,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSUMI,isin_symbol_history,Bonus 1:2
+2012-10-04,bonus,INE952D01018,INE952D01018,BILPOWER,BILPOWER,isin_symbol_history,Bonus 1:1
+2012-10-25,split,INE516K01016,INE516K01016,GOENKA,GOENKA,isin_symbol_history,Face Value Split From Rs.10/- To Re.1/-
+2012-10-25,split,INE098F01015,INE098F01015,AMRUTANJAN,AMRUTANJAN,isin_symbol_history,Face Value  Split From Rs. 10 To Rs. 2/-
+2012-10-29,split,INE725E01016,INE725E01016,ORISSAMINE,ORISSAMINE,isin_symbol_history,Face Value Split From Rs.10/- To Re.1/-
+2012-10-30,split,INE032A01015,INE032A01015,BOMDYEING,BOMDYEING,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2012-11-01,split,INE879E01029,INE879E01029,KANANIIND,KANANIIND,isin_symbol_history,Face Value Split From Rs.5/- To Re.1/-
+2012-11-08,split,INE050A01017,INE050A01017,BBTC,BBTC,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2012-11-22,split,INE301D01018,INE301D01018,RUBYMILLS,RUBYMILLS,isin_symbol_history,Face Value Split From Rs 10 To Rs 5
+2012-11-22,split,INE849C01018,INE849C01018,SHALPAINTS,SHALPAINTS,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2012-12-13,split,INE023M01027,INE023M01019,SETUINFRA,PRAKASHCON,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 10 To Re 1
+2012-12-13,bonus,INE660A01013,INE660A01013,SUNDARMFIN,SUNDARMFIN,isin_symbol_history,Bonus 1:1
+2012-12-19,bonus,INE676A01019,INE676A01019,BBOX,AGCNET,isin_symbol_history,Bonus 1:1
+2012-12-21,split,INE899L01022,INE899L01014,UJAAS,MBSWITCH,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 10 To Re 1
+2013-01-03,split,INE861A01017,INE861A01017,VISESHINFO,VISESHINFO,isin_symbol_history,Face Value Split From Rs 10 To Re 1
+2013-01-23,bonus,INE181G01025,INE181G01025,AJRINFRA,GAMMNINFRA,isin_symbol_history,Bonus 1:34
+2013-01-28,split,INE144J01019,INE144J01019,20MICRONS,20MICRONS,isin_symbol_history,Face Value Split Rs 10 To Rs 5
+2013-02-01,bonus,INE879E01029,INE879E01037,KANANIIND,KANANIIND,future_isin_symbol_bridge_to_event_identity,Bonus 1:10
+2013-02-12,bonus,INE495J01015,INE495J01015,PRADIP,PRADIP,isin_symbol_history,Bonus 1:5
+2013-02-15,split,INE774D01016,INE774D01016,M&MFIN,M&MFIN,isin_symbol_history,Face Value Split Rs 10 To Rs 2
+2013-02-27,split,INE213M01016,INE213M01016,VKSPL,VKSPL,isin_symbol_history,Face Value Split From Rs 10 To Re 1
+2013-03-04,split,INE533D01016,INE533D01016,RAJRAYON,RAJRAYON,isin_symbol_history,Face Value Split From Rs 10 To Re 1
+2013-03-07,bonus,INE861A01017,INE861A01058,VISESHINFO,VISESHINFO,future_isin_symbol_bridge_to_event_identity,Bonus 1 : 10
+2013-03-21,split,INE904G01020,INE904G01020,RASOYPR,RASOYPR,isin_symbol_history,Bonus 2:1 / Face Value Split From Rs. 5/- To Re. 1/-
+2013-03-26,split,INE607L01011,INE607L01011,BILENERGY,BILENERGY,isin_symbol_history,Face Value Split From Rs.10/- To Re. 1/-
+2013-04-10,split,INE268L01020,INE268L01012,SHEKHAWATI,SPYL,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs.10 To Re.1
+2013-04-10,bonus,INE880B01015,INE880B01015,ANSALHSG,ANSALHSG,isin_symbol_history,Bonus 2:1
+2013-04-12,split,INE603J01014,INE603J01022,PIIND,PIIND,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs.5/- Per Share To Re.1/- Per Share
+2013-05-03,bonus,INE213M01016,INE213M01024,VKSPL,VKSPL,future_isin_symbol_bridge_to_event_identity,Bonus 5:2
+2013-05-23,bonus,INE164A01016,INE164A01016,BALMLAWRIE,BALMLAWRIE,isin_symbol_history,Bonus 3:4
+2013-06-13,bonus,INE763I01026,INE763I01018,TARIL,TRIL,future_isin_symbol_bridge_to_event_identity,Bonus 1:9
+2013-06-27,bonus,INE645H01019,INE645H01019,SUTLEJTEX,SUTLEJTEX,isin_symbol_history,Bonus 1:2
+2013-07-03,split,INE442H01011,INE442H01011,ASHOKA,ASHOKA,isin_symbol_history,Bonus 1:2 And Face Value Split Rs.10/- To Rs.5/-
+2013-07-03,bonus,INE859A01011,INE859A01011,PNBGILTS,PNBGILTS,isin_symbol_history,Bonus 1:3
+2013-07-05,split,INE517H01010,INE517H01010,ADVANTA,ADVANTA,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2013-07-09,bonus,INE586G01017,INE586G01017,GULFPETRO,SAHPETRO,isin_symbol_history,Bonus 23:19
+2013-07-09,bonus,INE205C01013,INE205C01013,POLYMED,POLYMED,isin_symbol_history,Bonus 1:1
+2013-07-11,bonus,INE018A01030,INE018A01030,LT,LT,isin_symbol_history,Bonus 1:2
+2013-07-16,bonus,INE790G01023,INE790G01023,SHILPAMED,SHILPAMED,isin_symbol_history,Annual General Meeting / Dividend - Rs 1.30/- Per Share / Bonus 1:2
+2013-07-23,bonus,INE685A01028,INE685A01028,TORNTPHARM,TORNTPHARM,isin_symbol_history,Bonus 1:1
+2013-07-26,bonus,INE978A01019,INE978A01019,HERITGFOOD,HERITGFOOD,isin_symbol_history,Bonus 1:1
+2013-07-30,split,INE021A01018,INE021A01018,ASIANPAINT,ASIANPAINT,isin_symbol_history,Face Value Split Rs 10 To Re 1
+2013-08-07,bonus,INE517B01013,INE517B01013,TTML,TTML,isin_symbol_history,Bonus 2:15
+2013-08-14,split,INE116A01016,INE116A01016,APCOTEXIND,APCOTEXIND,isin_symbol_history,Face Value Split From Rs.10/- To Rs.5/-
+2013-08-19,split,INE421D01014,INE421D01014,CCL,CCL,isin_symbol_history,Bonus 1:1 And Face Value Split From Rs.10/- To Rs.2/-
+2013-08-26,bonus,INE989C01012,INE989C01012,DIAPOWER,DIAPOWER,isin_symbol_history,Bonus 1:3
+2013-09-06,bonus,INE111A01017,INE111A01017,CONCOR,CONCOR,isin_symbol_history,Bonus 1:2
+2013-09-17,bonus,INE031B01015,INE031B01031,AJANTPHARM,AJANTPHARM,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2013-09-25,split,INE040D01012,INE040D01012,MAYURUNIQ,MAYURUNIQ,isin_symbol_history,Face Value Split From Rs.10/- To Rs.5/-
+2013-09-26,bonus,INE488D01013,INE488D01021,AVTNPL,AVTNPL,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2013-09-27,bonus,INE426A01027,INE426A01027,ALEMBICLTD,ALEMBICLTD,isin_symbol_history,Bonus 1:1
+2013-09-30,bonus,INE043K01011,INE043K01011,BSLIMITED,BSLIMITED,isin_symbol_history,Bonus 1:1
+2013-10-03,bonus,INE283A01014,INE283A01014,PRECOT,PRECOT,isin_symbol_history,Bonus 1:2
+2013-10-17,split,INE171A01011,INE171A01011,FEDERALBNK,FEDERALBNK,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2013-10-24,split,INE365D01013,INE365D01013,ASHIANA,ASHIANA,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2013-10-30,bonus,INE210C01013,INE210C01013,AROGRANITE,AROGRANITE,isin_symbol_history,Bonus 1 : 2
+2013-11-11,bonus,INE800H01010,INE800H01010,OMAXE,OMAXE,isin_symbol_history,Bonus 10:39
+2013-11-21,split,INE484J01019,INE484J01019,GODREJPROP,GODREJPROP,isin_symbol_history,Face Value Split From Rs.10/- To Rs.5/-
+2013-11-22,split,INE131B01021,INE131B01021,RELAXO,RELAXO,isin_symbol_history,Face Value Split From Rs.5/- To Re.1/-
+2013-12-20,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSUMI,isin_symbol_history,Bonus 1:2
+2013-12-26,bonus,INE050B01023,INE050B01023,IVC,IVC,isin_symbol_history,Bonus 1:2
+2014-01-21,split,INE043K01011,INE043K01011,BSLIMITED,BSLIMITED,isin_symbol_history,Face Value Split From Rs 10/- To Re 1/-
+2014-01-27,split,INE455I01011,INE455I01011,KSCL,KSCL,isin_symbol_history,Face Value Split From Rs 10/- To Rs 2/-
+2014-02-03,split,INE665A01038,INE665A01020,SWANCORP,SWANENERGY,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 2/- To Re 1/-
+2014-02-06,bonus,INE313D01013,INE313D01013,MOHOTAIND,RAIREKMOH,isin_symbol_history,Bonus 2 : 1
+2014-02-20,split,INE028B01011,INE028B01011,SHARONBIO,SHARONBIO,isin_symbol_history,Bonus 1:1 / Face Value Split From 10/- To Face Value 2/-
+2014-02-26,split,INE411H01024,INE411H01024,RSYSTEMS,RSYSTEMS,isin_symbol_history,Face Value Split From Rs 10/- To Re 1/- Per Share
+2014-03-03,bonus,INE256A01028,INE256A01028,ZEEL,ZEEL,isin_symbol_history,Bonus Preference Shares 21:1
+2014-03-25,split,INE952H01019,INE952H01019,RAJTV,RAJTV,isin_symbol_history,Bonus 1:1 / Face Value Split From Rs.10/- To Rs.5/-
+2014-03-27,split,INE806A01020,INE806A01012,VIKASECO,VIKASGLOB,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 10/- To Re 1/-
+2014-03-28,bonus,INE040D01012,INE040D01038,MAYURUNIQ,MAYURUNIQ,future_isin_symbol_bridge_to_event_identity,Bonus 1 : 1
+2014-03-28,bonus,INE823A01017,INE823A01017,KOTHARIPRO,KOTHARIPRO,isin_symbol_history,Bonus 2 : 1
+2014-05-16,bonus,INE075D01018,INE075D01018,GMBREW,GMBREW,isin_symbol_history,Dividend Rs 2.50/- Per Share / Bonus 1 : 4
+2014-06-03,bonus,INE018I01017,INE018I01017,MINDTREE,MINDTREE,isin_symbol_history,Bonus 1 : 1
+2014-06-09,bonus,INE580B01011,INE580B01029,GRUH,GRUH,future_isin_symbol_bridge_to_event_identity,Bonus Issue 1 : 1
+2014-06-20,split,INE288B01011,INE288B01011,DEEPAKNTR,DEEPAKNTR,isin_symbol_history,Bonus 1 : 1 / Face Value Split From Rs 10/- Each To Rs 2/- Each
+2014-07-04,bonus,INE337A01034,INE337A01034,LGBBROSLTD,LGBBROSLTD,isin_symbol_history,Annual General Meeting / Final Dividend - Rs 7/- Per Share / Bonus 1 : 1
+2014-07-15,bonus,INE633A01028,INE633A01028,SHRENUJ,SHRENUJ,isin_symbol_history,Annual General Meeting / Dividend - Re 0.60/- Per Share / Bonus 1 : 1
+2014-07-28,split,INE238A01026,INE238A01026,AXISBANK,AXISBANK,isin_symbol_history,Face Value Split From Rs 10/- To Rs 2/- Per Share
+2014-07-30,bonus,INE988E01010,INE988E01010,JMTAUTOLTD,JMTAUTOLTD,isin_symbol_history,Bonus 5:2
+2014-08-28,split,INE949H01015,INE949H01015,MANINFRA,MANINFRA,isin_symbol_history,Annual General Meeting / Dividend - Rs 1.35/- Per Share / Face Value Split - From Rs 10/- Per Share To Rs 2/- Per Share
+2014-09-04,split,INE168A01017,INE168A01017,J&KBANK,J&KBANK,isin_symbol_history,Face Value Split - From Rs 10/- Per Share To Re 1/- Per Share
+2014-09-08,split,INE150B01013,INE150B01013,ALKYLAMINE,ALKYLAMINE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2014-09-12,split,INE951D01010,INE951D01010,ATULAUTO,ATULAUTO,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2014-09-16,bonus,INE510K01019,INE510K01019,SHILPI,SHILPI,isin_symbol_history,Bonus 1:1
+2014-09-19,split,INE305C01011,INE305C01011,PANAMAPET,PANAMAPET,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2014-09-22,split,INE943B01011,INE943B01011,SOUISPAT,SOUISPAT,isin_symbol_history,Annual General Meeting And Face Value Split From Rs.10/- To Re.1/-
+2014-09-24,split,INE059D01012,INE059D01012,LAOPALA,LAOPALA,isin_symbol_history,Sub-Division From Rs 10/- Per Share To Rs 2/- Per Share
+2014-09-29,bonus,INE142K01011,INE142K01011,LYPSAGEMS,LYPSAGEMS,isin_symbol_history,Bonus 1:2
+2014-09-30,split,INE659A01015,INE659A01015,SUDARSCHEM,SUDARSCHEM,isin_symbol_history,Bonus 1 : 1 / Face Value Split From Rs 10/- To Rs 2/- Per Share
+2014-10-08,split,INE927D01010,INE927D01010,JBMA,JBMA,isin_symbol_history,Bonus 1:1 And Face Value Split Rs.10/- To Rs.5/- Per Share
+2014-10-09,bonus,INE319B01014,INE319B01014,THEBYKE,THEBYKE,isin_symbol_history,Bonus 1:1
+2014-10-30,split,INE637H01016,INE637H01016,SHIVAMAUTO,SHIVAMAUTO,isin_symbol_history,Face Value Split From Rs.10/- To Rs.2/-
+2014-11-13,bonus,INE806A01020,INE806A01020,VIKASECO,VIKASGLOB,isin_symbol_history,Bonus 3 : 2
+2014-11-17,bonus,INE233B01017,INE233B01017,BLUEDART,BLUEDART,isin_symbol_history,Scheme Of Arrangement - Issue Of Bonus Debentures
+2014-11-20,split,INE062A01012,INE062A01012,SBIN,SBIN,isin_symbol_history,Face Value Split Rs.10/- To Re.1/- Per Share
+2014-11-25,split,INE272L01014,INE272L01014,SURANASOL,SURANASOL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2014-11-25,split,INE130B01023,INE130B01023,SURANAT&P,SURANAT&P,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2014-11-28,split,INE260B01010,INE260B01010,GODFRYPHLP,GODFRYPHLP,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Rs 2/- Per Share
+2014-12-02,bonus,INE009A01021,INE009A01021,INFY,INFY,isin_symbol_history,Bonus 1:1
+2014-12-04,split,INE090A01013,INE090A01013,ICICIBANK,ICICIBANK,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2014-12-18,split,INE160A01014,INE160A01014,PNB,PNB,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2014-12-18,split,INE573A01034,INE573A01034,JKTYRE,JKTYRE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2014-12-24,split,INE804D01011,INE804D01011,INFODRIVE,INFODRIVE,isin_symbol_history,Face Value Split (Sub Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2015-03-24,bonus,INE767A01016,INE767A01016,AARTIDRUGS,AARTIDRUGS,isin_symbol_history,Bonus 1:1
+2015-09-16,split,INE208C01025,INE208C01017,AEGISLOG,AEGISCHEM,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 10 To Rs 1
+2015-03-20,split,INE031B01015,INE031B01031,AJANTPHARM,AJANTPHARM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2015-09-23,split,INE914E01024,INE914E01024,ALANKIT,ALANKIT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-12-30,bonus,INE418H01029,INE418H01029,ALLCARGO,ALLCARGO,isin_symbol_history,Bonus 1:1
+2015-09-23,bonus,INE116A01016,INE116A01024,APCOTEXIND,APCOTEXIND,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2015-11-26,split,INE871C01012,INE871C01012,AVANTIFEED,AVANTIFEED,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-01-22,split,INE028A01013,INE028A01013,BANKBARODA,BANKBARODA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-10-07,split,INE176A01010,INE176A01010,BATAINDIA,BATAINDIA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2015-09-14,bonus,INE263A01016,INE263A01016,BEL,BEL,isin_symbol_history,Bonus 2:1
+2015-01-08,split,INE463A01020,INE463A01020,BERGEPAINT,BERGEPAINT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2015-08-21,split,INE686A01026,INE686A01018,CEMPRO,ITDCEM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2015-06-18,bonus,INE378J01013,INE378J01013,CMAHENDRA,CMAHENDRA,isin_symbol_history,Bonus 1:1
+2015-09-23,bonus,INE259A01022,INE259A01022,COLPAL,COLPAL,isin_symbol_history,Bonus 1:1
+2015-01-22,split,INE112A01015,INE112A01015,CORPBANK,CORPBANK,isin_symbol_history,Face Valus Split (Sub-Division) - From Rs 10/- Per To Rs 2/- Per Share
+2015-09-09,bonus,INE202B01012,INE202B01012,DHFL,DHFL,isin_symbol_history,Bonus 1:1
+2015-09-23,bonus,INE361B01024,INE361B01024,DIVISLAB,DIVISLAB,isin_symbol_history,Bonus 1:1
+2015-12-17,bonus,INE738I01010,INE738I01010,ECLERX,ECLERX,isin_symbol_history,Bonus 1:3
+2015-02-12,bonus,INE045J01018,INE045J01018,FCL,FCL,isin_symbol_history,Bonus 1:1
+2015-06-11,split,INE045J01018,INE045J01018,FCL,FCL,isin_symbol_history,Face Valus Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-07-08,bonus,INE171A01011,INE171A01029,FEDERALBNK,FEDERALBNK,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2015-01-05,bonus,INE233A01035,INE233A01035,GODREJIND,GODREJIND,isin_symbol_history,Bonus 1 : 1250
+2015-03-23,split,INE101D01012,INE101D01012,GRANULES,GRANULES,isin_symbol_history,Face Value Split Rs 10 To Rs 1
+2015-01-06,split,INE982F01028,INE982F01028,HATHWAY,HATHWAY,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-03-19,bonus,INE860A01027,INE860A01027,HCLTECH,HCLTECH,isin_symbol_history,Bonus 1 : 1
+2015-02-27,split,INE475B01014,INE475B01014,HIKAL,HIKAL,isin_symbol_history,Face Value Split (Sub-Division): From Rs 10/- Per Share To Rs 2/- Per Share
+2015-12-21,split,INE611L01013,INE611L01013,INDTERRAIN,INDTERRAIN,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-06-15,bonus,INE009A01021,INE009A01021,INFY,INFY,isin_symbol_history,Annual General Meeting/ Dividend - Rs 29.50/- Per Share And Bonus 1:1
+2015-04-16,bonus,INE070I01018,INE070I01018,INSECTICID,INSECTICID,isin_symbol_history,Bonus 1:2
+2015-12-03,split,INE039C01016,INE039C01016,JAMNAAUTO,JAMNAAUTO,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2015-12-10,split,INE576I01014,INE576I01014,JKIL,JKIL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2015-06-25,split,INE988E01010,INE988E01010,JMTAUTOLTD,JMTAUTOLTD,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-03-26,split,INE531A01016,INE531A01016,KANSAINER,KANSAINER,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2015-03-30,split,INE216D01018,INE216D01018,KSERASERA,KSERASERA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2015-10-15,split,INE112F01014,INE112F01014,LAMBODHARA,LAMBODHARA,isin_symbol_history,Face Value Split From Rs 10 To Rs 5
+2015-07-15,bonus,INE683C01011,INE683C01011,MAITHANALL,MAITHANALL,isin_symbol_history,Bonus 1:1
+2015-12-22,bonus,INE196A01026,INE196A01026,MARICO,MARICO,isin_symbol_history,Bonus 1:1
+2015-07-28,bonus,INE912H01013,INE912H01013,MBLINFRA,MBLINFRA,isin_symbol_history,Bonus 1:1
+2015-04-09,split,INE071D01025,INE071D01025,MENONBE,MENONBE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2015-01-05,split,INE842C01013,INE842C01013,MINDACORP,MINDACORP,isin_symbol_history,Bonus 1:1 / Face Value Split From Rs 10/- Per Share To Rs 2/- Per Share
+2015-03-16,bonus,INE313D01013,INE313D01013,MOHOTAIND,RAIREKMOH,isin_symbol_history,Bonus 1:6
+2015-07-23,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSUMI,isin_symbol_history,Annual General Meeting / Dividend - Rs 3/- Per Share / Bonus - 1:2
+2015-11-26,split,INE987B01018,INE987B01018,NATCOPHARM,NATCOPHARM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-03-20,bonus,INE733E01010,INE733E01010,NTPC,NTPC,isin_symbol_history,Scheme Of Arrangement - Bonus Debentures 1:1
+2015-03-10,bonus,INE262H01013,INE262H01013,PERSISTENT,PERSISTENT,isin_symbol_history,Bonus 1 : 1
+2015-04-16,split,INE450D01021,INE450D01013,PITTIENG,PITTILAM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2015-02-02,split,INE205C01013,INE205C01013,POLYMED,POLYMED,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2015-07-01,bonus,INE131B01021,INE131B01039,RELAXO,RELAXO,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2015-01-21,split,INE165B01011,INE165B01011,RSSOFTWARE,RSSOFTWARE,isin_symbol_history,Interim Dividend - Rs 1.50/- Per Share / Face Value Split - From Rs 10/- Per Share To Rs 5/- Per Share (Purpose Revised)
+2015-10-21,bonus,INE301D01018,INE301D01026,RUBYMILLS,RUBYMILLS,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2015-10-29,split,INE453D01017,INE453D01017,SARLAPOLY,SARLAPOLY,isin_symbol_history,Face Value Split From Rs 10 To Re 1 (Record Date Revised)
+2015-11-06,split,INE790G01023,INE790G01023,SHILPAMED,SHILPAMED,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2015-10-08,bonus,INE637H01016,INE637H01024,SHIVAMAUTO,SHIVAMAUTO,future_isin_symbol_bridge_to_event_identity,Bonus 1: 1
+2015-08-17,split,INE529F01019,INE529F01019,SIGNET,SIGNET,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 1/- Per Share
+2015-12-17,split,INE812G01017,INE812G01017,SMSPHARMA,SMSPHARMA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2015-06-25,bonus,INE219H01039,INE219H01039,SRSLTD,SRSLTD,isin_symbol_history,Bonus 1:1
+2015-01-23,split,INE493A01019,INE493A01019,TATACOFFEE,TATACOFFEE,isin_symbol_history,Face Value Split (Sub-Division): From Rs 10/- Per Share To Re 1/- Per Share
+2015-03-19,split,INE669C01028,INE669C01028,TECHM,TECHM,isin_symbol_history,Bonus 1:1 / Face Value Split - From Rs 10/- Per Share To Rs 5/- Per Share
+2015-04-23,split,INE615H01020,INE615H01012,TITAGARH,TWL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2015-12-21,bonus,INE398A01010,INE398A01010,VENKEYS,VENKEYS,isin_symbol_history,Bonus 1:2
+2015-05-28,bonus,INE370E01029,INE370E01029,VIVIDHA,VIVIDHA,isin_symbol_history,Bonus 10:1
+2015-03-26,bonus,INE956G01020,INE956G01038,WABAG,WABAG,future_isin_symbol_bridge_to_event_identity,Bonus 1 : 1
+2015-10-06,split,INE010B01027,INE010B01019,ZYDUSLIFE,CADILAHC,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2016-10-19,bonus,INE914E01024,INE914E01032,ALANKIT,ALANKIT,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2016-12-15,split,INE914E01024,INE914E01032,ALANKIT,ALANKIT,future_isin_symbol_bridge_to_event_identity,Fv Splt Frm Rs 2 To Re 1
+2016-09-08,split,INE296A01016,INE296A01016,BAJFINANCE,BAJFINANCE,isin_symbol_history,Bonus 1:1/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2016-12-26,bonus,INE164A01016,INE164A01016,BALMLAWRIE,BALMLAWRIE,isin_symbol_history,Bonus 3:1
+2016-07-15,bonus,INE463A01020,INE463A01038,BERGEPAINT,BERGEPAINT,future_isin_symbol_bridge_to_event_identity,Bonus 2:5
+2016-10-26,split,INE354C01019,INE354C01019,BHAGERIA,BHAGERIA,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 5
+2016-07-13,bonus,INE029A01011,INE029A01011,BPCL,BPCL,isin_symbol_history,Bonus 1:1
+2016-10-19,split,INE475E01018,INE475E01018,CAPLIPOINT,CAPLIPOINT,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2016-11-23,split,INE180C01018,INE180C01018,CGCL,CGCL,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2016-05-02,bonus,INE353G01020,INE353G01020,DISHMAN,DISHMAN,isin_symbol_history,Bonus 1:1
+2016-07-14,bonus,INE460C01014,INE460C01014,GANESHHOU,GANESHHOUC,isin_symbol_history,Bonus 1:2
+2016-05-30,bonus,INE075D01018,INE075D01018,GMBREW,GMBREW,isin_symbol_history,Bonus 1:4
+2016-10-06,split,INE047A01013,INE047A01013,GRASIM,GRASIM,isin_symbol_history,Face Value Split From Rs 10 To Re 2
+2016-01-06,split,INE461C01020,INE461C01020,GREENPLY,GREENPLY,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2016-07-14,bonus,INE536A01023,INE536A01023,GRINDWELL,GRINDWELL,isin_symbol_history,Bonus 1:1
+2016-12-27,split,INE255D01016,INE255D01016,GULPOLY,GULPOLY,isin_symbol_history,Fv Splt Frm Rs 5 To Re 1
+2016-07-13,bonus,INE473B01035,INE473B01035,HATSUN,HATSUN,isin_symbol_history,Bonus 2:5
+2016-09-14,bonus,INE094A01015,INE094A01015,HINDPETRO,HINDPETRO,isin_symbol_history,Bonus 2:1
+2016-11-11,split,INE483B01018,INE483B01018,ICIL,ICIL,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2016-10-18,bonus,INE242A01010,INE242A01010,IOC,IOC,isin_symbol_history,Bonus 1:1
+2016-07-01,bonus,INE154A01025,INE154A01025,ITC,ITC,isin_symbol_history,Bonus 1:2
+2016-09-21,split,INE988E01010,INE988E01028,JMTAUTOLTD,JMTAUTOLTD,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 2 To Re 1
+2016-10-04,split,INE217B01028,INE217B01028,KAJARIACER,KAJARIACER,isin_symbol_history,Face Value Split From Rs 2 To Re 1
+2016-11-17,split,INE036D01010,INE036D01010,KARURVYSYA,KARURVYSYA,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2016-12-13,split,INE634I01011,INE634I01011,KNRCON,KNRCON,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2016-01-05,bonus,INE823A01017,INE823A01017,KOTHARIPRO,KOTHARIPRO,isin_symbol_history,Bonus 1:2
+2016-11-29,split,INE930H01015,INE930H01015,KPRMILL,KPRMILL,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 5
+2016-08-11,split,INE096L01017,INE096L01017,KTIL,KTIL,isin_symbol_history,Bonus 1:25/ Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2016-06-06,split,INE150G01012,INE150G01012,LUXIND,LUXIND,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2016-08-30,bonus,INE071D01025,INE071D01033,MENONBE,MENONBE,future_isin_symbol_bridge_to_event_identity,Bonus 1:5
+2016-03-09,bonus,INE018I01017,INE018I01017,MINDTREE,MINDTREE,isin_symbol_history,Bonus 1:1
+2016-02-17,split,INE893J01011,INE893J01011,MOLDTKPAC,MOLDTKPAC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2016-09-01,bonus,INE725A01022,INE725A01022,NAVA,NBVENTURES,isin_symbol_history,Bonus 1:1
+2016-06-02,split,INE095N01015,INE095N01015,NBCC,NBCC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2016-08-26,bonus,INE134E01011,INE134E01011,PFC,PFC,isin_symbol_history,Bonus 1:1
+2016-08-24,split,INE600A01027,INE600A01027,PILITA,PILITA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 4/- Per Share To Re 1/- Per Share
+2016-06-23,bonus,INE675G01018,INE675G01018,PINCON,PINCON,isin_symbol_history,Bonus 1:1
+2016-08-12,split,INE195J01011,INE195J01011,PNCINFRA,PNCINFRA,isin_symbol_history,Face Value Split From Rs 10 To Rs 2
+2016-03-03,split,INE696K01016,INE696K01016,PRAKASHSTL,PRAKASHSTL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2016-03-21,split,INE372C01011,INE372C01011,PRECWIRE,PRECWIRE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2016-03-14,split,INE230R01019,INE230R01019,RAMASTEEL,RAMASTEEL,isin_symbol_history,Bonus 4:1/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2016-09-28,bonus,INE020B01018,INE020B01018,RECLTD,RECLTD,isin_symbol_history,Bonus 1:1
+2016-10-10,split,INE650K01021,INE650K01013,SECURKLOUD,8KMILES,future_isin_symbol_bridge_to_event_identity,Bonus 1:3/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2016-10-13,split,INE482J01021,INE482J01013,SHAH,GAL,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 10 To Re 1
+2016-07-13,split,INE343H01011,INE343H01011,SOLARINDS,SOLARINDS,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2016-12-01,split,INE305H01010,INE305H01010,SUNILHITEC,SUNILHITEC,isin_symbol_history,Bonus 1:1/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2016-09-14,bonus,INE225D01019,INE225D01027,SYMPHONY,SYMPHONY,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2016-09-06,bonus,INE286K01024,INE286K01024,TECHNO,TECHNO,isin_symbol_history,Bonus 1:1
+2016-09-12,split,INE849A01012,INE849A01012,TRENT,TRENT,isin_symbol_history,Face Value Split From Rs 10 To Re 1
+2016-09-12,split,INE405E01023,INE405E01015,UNOMINDA,MINDAIND,future_isin_symbol_bridge_to_event_identity,Face Value Split From Rs 10 To Rs 2
+2016-03-16,split,INE484C01030,INE484C01014,VEEDOL,TIDEWATER,future_isin_symbol_bridge_to_event_identity,Bonus 1:1/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2016-08-30,split,INE951I01019,INE951I01019,VGUARD,VGUARD,isin_symbol_history,Face Value Split From Rs 10 To Re 1
+2016-10-25,split,INE159N01019,INE159N01019,VIJIFIN,VIJIFIN,isin_symbol_history,Fv Splt Frm Rs 10 To Re 1
+2016-03-30,bonus,INE370E01029,INE370E01029,VIVIDHA,VIVIDHA,isin_symbol_history,Bonus 1:3
+2016-04-06,split,INE526G01013,INE526G01013,VIVIMEDLAB,VIVIMEDLAB,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2016-03-21,split,INE192B01031,INE192B01023,WELSPUNLIV,WELSPUNIND,future_isin_symbol_bridge_to_event_identity,Interim Div - Rs 6/- Per Share + Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2017-03-15,bonus,INE251C01017,INE251C01017,ABMINTLTD,ABMINTLTD,isin_symbol_history,Bonus 5:1
+2017-05-25,split,INE837H01012,INE837H01012,ADVENZYMES,ADVENZYMES,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Rs 2/- Per Share
+2017-06-22,split,INE574I01027,INE574I01027,ARCOTECH,ARCOTECH,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Rs 2/- Per Share
+2017-10-30,split,INE446A01017,INE446A01017,ATLASCYCLE,ATLASCYCLE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2017-05-04,split,INE520H01014,INE520H01014,BEARDSELL,BEARDSELL,isin_symbol_history,Bonus 1:5/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-03-16,split,INE263A01016,INE263A01016,BEL,BEL,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Re 1/- Per Share
+2017-09-28,bonus,INE263A01016,INE263A01024,BEL,BEL,future_isin_symbol_bridge_to_event_identity,Bonus 1:10
+2017-09-28,bonus,INE465A01025,INE465A01025,BHARATFORG,BHARATFORG,isin_symbol_history,Bonus 1:1
+2017-09-28,bonus,INE257A01018,INE257A01026,BHEL,BHEL,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2017-06-15,bonus,INE376G01013,INE376G01013,BIOCON,BIOCON,isin_symbol_history,Bonus 2:1
+2017-04-26,split,INE153T01019,INE153T01019,BLS,BLS,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Re 1/- Per Share
+2017-07-13,bonus,INE029A01011,INE029A01011,BPCL,BPCL,isin_symbol_history,Bonus 1:2
+2017-10-12,split,INE477A01012,INE477A01012,CANFINHOME,CANFINHOME,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-12-21,bonus,INE172A01027,INE172A01027,CASTROLIND,CASTROLIND,isin_symbol_history,Bonus 1:1
+2017-08-31,split,INE483S01020,INE483S01012,CCAVENUE,INFIBEAM,future_isin_symbol_bridge_to_event_identity,Annual General Meeting/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2017-02-16,split,INE070C01029,INE070C01029,COMPINFO,COMPINFO,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-04-05,bonus,INE111A01017,INE111A01017,CONCOR,CONCOR,isin_symbol_history,Bonus 1:4
+2017-08-03,split,INE558D01013,INE558D01013,CORALFINAC,CORALFINAC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-07-13,bonus,INE491A01021,INE491A01021,CUB,CUB,isin_symbol_history,Bonus 1:10
+2017-09-11,split,INE583C01013,INE583C01013,DECCANCE,DECCANCE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2017-08-31,split,INE325C01027,INE325C01027,DOLLAR,DOLLAR,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-08-10,split,INE366A01033,INE366A01033,DWARKESH,DWARKESH,isin_symbol_history,Annual General Meeting/Dividend - Rs 10 Per Share/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share (Purpose Revised)
+2017-03-09,bonus,INE129A01019,INE129A01019,GAIL,GAIL,isin_symbol_history,Bonus 1:3
+2017-01-10,bonus,INE224E01028,INE224E01028,GATECH,STAMPEDE,isin_symbol_history,Bonus 1:4
+2017-02-10,split,INE336H01015,INE336H01015,GAYAPROJ,GAYAPROJ,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Rs 2/- Per Share
+2017-06-22,bonus,INE102D01028,INE102D01028,GODREJCP,GODREJCP,isin_symbol_history,Bonus 1:1
+2017-07-13,bonus,INE390G01014,INE390G01014,GPTINFRA,GPTINFRA,isin_symbol_history,Bonus 1:1
+2017-10-10,split,INE978A01019,INE978A01019,HERITGFOOD,HERITGFOOD,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2017-05-25,split,INE310C01011,INE310C01011,HINDCOMPOS,HINDCOMPOS,isin_symbol_history,Bonus 1:2/Face Value Split (Sub-Division) From Rs 10 Per Share To Rs 5 Per Share
+2017-07-11,bonus,INE094A01015,INE094A01015,HINDPETRO,HINDPETRO,isin_symbol_history,Bonus 1:2/ Dividend - Rs 1.10 Per Share
+2017-06-20,bonus,INE090A01013,INE090A01021,ICICIBANK,ICICIBANK,future_isin_symbol_bridge_to_event_identity,Annual General Meeting/Dividend - Rs 2.50 Per Share/Bonus 1:10 (Revised)
+2017-11-09,split,INE203G01019,INE203G01019,IGL,IGL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-11-01,bonus,INE486J01014,INE486J01014,INFINITE,INFINITE,isin_symbol_history,Bonus 1:26
+2017-10-05,split,INE039C01016,INE039C01024,JAMNAAUTO,JAMNAAUTO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2017-08-01,bonus,INE785A01026,INE785A01026,JAYAGROGN,JAYAGROGN,isin_symbol_history,Bonus 1:1
+2017-12-26,split,INE247D01013,INE247D01013,JINDWORLD,JINDWORLD,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2017-01-04,split,INE019A01020,INE019A01020,JSWSTEEL,JSWSTEEL,isin_symbol_history,Fv Splt Frm Rs 10 To Re 1
+2017-06-22,bonus,INE602G01020,INE602G01020,KITEX,KITEX,isin_symbol_history,Bonus 2:5
+2017-07-13,bonus,INE018A01030,INE018A01030,LT,LT,isin_symbol_history,Bonus 1:2
+2017-02-07,split,INE818H01020,INE818H01012,LTFOODS,DAAWAT,future_isin_symbol_bridge_to_event_identity,Fv Splt Frm Rs 10 To Re 1
+2017-07-12,bonus,INE142K01011,INE142K01011,LYPSAGEMS,LYPSAGEMS,isin_symbol_history,Bonus 2:5
+2017-12-21,bonus,INE101A01026,INE101A01026,M&M,M&M,isin_symbol_history,Bonus 1:1
+2017-07-10,bonus,INE215I01019,INE215I01019,MAANALU,MAANALU,isin_symbol_history,Bonus 1:1
+2017-09-27,bonus,INE122R01018,INE122R01018,MANPASAND,MANPASAND,isin_symbol_history,Bonus 1:1
+2017-07-10,bonus,INE998I01010,INE998I01010,MHRIL,MHRIL,isin_symbol_history,Bonus 1:2
+2017-09-27,bonus,INE490G01020,INE490G01020,MOIL,MOIL,isin_symbol_history,Bonus 1:1
+2017-07-05,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSUMI,isin_symbol_history,Bonus 1:2
+2017-07-11,bonus,INE672B01024,INE672B01032,MUNJALAU,MUNJALAU,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2017-06-12,bonus,INE296G01013,INE296G01013,MUTHOOTCAP,MUTHOOTCAP,isin_symbol_history,Bonus 1:10
+2017-07-19,split,INE048G01018,INE048G01018,NAVINFLUOR,NAVINFLUOR,isin_symbol_history,Face Value Split From Rs 10/- Per Share To Rs 2/- Per Share
+2017-02-17,bonus,INE095N01015,INE095N01023,NBCC,NBCC,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2017-12-07,split,INE365I01012,INE365I01012,NBIFIN,NBIFIN,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2017-09-15,split,INE317F01027,INE317F01027,NESCO,NESCO,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-01-12,bonus,INE274J01014,INE274J01014,OIL,OIL,isin_symbol_history,Bonus 1:3
+2017-02-14,bonus,INE231G01010,INE231G01010,ORBTEXP,ORBTEXP,isin_symbol_history,Bonus 1:1/Interim Dividend Rs 2/- Per Share (Purpose Revised)
+2017-10-03,bonus,INE305C01011,INE305C01029,PANAMAPET,PANAMAPET,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2017-07-06,bonus,INE785M01013,INE785M01013,PCJEWELLER,PCJEWELLER,isin_symbol_history,Bonus 1:1
+2017-07-03,bonus,INE347G01014,INE347G01014,PETRONET,PETRONET,isin_symbol_history,Bonus 1:1
+2017-07-03,bonus,INE083C01014,INE083C01022,PLASTIBLEN,PLASTIBLEN,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2017-10-18,split,INE637C01017,INE637C01017,POKARNA,POKARNA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-03-24,bonus,INE205C01013,INE205C01021,POLYMED,POLYMED,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2017-09-07,bonus,INE002A01018,INE002A01018,RELIANCE,RELIANCE,isin_symbol_history,Bonus 1:1
+2017-07-03,bonus,INE890C01046,INE890C01046,SANWARIA,SANWARIA,isin_symbol_history,Bonus 1:1
+2017-10-25,split,INE076B01010,INE076B01010,SIYSIL,SIYSIL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2017-01-09,split,INE334A01015,INE334A01015,STERTOOLS,STERTOOLS,isin_symbol_history,Fv Splt Frm Rs 10 To Rs 2
+2017-07-25,split,INE805D01026,INE805D01026,SUNTECK,SUNTECK,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Rs 1/- Per Share
+2017-09-26,split,INE645H01019,INE645H01019,SUTLEJTEX,SUTLEJTEX,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2017-09-28,split,INE763I01026,INE763I01018,TARIL,TRIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2017-09-18,bonus,INE670A01012,INE670A01012,TATAELXSI,TATAELXSI,isin_symbol_history,Bonus 1:1
+2017-12-21,bonus,INE051B01021,INE051B01021,VAKRANGEE,VAKRANGEE,isin_symbol_history,Bonus 1:1
+2017-03-15,bonus,INE951I01019,INE951I01027,VGUARD,VGUARD,future_isin_symbol_bridge_to_event_identity,Bonus 2:5
+2017-08-04,bonus,INE159N01019,INE159N01027,VIJIFIN,VIJIFIN,future_isin_symbol_bridge_to_event_identity,Bonus 1:10
+2017-06-13,bonus,INE075A01022,INE075A01022,WIPRO,WIPRO,isin_symbol_history,Bonus 1:1
+2017-09-21,split,INE528G01019,INE528G01019,YESBANK,YESBANK,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-04-13,split,INE098F01015,INE098F01023,AMRUTANJAN,AMRUTANJAN,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2018-10-12,split,INE451F01016,INE451F01016,APOLSINHOT,APOLSINHOT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2018-07-12,bonus,INE442H01011,INE442H01029,ASHOKA,ASHOKA,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2018-06-26,split,INE871C01012,INE871C01020,AVANTIFEED,AVANTIFEED,future_isin_symbol_bridge_to_event_identity,Bonus 1:2/Face Value Split (Sub-Division) From Rs 2/- Per Share To Re 1/- Per Share
+2018-01-11,bonus,INE607L01011,INE607L01029,BILENERGY,BILENERGY,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2018-08-02,bonus,INE666D01022,INE666D01022,BORORENEW,BOROSIL,isin_symbol_history,Bonus 3:1
+2018-06-26,split,INE111A01017,INE111A01017,CONCOR,CONCOR,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2018-07-10,bonus,INE491A01021,INE491A01021,CUB,CUB,isin_symbol_history,Bonus 1:10
+2018-10-11,bonus,INE509F01011,INE509F01011,CUPID,CUPID,isin_symbol_history,Bonus 1:5
+2018-10-25,split,INE497D01014,INE497D01014,DAMODARIND,DAMODARIND,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2018-11-01,split,INE456C01012,INE456C01012,DFMFOODS,DFMFOODS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-06-20,bonus,INE255A01020,INE255A01020,EPL,ESSELPACK,isin_symbol_history,Bonus 1:1
+2018-06-27,split,INE816B01019,INE816B01019,FILATEX,FILATEX,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-03-27,bonus,INE129A01019,INE129A01019,GAIL,GAIL,isin_symbol_history,Bonus 1:3
+2018-08-07,split,INE528K01011,INE528K01011,GALLISPAT,GALLISPAT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2018-07-12,bonus,INE481Y01014,INE481Y01014,GICRE,GICRE,isin_symbol_history,Bonus 1:1/Dividend- Rs 13.5 Per Share
+2018-09-11,bonus,INE159A01016,INE159A01016,GLAXO,GLAXO,isin_symbol_history,Bonus 1:1
+2018-05-21,bonus,INE075D01018,INE075D01018,GMBREW,GMBREW,isin_symbol_history,Bonus 1:4
+2018-09-12,bonus,INE102D01028,INE102D01028,GODREJCP,GODREJCP,isin_symbol_history,Bonus 1:2
+2018-06-06,bonus,INE580B01011,INE580B01029,GRUH,GRUH,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2018-06-22,bonus,INE475B01014,INE475B01022,HIKAL,HIKAL,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2018-10-19,split,INE022Q01012,INE022Q01012,IEX,IEX,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2018-09-27,bonus,INE188B01013,INE188B01013,IGARASHI,IGARASHI,isin_symbol_history,Bonus 25:202
+2018-03-21,split,INE092B01017,INE092B01017,INDNIPPON,INDNIPPON,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2018-09-04,bonus,INE009A01021,INE009A01021,INFY,INFY,isin_symbol_history,Bonus 1:1
+2018-03-15,bonus,INE242A01010,INE242A01010,IOC,IOC,isin_symbol_history,Bonus 1:1
+2018-10-31,split,INE247D01013,INE247D01021,JINDWORLD,JINDWORLD,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2018-10-04,split,INE890A01016,INE890A01016,JMCPROJECT,JMCPROJECT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-06-21,bonus,INE797F01012,INE797F01012,JUBLFOOD,JUBLFOOD,isin_symbol_history,Bonus 1:1
+2018-06-28,bonus,INE668F01031,INE668F01031,JYOTHYLAB,JYOTHYLAB,isin_symbol_history,Bonus 1:1
+2018-08-14,bonus,INE036D01010,INE036D01028,KARURVYSYA,KARURVYSYA,future_isin_symbol_bridge_to_event_identity,Bonus 1:10
+2018-03-27,bonus,INE164B01022,INE164B01022,KELLTONTEC,KELLTONTEC,isin_symbol_history,Bonus 1:1
+2018-01-23,bonus,INE688J01023,INE688J01015,LANDSMILL,EXCEL,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2018-03-22,bonus,INE059D01012,INE059D01020,LAOPALA,LAOPALA,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2018-06-14,bonus,INE337A01034,INE337A01034,LGBBROSLTD,LGBBROSLTD,isin_symbol_history,Bonus 1:1
+2018-06-07,split,INE872H01019,INE872H01019,LUMAXTECH,LUMAXTECH,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-04-05,split,INE182D01012,INE182D01012,MARATHON,MARATHON,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2018-07-18,bonus,INE227C01017,INE227C01017,MMFL,MMFL,isin_symbol_history,Bonus 1:1
+2018-10-30,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSUMI,isin_symbol_history,Bonus 1:2
+2018-04-25,split,INE095N01015,INE095N01023,NBCC,NBCC,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2018-06-27,bonus,INE470Y01017,INE470Y01017,NIACL,NIACL,isin_symbol_history,Bonus 1:1/ Dividend- Rs 5 Per Share
+2018-03-27,bonus,INE274J01014,INE274J01014,OIL,OIL,isin_symbol_history,Bonus 1:2
+2018-04-19,split,INE602A01023,INE602A01015,PCBL,PHILIPCARB,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-11-12,split,INE190H01016,INE190H01016,SAKUMA,SAKUMA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2018-08-02,bonus,INE235C01010,INE235C01010,SUMEETINDS,SUMEETINDS,isin_symbol_history,Bonus 1:4
+2018-05-31,bonus,INE467B01029,INE467B01029,TCS,TCS,isin_symbol_history,Bonus 1:1 /Dividend- Rs 29 Per Share
+2018-08-14,split,INE338A01016,INE338A01016,TIRUMALCHM,TIRUMALCHM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2018-06-25,split,INE950G01015,INE950G01015,UNIPLY,UNIPLY,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-06-15,split,INE854D01024,INE854D01016,UNITDSPR,MCDOWELL-N,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2018-07-11,bonus,INE405E01023,INE405E01023,UNOMINDA,MINDAIND,isin_symbol_history,Bonus 2:1/Dividend- Rs 1.60 Per Share
+2018-08-08,bonus,INE715A01015,INE715A01015,WHEELS,WHEELS,isin_symbol_history,Bonus 1:1
+2018-09-07,split,INE520A01019,INE520A01019,ZENSARTECH,ZENSARTECH,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10 /- Per Share To Rs 2/- Per Share
+2019-09-27,bonus,INE769A01020,INE769A01020,AARTIIND,AARTIIND,isin_symbol_history,Bonus 1:1
+2019-07-04,split,INE116A01016,INE116A01024,APCOTEXIND,APCOTEXIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5 Per Share To Rs 2 Per Share
+2019-06-27,bonus,INE349W01017,INE349W01017,AVADHSUGAR,AVADHSUGAR,isin_symbol_history,Bonus 1:1
+2019-12-26,bonus,INE164A01016,INE164A01016,BALMLAWRIE,BALMLAWRIE,isin_symbol_history,Bonus 1:2
+2019-07-17,bonus,INE354C01019,INE354C01027,BHAGERIA,BHAGERIA,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2019-06-12,bonus,INE376G01013,INE376G01013,BIOCON,BIOCON,isin_symbol_history,Bonus 1:1
+2019-08-28,bonus,INE791I01019,INE791I01019,BRIGADE,BRIGADE,isin_symbol_history,Bonus 1:2
+2019-06-14,split,INE121A01016,INE121A01016,CHOLAFIN,CHOLAFIN,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2019-02-04,bonus,INE111A01017,INE111A01025,CONCOR,CONCOR,future_isin_symbol_bridge_to_event_identity,Bonus 1:4
+2019-07-09,bonus,INE129A01019,INE129A01019,GAIL,GAIL,isin_symbol_history,Bonus 1:1
+2019-01-15,split,INE844O01022,INE844O01022,GUJGASLTD,GUJGASLTD,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2019-12-05,bonus,INE860A01027,INE860A01027,HCLTECH,HCLTECH,isin_symbol_history,Bonus 1:1
+2019-09-19,split,INE040A01018,INE040A01026,HDFCBANK,HDFCBANK,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2 Per Share To Rs 1 Per Share
+2019-10-25,bonus,INE547E01014,INE547E01014,IMPAL,IMPAL,isin_symbol_history,Bonus 1:2
+2019-05-14,split,INE412C01015,INE412C01015,JMA,JMA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2019-06-27,bonus,INE347W01011,INE347W01011,MAGADSUGAR,MAGADSUGAR,isin_symbol_history,Bonus 4:10
+2019-03-19,bonus,INE733E01010,INE733E01010,NTPC,NTPC,isin_symbol_history,Bonus 1:5
+2019-02-20,split,INE919I01016,INE919I01016,RADIOCITY,RADIOCITY,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2019-06-26,bonus,INE131B01021,INE131B01039,RELAXO,RELAXO,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2019-08-08,bonus,INE320J01015,INE320J01015,RITES,RITES,isin_symbol_history,Bonus  1:4
+2019-10-15,split,INE170E01015,INE170E01015,SATIA,SATIA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2019-08-19,split,INE630A01016,INE630A01016,SESHAPAPER,SESHAPAPER,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2019-08-22,bonus,INE409B01013,INE409B01013,SWELECTES,SWELECTES,isin_symbol_history,Bonus 1:2
+2019-06-11,bonus,INE398R01022,INE398R01022,SYNGENE,SYNGENE,isin_symbol_history,Bonus 1:1
+2019-12-13,split,INE064C01014,INE064C01014,TRIDENT,TRIDENT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 1/- Per Share
+2019-05-15,bonus,INE690A01010,INE690A01010,TTKPRESTIG,TTKPRESTIG,isin_symbol_history,Bonus 1:5
+2019-07-02,bonus,INE628A01036,INE628A01036,UPL,UPL,isin_symbol_history,Bonus 1:2
+2019-07-25,bonus,INE200M01013,INE200M01013,VBL,VBL,isin_symbol_history,Bonus 1:2
+2019-03-06,bonus,INE075A01022,INE075A01022,WIPRO,WIPRO,isin_symbol_history,Bonus 1:3
+2020-01-15,split,INE285J01010,INE285J01010,SIS,SIS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2020-02-05,split,INE410B01029,INE410B01029,VINATIORGA,VINATIORGA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Rs 1/- Per Share
+2020-03-12,bonus,INE919I01016,INE919I01024,RADIOCITY,RADIOCITY,future_isin_symbol_bridge_to_event_identity,Bonus 1:4
+2020-03-17,bonus,INE614B01018,INE614B01018,KTKBANK,KTKBANK,isin_symbol_history,Bonus 1:10
+2020-04-03,split,INE962Y01013,INE962Y01013,IRCON,IRCON,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2020-06-19,split,INE861B01015,INE861B01015,MOTOGENFIN,MOTOGENFIN,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10 Per Share To Rs 5  Per Share
+2020-07-02,split,INE278R01034,INE278R01018,DHARAN,KARDA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2020-07-14,split,INE529I01013,INE529I01013,KUANTUM,KUANTUM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2020-08-24,split,INE066A01013,INE066A01013,EICHERMOT,EICHERMOT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2020-09-24,bonus,INE285A01027,INE285A01027,ELGIEQUIP,ELGIEQUIP,isin_symbol_history,Bonus 1:1
+2020-09-25,bonus,INE03QK01018,INE03QK01018,COHANCE,SUVENPHAR,isin_symbol_history,Bonus 1:1
+2020-09-29,split,INE947Q01010,INE947Q01010,LAURUSLABS,LAURUSLABS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2020-09-30,bonus,INE767A01016,INE767A01016,AARTIDRUGS,AARTIDRUGS,isin_symbol_history,Bonus 3:1
+2020-10-01,split,INE036B01022,INE036B01022,GAEL,GAEL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2020-10-05,bonus,INE976T01013,INE976T01013,SAGARDEEP,SAGARDEEP,isin_symbol_history,Bonus 1:2
+2020-10-13,bonus,INE263W01010,INE263W01010,MAHESHWARI,MAHESHWARI,isin_symbol_history,Bonus 1:1
+2020-10-15,split,INE480C01012,INE480C01012,SDBL,SDBL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2020-12-09,bonus,INE473B01035,INE473B01035,HATSUN,HATSUN,isin_symbol_history,Bonus 1:3
+2020-12-15,split,INE702C01019,INE702C01019,APLAPOLLO,APLAPOLLO,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2020-12-16,bonus,INE755Q01025,INE755Q01025,VISHAL,VISHAL,isin_symbol_history,Bonus 1:2
+2020-12-24,bonus,INE565V01010,INE565V01010,VALIANTORG,VALIANTORG,isin_symbol_history,Bonus 1:1
+2020-12-31,bonus,INE417C01014,INE417C01014,PILANIINVS,PILANIINVS,isin_symbol_history,Bonus 2:5
+2021-06-22,bonus,INE769A01020,INE769A01020,AARTIIND,AARTIIND,isin_symbol_history,Bonus 1:1
+2021-10-07,split,INE00WC01019,INE00WC01019,AFFLE,AFFLE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-05-11,split,INE150B01013,INE150B01021,ALKYLAMINE,ALKYLAMINE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2021-12-30,split,INE715B01013,INE715B01013,ANDHRSUGAR,ANDHRSUGAR,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-09-16,bonus,INE702C01019,INE702C01027,APLAPOLLO,APLAPOLLO,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2021-12-02,bonus,INE126J01016,INE126J01016,APOLLOPIPE,APOLLOPIPE,isin_symbol_history,Bonus 2:1
+2021-09-23,split,INE025R01013,INE025R01013,ARTEMISMED,ARTEMISMED,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2021-02-12,split,INE186H01014,INE186H01014,BASML,BASML,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2021-08-18,bonus,INE425B01027,INE425B01027,BCG,BCG,isin_symbol_history,Bonus 1:4
+2021-11-15,split,INE412U01017,INE412U01017,BIGBLOC,BIGBLOC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-03-18,bonus,INE483S01020,INE483S01020,CCAVENUE,INFIBEAM,isin_symbol_history,Bonus 1:1
+2021-09-17,split,INE486A01013,INE486A01013,CESC,CESC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2021-09-30,split,INE201M01011,INE201M01011,CLEDUCATE,CLEDUCATE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2021-08-12,split,INE278R01034,INE278R01026,DHARAN,KARDA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2021-08-12,bonus,INE278R01034,INE278R01026,DHARAN,KARDA,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2021-03-18,split,INE935N01012,INE935N01012,DIXON,DIXON,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-08-05,bonus,INE477B01010,INE477B01010,DVL,DVL,isin_symbol_history,Bonus 1:2
+2021-04-15,split,INE183A01016,INE183A01016,FINPIPE,FINPIPE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-09-13,split,INE691Z01015,INE691Z01015,GANGAFORGE,GANGAFORGE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2021-08-03,split,INE581X01013,INE581X01013,GLOBE,GLOBE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-08-03,bonus,INE581X01013,INE581X01013,GLOBE,GLOBE,isin_symbol_history,Bonus 2:1
+2021-10-26,split,INE177H01013,INE177H01013,GPIL,GPIL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2021-10-26,bonus,INE177H01013,INE177H01013,GPIL,GPIL,isin_symbol_history,Bonus 1:1
+2021-12-03,bonus,INE022Q01012,INE022Q01020,IEX,IEX,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2021-06-24,split,INE878H01016,INE878H01016,INVENTURE,INVENTURE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2021-05-20,bonus,INE962Y01013,INE962Y01021,IRCON,IRCON,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2021-10-28,split,INE335Y01012,INE335Y01012,IRCTC,IRCTC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-06-07,bonus,INE571B01028,INE571B01028,JAYBARMARU,JAYBARMARU,isin_symbol_history,Bonus 1:1
+2021-09-15,bonus,INE694E01014,INE694E01014,KANPRPLA,KANPRPLA,isin_symbol_history,Bonus 1:2
+2021-12-16,bonus,INE401H01017,INE401H01017,KKCL,KKCL,isin_symbol_history,Bonus 4:1
+2021-02-03,bonus,INE634I01011,INE634I01029,KNRCON,KNRCON,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2021-09-24,split,INE930H01015,INE930H01023,KPRMILL,KPRMILL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2021-04-06,bonus,INE908V01012,INE908V01012,LIBAS,LIBAS,isin_symbol_history,Bonus 1:5
+2021-09-21,bonus,INE908V01012,INE908V01012,LIBAS,LIBAS,isin_symbol_history,Bonus 1:5
+2021-08-02,bonus,INE215I01019,INE215I01019,MAANALU,MAANALU,isin_symbol_history,Bonus 1: 1
+2021-09-14,bonus,INE813A01018,INE813A01018,MAHLIFE,MAHLIFE,isin_symbol_history,Bonus 2:1
+2021-11-17,bonus,INE949H01015,INE949H01023,MANINFRA,MANINFRA,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2021-02-18,split,INE01JE01010,INE01JE01010,MARINE,MARINE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10 Per Share To Rs 2 Per Share
+2021-09-08,bonus,INE998I01010,INE998I01010,MHRIL,MHRIL,isin_symbol_history,Bonus 1:2
+2021-08-31,bonus,INE997Y01019,INE997Y01019,MITTAL,MITTAL,isin_symbol_history,Bonus 1:10
+2021-07-14,split,INE514Y01012,INE514Y01012,MOKSH,MOKSH,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-10-28,split,INE567A01010,INE567A01010,NIPPOBATRY,NIPPOBATRY,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2021-07-29,bonus,INE752E01010,INE752E01010,POWERGRID,POWERGRID,isin_symbol_history,Bonus 1:3
+2021-12-22,split,INE372C01011,INE372C01029,PRECWIRE,PRECWIRE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2021-12-23,split,INE034D01031,INE034D01031,PTL,PTL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2021-09-02,bonus,INE00KV01014,INE00KV01014,RAJMET,RAJMET,isin_symbol_history,Bonus 1:2
+2021-08-17,split,INE229C01013,INE229C01013,SAGCEM,SAGCEM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-07-13,bonus,INE170V01019,INE170V01019,SALASAR,SALASAR,isin_symbol_history,Bonus 1:1
+2021-04-16,split,INE597I01010,INE597I01010,SHARDAMOTR,SHARDAMOTR,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-10-13,bonus,INE647A01010,INE647A01010,SRF,SRF,isin_symbol_history,Bonus 4:1
+2021-11-18,split,INE802C01017,INE802C01017,SSWL,SSWL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2021-10-07,split,INE319Y01016,INE319Y01016,TIRUPATIFL,TIRUPATIFL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-10-07,bonus,INE319Y01016,INE319Y01016,TIRUPATIFL,TIRUPATIFL,isin_symbol_history,Bonus 3:4
+2021-09-16,bonus,INE413G01014,INE413G01014,TPLPLASTEH,TPLPLASTEH,isin_symbol_history,Bonus 1:1
+2021-12-14,split,INE690A01010,INE690A01010,TTKPRESTIG,TTKPRESTIG,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10 Per Share To Re 1 Per Share
+2021-05-07,split,INE884A01019,INE884A01019,VAIBHAVGBL,VAIBHAVGBL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2021-06-10,bonus,INE200M01013,INE200M01013,VBL,VBL,isin_symbol_history,Bonus 1:2
+2021-07-26,bonus,INE484C01030,INE484C01022,VEEDOL,TIDEWATER,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2021-07-26,split,INE484C01030,INE484C01022,VEEDOL,TIDEWATER,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 2/- Per Share
+2021-10-21,split,INE430N01014,INE430N01014,VISHWARAJ,VISHWARAJ,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-02-03,split,INE087Z01016,INE087Z01016,AAKASH,AAKASH,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-10-06,bonus,INE926K01017,INE926K01017,AHLEAST,AHLEAST,isin_symbol_history,Bonus 1:2
+2022-06-22,bonus,INE031B01015,INE031B01049,AJANTPHARM,AJANTPHARM,future_isin_symbol_bridge_to_event_identity,Bonus- 1:2
+2022-10-07,split,INE820Y01013,INE820Y01021,AJOONI,AJOONI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-04-12,split,INE420B01028,INE420B01028,ARIHANTCAP,ARIHANTCAP,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2022-06-09,bonus,INE949L01017,INE949L01017,AUBANK,AUBANK,isin_symbol_history,Bonus 1:1
+2022-01-20,bonus,INE925Y01036,INE925Y01010,AURIGROW,GODHA,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2022-03-24,split,INE925Y01036,INE925Y01010,AURIGROW,GODHA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-10-21,split,INE02EZ01014,INE02EZ01022,AXITA,AXITA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-09-13,split,INE918I01018,INE918I01018,BAJAJFINSV,BAJAJFINSV,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2022-09-13,bonus,INE918I01018,INE918I01018,BAJAJFINSV,BAJAJFINSV,isin_symbol_history,Bonus 1:1
+2022-09-08,split,INE629D01012,INE629D01012,BANSWRAS,BANSWRAS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2022-05-13,split,INE676A01019,INE676A01019,BBOX,BBOX,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-03-15,bonus,INE425B01027,INE425B01027,BCG,BCG,isin_symbol_history,Bonus 2:3
+2022-09-15,bonus,INE263A01016,INE263A01024,BEL,BEL,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2022-09-27,bonus,INE561C01019,INE561C01019,BHARATGEAR,BHARATGEAR,isin_symbol_history,Bonus 1:2
+2022-05-13,bonus,INE153T01019,INE153T01027,BLS,BLS,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2022-12-08,bonus,INE153T01019,INE153T01027,BLS,BLS,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2022-03-21,bonus,INE118H01025,INE118H01025,BSE,BSE,isin_symbol_history,Bonus 2:1
+2022-09-23,split,INE032Z01012,INE032Z01012,BSHSL,BSHSL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-03-14,bonus,INE483S01020,INE483S01020,CCAVENUE,INFIBEAM,isin_symbol_history,Bonus 1:1
+2022-09-22,bonus,INE102B01014,INE102B01014,CHOICEIN,CHOICEIN,isin_symbol_history,Bonus 1:1
+2022-12-16,bonus,INE201M01011,INE201M01029,CLEDUCATE,CLEDUCATE,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2022-06-16,bonus,INE757A01017,INE757A01017,COSMOFIRST,COSMOFILMS,isin_symbol_history,Bonus 1:2
+2022-09-06,split,INE688Y01014,INE688Y01014,DANGEE,DANGEE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-09-06,bonus,INE688Y01014,INE688Y01014,DANGEE,DANGEE,isin_symbol_history,Bonus 1:2
+2022-11-25,split,INE060X01018,INE060X01026,DEVIT,DEVIT,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2022-10-27,bonus,INE411Y01011,INE411Y01011,DIL,DIL,isin_symbol_history,Bonus 1:1
+2022-03-16,split,INE03RS01019,INE03RS01019,DRCSYSTEMS,DRCSYSTEMS,future_isin_symbol_bridge_no_event_interval,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-04-18,bonus,INE741L01018,INE741L01018,DUCON,DUCON,isin_symbol_history,Bonus 1:10
+2022-02-28,bonus,INE07O001018,INE07O001018,EASEMYTRIP,EASEMYTRIP,isin_symbol_history,Bonus 1:1
+2022-11-21,bonus,INE07O001018,INE07O001018,EASEMYTRIP,EASEMYTRIP,isin_symbol_history,Bonus 3:1
+2022-11-21,split,INE07O001018,INE07O001018,EASEMYTRIP,EASEMYTRIP,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2022-09-21,bonus,INE738I01010,INE738I01010,ECLERX,ECLERX,isin_symbol_history,Bonus 1:2
+2022-02-03,split,INE418N01035,INE418N01035,ESSENTIA,INTEGRA,future_isin_symbol_bridge_no_event_interval,Face Value Split (Sub-Division) - From Rs 3/- Per Share To Re 1/- Per Share
+2022-12-27,split,INE816B01019,INE816B01027,FILATEX,FILATEX,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2022-09-06,bonus,INE129A01019,INE129A01019,GAIL,GAIL,isin_symbol_history,Bonus 1:2
+2022-10-19,split,INE291W01011,INE291W01029,GLOBAL,GLOBAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2022-07-11,bonus,INE541A01023,INE541A01023,GMMPFAUDLR,GMMPFAUDLR,isin_symbol_history,Bonus 2:1
+2022-03-28,split,INE025B01017,INE025B01017,GOLDIAM,GOLDIAM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-11-11,bonus,INE390G01014,INE390G01014,GPTINFRA,GPTINFRA,isin_symbol_history,Bonus 1:1
+2022-02-10,split,INE544R01013,INE544R01013,GREENLAM,GREENLAM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2022-07-25,bonus,INE626Z01011,INE626Z01011,HARDWYN,HARDWYN,isin_symbol_history,Bonus 1:2
+2022-02-22,bonus,INE170I01016,INE170I01016,HGS,HGS,isin_symbol_history,Bonus 1:1
+2022-10-18,split,INE461D01010,INE461D01010,HLEGLAS,HLEGLAS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-07-21,split,INE254N01018,INE254N01018,HNDFDS,HNDFDS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-01-07,bonus,INE919H01018,INE919H01018,IMFA,IMFA,isin_symbol_history,Bonus 1:1
+2022-09-30,bonus,INE070I01018,INE070I01018,INSECTICID,INSECTICID,isin_symbol_history,Bonus 1:2
+2022-06-30,bonus,INE242A01010,INE242A01010,IOC,IOC,isin_symbol_history,Bonus 1:2
+2022-01-10,split,INE571A01020,INE571A01020,IPCALAB,IPCALAB,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2022-02-21,split,INE927D01010,INE927D01028,JBMA,JBMA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2022-05-19,split,INE982V01017,INE982V01017,JETFREIGHT,JETFREIGHT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2022-04-19,split,INE797F01012,INE797F01012,JUBLFOOD,JUBLFOOD,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-08-30,split,INE00Z501011,INE00Z501029,KRITIKA,KRITIKA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-12-16,split,INE359U01010,INE359U01028,LANCER,LANCER,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2022-09-28,bonus,INE688J01023,INE688J01023,LANDSMILL,EXCEL,isin_symbol_history,Bonus 1:2
+2022-09-28,split,INE688J01023,INE688J01023,LANDSMILL,EXCEL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-12-02,split,INE060901019,INE060901027,LIKHITHA,LIKHITHA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2022-11-25,bonus,INE271B01025,INE271B01025,MAHSEAMLES,MAHSEAMLES,isin_symbol_history,Bonus 1:1
+2022-10-18,bonus,INE900L01010,INE900L01010,MBAPL,MBAPL,isin_symbol_history,Bonus 1:1
+2022-08-18,split,INE0APB01016,INE0APB01016,MGEL,MGEL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-10-03,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSON,isin_symbol_history,Bonus 1:2
+2022-11-16,bonus,INE0FS801015,INE0FS801015,MSUMI,MSUMI,isin_symbol_history,Bonus 2:5
+2022-06-24,bonus,INE418L01021,INE418L01021,NAZARA,NAZARA,isin_symbol_history,Bonus 1:1
+2022-03-24,bonus,INE875G01030,INE875G01030,NDL,NDL,isin_symbol_history,Bonus 2:1
+2022-11-10,bonus,INE388Y01029,INE388Y01029,NYKAA,NYKAA,isin_symbol_history,Bonus 5:1
+2022-01-18,split,INE840Y01011,INE840Y01011,ONEPOINT,ONEPOINT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-01-18,bonus,INE840Y01011,INE840Y01011,ONEPOINT,ONEPOINT,isin_symbol_history,Bonus 1:2
+2022-06-30,split,INE420C01042,INE420C01042,PAISALO,PAISALO,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-04-11,split,INE602A01023,INE602A01023,PCBL,PCBL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2022-08-26,split,INE111Q01013,INE111Q01013,PDSL,PDSL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-12-22,bonus,INE372C01011,INE372C01037,PRECWIRE,PRECWIRE,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2022-09-15,bonus,INE00KV01014,INE00KV01014,RAJMET,RAJMET,isin_symbol_history,Bonus 1:2
+2022-11-30,split,INE00KV01014,INE00KV01022,RAJMET,RAJMET,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-03-15,split,INE451D01011,INE451D01011,RAJRATAN,RAJRATAN,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-08-25,split,INE230R01019,INE230R01027,RAMASTEEL,RAMASTEEL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2022-09-28,bonus,INE207E01023,INE207E01023,RAMRAT,RAMRAT,isin_symbol_history,Bonus 1:1
+2022-06-30,bonus,INE703B01027,INE703B01027,RATNAMANI,RATNAMANI,isin_symbol_history,Bonus 1:2
+2022-08-17,bonus,INE020B01018,INE020B01018,RECLTD,RECLTD,isin_symbol_history,Bonus 1:3
+2022-07-19,split,INE722H01016,INE722H01016,RGL,RGL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-03-14,split,INE399G01015,INE399G01015,RKFORGE,RKFORGE,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-09-23,bonus,INE301D01018,INE301D01026,RUBYMILLS,RUBYMILLS,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2022-10-10,bonus,INE803H01014,INE803H01014,RUCHIRA,RUCHIRA,isin_symbol_history,Bonus 1:10
+2022-09-23,split,INE667G01015,INE667G01015,SAKSOFT,SAKSOFT,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-06-27,split,INE170V01019,INE170V01019,SALASAR,SALASAR,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 1/- Per Share
+2022-04-26,split,INE979A01017,INE979A01017,SAREGAMA,SAREGAMA,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-02-22,bonus,INE04AK01010,INE04AK01010,SBC,SBC,isin_symbol_history,Bonus 1:1
+2022-02-22,split,INE04AK01010,INE04AK01010,SBC,SBC,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-10-12,bonus,INE386D01027,INE386D01027,SBCL,SBCL,isin_symbol_history,Bonus 1:2
+2022-02-08,split,INE513A01014,INE513A01014,SCHAEFFLER,SCHAEFFLER,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-12-21,bonus,INE916U01025,INE916U01025,SFL,SFL,isin_symbol_history,Bonus 1:1
+2022-10-28,bonus,INE112X01017,INE112X01017,SIKKO,SIKKO,isin_symbol_history,Bonus 1:2
+2022-07-14,bonus,INE00LM01011,INE00LM01011,SONAMLTD,SONAMCLOCK,isin_symbol_history,Bonus 1:1
+2022-09-08,bonus,INE269A01021,INE269A01021,SONATSOFTW,SONATSOFTW,isin_symbol_history,Bonus 1:3
+2022-09-01,split,INE035D01012,INE035D01012,SOTL,SOTL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-11-10,split,INE802C01017,INE802C01025,SSWL,SSWL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2022-07-12,split,INE503B01013,INE503B01013,STEELXIND,STEELXIND,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-03-03,split,INE319Z01013,INE319Z01013,SUPREMEENG,SUPREMEENG,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-03-30,bonus,INE591Q01016,INE591Q01016,SUULD,SUULD,isin_symbol_history,Bonus 1:1
+2022-07-28,split,INE081A01012,INE081A01012,TATASTEEL,TATASTEEL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2022-10-31,split,INE419M01019,INE419M01019,TDPOWERSYS,TDPOWERSYS,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-07-08,bonus,INE685A01028,INE685A01028,TORNTPHARM,TORNTPHARM,isin_symbol_history,Bonus 1:1
+2022-10-19,split,INE413G01014,INE413G01014,TPLPLASTEH,TPLPLASTEH,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-07-07,bonus,INE405E01023,INE405E01023,UNOMINDA,MINDAIND,isin_symbol_history,Bonus 1:1
+2022-06-06,bonus,INE200M01013,INE200M01013,VBL,VBL,isin_symbol_history,Bonus 1:2
+2022-03-10,bonus,INE755Q01025,INE755Q01025,VISHAL,VISHAL,isin_symbol_history,Bonus 2:1
+2022-03-24,split,INE825A01012,INE825A01012,VTL,VTL,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2022-07-01,bonus,INE445C01015,INE445C01015,XPROINDIA,XPROINDIA,isin_symbol_history,Bonus 1:2
+2022-12-22,bonus,INE518E01015,INE518E01015,ZIMLAB,ZIMLAB,isin_symbol_history,Bonus 2:1
+2023-03-02,split,INE466L01020,INE466L01038,360ONE,360ONE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2023-03-02,bonus,INE466L01020,INE466L01038,360ONE,360ONE,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2023-02-15,split,INE648Z01015,INE648Z01023,ACCURACY,ACCURACY,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-09-11,split,INE982B01019,INE982B01027,ADFFOODS,ADFFOODS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-06-22,split,INE642Z01018,INE642Z01026,AKI,AKI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-07-31,split,INE256Z01017,INE256Z01025,AKSHAR,AKSHAR,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-07-18,bonus,INE02AR01019,INE02AR01019,ANMOL,ANMOL,isin_symbol_history,Bonus 4:1
+2023-05-04,split,INE713T01010,INE713T01028,APOLLO,APOLLO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-07-14,bonus,INE266F01018,INE266F01018,APTECHT,APTECHT,isin_symbol_history,Bonus 2:5
+2023-11-16,split,INE0ALR01011,INE0ALR01029,ATALREAL,ATALREAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-12-22,bonus,INE02EZ01014,INE02EZ01022,AXITA,AXITA,future_isin_symbol_bridge_to_event_identity,Bonus 1:3
+2023-10-27,split,INE412G01016,INE412G01024,BCLIND,BCLIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-07-05,bonus,INE922A01025,INE922A01025,BEPL,BEPL,isin_symbol_history,Bonus 1:2
+2023-09-22,bonus,INE463A01020,INE463A01038,BERGEPAINT,BERGEPAINT,future_isin_symbol_bridge_to_event_identity,Bonus 1:5
+2023-06-20,bonus,INE472A01039,INE472A01039,BLUESTARCO,BLUESTARCO,isin_symbol_history,Bonus 1:1
+2023-11-02,split,INE068L01016,INE068L01024,CANTABIL,CANTABIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-04-10,split,INE0FHS01016,INE0FHS01024,DEEPINDS,DEEPINDS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2023-11-08,bonus,INE864X01013,INE864X01013,DPWIRES,DPWIRES,isin_symbol_history,Bonus 1:7
+2023-10-06,split,INE593W01010,INE593W01028,FOCUS,FOCUS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-10-23,split,INE669X01016,INE669X01024,GEEKAYWIRE,GEEKAYWIRE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-10-17,bonus,INE06H201014,INE06H201014,GENSOL,GENSOL,isin_symbol_history,Bonus 2:1
+2023-09-01,bonus,INE934S01014,INE934S01014,GNA,GNA,isin_symbol_history,Bonus 1:1
+2023-04-25,split,INE705X01018,INE705X01026,GOYALALUM,GOYALALUM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-06-21,bonus,INE255D01016,INE255D01024,GULPOLY,GULPOLY,future_isin_symbol_bridge_to_event_identity,Bonus 1:5
+2023-01-23,split,INE382T01030,INE382T01030,GVPTECH,4THDIM,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-09-28,split,INE066F01012,INE066F01020,HAL,HAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2023-06-05,split,INE626Z01011,INE626Z01029,HARDWYN,HARDWYN,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-06-05,bonus,INE626Z01011,INE626Z01029,HARDWYN,HARDWYN,future_isin_symbol_bridge_to_event_identity,Bonus 1:3
+2023-11-10,split,INE642Y01011,INE642Y01029,HINDCON,HINDCON,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-03-17,split,INE106T01017,INE106T01025,HITECH,HITECH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-12-29,split,INE0ECP01016,INE0ECP01024,HMAAGRO,HMAAGRO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-11-09,split,INE0GSL01016,INE0GSL01024,HPAL,HPAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-06-21,bonus,INE933S01016,INE933S01016,INDIAMART,INDIAMART,isin_symbol_history,Bonus 1:1
+2023-06-12,split,INE570A01014,INE570A01022,IONEXCHANG,IONEXCHANG,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-02-22,split,INE821I01014,INE821I01022,IRB,IRB,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-08-11,split,INE01GN01017,INE01GN01025,IRISDOREME,IRISDOREME,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-10-26,split,INE571B01028,INE571B01036,JAYBARMARU,JAYBARMARU,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2023-09-18,split,INE572A01028,INE572A01036,JBCHEPHARM,JBCHEPHARM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2023-09-07,bonus,INE391J01024,INE391J01024,JTLIND,JTLIND,isin_symbol_history,Bonus 1:1
+2023-08-01,bonus,INE0BTI01029,INE0BTI01029,KAMOPAINTS,KAMOPAINTS,isin_symbol_history,Bonus 1:1
+2023-07-04,bonus,INE531A01016,INE531A01024,KANSAINER,KANSAINER,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2023-01-18,bonus,INE542W01017,INE542W01017,KPIGREEN,KPIGREEN,isin_symbol_history,Bonus 1:1
+2023-10-25,bonus,INE506W01012,INE506W01012,KRISHANA,KRISHANA,isin_symbol_history,Bonus 1:1
+2023-12-19,bonus,INE00Z501011,INE00Z501029,KRITIKA,KRITIKA,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2023-05-31,bonus,INE670K01029,INE670K01029,LODHA,LODHA,isin_symbol_history,Bonus 1:1
+2023-07-27,split,INE215I01019,INE215I01027,MAANALU,MAANALU,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2023-07-27,bonus,INE215I01019,INE215I01027,MAANALU,MAANALU,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2023-10-20,bonus,INE900L01010,INE900L01010,MBAPL,MBAPL,isin_symbol_history,Bonus 1:1
+2023-03-16,split,INE630Y01016,INE630Y01024,MEDICO,MEDICO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-11-01,split,INE997Y01019,INE997Y01027,MITTAL,MITTAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-11-10,split,INE964W01013,INE964W01021,MKPL,MKPL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-07-24,bonus,INE07OG01012,INE07OG01012,NDRAUTO,NDRAUTO,isin_symbol_history,Bonus 1:1
+2023-08-03,bonus,INE395U01014,INE395U01014,NINSYS,NINSYS,isin_symbol_history,Bonus 4:5
+2023-03-13,split,INE06IR01013,INE06IR01021,OSIAHYPER,OSIAHYPER,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-08-18,split,INE00IK01011,INE00IK01029,OSWALSEEDS,OSWALSEEDS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-09-21,bonus,INE134E01011,INE134E01011,PFC,PFC,isin_symbol_history,Bonus 1:4
+2023-09-12,bonus,INE752E01010,INE752E01010,POWERGRID,POWERGRID,isin_symbol_history,Bonus 1:3
+2023-05-26,split,INE583V01013,INE583V01021,RADHIKAJWE,RADHIKAJWE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-01-13,bonus,INE919I01016,INE919I01024,RADIOCITY,RADIOCITY,future_isin_symbol_bridge_to_event_identity,Scheme Of Arrangement - Bonus Ncrps 1:10
+2023-01-06,bonus,INE230R01019,INE230R01035,RAMASTEEL,RAMASTEEL,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2023-07-07,bonus,INE535D01029,INE535D01029,ROTO,ROTO,isin_symbol_history,Bonus 1:1
+2023-07-05,bonus,INE888C01040,INE888C01040,SADHNANIQ,SADHNANIQ,isin_symbol_history,Bonus 2:9
+2023-12-12,bonus,INE429E01023,INE429E01023,SAFARI,SAFARI,isin_symbol_history,Bonus 1:1
+2023-08-04,split,INE385C01013,INE385C01021,SARDAEN,SARDAEN,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-09-15,split,INE324X01018,INE324X01026,SARVESHWAR,SARVESHWAR,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-09-15,bonus,INE324X01018,INE324X01026,SARVESHWAR,SARVESHWAR,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2023-01-04,bonus,INE195Y01010,INE195Y01010,SECURCRED,SECURCRED,isin_symbol_history,Bonus 3:1
+2023-02-03,split,INE782X01017,INE782X01025,SERVOTECH,SERVOTECH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-07-28,split,INE782X01017,INE782X01033,SERVOTECH,SERVOTECH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2023-11-23,split,INE151G01010,INE151G01028,SHAILY,SHAILY,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-01-20,split,INE715Y01015,INE715Y01023,SHRADHA,SHRADHA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2023-07-24,bonus,INE526E01018,INE526E01018,SHRIPISTON,SHRIPISTON,isin_symbol_history,Bonus 1:1
+2023-10-09,split,INE0D0K01014,INE0D0K01022,SIGACHI,SIGACHI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-05-11,bonus,INE792Z01011,INE792Z01011,SIRCA,SIRCA,isin_symbol_history,Bonus 1:1
+2023-12-12,bonus,INE269A01021,INE269A01021,SONATSOFTW,SONATSOFTW,isin_symbol_history,Bonus 1:1
+2023-01-06,split,INE663A01025,INE663A01033,SPLPETRO,SPLPETRO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 4/- Per Share To Rs 2/- Per Share
+2023-05-19,split,INE008Z01012,INE008Z01020,SRPL,SRPL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-10-06,split,INE335A01012,INE335A01020,SURYAROSNI,SURYAROSNI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2023-10-27,split,INE187D01011,INE187D01029,TALBROAUTO,TALBROAUTO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-07-17,bonus,INE085J01014,INE085J01014,THANGAMAYL,THANGAMAYL,isin_symbol_history,Bonus 1:1
+2023-10-10,split,INE083B01016,INE083B01024,THEMISMED,THEMISMED,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-04-21,split,INE716B01029,INE716B01029,TIPSMUSIC,TIPSINDLTD,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-12-14,split,INE065J01016,INE065J01024,TPHQ,TPHQ,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-03-24,bonus,INE105A01035,INE105A01035,TVSHLTD,SUNCLAYLTD,isin_symbol_history,Bonus Ncrps 1:116
+2023-06-15,split,INE200M01013,INE200M01021,VBL,VBL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2023-02-24,split,INE01KI01019,INE01KI01019,VINNY,VINNY,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2023-02-24,bonus,INE01KI01019,INE01KI01019,VINNY,VINNY,isin_symbol_history,Bonus 13:10
+2023-05-15,split,INE392A01013,INE392A01021,VISAKAIND,VISAKAIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-01-13,split,INE270I01014,INE270I01022,VISHNU,VISHNU,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2023-05-26,bonus,INE050M01012,INE050M01012,VSSL,VSSL,isin_symbol_history,Bonus 1:1
+2024-08-09,split,INE01C001018,INE01C001026,AARTECH,AARTECH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-08-09,bonus,INE01C001018,INE01C001026,AARTECH,AARTECH,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2024-03-20,bonus,INE199C01026,INE199C01026,ADVANIHOTR,ADVANIHOTR,isin_symbol_history,Bonus 1:1
+2024-02-15,bonus,INE256Z01017,INE256Z01025,AKSHAR,AKSHAR,future_isin_symbol_bridge_to_event_identity,Bonus 1:5
+2024-01-02,bonus,INE418H01029,INE418H01029,ALLCARGO,ALLCARGO,isin_symbol_history,Bonus 3:1
+2024-07-23,split,INE326B01027,INE326B01035,ALMONDZ,ALMONDZ,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 6/- Per Share To Re 1/- Per Share
+2024-09-11,split,INE435A01028,INE435A01051,ANDHRAPAP,ANDHRAPAP,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-04-23,bonus,INE294Z01018,INE294Z01018,ANUP,ANUP,isin_symbol_history,Bonus 1:1
+2024-06-27,bonus,INE132H01018,INE132H01018,AURIONPRO,AURIONPRO,isin_symbol_history,Bonus 1:1
+2024-06-28,split,INE323B01016,INE323B01024,AVONMORE,AVONMORE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 1/- Per Share
+2024-09-20,bonus,INE02EZ01014,INE02EZ01022,AXITA,AXITA,future_isin_symbol_bridge_to_event_identity,Bonus 1:3
+2024-05-30,split,INE618N01014,INE618N01022,BALAXI,BALAXI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-12-30,bonus,INE213C01025,INE213C01025,BANCOINDIA,BANCOINDIA,isin_symbol_history,Bonus 1:1
+2024-04-24,split,INE464A01028,INE464A01036,BBL,BBL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-05-24,split,INE171Z01018,INE171Z01026,BDL,BDL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-05-02,split,INE414D01019,INE414D01027,BHAGCHEM,BHAGCHEM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 1/- Per Share
+2024-09-12,bonus,INE412U01017,INE412U01025,BIGBLOC,BIGBLOC,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-06-21,bonus,INE029A01011,INE029A01011,BPCL,BPCL,isin_symbol_history,Bonus 1:1
+2024-04-05,split,INE0EEJ01015,INE0EEJ01023,BTML,BTML,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-05-15,split,INE476A01014,INE476A01022,CANBK,CANBK,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-08-23,bonus,INE736A01011,INE736A01011,CDSL,CDSL,isin_symbol_history,Bonus 1:1
+2024-03-05,bonus,INE180C01018,INE180C01042,CGCL,CGCL,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-03-05,split,INE180C01018,INE180C01042,CGCL,CGCL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2024-02-20,bonus,INE102B01014,INE102B01014,CHOICEIN,CHOICEIN,isin_symbol_history,Bonus 1:1
+2024-01-10,split,INE704P01017,INE704P01025,COCHINSHIP,COCHINSHIP,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-04-04,split,INE509F01011,INE509F01029,CUPID,CUPID,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-04-04,bonus,INE509F01011,INE509F01029,CUPID,CUPID,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-05-31,split,INE179G01011,INE179G01029,DAVANGERE,DAVANGERE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-12-03,split,INE989C01020,INE989C01038,DIACABS,DIACABS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-08-09,bonus,INE0B1K01014,INE0B1K01014,DJML,DJML,isin_symbol_history,Bonus 2:1
+2024-01-25,split,INE920A01029,INE920A01029,DOLPHIN,DOLPHIN,future_isin_symbol_bridge_no_event_interval,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-02-27,bonus,INE03RS01019,INE03RS01027,DRCSYSTEMS,DRCSYSTEMS,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2024-10-28,split,INE089A01023,INE089A01031,DRREDDY,DRREDDY,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2024-11-29,bonus,INE07O001018,INE07O001026,EASEMYTRIP,EASEMYTRIP,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-08-13,bonus,INE276C01014,INE276C01014,EIHAHOTELS,EIHAHOTELS,isin_symbol_history,Bonus 1:1
+2024-07-19,split,INE205B01023,INE205B01031,ELECON,ELECON,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2024-01-11,bonus,INE418N01035,INE418N01035,ESSENTIA,ESSENTIA,isin_symbol_history,Bonus 1:1
+2024-12-13,split,INE0GFE01018,INE0GFE01026,EXXARO,EXXARO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-02-28,bonus,INE737H01014,INE737H01014,FIEMIND,FIEMIND,isin_symbol_history,Bonus 1:1
+2024-08-09,split,INE185E01013,INE185E01021,FILATFASH,FILATFASH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2024-03-15,bonus,INE036B01022,INE036B01030,GAEL,GAEL,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-12-10,split,INE291W01011,INE291W01037,GLOBAL,GLOBAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2024-05-24,bonus,INE075D01018,INE075D01018,GMBREW,GMBREW,isin_symbol_history,Bonus 1:4
+2024-10-04,split,INE177H01013,INE177H01039,GPIL,GPIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2024-07-03,bonus,INE390G01014,INE390G01014,GPTINFRA,GPTINFRA,isin_symbol_history,Bonus 1:1
+2024-08-12,bonus,INE137I01015,INE137I01015,GRPLTD,GRPLTD,isin_symbol_history,Bonus 3:1
+2024-12-27,bonus,INE626Z01011,INE626Z01029,HARDWYN,HARDWYN,future_isin_symbol_bridge_to_event_identity,Bonus 2:5
+2024-10-18,split,INE545A01016,INE545A01024,HEG,HEG,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-06-21,bonus,INE094A01015,INE094A01015,HINDPETRO,HINDPETRO,isin_symbol_history,Bonus 1:2
+2024-05-24,bonus,INE066P01011,INE066P01011,INOXWIND,INOXWIND,isin_symbol_history,Bonus 3:1
+2024-10-30,split,INE039O01011,INE039O01029,JASH,JASH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-10-09,split,INE324A01024,INE324A01032,JINDALSAW,JINDALSAW,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2024-11-14,split,INE391J01024,INE391J01032,JTLIND,JTLIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2024-06-14,split,INE0BTI01029,INE0BTI01037,KAMOPAINTS,KAMOPAINTS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2024-01-30,bonus,INE879E01029,INE879E01037,KANANIIND,KANANIIND,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-08-09,split,INE542Z01010,INE542Z01028,KAPSTON,KAPSTON,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-09-13,split,INE967H01017,INE967H01025,KIMS,KIMS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-02-15,bonus,INE542W01017,INE542W01017,KPIGREEN,KPIGREEN,isin_symbol_history,Bonus 1:2
+2024-07-18,split,INE542W01017,INE542W01025,KPIGREEN,KPIGREEN,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs10/- Per Share To Rs 5/- Per Share
+2024-07-25,split,INE999A01015,INE999A01023,KSB,KSB,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-03-28,bonus,INE740X01015,INE740X01023,LAL,LAL,future_isin_symbol_bridge_to_event_identity,Bonus 6:11
+2024-03-28,split,INE740X01015,INE740X01023,LAL,LAL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-12-20,bonus,INE802B01019,INE802B01027,LINC,LINC,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-12-20,split,INE802B01019,INE802B01027,LINC,LINC,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-03-07,split,INE00VM01010,INE00VM01036,MANORAMA,MANORAMA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-02-22,bonus,INE348L01012,INE348L01012,MASFIN,MASFIN,isin_symbol_history,Bonus 2:1
+2024-12-27,split,INE249Z01012,INE249Z01020,MAZDOCK,MAZDOCK,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-09-20,bonus,INE110B01017,INE110B01017,MINDTECK,MINDTECK,isin_symbol_history,Bonus 1:4
+2024-03-15,bonus,INE964W01013,INE964W01021,MKPL,MKPL,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2024-07-16,bonus,INE227C01017,INE227C01017,MMFL,MMFL,isin_symbol_history,Bonus 1:1
+2024-09-13,bonus,INE903D01011,INE903D01011,MONARCH,MONARCH,isin_symbol_history,Bonus 1:1
+2024-06-10,bonus,INE338I01027,INE338I01027,MOTILALOFS,MOTILALOFS,isin_symbol_history,Bonus 3:1
+2024-11-08,split,INE0FRK01012,INE0FRK01020,MOTISONS,MOTISONS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-10-07,bonus,INE095N01015,INE095N01031,NBCC,NBCC,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2024-09-19,split,INE875G01030,INE875G01048,NDL,NDL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-09-25,bonus,INE07OG01012,INE07OG01012,NDRAUTO,NDRAUTO,isin_symbol_history,Bonus 1:1
+2024-01-05,split,INE239A01016,INE239A01024,NESTLEIND,NESTLEIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs10/- Per Share To Re 1/- Per Share
+2024-01-12,bonus,INE619B01017,INE619B01017,NEWGEN,NEWGEN,isin_symbol_history,Bonus 1:1
+2024-12-27,bonus,INE584A01023,INE584A01023,NMDC,NMDC,isin_symbol_history,Bonus 2:1
+2024-03-20,bonus,INE0JM501013,INE0JM501013,NRL,NRL,isin_symbol_history,Bonus 1:2
+2024-07-02,bonus,INE274J01014,INE274J01014,OIL,OIL,isin_symbol_history,Bonus 1:2
+2024-02-02,bonus,INE00IK01011,INE00IK01029,OSWALSEEDS,OSWALSEEDS,future_isin_symbol_bridge_to_event_identity,Bonus 1:5
+2024-03-20,bonus,INE420C01042,INE420C01059,PAISALO,PAISALO,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-12-16,split,INE785M01013,INE785M01021,PCJEWELLER,PCJEWELLER,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-03-28,split,INE262H01013,INE262H01021,PERSISTENT,PERSISTENT,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-07-10,split,INE457L01011,INE457L01029,PGEL,PGEL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-01-05,split,INE940H01014,INE940H01022,PGIL,PGIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs10/- Per Share To Rs 5/- Per Share
+2024-09-20,bonus,INE211B01039,INE211B01039,PHOENIXLTD,PHOENIXLTD,isin_symbol_history,Bonus 1:1
+2024-10-16,split,INE063E01046,INE063E01053,POCL,POCL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-10-08,bonus,INE211R01019,INE211R01019,POWERMECH,POWERMECH,isin_symbol_history,Bonus 1:1
+2024-06-21,split,INE863B01011,INE863B01029,PREMEXPLN,PREMEXPLN,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-03-19,bonus,INE230R01019,INE230R01035,RAMASTEEL,RAMASTEEL,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2024-03-22,split,INE056I01017,INE056I01025,REFEX,REFEX,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-10-28,bonus,INE002A01018,INE002A01018,RELIANCE,RELIANCE,isin_symbol_history,Bonus 1:1
+2024-07-05,split,INE474C01015,INE474C01023,REMSONSIND,REMSONSIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-09-20,bonus,INE320J01015,INE320J01015,RITES,RITES,isin_symbol_history,Bonus 1:1
+2024-11-08,split,INE535D01029,INE535D01037,ROTO,ROTO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2024-11-29,bonus,INE912T01018,INE912T01018,RPEL,RPEL,isin_symbol_history,Bonus 1:1
+2024-02-26,bonus,INE760W01015,INE760W01015,RPPL,RPPL,isin_symbol_history,Bonus 2:1
+2024-09-17,split,INE760W01015,INE760W01023,RPPL,RPPL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-08-09,split,INE573K01017,INE573K01025,RUSHIL,RUSHIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-09-19,bonus,INE667G01015,INE667G01023,SAKSOFT,SAKSOFT,future_isin_symbol_bridge_to_event_identity,Bonus 1:4
+2024-08-09,bonus,INE190H01016,INE190H01024,SAKUMA,SAKUMA,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2024-02-01,bonus,INE170V01019,INE170V01027,SALASAR,SALASAR,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2024-02-02,bonus,INE149K01016,INE149K01016,SANDUMA,SANDUMA,isin_symbol_history,Bonus 5:1
+2024-09-27,split,INE989A01024,INE989A01032,SANGHVIMOV,SANGHVIMOV,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2024-09-05,split,INE806T01012,INE806T01020,SAPPHIRE,SAPPHIRE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-01-19,bonus,INE04AK01010,INE04AK01028,SBC,SBC,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2024-04-18,split,INE05ST01010,INE05ST01028,SBGLP,SBGLP,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-05-24,split,INE480C01012,INE480C01038,SDBL,SDBL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2024-11-25,bonus,INE908D01010,INE908D01010,SHAKTIPUMP,SHAKTIPUMP,isin_symbol_history,Bonus 5:1
+2024-06-27,split,INE932X01018,INE932X01026,SHAREINDIA,SHAREINDIA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-12-10,split,INE715Y01015,INE715Y01031,SHRADHA,SHRADHA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2024-12-16,bonus,INE01IU01018,INE01IU01018,SKYGOLD,SKYGOLD,isin_symbol_history,Bonus 9:1
+2024-05-10,split,INE00LM01011,INE00LM01029,SONAMLTD,SONAMLTD,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-09-13,split,INE885H01011,INE885H01029,SPORTKING,SPORTKING,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-10-25,split,INE450E01011,INE450E01029,SUKHJITS,SUKHJITS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2024-12-05,split,INE555Z01012,INE555Z01020,TARACHAND,TARACHAND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-09-20,bonus,INE899L01030,INE899L01030,UEL,UEL,isin_symbol_history,Bonus 1:4
+2024-10-15,split,INE972X01014,INE972X01022,VAISHALI,VAISHALI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2024-10-15,bonus,INE972X01014,INE972X01022,VAISHALI,VAISHALI,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-05-17,split,INE835A01011,INE835A01029,VARDMNPOLY,VARDMNPOLY,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-09-12,split,INE200M01013,INE200M01039,VBL,VBL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2024-07-05,split,INE188Y01015,INE188Y01023,VERTOZ,VERTOZ,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-07-05,bonus,INE188Y01015,INE188Y01023,VERTOZ,VERTOZ,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2024-09-06,bonus,INE710A01016,INE710A01016,VSTIND,VSTIND,isin_symbol_history,Bonus 10:1
+2024-11-12,split,INE02WG01016,INE02WG01024,WEL,WEL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2024-12-03,bonus,INE075A01022,INE075A01022,WIPRO,WIPRO,isin_symbol_history,Bonus 1:1
+2025-01-01,bonus,INE335A01012,INE335A01020,SURYAROSNI,SURYAROSNI,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-01-03,bonus,INE276A01018,INE276A01018,GARFIBRES,GARFIBRES,isin_symbol_history,Bonus 4:1
+2025-01-03,bonus,INE542W01017,INE542W01025,KPIGREEN,KPIGREEN,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2025-01-08,split,INE048B01027,INE048B01035,JAGSNPHARM,JAGSNPHARM,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2025-01-08,split,INE390H01012,INE390H01020,KAMDHENU,KAMDHENU,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-01-10,split,INE721A01013,INE721A01047,SHRIRAMFIN,SHRIRAMFIN,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-01-17,bonus,INE602G01020,INE602G01020,KITEX,KITEX,isin_symbol_history,Bonus 2:1
+2025-01-17,split,INE091G01018,INE091G01026,JAIBALAJI,JAIBALAJI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-01-20,split,INE725A01022,INE725A01030,NAVA,NAVA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-01-28,split,INE885E01034,INE885E01042,MAZDA,MAZDA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-01-31,split,INE927D01010,INE927D01051,JBMA,JBMA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-01-31,split,INE602W01019,INE602W01027,SENCO,SENCO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-01-31,bonus,INE203G01019,INE203G01027,IGL,IGL,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-02-04,bonus,INE0LXT01019,INE0LXT01019,REDTAPE,REDTAPE,isin_symbol_history,Bonus 3:1
+2025-02-06,split,INE0D6I01015,INE0D6I01023,KSOLVES,KSOLVES,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-02-07,split,INE809A01024,INE809A01032,RAMAPHO,RAMAPHO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-02-07,split,INE976R01017,INE976R01025,AGIIL,AGIIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-02-12,split,INE592B01016,INE592B01024,TTL,TTL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-02-14,bonus,INE763I01026,INE763I01026,TARIL,TARIL,isin_symbol_history,Bonus 1:1
+2025-02-18,bonus,INE823A01017,INE823A01017,KOTHARIPRO,KOTHARIPRO,isin_symbol_history,Bonus 1:1
+2025-02-28,bonus,INE247D01013,INE247D01039,JINDWORLD,JINDWORLD,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2025-03-04,split,INE0APB01016,INE0APB01032,MGEL,MGEL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-03-04,split,INE377E01016,INE377E01024,COASTCORP,COASTCORP,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-03-05,bonus,INE463V01026,INE463V01026,ANANDRATHI,ANANDRATHI,isin_symbol_history,Bonus 1:1
+2025-03-10,bonus,INE04AK01010,INE04AK01028,SBC,SBC,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2025-03-11,split,INE485C01011,INE485C01029,IOLCP,IOLCP,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-03-21,bonus,INE544R01013,INE544R01021,GREENLAM,GREENLAM,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-04-04,bonus,INE278R01034,INE278R01034,DHARAN,KBCGLOBAL,isin_symbol_history,Bonus 1:1
+2025-04-17,split,INE916Y01019,INE916Y01027,AFIL,AFIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-04-24,bonus,INE268H01036,INE268H01036,NAVKARURB,NAVKARURB,isin_symbol_history,Bonus 3:2
+2025-04-25,split,INE00FF01025,INE00FF01025,ACUTAAS,AMIORG,isin_symbol_history,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-05-02,split,INE368U01011,INE368U01029,UNITEDPOLY,UNITEDPOLY,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-05-07,split,INE663F01024,INE663F01032,NAUKRI,NAUKRI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-05-09,split,INE268H01036,INE268H01044,NAVKARURB,NAVKARURB,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-05-23,bonus,INE118H01025,INE118H01025,BSE,BSE,isin_symbol_history,Bonus 2:1
+2025-05-30,bonus,INE899L01030,INE899L01030,UEL,UEL,isin_symbol_history,Bonus 17:25
+2025-06-04,split,INE591G01017,INE591G01025,COFORGE,COFORGE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-06-10,split,INE386A01015,INE386A01023,VESUVIUS,VESUVIUS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-06-13,bonus,INE579C01029,INE579C01029,VIMTALABS,VIMTALABS,isin_symbol_history,Bonus 1:1
+2025-06-16,split,INE296A01016,INE296A01032,BAJFINANCE,BAJFINANCE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-06-16,bonus,INE296A01016,INE296A01032,BAJFINANCE,BAJFINANCE,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2025-06-23,bonus,INE665J01013,INE665J01013,VMART,VMART,isin_symbol_history,Bonus 3:1
+2025-07-04,bonus,INE01GN01017,INE01GN01025,IRISDOREME,IRISDOREME,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-07-04,bonus,INE597I01010,INE597I01028,SHARDAMOTR,SHARDAMOTR,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-07-04,split,INE045601015,INE045601023,PARAS,PARAS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-07-04,bonus,INE111A01017,INE111A01025,CONCOR,CONCOR,future_isin_symbol_bridge_to_event_identity,Bonus 1:4
+2025-07-11,bonus,INE535D01029,INE535D01037,ROTO,ROTO,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2025-07-11,bonus,INE600Y01019,INE600Y01019,DYCL,DYCL,isin_symbol_history,Bonus 1:1
+2025-07-15,bonus,INE489G01022,INE489G01022,ANUHPHR,ANUHPHR,isin_symbol_history,Bonus 1:1
+2025-07-16,bonus,INE208A01029,INE208A01029,ASHOKLEY,ASHOKLEY,isin_symbol_history,Bonus 1:1
+2025-07-18,bonus,INE775A01035,INE775A01035,MOTHERSON,MOTHERSON,isin_symbol_history,Bonus 1:2
+2025-07-18,bonus,INE133Y01011,INE133Y01011,IFGLEXPOR,IFGLEXPOR,isin_symbol_history,Bonus 1:1
+2025-07-18,split,INE337M01013,INE337M01021,INDOTHAI,INDOTHAI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-07-18,bonus,INE0FS801015,INE0FS801015,MSUMI,MSUMI,isin_symbol_history,Bonus 1:2
+2025-07-25,split,INE164B01022,INE164B01030,KELLTONTEC,KELLTONTEC,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2025-08-08,bonus,INE239A01016,INE239A01024,NESTLEIND,NESTLEIND,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-08-12,split,INE560A01015,INE560A01023,INDIAGLYCO,INDIAGLYCO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-08-14,bonus,INE366I01010,INE366I01010,VRLLOG,VRLLOG,isin_symbol_history,Bonus 1:1
+2025-08-21,split,INE060X01018,INE060X01034,DEVIT,DEVIT,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2025-08-25,bonus,INE721Z01010,INE721Z01010,AARON,AARON,isin_symbol_history,Bonus 1:1
+2025-08-26,bonus,INE036D01010,INE036D01028,KARURVYSYA,KARURVYSYA,future_isin_symbol_bridge_to_event_identity,Bonus 1:5
+2025-08-26,bonus,INE040A01018,INE040A01034,HDFCBANK,HDFCBANK,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-08-29,split,INE124E01020,INE124E01038,STEELCAS,STEELCAS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2025-09-01,split,INE07S101020,INE07S101038,PAVNAIND,PAVNAIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-09-11,bonus,INE619A01035,INE619A01035,PATANJALI,PATANJALI,isin_symbol_history,Bonus 2:1
+2025-09-12,split,INE771F01025,INE771F01041,FISCHER,FISCHER,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-09-16,bonus,INE260B01010,INE260B01028,GODFRYPHLP,GODFRYPHLP,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2025-09-18,split,INE768C01010,INE768C01028,ZYDUSWELL,ZYDUSWELL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-09-19,split,INE305A01015,INE305A01023,TFCILTD,TFCILTD,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-09-22,bonus,INE149K01016,INE149K01016,SANDUMA,SANDUMA,isin_symbol_history,Bonus 2:1
+2025-09-22,split,INE814H01011,INE814H01029,ADANIPOWER,ADANIPOWER,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-09-23,bonus,INE508G01029,INE508G01029,TIMETECHNO,TIMETECHNO,isin_symbol_history,Bonus 1:1
+2025-09-23,bonus,INE318A01026,INE318A01026,PIDILITIND,PIDILITIND,isin_symbol_history,Bonus 1:1
+2025-09-26,split,INE219Y01018,INE219Y01026,RMDRIP,RMDRIP,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-09-26,split,INE418L01021,INE418L01047,NAZARA,NAZARA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 4/- Per Share To Rs 2/- Per Share
+2025-09-26,bonus,INE418L01021,INE418L01047,NAZARA,NAZARA,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-10-03,split,INE235C01010,INE235C01036,SUMEETINDS,SUMEETINDS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-10-03,bonus,INE790G01023,INE790G01031,SHILPAMED,SHILPAMED,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-10-06,split,INE0A0S01010,INE0A0S01028,SIGMA,SIGMA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-10-10,split,INE976R01017,INE976R01033,AGIIL,AGIIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Re 1/- Per Share
+2025-10-10,bonus,INE258Y01016,INE258Y01016,LGHL,LGHL,isin_symbol_history,Bonus 7:5
+2025-10-10,bonus,INE899L01030,INE899L01030,UEL,UEL,isin_symbol_history,Bonus 2:1
+2025-10-13,bonus,INE562X01013,INE562X01013,UNIVASTU,UNIVASTU,isin_symbol_history,Bonus 2:1
+2025-10-14,split,INE314T01025,INE314T01033,GOKULAGRO,GOKULAGRO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-10-14,split,INE672A01018,INE672A01026,TATAINVEST,TATAINVEST,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-10-17,split,INE00YB01017,INE00YB01025,ABINFRA,ABINFRA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-10-17,split,INE645S01016,INE645S01024,ROLEXRINGS,ROLEXRINGS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-10-30,split,INE669X01016,INE669X01032,GEEKAYWIRE,GEEKAYWIRE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-10-31,bonus,INE045J01018,INE045J01034,FCL,FCL,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2025-10-31,split,INE045J01018,INE045J01034,FCL,FCL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2025-11-03,split,INE258A01016,INE258A01024,BEML,BEML,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-11-14,bonus,INE103C01036,INE103C01036,SMCGLOBAL,SMCGLOBAL,isin_symbol_history,Bonus 1:1
+2025-11-14,split,INE855C01015,INE855C01023,WEBELSOLAR,WEBELSOLAR,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-11-26,bonus,INE127D01025,INE127D01025,HDFCAMC,HDFCAMC,isin_symbol_history,Bonus 1:1
+2025-11-27,split,INE112X01017,INE112X01025,SIKKO,SIKKO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2025-11-28,bonus,INE594H01019,INE594H01019,THYROCARE,THYROCARE,isin_symbol_history,Bonus 2:1
+2025-12-05,split,INE596I01012,INE596I01020,CAMS,CAMS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-12-08,bonus,INE112X01017,INE112X01025,SIKKO,SIKKO,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-12-12,split,INE838B01013,INE838B01021,BHARATRAS,BHARATRAS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-12-12,split,INE495P01012,INE495P01020,BECTORFOOD,BECTORFOOD,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2025-12-12,bonus,INE838B01013,INE838B01021,BHARATRAS,BHARATRAS,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2025-12-15,bonus,INE296Q01012,INE296Q01012,MONEYBOXX,MONEYBOXX,isin_symbol_history,Bonus 1:1
+2025-12-19,bonus,INE600L01024,INE600L01024,LALPATHLAB,LALPATHLAB,isin_symbol_history,Bonus 1:1
+2025-12-22,split,INE0CJD01011,INE0CJD01029,KMEW,KMEW,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2025-12-24,bonus,INE192H01020,INE192H01020,GRMOVER,GRMOVER,isin_symbol_history,Bonus 2:1
+2025-12-26,bonus,INE207E01023,INE207E01023,RAMRAT,RAMRAT,isin_symbol_history,Bonus 1:1
+2025-12-26,split,INE531F01015,INE531F01023,NUVAMA,NUVAMA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-04-24,bonus,INE0Y8W01017,INE0Y8W01025,AHCL,AHCL,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2026-04-24,split,INE0Y8W01017,INE0Y8W01025,AHCL,AHCL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-01-13,bonus,INE206F01022,INE206F01022,AIIL,AIIL,isin_symbol_history,Bonus 4:1
+2026-01-14,split,INE298G01027,INE298G01035,AJMERA,AJMERA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-06-03,bonus,INE463V01026,INE463V01026,ANANDRATHI,ANANDRATHI,isin_symbol_history,Bonus 1:1
+2026-02-26,split,INE732I01013,INE732I01021,ANGELONE,ANGELONE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-03-05,split,INE416A01044,INE416A01051,AQYLON,AQYLON,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-05-05,split,INE652Z01017,INE652Z01025,AVROIND,AVROIND,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-02-13,bonus,INE02EZ01014,INE02EZ01022,AXITA,AXITA,future_isin_symbol_bridge_to_event_identity,Bonus 1:10
+2026-01-16,split,INE052T01013,INE052T01021,BESTAGRO,BESTAGRO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-01-16,bonus,INE052T01013,INE052T01021,BESTAGRO,BESTAGRO,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2026-06-17,bonus,INE791I01019,INE791I01019,BRIGADE,BRIGADE,isin_symbol_history,Bonus 1:3
+2026-08-25,split,INE0LZF01013,INE0LZF01039,CORDELIA,CORDELIA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-06-12,bonus,INE491A01021,INE491A01021,CUB,CUB,isin_symbol_history,Bonus 1:3
+2026-03-09,bonus,INE509F01011,INE509F01029,CUPID,CUPID,future_isin_symbol_bridge_to_event_identity,Bonus 4:1
+2026-06-19,split,INE0OPA01019,INE0OPA01027,DBEIL,DBEIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-02-13,bonus,INE726L01019,INE726L01027,DELPHIFX,DELPHIFX,future_isin_symbol_bridge_to_event_identity,Bonus 2:1
+2026-02-13,split,INE726L01019,INE726L01027,DELPHIFX,DELPHIFX,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-06-05,split,INE255Z01019,INE255Z01019,E2E,E2E,future_isin_symbol_bridge_no_event_interval,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-03-13,bonus,INE738I01010,INE738I01010,ECLERX,ECLERX,isin_symbol_history,Bonus 1:1
+2026-07-10,bonus,INE025B01017,INE025B01025,GOLDIAM,GOLDIAM,future_isin_symbol_bridge_to_event_identity,Bonus 1:3
+2026-08-21,bonus,INE127I01024,INE127I01024,GOODLUCK,GOODLUCK,isin_symbol_history,Bonus 2:1
+2026-07-28,bonus,INE626Z01011,INE626Z01029,HARDWYN,HARDWYN,future_isin_symbol_bridge_to_event_identity,Bonus 2:5
+2026-03-27,bonus,INE835D01023,INE835D01023,HIRECT,HIRECT,isin_symbol_history,Bonus 1:1
+2026-02-27,bonus,INE344S01016,INE344S01016,INFOBEAN,INFOBEAN,isin_symbol_history,Bonus 3:1
+2026-03-30,bonus,INE821I01014,INE821I01022,IRB,IRB,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2026-07-24,split,INE682M01012,INE682M01020,JLHL,JLHL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-03-06,bonus,INE542Z01010,INE542Z01028,KAPSTON,KAPSTON,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2026-03-24,bonus,INE729D01010,INE729D01010,KILITCH,KILITCH,isin_symbol_history,Bonus 1:1
+2026-08-18,split,INE811A01020,INE811A01038,KIRLPNU,KIRLPNU,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2026-06-24,bonus,INE0J0B01017,INE0J0B01017,KOTYARK,KOTYARK,isin_symbol_history,Bonus 10:1
+2026-07-03,split,INE506W01012,INE506W01020,KRISHANA,KRISHANA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-05-29,split,INE0G1L01017,INE0G1L01025,LEMERITE,LEMERITE,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-05-29,bonus,INE0J1Y01017,INE0J1Y01017,LICI,LICI,isin_symbol_history,Bonus 1:1
+2026-07-03,split,INE900L01010,INE900L01028,MBAPL,MBAPL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-01-02,split,INE745G01035,INE745G01043,MCX,MCX,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-03-20,bonus,INE112L01020,INE112L01020,METROPOLIS,METROPOLIS,isin_symbol_history,Bonus 3:1
+2026-07-10,split,INE0JYY01011,INE0JYY01029,MWL,MWL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-07-31,split,INE117Z01011,INE117Z01029,NARMADA,NARMADA,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2026-01-05,bonus,INE0PPK01015,INE0PPK01015,ORIENTTECH,ORIENTTECH,isin_symbol_history,Bonus 1:10
+2026-04-17,split,INE124Y01010,INE124Y01028,PASHUPATI,PASHUPATI,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-09-11,bonus,INE940H01014,INE940H01022,PGIL,PGIL,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2026-07-21,split,INE063E01046,INE063E01061,POCL,POCL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 5/- Per Share To Rs 2/- Per Share
+2026-04-10,bonus,INE219Y01018,INE219Y01026,RMDRIP,RMDRIP,future_isin_symbol_bridge_to_event_identity,Bonus 5:7
+2026-04-02,split,INE012Q01021,INE012Q01039,RNBDENIMS,RNBDENIMS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2026-04-02,bonus,INE012Q01021,INE012Q01039,RNBDENIMS,RNBDENIMS,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2026-03-06,split,INE625X01018,INE625X01026,SILVERTUC,SILVERTUC,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-03-06,bonus,INE625X01018,INE625X01026,SILVERTUC,SILVERTUC,future_isin_symbol_bridge_to_event_identity,Bonus 1:1
+2026-08-21,bonus,INE076B01010,INE076B01028,SIYSIL,SIYSIL,future_isin_symbol_bridge_to_event_identity,Scheme Of Arrangement - Bonus Ncrps 4:1
+2026-08-21,bonus,INE076B01010,INE076B01028,SIYSIL,SIYSIL,future_isin_symbol_bridge_to_event_identity,Scheme Of Arrangement - Bonus Ncrps 3:1
+2026-01-12,split,INE411D01015,INE411D01023,SKMEGGPROD,SKMEGGPROD,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2026-09-22,split,INE524T01011,INE524T01029,TAALTECH,TAALTECH,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-09-04,split,INE887D01016,INE887D01024,TCC,TCC,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share
+2026-08-24,split,INE419M01019,INE419M01035,TDPOWERSYS,TDPOWERSYS,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share
+2026-08-05,split,INE869Y01010,INE869Y01028,TEMBO,TEMBO,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-06-04,bonus,INE849A01012,INE849A01020,TRENT,TRENT,future_isin_symbol_bridge_to_event_identity,Bonus 1:2
+2026-09-08,bonus,INE105A01035,INE105A01035,TVSHLTD,TVSHLTD,isin_symbol_history,Scheme Of Arrangement - Bonus Ncrps 46:1
+2026-03-25,split,INE945H01013,INE945H01021,V2RETAIL,V2RETAIL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share
+2026-03-02,split,INE273D01019,INE273D01027,VGL,VGL,future_isin_symbol_bridge_to_event_identity,Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 5/- Per Share
+2026-06-24,bonus,INE342J01019,INE342J01019,ZFCVINDIA,ZFCVINDIA,isin_symbol_history,Bonus 5:1
