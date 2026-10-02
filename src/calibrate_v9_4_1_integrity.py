@@ -195,6 +195,9 @@ def main():
     current[current["selected_v941"]].head(50).to_csv(outdir/"current_top50.csv",index=False)
 
     summaries={name:v94.summarize_comparison(comp,name) for name in ["V9.4.1","V9.4","V9.3.1","V9.2_pcal"]}
+    metrics25=v94.calibration_metrics(oos,"hit25_6m","p25_cal")
+    metrics50=v94.calibration_metrics(oos,"hit50_6m","p50_cal")
+    metrics100=v94.calibration_metrics(oos,"y6","p100_cal")
     summary={
         "model":"V9.4.1 integrity-corrected challenger",
         "base_pipeline_version":cfg["pipeline_version"],
@@ -214,6 +217,14 @@ def main():
         "y12_censored_rows":int((~data["integrity_y12_clean"]).sum()),
         "y24_censored_rows":int((~data["integrity_y24_clean"]).sum()),
         "forward_history":summaries,
+        "probability_ladder":{
+            "p25_coherent":metrics25,
+            "p50_coherent":metrics50,
+            "p100":metrics100,
+            "best_calibrator_p25":threshold_info["hit25_6m"]["best"],
+            "best_calibrator_p50":threshold_info["hit50_6m"]["best"],
+            "best_calibrator_p100":best100,
+        },
         "production_signal_quality":production_gates,
         "production_risk_config":production_spec,
         "production_ladder_shares_within_upside_weight":{"p100":shares[0],"p50":shares[1],"p25":shares[2]},
