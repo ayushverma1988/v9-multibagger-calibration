@@ -1,0 +1,50 @@
+name: V10.2 Stable-Core CRN
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - 'src/v10_2_stable_core_crn.py'
+      - '.github/workflows/v10_2_stable_core_crn.yml'
+
+concurrency:
+  group: v10-2-stable-core-crn-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_raw_rank_stability.py src/v10_2_compression_switch.py src/v10_2_stable_core_crn.py
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run CRN stable-core selector
+        run: |
+          python src/v10_2_stable_core_crn.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --grid-sims 100 \
+            --confirm-sims 500 \
+            --output outputs_v10_2_stable_core_crn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-stable-core-crn-results
+          path: outputs_v10_2_stable_core_crn/
+          retention-days: 90
