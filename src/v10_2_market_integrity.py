@@ -1,80 +1,126 @@
 from __future__ import annotations
 
+from functools import lru_cache
 import numpy as np
 import pandas as pd
 
 import calibrate_v9_2 as base
 
 LAST_ACTION_RESOLUTION_AUDIT=[]
+LAST_SYMBOL_STITCH_AUDIT=[]
+LAST_VOLUME_NORMALIZATION_AUDIT=[]
 
 
-def apply_split_bonus_adjustment_resolved(df: pd.DataFrame, start_year: int, end_year: int) -> pd.Series:
-    """Split/bonus-only adjusted close with action identity resolved through
-    point-in-time NSE symbol history. Dividends and complex restructurings are
-    deliberately not scaled, matching the V9.4.1 price-return definition.
+def _norm(v):
+    if pd.isna(v):
+        return None
+    s=str(v).strip().upper()
+    return None if s in {"","NAN","NONE","<NA>","NULL"} else s
+
+
+@lru_cache(maxsize=1)
+def load_symbol_history() -> pd.DataFrame:
+    hp=base.hf_hub_download(base.REPO,"symbol_history/nse.parquet",repo_type="dataset")
+    h=pd.read_parquet(hp).copy()
+    h["valid_from"]=pd.to_datetime(h["valid_from"],errors="coerce")
+    h["valid_to"]=pd.to_datetime(h["valid_to"],errors="coerce")
+    h["isin_norm"]=h["isin"].map(_norm)
+    h["symbol_norm"]=h["symbol"].map(_norm)
+    return h
+
+
+def resolve_action_table(start_year:int,end_year:int,types=None) -> pd.DataFrame:
+    """Return structured NSE actions with symbol resolved point-in-time by ISIN.
+
+    This protects action joins from later symbol/name changes. Resolution is
+    metadata-only and never uses returns or outcome labels.
     """
     global LAST_ACTION_RESOLUTION_AUDIT
-    a=base.load_actions(start_year,end_year)
+    a=base.load_actions(start_year,end_year).copy()
     if a.empty:
         LAST_ACTION_RESOLUTION_AUDIT=[]
-        return df["close"].astype(float).copy()
-
-    a=a[a["type"].isin(["split","bonus"])].copy()
-    a["ex_date"]=pd.to_datetime(a["ex_date"])
+        return a
+    a["type"]=a["type"].fillna("").astype(str).str.lower()
+    a["ex_date"]=pd.to_datetime(a["ex_date"],errors="coerce")
+    if types is not None:
+        a=a[a["type"].isin(set(types))].copy()
 
     try:
-        hp=base.hf_hub_download(base.REPO,"symbol_history/nse.parquet",repo_type="dataset")
-        h=pd.read_parquet(hp)
-        h["valid_from"]=pd.to_datetime(h["valid_from"])
-        h["valid_to"]=pd.to_datetime(h["valid_to"])
-        h["isin_norm"]=h["isin"].astype(str).str.upper().str.strip()
+        h=load_symbol_history()
     except Exception as exc:
         print("WARNING: symbol-history resolution unavailable:",repr(exc),flush=True)
         h=pd.DataFrame()
 
     resolved=[]; audit=[]
     for r in a.itertuples(index=False):
-        orig=str(getattr(r,"symbol","") or "").upper().strip()
-        isin=str(getattr(r,"isin","") or "").upper().strip()
+        orig=_norm(getattr(r,"symbol",None))
+        isin=_norm(getattr(r,"isin",None))
         ex=pd.Timestamp(getattr(r,"ex_date"))
         rs=orig; method="action_symbol"
-        if len(h) and isin not in {"","NAN","NONE","<NA>"}:
-            q=h[(h["isin_norm"]==isin)&(h["valid_from"]<=ex)&(h["valid_to"]>=ex)]
+        if len(h) and isin:
+            q=h[
+                (h["isin_norm"]==isin)
+                & (h["valid_from"]<=ex)
+                & ((h["valid_to"].isna()) | (h["valid_to"]>=ex))
+            ]
             if len(q):
-                rs=str(q.sort_values("valid_from").iloc[-1]["symbol"]).upper().strip()
+                rs=_norm(q.sort_values("valid_from").iloc[-1]["symbol"]) or orig
                 method="isin_symbol_history"
         resolved.append(rs)
         if rs!=orig:
             audit.append({
-                "ex_date":str(ex.date()),"type":getattr(r,"type",None),
-                "isin":isin,"action_symbol":orig,"resolved_symbol":rs,
-                "resolution_method":method,"raw_subject":getattr(r,"raw_subject",None),
+                "ex_date":str(ex.date()) if pd.notna(ex) else None,
+                "type":getattr(r,"type",None),
+                "isin":isin,
+                "action_symbol":orig,
+                "resolved_symbol":rs,
+                "resolution_method":method,
+                "raw_subject":getattr(r,"raw_subject",None),
             })
     a["resolved_symbol"]=resolved
     LAST_ACTION_RESOLUTION_AUDIT=audit
+    return a
 
-    def fac(r):
-        try:
-            if r["type"]=="split" and pd.notna(r.get("face_value_from")) and pd.notna(r.get("face_value_to")) and float(r["face_value_from"])>0:
-                return float(r["face_value_to"])/float(r["face_value_from"])
-            if r["type"]=="bonus" and pd.notna(r.get("ratio_num")) and pd.notna(r.get("ratio_den")):
-                n,d=float(r["ratio_num"]),float(r["ratio_den"])
-                return d/(n+d) if n+d>0 else 1.0
-        except Exception:
-            pass
-        return 1.0
 
-    a["factor"]=a.apply(fac,axis=1)
-    a=a[(a["factor"]>0)&(a["factor"]<1.01)]
+def _action_factor(r) -> float:
+    try:
+        if r["type"]=="split" and pd.notna(r.get("face_value_from")) and pd.notna(r.get("face_value_to")) and float(r["face_value_from"])>0:
+            return float(r["face_value_to"])/float(r["face_value_from"])
+        if r["type"]=="bonus" and pd.notna(r.get("ratio_num")) and pd.notna(r.get("ratio_den")):
+            n,d=float(r["ratio_num"]),float(r["ratio_den"])
+            return d/(n+d) if n+d>0 else 1.0
+    except Exception:
+        pass
+    return 1.0
+
+
+def split_bonus_action_table(start_year:int,end_year:int) -> pd.DataFrame:
+    a=resolve_action_table(start_year,end_year,types={"split","bonus"})
+    if a.empty:
+        return a
+    a=a.copy()
+    a["factor"]=a.apply(_action_factor,axis=1)
+    return a[(a["factor"]>0)&(a["factor"]<1.01)].copy()
+
+
+def apply_split_bonus_adjustment_resolved(df: pd.DataFrame, start_year: int, end_year: int) -> pd.Series:
+    """Split/bonus-only price normalization with symbol-history identity repair.
+
+    Dividends are deliberately excluded. Merger/demerger economics are not
+    forced into a synthetic multiplicative factor.
+    """
+    a=split_bonus_action_table(start_year,end_year)
+    if a.empty:
+        return df["close"].astype(float).copy()
+
     amap={k:g[["ex_date","factor"]].sort_values("ex_date") for k,g in a.groupby("resolved_symbol")}
-
     out=np.empty(len(df),dtype=float)
     for sym,idx0 in df.groupby("symbol",sort=False).groups.items():
         inds=np.asarray(list(idx0),dtype=int)
         dates=df.loc[inds,"date"].to_numpy(dtype="datetime64[ns]")
         close=df.loc[inds,"close"].to_numpy(float)
         factors=np.ones(len(inds),dtype=float)
-        g=amap.get(str(sym).upper().strip())
+        g=amap.get(_norm(sym))
         if g is not None:
             for d,ff in zip(g["ex_date"].to_numpy(dtype="datetime64[ns]"),g["factor"].to_numpy(float)):
                 pos=np.searchsorted(dates,d,side="left")
@@ -82,6 +128,114 @@ def apply_split_bonus_adjustment_resolved(df: pd.DataFrame, start_year: int, end
                     factors[:pos]*=float(ff)
         out[inds]=close*factors
     return pd.Series(out,index=df.index)
+
+
+def normalize_split_bonus_volume(df:pd.DataFrame,start_year:int,end_year:int) -> pd.DataFrame:
+    """Normalize share volume across splits/bonuses.
+
+    A 10:1 split has price factor 0.1; pre-split share volume is multiplied by
+    1/0.1 so volume-acceleration features do not see a mechanical 10x surge.
+    Monetary turnover is left unchanged.
+    """
+    global LAST_VOLUME_NORMALIZATION_AUDIT
+    x=df.copy()
+    a=split_bonus_action_table(start_year,end_year)
+    if a.empty or "volume" not in x:
+        LAST_VOLUME_NORMALIZATION_AUDIT=[]
+        return x
+    amap={k:g[["ex_date","factor","type"]].sort_values("ex_date") for k,g in a.groupby("resolved_symbol")}
+    audit=[]
+    out=x["volume"].astype(float).to_numpy(copy=True)
+    for sym,idx0 in x.groupby("symbol",sort=False).groups.items():
+        inds=np.asarray(list(idx0),dtype=int)
+        dates=x.loc[inds,"date"].to_numpy(dtype="datetime64[ns]")
+        vol=x.loc[inds,"volume"].to_numpy(float)
+        factors=np.ones(len(inds),dtype=float)
+        g=amap.get(_norm(sym))
+        if g is not None:
+            for _,r in g.iterrows():
+                d=np.datetime64(pd.Timestamp(r["ex_date"]))
+                ff=float(r["factor"])
+                pos=np.searchsorted(dates,d,side="left")
+                if pos>0 and ff>0:
+                    factors[:pos]/=ff
+                    audit.append({
+                        "symbol":_norm(sym),"ex_date":str(pd.Timestamp(r["ex_date"]).date()),
+                        "type":r["type"],"price_factor":ff,"pre_event_volume_factor":1.0/ff,
+                    })
+        out[inds]=vol*factors
+    x["volume"]=out
+    LAST_VOLUME_NORMALIZATION_AUDIT=audit
+    return x
+
+
+def stitch_symbol_changes_same_isin(df:pd.DataFrame) -> pd.DataFrame:
+    """Stitch pure symbol/name changes when ISIN is unchanged.
+
+    Same-ISIN symbol changes are identifier changes, not economic events.
+    Historical rows are mapped to the latest observed symbol for that ISIN so
+    feature/label history remains continuous. ISIN changes are *not* stitched
+    here; split-related ISIN changes remain continuous naturally when symbol is
+    unchanged, while mergers/demergers are handled as structural boundaries.
+    """
+    global LAST_SYMBOL_STITCH_AUDIT
+    x=df.copy()
+    x["_isin_norm"]=x.get("isin",pd.Series(index=x.index,dtype=object)).map(_norm)
+    x["_symbol_original"]=x["symbol"].astype(str)
+    valid=x[x["_isin_norm"].notna()].copy()
+    if valid.empty:
+        LAST_SYMBOL_STITCH_AUDIT=[]
+        return x.drop(columns=["_isin_norm","_symbol_original"])
+
+    latest=(
+        valid.sort_values(["_isin_norm","date"])
+        .groupby("_isin_norm",as_index=False)
+        .tail(1)[["_isin_norm","symbol"]]
+        .rename(columns={"symbol":"_canonical_symbol"})
+    )
+    mp=dict(zip(latest["_isin_norm"],latest["_canonical_symbol"]))
+    audit=[]
+    for isin,g in valid.groupby("_isin_norm"):
+        syms=sorted({_norm(v) for v in g["symbol"] if _norm(v)})
+        if len(syms)>1:
+            canon=_norm(mp.get(isin))
+            audit.append({
+                "isin":isin,"symbols":syms,"canonical_symbol":canon,
+                "first_date":str(pd.Timestamp(g["date"].min()).date()),
+                "last_date":str(pd.Timestamp(g["date"].max()).date()),
+            })
+    x["symbol"]=x.apply(
+        lambda r: mp.get(r["_isin_norm"],r["symbol"]) if r["_isin_norm"] else r["symbol"],axis=1
+    )
+
+    # Overlap around a rename can produce duplicate canonical rows. Keep the
+    # more liquid row deterministically; this uses only same-day market data.
+    if x.duplicated(["date","symbol","series"]).any():
+        x=x.sort_values(["date","symbol","series","turnover"],ascending=[True,True,True,False])
+        x=x.drop_duplicates(["date","symbol","series"],keep="first")
+    LAST_SYMBOL_STITCH_AUDIT=audit
+    return x.drop(columns=["_isin_norm","_symbol_original"]).sort_values(["symbol","date"]).reset_index(drop=True)
+
+
+def structured_identity_events(start_year:int,end_year:int) -> pd.DataFrame:
+    """Explicit structural events that must reset/censor continuity.
+
+    Split/bonus are corrected multiplicatively and therefore excluded here.
+    Merger/demerger cannot generally be represented by one price factor.
+    Name/symbol changes are non-blocking when identity continuity is established
+    through ISIN/symbol history.
+    """
+    a=resolve_action_table(start_year,end_year)
+    if a.empty:
+        return a
+    structural={"merger","demerger"}
+    name_like={"name_change","name change","symbol_change","symbol change"}
+    z=a[a["type"].isin(structural|name_like)].copy()
+    if len(z):
+        z["identity_policy"]=np.where(
+            z["type"].isin(structural),"structural_reset","identity_continuity"
+        )
+    return z
 
 
 def install_on_base() -> None:
