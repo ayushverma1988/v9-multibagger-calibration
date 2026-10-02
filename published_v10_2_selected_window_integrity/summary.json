@@ -1,0 +1,23 @@
+{
+  "model": "V10.2 selected-window residual integrity audit",
+  "selected_oos_rows": 180,
+  "selected_symbols": 163,
+  "selected_symbol_jumps_50pct": 21,
+  "jump_class_counts": {
+    "raw_market_move_or_unresolved": 9,
+    "adjustment_factor_discontinuity": 9,
+    "corporate_action_or_restructuring": 3
+  },
+  "corporate_action_matches": 3,
+  "selected_rows_exposed_feature_252_any_jump": 3,
+  "selected_rows_exposed_y6_any_jump": 0,
+  "selected_rows_exposed_y12_any_jump": 0,
+  "selected_rows_exposed_y24_any_jump": 1,
+  "selected_rows_exposed_feature_252_blocking": 2,
+  "selected_rows_exposed_y6_blocking": 0,
+  "selected_rows_exposed_y12_blocking": 0,
+  "selected_rows_exposed_y24_blocking": 1,
+  "primary_integrity_pass": false,
+  "primary_scope": "V9.4.1 production selector uses 252-day feature history and 126-trading-day primary y6 outcome; y12/y24 are reported diagnostically.",
+  "note": "No model parameters or outcome-based selection rules are changed by this audit."
+}
