@@ -8,7 +8,7 @@ on:
       - '.github/workflows/v10_2_final_stability_audit.yml'
 
 concurrency:
-  group: v10-2-final-stability-audit-\${{ github.ref }}
+  group: v10-2-final-stability-audit-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -37,14 +37,14 @@ jobs:
         with:
           name: v9-4-1-signal-gated-results
           path: v941
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 36448905615
       - name: Run predeclared candidate family
         shell: bash
         run: |
           set -euo pipefail
-          case "\${{ matrix.family }}" in
+          case "${{ matrix.family }}" in
             crn) SCRIPT=src/v10_2_stable_core_crn.py ;;
             boundary) SCRIPT=src/v10_2_boundary_band.py ;;
             robust) SCRIPT=src/v10_2_robust_quantile.py ;;
@@ -59,7 +59,7 @@ jobs:
             --output out
       - uses: actions/upload-artifact@v4
         with:
-          name: v10-2-final-\${{ matrix.family }}
+          name: v10-2-final-${{ matrix.family }}
           path: out/
           retention-days: 90
 
@@ -87,7 +87,7 @@ jobs:
         with:
           name: v9-4-1-signal-gated-results
           path: v941
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 36448905615
       - name: Build frozen incumbent fold metrics
