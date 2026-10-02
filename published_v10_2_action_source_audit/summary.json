@@ -1,0 +1,100 @@
+{
+  "columns": [
+    "exchange",
+    "symbol",
+    "isin",
+    "company",
+    "ex_date",
+    "record_date",
+    "type",
+    "ratio_num",
+    "ratio_den",
+    "cash_amount",
+    "face_value_from",
+    "face_value_to",
+    "raw_subject"
+  ],
+  "rows_2023": 2460,
+  "matched_rows": 5,
+  "symbols": {
+    "TIPSMUSIC": 4,
+    "MIRZAINT": 1
+  },
+  "records": [
+    {
+      "exchange": "NSE",
+      "symbol": "MIRZAINT",
+      "isin": "INE771A01026",
+      "company": "Mirza International Limited",
+      "ex_date": "2023-03-29",
+      "record_date": "2023-03-29",
+      "type": "demerger",
+      "ratio_num": null,
+      "ratio_den": null,
+      "cash_amount": null,
+      "face_value_from": null,
+      "face_value_to": null,
+      "raw_subject": "Demerger"
+    },
+    {
+      "exchange": "NSE",
+      "symbol": "TIPSMUSIC",
+      "isin": "INE716B01029",
+      "company": "Tips Music Limited",
+      "ex_date": "2023-04-21",
+      "record_date": "2023-04-21",
+      "type": "split",
+      "ratio_num": null,
+      "ratio_den": null,
+      "cash_amount": null,
+      "face_value_from": 10.0,
+      "face_value_to": 1.0,
+      "raw_subject": "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share"
+    },
+    {
+      "exchange": "NSE",
+      "symbol": "TIPSMUSIC",
+      "isin": "INE716B01029",
+      "company": "Tips Music Limited",
+      "ex_date": "2023-08-04",
+      "record_date": "2023-08-04",
+      "type": "dividend",
+      "ratio_num": null,
+      "ratio_den": null,
+      "cash_amount": 1.0,
+      "face_value_from": null,
+      "face_value_to": null,
+      "raw_subject": "Interim Dividend - Re 1 Per Share"
+    },
+    {
+      "exchange": "NSE",
+      "symbol": "TIPSMUSIC",
+      "isin": "INE716B01029",
+      "company": "Tips Music Limited",
+      "ex_date": "2023-08-04",
+      "record_date": null,
+      "type": "dividend",
+      "ratio_num": null,
+      "ratio_den": null,
+      "cash_amount": 0.5,
+      "face_value_from": null,
+      "face_value_to": null,
+      "raw_subject": "Annual General Meeting/Dividend - Re 0.50 Per Share"
+    },
+    {
+      "exchange": "NSE",
+      "symbol": "TIPSMUSIC",
+      "isin": "INE716B01029",
+      "company": "Tips Music Limited",
+      "ex_date": "2023-10-31",
+      "record_date": "2023-10-31",
+      "type": "dividend",
+      "ratio_num": null,
+      "ratio_den": null,
+      "cash_amount": 2.0,
+      "face_value_from": null,
+      "face_value_to": null,
+      "raw_subject": "Interim Dividend - Rs 2 Per Share"
+    }
+  ]
+}
