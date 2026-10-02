@@ -1,0 +1,81 @@
+name: V10.2 Bag50 W50 All-Fold Screen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - '.github/workflows/v10_2_bag50_w50_allfold.yml'
+
+concurrency:
+  group: v10-2-bag50-w50-allfold-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run all-fold stability-only screen
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          import pandas as pd
+          sys.path.insert(0,'src')
+          from v10_2_raw_rank_stability import spec_from_row
+          from v10_2_bagged_topk import POLICIES, external_stability
+
+          bp=next(p for p in POLICIES if p.name=='bag50_w50')
+          cfg=json.load(open('config_v9_4_1.json')); k=int(cfg.get('selection_k',10))
+          oos=pd.read_parquet('v941/oos_predictions.parquet'); oos['date']=pd.to_datetime(oos['date'])
+          ch=pd.read_csv('v941/chosen_v931_config_by_fold.csv'); ch['date']=pd.to_datetime(ch['date'])
+          cmap={pd.Timestamp(r.date):r for r in ch.itertuples(index=False)}
+          rows=[]
+          for td,r in cmap.items():
+              g=oos[oos['date']==td].copy()
+              st=external_stability(g,spec_from_row(r),bp,k,100)
+              if st: rows.append({'date':str(pd.Timestamp(td).date()),**st})
+          mj=sum(x['mean_jaccard'] for x in rows)/len(rows)
+          wp=min(x['p05_jaccard'] for x in rows)
+          t1=sum(x['top1_stability'] for x in rows)/len(rows)
+          worst=min(rows,key=lambda x:x['p05_jaccard'])['date']
+          summary={'purpose':'stability-only all-fold screen; no outcome labels; pass is not promotion',
+                   'policy':bp.name,'folds':len(rows),'mean_jaccard':mj,'worst_p05_jaccard':wp,
+                   'mean_top1_stability':t1,'worst_fold':worst,
+                   'screen_pass':bool(mj>=.80 and wp>=.60 and t1>=.70),'by_fold':rows}
+          Path('published_v10_2_bag50_w50_allfold').mkdir(exist_ok=True)
+          json.dump(summary,open('published_v10_2_bag50_w50_allfold/summary.json','w'),indent=2)
+          print(json.dumps(summary,indent=2))
+          PY
+      - name: Publish all-fold evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_bag50_w50_allfold
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish Bag50 W50 all-fold stability screen [skip ci]"
+          git pull --rebase origin v10.2-stability-fix
+          git push origin HEAD:v10.2-stability-fix
