@@ -1,0 +1,94 @@
+name: V10.2 Corporate Action Logic Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-residual-integrity ]
+    paths:
+      - '.github/workflows/v10_2_corporate_action_logic_smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-residual-integrity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Verify split rename merger demerger logic
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          import pandas as pd
+          sys.path.insert(0,'src')
+          import calibrate_v9_2 as base
+          import v10_2_market_integrity as mi
+          import calibrate_v9_4_1_integrity as ci
+
+          mi.install_on_base()
+          z=[]
+          for y in range(2015,2025):
+              p=base.hf_hub_download(base.REPO,f'nse/year={y}/nse_{y}.parquet',repo_type='dataset')
+              z.append(pd.read_parquet(p,columns=['date','symbol','series','isin','close','volume','turnover']))
+          d=pd.concat(z,ignore_index=True)
+          d['date']=pd.to_datetime(d['date'])
+          d=d[d['series'].isin(['EQ','BE','BZ'])].sort_values(['symbol','date']).reset_index(drop=True)
+          d['adj_close']=mi.apply_split_bonus_adjustment_resolved(d,2015,2024)
+          d=mi.normalize_split_bonus_volume(d,2015,2024)
+          d=mi.stitch_symbol_changes_same_isin(d)
+          d=base.add_features(d)
+
+          # use empty announcement file: explicit merger/demerger must still work
+          import tempfile
+          ev=pd.DataFrame({'published_ts':pd.to_datetime([],utc=True),'symbol':[],'isin':[],'headline':[],'details':[],'event_type':[]})
+          fp='empty_events.parquet'; ev.to_parquet(fp,index=False)
+          d=ci.mark_integrity(d,fp)
+
+          rec={}
+          tips=d[(d['symbol']=='TIPSINDLTD')&(d['date']==pd.Timestamp('2023-04-21'))]
+          rec['tips_split']={
+              'present':bool(len(tips)),
+              'adj_ret':float(tips.iloc[0]['_adj_ret_i']) if len(tips) else None,
+              'blocking':bool(tips.iloc[0]['_blocking_jump']) if len(tips) else None,
+          }
+          mir=d[(d['symbol']=='MIRZAINT')&(d['date']==pd.Timestamp('2023-03-29'))]
+          rec['mirza_demerger']={
+              'present':bool(len(mir)),
+              'blocking':bool(mir.iloc[0]['_blocking_jump']) if len(mir) else None,
+              'type':str(mir.iloc[0]['_blocking_type']) if len(mir) else None,
+          }
+          sab=d[d['symbol']=='SABTN']
+          rec['sabtn_merger']={
+              'blocking_rows':int(sab['_blocking_jump'].sum()) if len(sab) else 0,
+              'blocking_types':sab.loc[sab['_blocking_jump'],'_blocking_type'].astype(str).tolist() if len(sab) else [],
+          }
+          isin='IN9623B01058'
+          q=d[d['isin'].astype(str).str.upper()==isin]
+          rec['same_isin_symbol_stitch']={
+              'isin':isin,
+              'symbols_after_stitch':sorted(q['symbol'].astype(str).unique().tolist()),
+              'rows':int(len(q)),
+          }
+          rec['assertions']={
+              'tips_split_continuous':bool(len(tips) and abs(float(tips.iloc[0]['_adj_ret_i']))<0.50 and not bool(tips.iloc[0]['_blocking_jump'])),
+              'mirza_structural_block':bool(len(mir) and bool(mir.iloc[0]['_blocking_jump']) and str(mir.iloc[0]['_blocking_type'])=='demerger'),
+              'sabtn_merger_block':bool(len(sab) and (sab['_blocking_type'].astype(str)=='merger').any()),
+              'rename_stitched':bool(len(q) and q['symbol'].nunique()==1),
+          }
+          rec['all_passed']=all(rec['assertions'].values())
+          os.makedirs('published_v10_2_action_logic_smoke',exist_ok=True)
+          json.dump(rec,open('published_v10_2_action_logic_smoke/summary.json','w'),indent=2)
+          print(json.dumps(rec,indent=2))
+          if not rec['all_passed']:
+              raise SystemExit('Corporate-action smoke test failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v10-2-action-logic-smoke
+          path: published_v10_2_action_logic_smoke/
+          retention-days: 90
