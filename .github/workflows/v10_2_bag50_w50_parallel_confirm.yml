@@ -1,0 +1,205 @@
+name: V10.2 Bag50 w50 Parallel 500 Confirmation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - '.github/workflows/v10_2_bag50_w50_parallel_confirm.yml'
+
+concurrency:
+  group: v10-2-bag50-w50-parallel-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  fold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { date: '2017-06-30', slug: '2017_06_30' }
+          - { date: '2017-12-29', slug: '2017_12_29' }
+          - { date: '2018-06-29', slug: '2018_06_29' }
+          - { date: '2018-12-31', slug: '2018_12_31' }
+          - { date: '2019-06-28', slug: '2019_06_28' }
+          - { date: '2019-12-31', slug: '2019_12_31' }
+          - { date: '2020-06-30', slug: '2020_06_30' }
+          - { date: '2020-12-31', slug: '2020_12_31' }
+          - { date: '2021-06-30', slug: '2021_06_30' }
+          - { date: '2021-12-31', slug: '2021_12_31' }
+          - { date: '2022-06-30', slug: '2022_06_30' }
+          - { date: '2022-12-30', slug: '2022_12_30' }
+          - { date: '2023-06-30', slug: '2023_06_30' }
+          - { date: '2023-12-29', slug: '2023_12_29' }
+          - { date: '2024-06-28', slug: '2024_06_28' }
+          - { date: '2024-12-31', slug: '2024_12_31' }
+          - { date: '2025-06-30', slug: '2025_06_30' }
+          - { date: '2025-12-31', slug: '2025_12_31' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Confirm one fold at 500 simulations
+        env:
+          TEST_DATE: ${{ matrix.date }}
+          SLUG: ${{ matrix.slug }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          import pandas as pd
+          sys.path.insert(0,'src')
+          from v10_2_raw_rank_stability import spec_from_row, outcome
+          from v10_2_bagged_topk import BagPolicy, bag_select, external_stability
+
+          td=pd.Timestamp(os.environ['TEST_DATE'])
+          bp=BagPolicy('bag50_w50',50,.50)
+          oos=pd.read_parquet('v941/oos_predictions.parquet'); oos['date']=pd.to_datetime(oos['date'])
+          ch=pd.read_csv('v941/chosen_v931_config_by_fold.csv'); ch['date']=pd.to_datetime(ch['date'])
+          row=ch[ch['date']==td]
+          if row.empty:
+              raise SystemExit(f'Missing chosen config for {td}')
+          r=next(row.itertuples(index=False))
+          g=oos[oos['date']==td].copy()
+          spec=spec_from_row(r)
+          sel=bag_select(g,spec,bp,10)
+          met=outcome(g,sel,10)
+          st=external_stability(g,spec,bp,10,500)
+          rec={'date':str(td.date()),'metrics':met,'stability':st}
+          Path('fold_out').mkdir(exist_ok=True)
+          json.dump(rec,open(f"fold_out/fold_{os.environ['SLUG']}.json",'w'),indent=2)
+          print(json.dumps(rec,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-bag50-fold-${{ matrix.slug }}
+          path: fold_out/
+          retention-days: 90
+
+  aggregate:
+    needs: fold
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download fold artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v10-2-bag50-fold-*
+          path: fold_results
+          merge-multiple: true
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Aggregate fixed-policy confirmation
+        run: |
+          python - <<'PY'
+          import glob, json, sys
+          from pathlib import Path
+          import pandas as pd
+          sys.path.insert(0,'src')
+          from v10_2_raw_rank_stability import Policy, spec_from_row, select_policy, outcome, agg, alpha_pass
+
+          recs=[json.load(open(p)) for p in sorted(glob.glob('fold_results/fold_*.json'))]
+          if len(recs)!=18:
+              raise SystemExit(f'Expected 18 fold results, got {len(recs)}')
+          mets=pd.DataFrame([{'date':r['date'],**r['metrics']} for r in recs])
+          st=pd.DataFrame([{'date':r['date'],**r['stability']} for r in recs])
+          mets['date']=pd.to_datetime(mets['date']); st['date']=pd.to_datetime(st['date'])
+
+          cfg=json.load(open('config_v9_4_1.json')); k=int(cfg.get('selection_k',10))
+          oos=pd.read_parquet('v941/oos_predictions.parquet'); oos['date']=pd.to_datetime(oos['date'])
+          ch=pd.read_csv('v941/chosen_v931_config_by_fold.csv'); ch['date']=pd.to_datetime(ch['date'])
+          inc=Policy('incumbent','p_cal','p_dd30_cal')
+          brows=[]
+          for r in ch.itertuples(index=False):
+              td=pd.Timestamp(r.date); g=oos[oos['date']==td].copy()
+              s=select_policy(g,spec_from_row(r),inc,k)
+              m=outcome(g,s,k)
+              if m:brows.append({'date':td,**m})
+          base=pd.DataFrame(brows); ba=agg(base); ca=agg(mets)
+          mj=float(st['mean_jaccard'].mean()); wp=float(st['p05_jaccard'].min()); t1=float(st['top1_stability'].mean())
+          summary={
+            'model':'V10.2 Bag50 w50 fixed-policy parallel confirmation',
+            'policy':{'name':'bag50_w50','internal_sims':50,'freq_weight':0.50},
+            'selection_rationale':'precommitted least-aggressive blocker-passing Bag50 policy; no outcome-based policy search',
+            'folds':18,
+            'candidate':ca,
+            'baseline':ba,
+            'mean_jaccard':mj,
+            'worst_p05_jaccard':wp,
+            'mean_top1_stability':t1,
+            'worst_fold':str(st.loc[st['p05_jaccard'].idxmin(),'date']),
+            'alpha_retention_passed':bool(alpha_pass(ca,ba,.95)),
+            'mean_jaccard_passed':bool(mj>=.80),
+            'worst_p05_passed':bool(wp>=.60),
+            'top1_passed':bool(t1>=.70),
+            'dd_not_worse_3pp':bool(ca['mean_dd30_rate']<=ba['mean_dd30_rate']+.03),
+          }
+          summary['all_gates_passed']=bool(
+              summary['alpha_retention_passed'] and summary['mean_jaccard_passed'] and
+              summary['worst_p05_passed'] and summary['top1_passed'] and
+              summary['dd_not_worse_3pp']
+          )
+          out=Path('published_v10_2_bag50_w50_parallel'); out.mkdir(exist_ok=True)
+          mets.to_csv(out/'chosen_metrics_by_fold.csv',index=False)
+          st.to_csv(out/'chosen_stability_by_fold.csv',index=False)
+          base.to_csv(out/'baseline_metrics_by_fold.csv',index=False)
+          json.dump(summary,open(out/'summary.json','w'),indent=2,default=str)
+          print(json.dumps(summary,indent=2,default=str))
+          PY
+      - name: Run anti-overfit audit
+        run: |
+          python src/v10_2_anti_overfit_audit.py \
+            --candidate-metrics published_v10_2_bag50_w50_parallel/chosen_metrics_by_fold.csv \
+            --baseline-metrics published_v10_2_bag50_w50_parallel/baseline_metrics_by_fold.csv \
+            --candidate-stability published_v10_2_bag50_w50_parallel/chosen_stability_by_fold.csv \
+            --output published_v10_2_bag50_w50_parallel/anti_overfit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-bag50-w50-parallel-confirmation
+          path: published_v10_2_bag50_w50_parallel/
+          retention-days: 90
+      - name: Publish final confirmation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_bag50_w50_parallel
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish Bag50 w50 parallel 500-sim confirmation [skip ci]"
+          git pull --rebase origin v10.2-stability-fix
+          git push origin HEAD:v10.2-stability-fix
