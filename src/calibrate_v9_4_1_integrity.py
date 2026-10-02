@@ -206,11 +206,11 @@ def main():
 
     # Hard integrity assertions for the two forensic cases that exposed the bug.
     # These are data-correctness checks only; they do not use model outcomes.
-    tips=daily[(daily["symbol"]=="TIPSINDLTD") & (daily["date"]==pd.Timestamp("2023-04-21"))]
+    tips=daily[(daily["isin"].map(integ.norm_str)=="INE716B01029") & (daily["date"]==pd.Timestamp("2023-04-21"))]
     if len(tips):
         tr=float(tips.iloc[0]["_adj_ret_i"])
         if abs(tr) >= 0.50:
-            raise RuntimeError(f"TIPSINDLTD split normalization unresolved: adjusted return={tr:.6f}")
+            raise RuntimeError(f"TIPS/TIPSMUSIC split normalization unresolved: adjusted return={tr:.6f}")
     mirza=daily[(daily["symbol"]=="MIRZAINT") & (daily["date"]==pd.Timestamp("2023-03-29"))]
     if len(mirza) and not bool(mirza.iloc[0]["_blocking_jump"]):
         raise RuntimeError("MIRZAINT demerger discontinuity was not marked blocking")
