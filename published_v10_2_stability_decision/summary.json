@@ -1,0 +1,44 @@
+{
+  "decision": "reject_bag50_w50_for_promotion_keep_validated_fallback",
+  "date": "2026-10-02",
+  "policy": {
+    "name": "bag50_w50",
+    "internal_sims": 50,
+    "freq_weight": 0.5
+  },
+  "reasoning": {
+    "anti_overfit_rule": "Do not weaken or retune a pre-specified gate after observing the result.",
+    "stability": {
+      "mean_jaccard": 0.8541305361305362,
+      "required_mean_jaccard": 0.8,
+      "worst_p05_jaccard": 0.6666666666666666,
+      "required_worst_p05_jaccard": 0.6,
+      "mean_top1_stability": 0.8328888888888888,
+      "required_top1_stability": 0.7,
+      "passed": true
+    },
+    "alpha": {
+      "candidate_mean_precision_2x": 0.09444444444444446,
+      "baseline_mean_precision_2x": 0.10000000000000002,
+      "retention_ratio": 0.9444444444444443,
+      "required_retention_ratio": 0.95,
+      "passed": false
+    },
+    "risk": {
+      "candidate_mean_dd30_rate": 0.4444444444444444,
+      "baseline_mean_dd30_rate": 0.41666666666666663,
+      "delta": 0.02777777777777779,
+      "allowed_delta": 0.03,
+      "passed": true
+    },
+    "anti_overfit": {
+      "loo_min_precision_ratio": 0.9285714285714285,
+      "loo_min_lift_ratio": 1,
+      "recent_precision_ratio": 0.8888888888888887,
+      "recent_lift_ratio": 1,
+      "acceptance_gate": false,
+      "only_failed_named_gate": "full_alpha_retention"
+    }
+  },
+  "final_action": "Stop selector stability tuning at V10.2. Preserve the validated lower-version selector as production fallback. Retain Bag50 w50 as a documented research challenger only."
+}
