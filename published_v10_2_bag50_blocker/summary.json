@@ -1,0 +1,74 @@
+{
+  "purpose": "rejection-only; no labels; passing is not promotion",
+  "results": [
+    {
+      "policy": "bag50_w50",
+      "mean_jaccard": 0.8586363636363636,
+      "worst_p05_jaccard": 0.6666666666666666,
+      "mean_top1_stability": 0.99,
+      "screen_pass": true,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8624242424242425,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.078
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.8548484848484849,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 0.98,
+          "names_replaced_fraction": 0.08199999999999999
+        }
+      ]
+    },
+    {
+      "policy": "bag50_w75",
+      "mean_jaccard": 0.8542424242424242,
+      "worst_p05_jaccard": 0.6666666666666666,
+      "mean_top1_stability": 0.995,
+      "screen_pass": true,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8512121212121214,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.085
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.8572727272727272,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 0.99,
+          "names_replaced_fraction": 0.07999999999999999
+        }
+      ]
+    },
+    {
+      "policy": "bag50_w100",
+      "mean_jaccard": 0.8616317016317014,
+      "worst_p05_jaccard": 0.6666666666666666,
+      "mean_top1_stability": 0.99,
+      "screen_pass": true,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8499300699300698,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.085
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.8733333333333332,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 0.98,
+          "names_replaced_fraction": 0.071
+        }
+      ]
+    }
+  ]
+}
