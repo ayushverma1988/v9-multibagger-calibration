@@ -1,0 +1,187 @@
+name: V10.2 Final Stability Anti-Overfit Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - '.github/workflows/v10_2_final_stability_audit.yml'
+
+concurrency:
+  group: v10-2-final-stability-audit-\${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  experiments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [crn, boundary, robust, temporal]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run predeclared candidate family
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "\${{ matrix.family }}" in
+            crn) SCRIPT=src/v10_2_stable_core_crn.py ;;
+            boundary) SCRIPT=src/v10_2_boundary_band.py ;;
+            robust) SCRIPT=src/v10_2_robust_quantile.py ;;
+            temporal) SCRIPT=src/v10_2_temporal_smoothing.py ;;
+          esac
+          python "$SCRIPT" \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --grid-sims 100 \
+            --confirm-sims 500 \
+            --output out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-final-\${{ matrix.family }}
+          path: out/
+          retention-days: 90
+
+  audit-and-publish:
+    needs: experiments
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download candidate results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v10-2-final-*
+          path: collected
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Build frozen incumbent fold metrics
+        run: |
+          python - <<'PY'
+          import json, sys
+          import pandas as pd
+          sys.path.insert(0, 'src')
+          from v10_2_raw_rank_stability import Policy, spec_from_row, select_policy, outcome
+          cfg=json.load(open('config_v9_4_1.json'))
+          oos=pd.read_parquet('v941/oos_predictions.parquet'); oos['date']=pd.to_datetime(oos['date'])
+          chosen=pd.read_csv('v941/chosen_v931_config_by_fold.csv'); chosen['date']=pd.to_datetime(chosen['date'])
+          cmap={pd.Timestamp(r.date):r for r in chosen.itertuples(index=False)}
+          inc=Policy('incumbent','p_cal','p_dd30_cal')
+          k=int(cfg.get('selection_k',10)); rows=[]
+          for td,r in cmap.items():
+              g=oos[oos['date']==td].copy()
+              if g.empty: continue
+              s=select_policy(g,spec_from_row(r),inc,k)
+              m=outcome(g,s,k)
+              if m: rows.append({'date':td,**m})
+          pd.DataFrame(rows).to_csv('baseline_metrics.csv',index=False)
+          PY
+      - name: Run anti-overfit audits
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf audits
+          mkdir -p audits
+          for family in crn boundary robust temporal; do
+            d="collected/v10-2-final-$family"
+            python src/v10_2_anti_overfit_audit.py \
+              --candidate-metrics "$d/chosen_metrics_by_fold.csv" \
+              --baseline-metrics baseline_metrics.csv \
+              --candidate-stability "$d/chosen_stability_by_fold.csv" \
+              --output "audits/$family"
+          done
+      - name: Build comparison index
+        run: |
+          python - <<'PY'
+          import json, os, pandas as pd
+          rows=[]
+          for fam in ['crn','boundary','robust','temporal']:
+              s=json.load(open(f'collected/v10-2-final-{fam}/summary.json'))
+              a=json.load(open(f'audits/{fam}/summary.json'))
+              c=s.get('confirmation_500') or {}
+              rows.append({
+                  'family':fam,
+                  'chosen_policy':json.dumps(s.get('chosen_policy'),sort_keys=True),
+                  'promotion_gate_500':bool(s.get('promotion_gate')),
+                  'anti_overfit_acceptance':bool(a.get('acceptance_gate')),
+                  'mean_precision_2x':c.get('mean_precision_2x'),
+                  'mean_capped_lift_2x':c.get('mean_capped_lift_2x'),
+                  'mean_dd30_rate':c.get('mean_dd30_rate'),
+                  'mean_jaccard':c.get('mean_jaccard'),
+                  'worst_p05_jaccard':c.get('worst_p05_jaccard'),
+                  'mean_top1_stability':c.get('mean_top1_stability'),
+                  'worst_fold':c.get('worst_fold'),
+                  'loo_min_precision_ratio':a.get('loo',{}).get('min_precision_ratio'),
+                  'loo_min_lift_ratio':a.get('loo',{}).get('min_lift_ratio'),
+                  'recent_precision_ratio':a.get('recent_holdout',{}).get('precision_ratio'),
+                  'recent_lift_ratio':a.get('recent_holdout',{}).get('lift_ratio'),
+              })
+          os.makedirs('published_v10_2_stability_final',exist_ok=True)
+          pd.DataFrame(rows).to_csv('published_v10_2_stability_final/comparison.csv',index=False)
+          json.dump({
+            'selection_rule':'No fold-specific tuning. Consider only families passing both 500-sim promotion and full anti-overfit acceptance; among passers prefer the least invasive/general rule, not the best historical alpha.',
+            'rows':rows
+          },open('published_v10_2_stability_final/comparison.json','w'),indent=2)
+          PY
+      - name: Stage audit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for family in crn boundary robust temporal; do
+            mkdir -p "published_v10_2_stability_final/$family"
+            cp "collected/v10-2-final-$family/summary.json" "published_v10_2_stability_final/$family/model_summary.json"
+            cp "collected/v10-2-final-$family/chosen_metrics_by_fold.csv" "published_v10_2_stability_final/$family/chosen_metrics_by_fold.csv"
+            cp "collected/v10-2-final-$family/chosen_stability_by_fold.csv" "published_v10_2_stability_final/$family/chosen_stability_by_fold.csv"
+            cp "audits/$family/summary.json" "published_v10_2_stability_final/$family/anti_overfit_summary.json"
+            cp "audits/$family/leave_one_fold_out.csv" "published_v10_2_stability_final/$family/leave_one_fold_out.csv"
+          done
+          cp baseline_metrics.csv published_v10_2_stability_final/baseline_metrics.csv
+      - name: Commit audit results
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_stability_final
+          if git diff --cached --quiet; then
+            echo "No result changes"
+            exit 0
+          fi
+          git commit -m "Publish V10.2 final stability anti-overfit audit [skip ci]"
+          git pull --rebase origin v10.2-stability-fix
+          git push origin HEAD:v10.2-stability-fix
