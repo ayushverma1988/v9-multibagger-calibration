@@ -1,0 +1,164 @@
+name: V10.2 Frozen Production Snapshot
+
+on:
+  push:
+    branches: [ v10-fresh-current ]
+    paths:
+      - '.github/workflows/v10_2_production_after_integrity.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: v10-2-frozen-production-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Wait for selected-window integrity audit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          repo="ayushverma1988/v9-multibagger-calibration"
+          rid=37041884248
+          headers={
+              "Authorization":f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept":"application/vnd.github+json",
+              "X-GitHub-Api-Version":"2022-11-28",
+              "User-Agent":"v10-2-production-gate",
+          }
+          deadline=time.time()+4*60*60
+          while True:
+              req=urllib.request.Request(f"https://api.github.com/repos/{repo}/actions/runs/{rid}",headers=headers)
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  d=json.load(r)
+              print(rid,d.get("status"),d.get("conclusion"),flush=True)
+              if d.get("status")=="completed":
+                  if d.get("conclusion")!="success":
+                      raise SystemExit(f"Integrity run {rid} ended {d.get('conclusion')}")
+                  break
+              if time.time()>deadline:
+                  raise SystemExit("Timed out waiting for integrity audit")
+              time.sleep(30)
+          PY
+
+      - name: Download integrity evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-selected-window-integrity-results
+          path: integrity
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37041884248
+
+      - name: Enforce integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open("integrity/summary.json"))
+          print(json.dumps(s,indent=2))
+          if not s.get("primary_integrity_pass",False):
+              raise SystemExit("Primary selected-window integrity gate failed; production snapshot blocked.")
+          PY
+
+      - name: Download verified legacy NSE history
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Rebuild frozen validated selector
+        run: |
+          python src/calibrate_v9_4_1.py \
+            --config config_v9_4_1.json \
+            --output outputs_v10_2_production \
+            --legacy-dir legacy
+
+      - name: Build production manifest and shortlist
+        run: |
+          python - <<'PY'
+          import json, os, hashlib
+          import pandas as pd
+          out="outputs_v10_2_production"
+          s=json.load(open(f"{out}/summary.json"))
+          integ=json.load(open("integrity/summary.json"))
+          cur=pd.read_csv(f"{out}/current_selection.csv")
+          selected=cur[cur["selected_v941"].fillna(False).astype(bool)].copy()
+          rank_col="selection_rank_v941" if "selection_rank_v941" in selected else None
+          if rank_col:
+              selected=selected.sort_values(rank_col)
+          selected.to_csv(f"{out}/production_top10.csv",index=False)
+          keep=[c for c in [
+              "date","symbol","isin","close","p_cal","p_raw","p_dd30_cal",
+              "selection_score_v941","selection_rank_v941","p100_cal","p50_cal","p25_cal"
+          ] if c in selected.columns]
+          selected[keep].to_csv(f"{out}/production_top10_compact.csv",index=False)
+
+          cfg_bytes=open("config_v9_4_1.json","rb").read()
+          manifest={
+              "production_model":"V9.4.1 frozen validated fallback",
+              "pipeline_version":s.get("pipeline_version"),
+              "data_start":s.get("data_start"),
+              "data_end":s.get("data_end"),
+              "eligible_current_rows":int(len(cur)),
+              "selected_rows":int(len(selected)),
+              "selector_stability_decision":{
+                  "decision_commit":"57466c1be79c0d1fc56c1aabd115075ea3760474",
+                  "bag50_w50":"research challenger rejected for production because full alpha retention was 94.44% vs pre-set 95% gate",
+                  "production_action":"retain validated V9.4.1 selector; no post-hoc threshold weakening"
+              },
+              "integrity":{
+                  "run_id":37041884248,
+                  "primary_integrity_pass":bool(integ.get("primary_integrity_pass")),
+                  "selected_rows_exposed_feature_252_blocking":integ.get("selected_rows_exposed_feature_252_blocking"),
+                  "selected_rows_exposed_y6_blocking":integ.get("selected_rows_exposed_y6_blocking")
+              },
+              "config_sha256":hashlib.sha256(cfg_bytes).hexdigest(),
+          }
+          json.dump(manifest,open(f"{out}/production_manifest.json","w"),indent=2,default=str)
+          print(json.dumps(manifest,indent=2,default=str))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-frozen-production-snapshot
+          path: outputs_v10_2_production/
+          retention-days: 90
+
+      - name: Publish production evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf published_v10_2_production
+          mkdir -p published_v10_2_production
+          cp outputs_v10_2_production/production_manifest.json published_v10_2_production/
+          cp outputs_v10_2_production/production_top10_compact.csv published_v10_2_production/
+          cp outputs_v10_2_production/summary.json published_v10_2_production/model_summary.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_production
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.2 frozen production snapshot [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
