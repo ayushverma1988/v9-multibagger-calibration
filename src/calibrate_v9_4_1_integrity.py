@@ -59,7 +59,7 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
     for _,inds0 in x.groupby("symbol",sort=False).groups.items():
         inds=np.asarray(list(inds0),dtype=int)
         b=x.loc[inds,"_blocking_jump"].astype(int)
-        dirty=b.rolling(252,min_periods=1).max().to_numpy(dtype=bool)
+        dirty=b.rolling(253,min_periods=1).max().to_numpy(dtype=bool)
         clean[inds]=~dirty
     x["integrity_feature_clean"]=clean
     return x
@@ -204,7 +204,8 @@ def main():
         "data_start":str(daily["date"].min().date()),
         "data_end":str(daily["date"].max().date()),
         "integrity_policy":{
-            "feature_cooldown_trading_days":252,
+            "feature_lag_max_trading_days":252,
+            "feature_price_rows_covered":253,
             "primary_label_censor_trading_days":126,
             "secondary_label_censor_trading_days":{"y12":252,"y24":504},
             "blocking_classes":sorted(BLOCKING_CLASSES),
