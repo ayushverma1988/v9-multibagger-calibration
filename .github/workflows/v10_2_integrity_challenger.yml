@@ -6,6 +6,8 @@ on:
     branches: [ v10.2-residual-integrity ]
     paths:
       - 'src/calibrate_v9_4_1_integrity.py'
+      - 'src/v10_2_market_integrity.py'
+      - 'src/v10_2_selected_window_integrity.py'
       - '.github/workflows/v10_2_integrity_challenger.yml'
 
 concurrency:
@@ -74,6 +76,7 @@ jobs:
             --oos outputs_integrity_challenger/oos_predictions.parquet \
             --events events/events_all_2016_2026.parquet \
             --legacy-dir legacy \
+            --resolve-split-bonus-symbol-history \
             --output outputs_integrity_challenger/selected_window_audit
 
       - name: Apply frozen acceptance gates
@@ -141,6 +144,11 @@ jobs:
           cp outputs_integrity_challenger/selected_window_audit/summary.json published_v10_2_integrity_challenger/integrity_summary.json
           cp outputs_integrity_challenger/selected_window_audit/selected_window_jump_exposures.csv published_v10_2_integrity_challenger/selected_window_jump_exposures.csv 2>/dev/null || true
           cp outputs_integrity_challenger/blocking_jumps.csv published_v10_2_integrity_challenger/blocking_jumps.csv
+          cp outputs_integrity_challenger/split_bonus_symbol_resolution_audit.csv published_v10_2_integrity_challenger/ 2>/dev/null || true
+          cp outputs_integrity_challenger/split_bonus_volume_normalization_audit.csv published_v10_2_integrity_challenger/ 2>/dev/null || true
+          cp outputs_integrity_challenger/symbol_name_change_stitch_audit.csv published_v10_2_integrity_challenger/ 2>/dev/null || true
+          cp outputs_integrity_challenger/merger_demerger_event_audit.csv published_v10_2_integrity_challenger/ 2>/dev/null || true
+          cp outputs_integrity_challenger/selected_window_audit/selected_structural_event_exposures.csv published_v10_2_integrity_challenger/ 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         with:
