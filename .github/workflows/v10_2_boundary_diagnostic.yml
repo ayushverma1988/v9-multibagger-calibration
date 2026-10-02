@@ -1,0 +1,45 @@
+name: V10.2 Boundary Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - 'src/v10_2_boundary_diagnostic.py'
+      - '.github/workflows/v10_2_boundary_diagnostic.yml'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_boundary_diagnostic.py
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Diagnose worst fold without labels
+        run: |
+          python src/v10_2_boundary_diagnostic.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --date 2020-12-31 \
+            --sims 1000 \
+            --output outputs_v10_2_boundary
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-boundary-diagnostic
+          path: outputs_v10_2_boundary/
+          retention-days: 90
