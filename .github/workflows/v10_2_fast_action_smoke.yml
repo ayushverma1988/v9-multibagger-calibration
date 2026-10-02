@@ -51,7 +51,7 @@ jobs:
           ev.to_parquet('empty_events.parquet',index=False)
           d=ci.mark_integrity(d,'empty_events.parquet')
 
-          tips=d[(d['symbol']=='TIPSINDLTD')&(d['date']==pd.Timestamp('2023-04-21'))]
+          tips=d[(d['isin'].astype(str).str.upper()=='INE716B01029')&(d['date']==pd.Timestamp('2023-04-21'))]
           mir=d[(d['symbol']=='MIRZAINT')&(d['date']==pd.Timestamp('2023-03-29'))]
           sab=d[d['symbol']=='SABTN']
 
