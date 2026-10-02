@@ -57,12 +57,12 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
                 x.at[idx,"_blocking_type"]="corporate_action_or_restructuring"
 
     # Feature cleanliness is strictly backward-looking and label-free.
-    clean=np.ones(len(x),dtype=bool)
+    clean=pd.Series(True,index=x.index,dtype=bool)
     for _,inds0 in x.groupby("symbol",sort=False).groups.items():
-        inds=np.asarray(list(inds0),dtype=int)
+        inds=list(inds0)
         b=x.loc[inds,"_blocking_jump"].astype(int)
-        dirty=b.rolling(253,min_periods=1).max().to_numpy(dtype=bool)
-        clean[inds]=~dirty
+        dirty=b.rolling(253,min_periods=1).max().astype(bool)
+        clean.loc[inds]=~dirty.to_numpy()
     x["integrity_feature_clean"]=clean
     return x
 
@@ -131,9 +131,24 @@ def main():
     end_year=pd.Timestamp.today().year
 
     print("Loading market and marking integrity discontinuities...",flush=True)
+    market_integrity.install_on_base()
     daily=base.load_market(int(cfg["start_year"]),end_year,args.legacy_dir)
+    pd.DataFrame(market_integrity.LAST_ACTION_RESOLUTION_AUDIT).to_csv(
+        outdir/"split_bonus_symbol_resolution_audit.csv",index=False
+    )
     daily=base.add_features(daily)
     daily=mark_integrity(daily,args.events)
+
+    # Hard integrity assertions for the two forensic cases that exposed the bug.
+    # These are data-correctness checks only; they do not use model outcomes.
+    tips=daily[(daily["symbol"]=="TIPSINDLTD") & (daily["date"]==pd.Timestamp("2023-04-21"))]
+    if len(tips):
+        tr=float(tips.iloc[0]["_adj_ret_i"])
+        if abs(tr) >= 0.50:
+            raise RuntimeError(f"TIPSINDLTD split normalization unresolved: adjusted return={tr:.6f}")
+    mirza=daily[(daily["symbol"]=="MIRZAINT") & (daily["date"]==pd.Timestamp("2023-03-29"))]
+    if len(mirza) and not bool(mirza.iloc[0]["_blocking_jump"]):
+        raise RuntimeError("MIRZAINT demerger discontinuity was not marked blocking")
 
     jump_audit=daily[daily["_blocking_jump"]][
         ["date","symbol","isin","close","adj_close","_adj_ret_i","_raw_ret_i","_blocking_type"]
