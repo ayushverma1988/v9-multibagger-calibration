@@ -1,0 +1,105 @@
+{
+  "purpose": "rejection-only; no labels; passing is not promotion",
+  "results": [
+    {
+      "policy": "rq60_i25",
+      "mean_jaccard": 0.7842807192807193,
+      "worst_p05_jaccard": 0.532967032967033,
+      "mean_top1_stability": 0.625,
+      "screen_pass": false,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8508391608391608,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.08399999999999999,
+          "mean_robust_core_n": 8.95
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.7177222777222777,
+          "p05_jaccard": 0.532967032967033,
+          "top1_stability": 0.25,
+          "names_replaced_fraction": 0.17200000000000004,
+          "mean_robust_core_n": 8.01
+        }
+      ]
+    },
+    {
+      "policy": "rq65_i25",
+      "mean_jaccard": 0.7801964701964702,
+      "worst_p05_jaccard": 0.5384615384615384,
+      "mean_top1_stability": 0.64,
+      "screen_pass": false,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8633333333333334,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.077,
+          "mean_robust_core_n": 9.07
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.697059607059607,
+          "p05_jaccard": 0.5384615384615384,
+          "top1_stability": 0.28,
+          "names_replaced_fraction": 0.184,
+          "mean_robust_core_n": 7.26
+        }
+      ]
+    },
+    {
+      "policy": "rq70_i25",
+      "mean_jaccard": 0.7902963702963703,
+      "worst_p05_jaccard": 0.5384615384615384,
+      "mean_top1_stability": 0.7,
+      "screen_pass": false,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8517482517482518,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.08399999999999999,
+          "mean_robust_core_n": 8.55
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.7288444888444888,
+          "p05_jaccard": 0.5384615384615384,
+          "top1_stability": 0.4,
+          "names_replaced_fraction": 0.163,
+          "mean_robust_core_n": 7.11
+        }
+      ]
+    },
+    {
+      "policy": "rq75_i25",
+      "mean_jaccard": 0.771032301032301,
+      "worst_p05_jaccard": 0.5384615384615384,
+      "mean_top1_stability": 0.595,
+      "screen_pass": false,
+      "folds": [
+        {
+          "date": "2018-12-31",
+          "mean_jaccard": 0.8545454545454544,
+          "p05_jaccard": 0.6666666666666666,
+          "top1_stability": 1.0,
+          "names_replaced_fraction": 0.08199999999999999,
+          "mean_robust_core_n": 8.4
+        },
+        {
+          "date": "2020-12-31",
+          "mean_jaccard": 0.6875191475191477,
+          "p05_jaccard": 0.5384615384615384,
+          "top1_stability": 0.19,
+          "names_replaced_fraction": 0.191,
+          "mean_robust_core_n": 6.31
+        }
+      ]
+    }
+  ]
+}
