@@ -1,0 +1,76 @@
+name: V10.2 Targeted Bag50 w50 Confirmation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - 'src/v10_2_bag50_w50_confirm.py'
+      - '.github/workflows/v10_2_bag50_w50_confirm.yml'
+
+concurrency:
+  group: v10-2-bag50-w50-confirm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_2_bag50_w50_confirm.py src/v10_2_bagged_topk.py src/v10_2_anti_overfit_audit.py
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run targeted Bag50 confirmation
+        run: |
+          python src/v10_2_bag50_w50_confirm.py \
+            --oos v941/oos_predictions.parquet \
+            --chosen931 v941/chosen_v931_config_by_fold.csv \
+            --config config_v9_4_1.json \
+            --screen-sims 100 \
+            --confirm-sims 500 \
+            --output published_v10_2_bag50_w50
+      - name: Run anti-overfit audit if 500-sim confirmation exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f published_v10_2_bag50_w50/chosen_metrics_by_fold.csv ]; then
+            python src/v10_2_anti_overfit_audit.py \
+              --candidate-metrics published_v10_2_bag50_w50/chosen_metrics_by_fold.csv \
+              --baseline-metrics published_v10_2_bag50_w50/baseline_metrics_by_fold.csv \
+              --candidate-stability published_v10_2_bag50_w50/chosen_stability_by_fold.csv \
+              --output published_v10_2_bag50_w50/anti_overfit
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-bag50-w50-confirmation
+          path: published_v10_2_bag50_w50/
+          retention-days: 90
+      - name: Publish confirmation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_bag50_w50
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish targeted Bag50 w50 confirmation [skip ci]"
+          git pull --rebase origin v10.2-stability-fix
+          git push origin HEAD:v10.2-stability-fix
