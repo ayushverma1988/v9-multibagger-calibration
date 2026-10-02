@@ -37,29 +37,36 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
             typ=str(getattr(r,"type","")).lower()
             if typ not in {"merger","demerger"}:
                 continue
-            isin=integ.norm_str(getattr(r,"isin",None))
+            isin=integ.norm_str(getattr(r,"resolved_isin",None) or getattr(r,"isin",None))
             sym=integ.norm_str(getattr(r,"resolved_symbol",None) or getattr(r,"symbol",None))
             ex=pd.Timestamp(getattr(r,"ex_date"))
-            q=x[x["isin"].map(integ.norm_str)==isin].copy() if isin else pd.DataFrame()
-            if q.empty and sym:
-                q=x[x["symbol"].map(integ.norm_str)==sym].copy()
+
+            def candidate_rows():
+                q0=x[x["isin"].map(integ.norm_str)==isin].copy() if isin else pd.DataFrame()
+                if q0.empty and sym:
+                    q0=x[x["symbol"].map(integ.norm_str)==sym].copy()
+                return q0.sort_values("date") if len(q0) else q0
+
+            q=candidate_rows()
             if q.empty:
                 identity_rows.append({
                     "event_type":typ,"event_date":str(ex.date()),"isin":isin,
                     "resolved_symbol":sym,"mapped":False,"mapped_date":None,
                 })
                 continue
-            q=q.sort_values("date")
             dates=q["date"].to_numpy(dtype="datetime64[ns]")
             pos=int(np.searchsorted(dates,np.datetime64(ex),side="left"))
             mapped_idx=None
             if pos<len(q):
-                mapped_idx=q.index[pos]
-            else:
-                last_idx=q.index[-1]
-                last_date=pd.Timestamp(q.loc[last_idx,"date"])
-                if 0 <= (ex-last_date).days <= 30:
-                    mapped_idx=last_idx
+                nxt_idx=q.index[pos]
+                nxt_date=pd.Timestamp(q.loc[nxt_idx,"date"])
+                if 0 <= (nxt_date-ex).days <= 30:
+                    mapped_idx=nxt_idx
+            if mapped_idx is None and pos>0:
+                prv_idx=q.index[pos-1]
+                prv_date=pd.Timestamp(q.loc[prv_idx,"date"])
+                if 0 <= (ex-prv_date).days <= 30:
+                    mapped_idx=prv_idx
             if mapped_idx is not None:
                 x.at[mapped_idx,"_blocking_jump"]=True
                 x.at[mapped_idx,"_blocking_type"]=typ
