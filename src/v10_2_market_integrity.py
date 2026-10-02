@@ -241,9 +241,8 @@ def stitch_symbol_changes_same_isin(df:pd.DataFrame) -> pd.DataFrame:
                 "first_date":str(pd.Timestamp(g["date"].min()).date()),
                 "last_date":str(pd.Timestamp(g["date"].max()).date()),
             })
-    x["symbol"]=x.apply(
-        lambda r: mp.get(r["_isin_norm"],r["symbol"]) if r["_isin_norm"] else r["symbol"],axis=1
-    )
+    canon=x["_isin_norm"].map(mp)
+    x["symbol"]=canon.where(canon.notna(),x["symbol"])
 
     # Overlap around a rename can produce duplicate canonical rows. Keep the
     # more liquid row deterministically; this uses only same-day market data.
