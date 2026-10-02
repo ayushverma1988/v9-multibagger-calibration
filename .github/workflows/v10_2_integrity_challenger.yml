@@ -1,0 +1,163 @@
+name: V10.2 Integrity-Corrected V9.4.1 Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-residual-integrity ]
+    paths:
+      - 'src/calibrate_v9_4_1_integrity.py'
+      - '.github/workflows/v10_2_integrity_challenger.yml'
+
+concurrency:
+  group: v10-2-integrity-challenger-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-residual-integrity
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/calibrate_v9_4_1_integrity.py src/v10_2_selected_window_integrity.py
+
+      - name: Download frozen V9.4.1 baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: baseline
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+
+      - name: Download canonical V9.7 event archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Download verified legacy NSE history
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run integrity-corrected full walk-forward
+        run: |
+          python src/calibrate_v9_4_1_integrity.py \
+            --config config_v9_4_1.json \
+            --events events/events_all_2016_2026.parquet \
+            --legacy-dir legacy \
+            --output outputs_integrity_challenger
+
+      - name: Re-audit selected windows on corrected OOS
+        run: |
+          python src/v10_2_selected_window_integrity.py \
+            --oos outputs_integrity_challenger/oos_predictions.parquet \
+            --events events/events_all_2016_2026.parquet \
+            --legacy-dir legacy \
+            --output outputs_integrity_challenger/selected_window_audit
+
+      - name: Apply frozen acceptance gates
+        run: |
+          python - <<'PY'
+          import json, math, os
+          b=json.load(open("baseline/summary.json"))
+          c=json.load(open("outputs_integrity_challenger/summary.json"))
+          i=json.load(open("outputs_integrity_challenger/selected_window_audit/summary.json"))
+
+          bm=b["forward_history"]["V9.4.1"]
+          cm=c["forward_history"]["V9.4.1"]
+          fields=["mean_precision_100","median_precision_100","mean_capped_lift_100","hit_fold_rate_100"]
+          ratios={}
+          for f in fields:
+              bv=float(bm[f]); cv=float(cm[f])
+              ratios[f]=cv/bv if bv>0 else None
+
+          bdd=float(bm["mean_dd30_rate"])
+          cdd=float(cm["mean_dd30_rate"])
+          p100=c["probability_ladder"]["p100"]
+          base_rate=float(p100.get("base_rate",0) or 0)
+          pr_auc=float(p100.get("pr_auc",0) or 0)
+          pr_lift=pr_auc/base_rate if base_rate>0 else 0.0
+          slope=float(p100.get("calibration_slope",0) or 0)
+
+          gates={
+              "primary_integrity_pass":bool(i.get("primary_integrity_pass",False)),
+              "oos_folds_at_least_18":int(cm.get("folds",0))>=18,
+              "mean_precision_retention_95":ratios["mean_precision_100"] is not None and ratios["mean_precision_100"]>=.95,
+              "median_precision_retention_95":ratios["median_precision_100"] is not None and ratios["median_precision_100"]>=.95,
+              "lift_retention_95":ratios["mean_capped_lift_100"] is not None and ratios["mean_capped_lift_100"]>=.95,
+              "hit_fold_retention_95":ratios["hit_fold_rate_100"] is not None and ratios["hit_fold_rate_100"]>=.95,
+              "dd_not_worse_3pp":cdd<=bdd+.03,
+              "p100_pr_auc_lift_ge_1_05":pr_lift>=1.05,
+              "p100_calibration_slope_ge_0_25":slope>=.25,
+          }
+          acceptance=all(gates.values())
+          out={
+              "model":"V10.2 integrity-corrected V9.4.1 acceptance",
+              "rule_frozen_before_results":True,
+              "candidate_name":"V9.4.1 integrity-corrected challenger",
+              "baseline_name":"V9.4.1 frozen",
+              "alpha_retention_ratios":ratios,
+              "baseline_dd30":bdd,
+              "candidate_dd30":cdd,
+              "dd_delta":cdd-bdd,
+              "p100_pr_auc_lift":pr_lift,
+              "p100_calibration_slope":slope,
+              "integrity":i,
+              "gates":gates,
+              "acceptance_gate":acceptance,
+              "action_if_pass":"promote as integrity-corrected production baseline; keep model weights/rules unchanged",
+              "action_if_fail":"block production promotion and investigate data rule; do not tune for performance",
+          }
+          os.makedirs("published_v10_2_integrity_challenger",exist_ok=True)
+          json.dump(out,open("published_v10_2_integrity_challenger/acceptance.json","w"),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+
+      - name: Stage published evidence
+        run: |
+          cp outputs_integrity_challenger/summary.json published_v10_2_integrity_challenger/model_summary.json
+          cp outputs_integrity_challenger/current_top50.csv published_v10_2_integrity_challenger/current_top50.csv
+          cp outputs_integrity_challenger/selected_window_audit/summary.json published_v10_2_integrity_challenger/integrity_summary.json
+          cp outputs_integrity_challenger/selected_window_audit/selected_window_jump_exposures.csv published_v10_2_integrity_challenger/selected_window_jump_exposures.csv 2>/dev/null || true
+          cp outputs_integrity_challenger/blocking_jumps.csv published_v10_2_integrity_challenger/blocking_jumps.csv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: |
+            outputs_integrity_challenger/
+            published_v10_2_integrity_challenger/
+          retention-days: 90
+
+      - name: Publish challenger evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+ayushverma1988@users.noreply.github.com"
+          git add published_v10_2_integrity_challenger
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.2 integrity-corrected challenger [skip ci]"
+          git pull --rebase origin v10.2-residual-integrity
+          git push origin HEAD:v10.2-residual-integrity
