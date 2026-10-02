@@ -153,7 +153,7 @@ def main():
         for jp in jidx:
             off=int(jp-pos)
             windows=[]
-            if -251<=off<=0: windows.append("feature_252")
+            if -252<=off<=0: windows.append("feature_252")
             if 1<=off<=126: windows.append("label_y6_126")
             if 1<=off<=252: windows.append("label_y12_252")
             if 1<=off<=504: windows.append("label_y24_504")
@@ -207,7 +207,7 @@ def main():
             rows_exposed("feature_252",blocking_classes)==0 and
             rows_exposed("label_y6_126",blocking_classes)==0
         ),
-        "primary_scope":"V9.4.1 production selector uses 252-day feature history and 126-trading-day primary y6 outcome; y12/y24 are reported diagnostically.",
+        "primary_scope":"V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
         "note":"No model parameters or outcome-based selection rules are changed by this audit.",
     }
     json.dump(summary,open(out/"summary.json","w"),indent=2,default=str)
