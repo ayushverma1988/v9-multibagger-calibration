@@ -1,0 +1,72 @@
+name: V10.2 Corporate Action Taxonomy Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-residual-integrity ]
+    paths:
+      - '.github/workflows/v10_2_corporate_action_taxonomy.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-residual-integrity
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow huggingface_hub
+      - name: Inspect action types and symbol history
+        run: |
+          python - <<'PY'
+          import json, os
+          import pandas as pd
+          from huggingface_hub import hf_hub_download
+          repo='tejhq/indian-markets'
+          rows=[]
+          all_types={}
+          examples={}
+          for y in range(2010,2027):
+              try:
+                  p=hf_hub_download(repo,f'actions/nse_{y}.parquet',repo_type='dataset')
+                  d=pd.read_parquet(p)
+              except Exception as e:
+                  rows.append({'year':y,'error':str(e)})
+                  continue
+              vc=d['type'].fillna('missing').astype(str).str.lower().value_counts().to_dict()
+              rows.append({'year':y,'counts':vc})
+              for k,v in vc.items(): all_types[k]=all_types.get(k,0)+int(v)
+              for t in ['split','bonus','demerger','merger','name_change','symbol_change','rights']:
+                  if t not in examples:
+                      q=d[d['type'].fillna('').astype(str).str.lower()==t].head(5)
+                      if len(q): examples[t]=q.astype(object).where(pd.notna(q),None).to_dict('records')
+          hp=hf_hub_download(repo,'symbol_history/nse.parquet',repo_type='dataset')
+          h=pd.read_parquet(hp)
+          rec={
+              'action_type_counts':all_types,
+              'year_counts':rows,
+              'examples':examples,
+              'symbol_history_columns':list(h.columns),
+              'symbol_history_rows':int(len(h)),
+              'symbol_history_sample':h.head(10).astype(object).where(pd.notna(h.head(10)),None).to_dict('records'),
+          }
+          os.makedirs('published_v10_2_action_taxonomy',exist_ok=True)
+          json.dump(rec,open('published_v10_2_action_taxonomy/summary.json','w'),indent=2,default=str)
+          print(json.dumps(rec,indent=2,default=str))
+          PY
+      - name: Publish taxonomy
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_action_taxonomy
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish corporate-action taxonomy audit [skip ci]"
+          git pull --rebase origin v10.2-residual-integrity
+          git push origin HEAD:v10.2-residual-integrity
