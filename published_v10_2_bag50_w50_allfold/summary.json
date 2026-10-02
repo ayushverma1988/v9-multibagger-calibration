@@ -1,0 +1,138 @@
+{
+  "purpose": "stability-only all-fold screen; no outcome labels; pass is not promotion",
+  "policy": "bag50_w50",
+  "folds": 18,
+  "mean_jaccard": 0.8521069671069671,
+  "worst_p05_jaccard": 0.6602564102564102,
+  "mean_top1_stability": 0.8511111111111112,
+  "worst_fold": "2024-06-28",
+  "screen_pass": true,
+  "by_fold": [
+    {
+      "date": "2017-06-30",
+      "mean_jaccard": 0.98,
+      "p05_jaccard": 0.8181818181818182,
+      "top1_stability": 0.66,
+      "names_replaced_fraction": 0.011000000000000001
+    },
+    {
+      "date": "2017-12-29",
+      "mean_jaccard": 0.8306060606060606,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.72,
+      "names_replaced_fraction": 0.096
+    },
+    {
+      "date": "2018-06-29",
+      "mean_jaccard": 0.8509090909090908,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.98,
+      "names_replaced_fraction": 0.08399999999999999
+    },
+    {
+      "date": "2018-12-31",
+      "mean_jaccard": 0.8624242424242425,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 1.0,
+      "names_replaced_fraction": 0.078
+    },
+    {
+      "date": "2019-06-28",
+      "mean_jaccard": 0.8615151515151515,
+      "p05_jaccard": 0.8106060606060607,
+      "top1_stability": 0.91,
+      "names_replaced_fraction": 0.077
+    },
+    {
+      "date": "2019-12-31",
+      "mean_jaccard": 0.7856876456876458,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.82,
+      "names_replaced_fraction": 0.12399999999999997
+    },
+    {
+      "date": "2020-06-30",
+      "mean_jaccard": 0.836969696969697,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.76,
+      "names_replaced_fraction": 0.09299999999999999
+    },
+    {
+      "date": "2020-12-31",
+      "mean_jaccard": 0.8548484848484849,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.98,
+      "names_replaced_fraction": 0.08199999999999999
+    },
+    {
+      "date": "2021-06-30",
+      "mean_jaccard": 0.889090909090909,
+      "p05_jaccard": 0.8181818181818182,
+      "top1_stability": 0.62,
+      "names_replaced_fraction": 0.061
+    },
+    {
+      "date": "2021-12-31",
+      "mean_jaccard": 0.8275058275058275,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.63,
+      "names_replaced_fraction": 0.09799999999999999
+    },
+    {
+      "date": "2022-06-30",
+      "mean_jaccard": 0.8308391608391608,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 1.0,
+      "names_replaced_fraction": 0.09599999999999997
+    },
+    {
+      "date": "2022-12-30",
+      "mean_jaccard": 0.8012121212121212,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.72,
+      "names_replaced_fraction": 0.114
+    },
+    {
+      "date": "2023-06-30",
+      "mean_jaccard": 0.9036363636363636,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 1.0,
+      "names_replaced_fraction": 0.05399999999999999
+    },
+    {
+      "date": "2023-12-29",
+      "mean_jaccard": 0.89,
+      "p05_jaccard": 0.8181818181818182,
+      "top1_stability": 0.58,
+      "names_replaced_fraction": 0.061
+    },
+    {
+      "date": "2024-06-28",
+      "mean_jaccard": 0.7887412587412588,
+      "p05_jaccard": 0.6602564102564102,
+      "top1_stability": 1.0,
+      "names_replaced_fraction": 0.12299999999999998
+    },
+    {
+      "date": "2024-12-31",
+      "mean_jaccard": 0.8406060606060606,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 1.0,
+      "names_replaced_fraction": 0.08899999999999998
+    },
+    {
+      "date": "2025-06-30",
+      "mean_jaccard": 0.8727272727272726,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 0.94,
+      "names_replaced_fraction": 0.07099999999999998
+    },
+    {
+      "date": "2025-12-31",
+      "mean_jaccard": 0.8306060606060605,
+      "p05_jaccard": 0.6666666666666666,
+      "top1_stability": 1.0,
+      "names_replaced_fraction": 0.09499999999999999
+    }
+  ]
+}
