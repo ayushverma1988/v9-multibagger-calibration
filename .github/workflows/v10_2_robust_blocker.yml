@@ -1,0 +1,81 @@
+name: V10.2 Robust Blocker Screen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-stability-fix ]
+    paths:
+      - '.github/workflows/v10_2_robust_blocker.yml'
+
+concurrency:
+  group: v10-2-robust-blocker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-stability-fix
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download frozen V9.4.1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-4-1-signal-gated-results
+          path: v941
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36448905615
+      - name: Run robust-only rejection screen
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          import pandas as pd
+          sys.path.insert(0,'src')
+          from v10_2_raw_rank_stability import spec_from_row
+          from v10_2_robust_quantile import POLICIES, external_stability
+
+          dates=[pd.Timestamp('2018-12-31'),pd.Timestamp('2020-12-31')]
+          cfg=json.load(open('config_v9_4_1.json')); k=int(cfg.get('selection_k',10))
+          oos=pd.read_parquet('v941/oos_predictions.parquet'); oos['date']=pd.to_datetime(oos['date'])
+          ch=pd.read_csv('v941/chosen_v931_config_by_fold.csv'); ch['date']=pd.to_datetime(ch['date'])
+          cmap={pd.Timestamp(r.date):r for r in ch.itertuples(index=False)}
+          rows=[]
+          for p in POLICIES:
+              folds=[]
+              for td in dates:
+                  g=oos[oos['date']==td].copy()
+                  st=external_stability(g,spec_from_row(cmap[td]),p,k,100)
+                  folds.append({'date':str(td.date()),**st})
+              mj=sum(x['mean_jaccard'] for x in folds)/len(folds)
+              wp=min(x['p05_jaccard'] for x in folds)
+              t1=sum(x['top1_stability'] for x in folds)/len(folds)
+              rows.append({'policy':p.name,'mean_jaccard':mj,'worst_p05_jaccard':wp,'mean_top1_stability':t1,
+                           'screen_pass':bool(mj>=.80 and wp>=.60 and t1>=.70),'folds':folds})
+          Path('published_v10_2_robust_blocker').mkdir(exist_ok=True)
+          json.dump({'purpose':'rejection-only; no labels; passing is not promotion','results':rows},
+                    open('published_v10_2_robust_blocker/summary.json','w'),indent=2)
+          print(json.dumps(rows,indent=2))
+          PY
+      - name: Publish robust blocker evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_2_robust_blocker
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish robust blocker screen [skip ci]"
+          git pull --rebase origin v10.2-stability-fix
+          git push origin HEAD:v10.2-stability-fix
