@@ -25,10 +25,62 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
     x["_blocking_jump"]=False
     x["_blocking_type"]=""
 
+    # Structured merger/demerger events are blocking boundaries regardless of
+    # the observed one-day return. They change the economic identity/value of
+    # the security and are not representable by a simple split factor.
+    structured=market_integrity.structured_identity_events(
+        int(x["date"].dt.year.min()),int(x["date"].dt.year.max())
+    )
+    identity_rows=[]
+    if len(structured):
+        for r in structured.itertuples(index=False):
+            typ=str(getattr(r,"type","")).lower()
+            if typ not in {"merger","demerger"}:
+                continue
+            isin=integ.norm_str(getattr(r,"isin",None))
+            sym=integ.norm_str(getattr(r,"resolved_symbol",None) or getattr(r,"symbol",None))
+            ex=pd.Timestamp(getattr(r,"ex_date"))
+            q=x[x["isin"].map(integ.norm_str)==isin].copy() if isin else pd.DataFrame()
+            if q.empty and sym:
+                q=x[x["symbol"].map(integ.norm_str)==sym].copy()
+            if q.empty:
+                identity_rows.append({
+                    "event_type":typ,"event_date":str(ex.date()),"isin":isin,
+                    "resolved_symbol":sym,"mapped":False,"mapped_date":None,
+                })
+                continue
+            q=q.sort_values("date")
+            dates=q["date"].to_numpy(dtype="datetime64[ns]")
+            pos=int(np.searchsorted(dates,np.datetime64(ex),side="left"))
+            mapped_idx=None
+            if pos<len(q):
+                mapped_idx=q.index[pos]
+            else:
+                last_idx=q.index[-1]
+                last_date=pd.Timestamp(q.loc[last_idx,"date"])
+                if 0 <= (ex-last_date).days <= 30:
+                    mapped_idx=last_idx
+            if mapped_idx is not None:
+                x.at[mapped_idx,"_blocking_jump"]=True
+                x.at[mapped_idx,"_blocking_type"]=typ
+                identity_rows.append({
+                    "event_type":typ,"event_date":str(ex.date()),"isin":isin,
+                    "resolved_symbol":sym,"mapped":True,
+                    "mapped_date":str(pd.Timestamp(x.at[mapped_idx,"date"]).date()),
+                })
+            else:
+                identity_rows.append({
+                    "event_type":typ,"event_date":str(ex.date()),"isin":isin,
+                    "resolved_symbol":sym,"mapped":False,"mapped_date":None,
+                })
+    x.attrs["structured_identity_event_audit"]=identity_rows
+
     ca=integ.prepare_events(events_path)
 
     cand=x[np.isfinite(x["_adj_ret_i"]) & (x["_adj_ret_i"].abs()>=.50)].copy()
     for idx,r in cand.iterrows():
+        if bool(x.at[idx,"_blocking_jump"]) and str(x.at[idx,"_blocking_type"]) in {"merger","demerger"}:
+            continue
         ar=float(r["_adj_ret_i"])
         rr=float(r["_raw_ret_i"]) if np.isfinite(r["_raw_ret_i"]) else np.nan
 
@@ -136,8 +188,21 @@ def main():
     pd.DataFrame(market_integrity.LAST_ACTION_RESOLUTION_AUDIT).to_csv(
         outdir/"split_bonus_symbol_resolution_audit.csv",index=False
     )
+    daily=market_integrity.normalize_split_bonus_volume(
+        daily,int(cfg["start_year"]),end_year
+    )
+    pd.DataFrame(market_integrity.LAST_VOLUME_NORMALIZATION_AUDIT).to_csv(
+        outdir/"split_bonus_volume_normalization_audit.csv",index=False
+    )
+    daily=market_integrity.stitch_symbol_changes_same_isin(daily)
+    pd.DataFrame(market_integrity.LAST_SYMBOL_STITCH_AUDIT).to_csv(
+        outdir/"symbol_name_change_stitch_audit.csv",index=False
+    )
     daily=base.add_features(daily)
     daily=mark_integrity(daily,args.events)
+    pd.DataFrame(daily.attrs.get("structured_identity_event_audit",[])).to_csv(
+        outdir/"merger_demerger_event_audit.csv",index=False
+    )
 
     # Hard integrity assertions for the two forensic cases that exposed the bug.
     # These are data-correctness checks only; they do not use model outcomes.
@@ -231,6 +296,9 @@ def main():
             "split_bonus_identity_resolution":"action ISIN -> symbol active on ex-date via symbol_history/nse.parquet; fallback to action symbol",
             "dividends_in_adjusted_close":False,
             "demergers_mergers_scaled":False,
+            "merger_demerger_policy":"structural reset at mapped effective trading boundary; feature history excluded for 252 lags and forward labels censored when crossing event",
+            "name_symbol_change_policy":"same ISIN -> stitch identifier history with no price reset; unresolved/new ISIN -> no synthetic stitching",
+            "split_bonus_volume_policy":"pre-event share volume normalized by inverse price factor; monetary turnover unchanged",
         },
         "blocking_jumps":int(daily["_blocking_jump"].sum()),
         "snapshots_after_integrity_gate":int(len(data)),
