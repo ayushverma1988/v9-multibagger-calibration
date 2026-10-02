@@ -1,0 +1,590 @@
+{
+  "action_type_counts": {
+    "dividend": 21043,
+    "agm": 11108,
+    "other": 395,
+    "split": 661,
+    "bonus": 587,
+    "rights": 348,
+    "demerger": 118,
+    "buyback": 347,
+    "merger": 4
+  },
+  "year_counts": [
+    {
+      "year": 2010,
+      "counts": {
+        "dividend": 953,
+        "agm": 534,
+        "other": 154,
+        "split": 72,
+        "bonus": 51,
+        "rights": 15,
+        "demerger": 1
+      }
+    },
+    {
+      "year": 2011,
+      "counts": {
+        "dividend": 1163,
+        "agm": 562,
+        "split": 28,
+        "other": 24,
+        "bonus": 21,
+        "rights": 12
+      }
+    },
+    {
+      "year": 2012,
+      "counts": {
+        "dividend": 1076,
+        "agm": 671,
+        "split": 22,
+        "bonus": 19,
+        "other": 15,
+        "rights": 11,
+        "demerger": 1,
+        "buyback": 1
+      }
+    },
+    {
+      "year": 2013,
+      "counts": {
+        "dividend": 1125,
+        "agm": 680,
+        "bonus": 30,
+        "other": 28,
+        "split": 20,
+        "rights": 10,
+        "buyback": 4,
+        "demerger": 1
+      }
+    },
+    {
+      "year": 2014,
+      "counts": {
+        "dividend": 1120,
+        "agm": 713,
+        "other": 37,
+        "split": 29,
+        "bonus": 17,
+        "rights": 13,
+        "demerger": 2
+      }
+    },
+    {
+      "year": 2015,
+      "counts": {
+        "dividend": 1038,
+        "agm": 748,
+        "split": 35,
+        "bonus": 31,
+        "other": 26,
+        "demerger": 17,
+        "rights": 10,
+        "buyback": 7
+      }
+    },
+    {
+      "year": 2016,
+      "counts": {
+        "dividend": 1113,
+        "agm": 871,
+        "split": 36,
+        "buyback": 27,
+        "other": 26,
+        "bonus": 25,
+        "rights": 7,
+        "demerger": 2,
+        "merger": 1
+      }
+    },
+    {
+      "year": 2017,
+      "counts": {
+        "dividend": 1127,
+        "agm": 752,
+        "bonus": 44,
+        "buyback": 35,
+        "split": 32,
+        "other": 21,
+        "rights": 14,
+        "merger": 1
+      }
+    },
+    {
+      "year": 2018,
+      "counts": {
+        "dividend": 1157,
+        "agm": 719,
+        "buyback": 42,
+        "bonus": 33,
+        "split": 23,
+        "other": 20,
+        "rights": 7,
+        "demerger": 4
+      }
+    },
+    {
+      "year": 2019,
+      "counts": {
+        "dividend": 1185,
+        "agm": 707,
+        "buyback": 39,
+        "bonus": 22,
+        "demerger": 14,
+        "split": 14,
+        "rights": 11,
+        "other": 7,
+        "merger": 2
+      }
+    },
+    {
+      "year": 2020,
+      "counts": {
+        "dividend": 1026,
+        "agm": 936,
+        "buyback": 27,
+        "rights": 20,
+        "split": 12,
+        "bonus": 12,
+        "demerger": 11,
+        "other": 7
+      }
+    },
+    {
+      "year": 2021,
+      "counts": {
+        "dividend": 1236,
+        "agm": 799,
+        "split": 45,
+        "bonus": 33,
+        "buyback": 26,
+        "rights": 26,
+        "other": 11,
+        "demerger": 3
+      }
+    },
+    {
+      "year": 2022,
+      "counts": {
+        "dividend": 1373,
+        "agm": 778,
+        "split": 58,
+        "bonus": 58,
+        "buyback": 31,
+        "rights": 22,
+        "demerger": 13,
+        "other": 13
+      }
+    },
+    {
+      "year": 2023,
+      "counts": {
+        "dividend": 1489,
+        "agm": 794,
+        "split": 57,
+        "bonus": 41,
+        "rights": 32,
+        "buyback": 31,
+        "demerger": 13,
+        "other": 3
+      }
+    },
+    {
+      "year": 2024,
+      "counts": {
+        "dividend": 1552,
+        "agm": 838,
+        "split": 79,
+        "bonus": 64,
+        "rights": 56,
+        "buyback": 39,
+        "demerger": 11,
+        "other": 2
+      }
+    },
+    {
+      "year": 2025,
+      "counts": {
+        "dividend": 1651,
+        "bonus": 55,
+        "rights": 54,
+        "split": 53,
+        "demerger": 18,
+        "buyback": 13,
+        "agm": 6,
+        "other": 1
+      }
+    },
+    {
+      "year": 2026,
+      "counts": {
+        "dividend": 1659,
+        "split": 46,
+        "bonus": 31,
+        "rights": 28,
+        "buyback": 25,
+        "demerger": 7
+      }
+    }
+  ],
+  "examples": {
+    "split": [
+      {
+        "exchange": "NSE",
+        "symbol": "ADANIPORTS",
+        "isin": "INE742F01042",
+        "company": "Adani Ports and Special Economic Zone Limited",
+        "ex_date": "2010-09-23",
+        "record_date": "2010-09-24",
+        "type": "split",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": 10.0,
+        "face_value_to": 2.0,
+        "raw_subject": "Face Value Split From Rs.10/- To Rs.2/-"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "APOLLOHOSP",
+        "isin": "INE437A01016",
+        "company": "Apollo Hospitals Enterprise Limited",
+        "ex_date": "2010-09-02",
+        "record_date": "2010-09-03",
+        "type": "split",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": 10.0,
+        "face_value_to": 5.0,
+        "raw_subject": "Face Value Split From Rs.10/- To Rs.5/-"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "AQUA",
+        "isin": "INE544K01018",
+        "company": "Aqua Logistics Limited",
+        "ex_date": "2010-10-01",
+        "record_date": "2010-10-04",
+        "type": "split",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": 10.0,
+        "face_value_to": 1.0,
+        "raw_subject": "Face Value Split From Rs.10/- To Re.1/-"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "ARCHIES",
+        "isin": "INE731A01012",
+        "company": "Archies Limited",
+        "ex_date": "2010-11-02",
+        "record_date": "2010-11-03",
+        "type": "split",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": 10.0,
+        "face_value_to": 2.0,
+        "raw_subject": "Face Value Split From Rs.10/- To Rs.2/-"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "ASTRAL",
+        "isin": "INE006I01012",
+        "company": "Astral Limited",
+        "ex_date": "2010-09-15",
+        "record_date": "2010-09-16",
+        "type": "split",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": 10.0,
+        "face_value_to": 5.0,
+        "raw_subject": "Face Value Split From Rs.10/- To Rs.5/-"
+      }
+    ],
+    "bonus": [
+      {
+        "exchange": "NSE",
+        "symbol": "AEGISLOG",
+        "isin": "INE208C01025",
+        "company": "Aegis Logistics Limited",
+        "ex_date": "2010-08-18",
+        "record_date": "2010-08-20",
+        "type": "bonus",
+        "ratio_num": 2.0,
+        "ratio_den": 3.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Bonus 2:3"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "ANTELOPUS",
+        "isin": "INE818A01017",
+        "company": "Antelopus Selan Energy Limited",
+        "ex_date": "2010-12-31",
+        "record_date": "2011-01-03",
+        "type": "bonus",
+        "ratio_num": 1.0,
+        "ratio_den": 10.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Bonus 1:10"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "ASTRAMICRO",
+        "isin": "INE386C01029",
+        "company": "Astra Microwave Products Limited",
+        "ex_date": "2010-12-30",
+        "record_date": "2010-12-31",
+        "type": "bonus",
+        "ratio_num": 1.0,
+        "ratio_den": 2.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Bonus 1:2"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "BAJAJ-AUTO",
+        "isin": "INE917I01010",
+        "company": "Bajaj Auto Limited",
+        "ex_date": "2010-09-08",
+        "record_date": "2010-09-10",
+        "type": "bonus",
+        "ratio_num": 1.0,
+        "ratio_den": 1.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Bonus 1:1"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "BIRLACOT",
+        "isin": "INE655I01024",
+        "company": "Birla Cotsyn (India) Limited",
+        "ex_date": "2010-09-29",
+        "record_date": "2010-10-01",
+        "type": "bonus",
+        "ratio_num": 1.0,
+        "ratio_den": 5.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Bonus 1:5"
+      }
+    ],
+    "demerger": [
+      {
+        "exchange": "NSE",
+        "symbol": "JUBLPHARMA",
+        "isin": "INE700A01033",
+        "company": "Jubilant Pharmova Limited",
+        "ex_date": "2010-11-25",
+        "record_date": "2010-11-26",
+        "type": "demerger",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Scheme Of Demerger"
+      }
+    ],
+    "rights": [
+      {
+        "exchange": "NSE",
+        "symbol": "ADANIENT",
+        "isin": "INE423A01024",
+        "company": "Adani Enterprises Limited",
+        "ex_date": "2010-03-23",
+        "record_date": "2010-03-25",
+        "type": "rights",
+        "ratio_num": 1.0,
+        "ratio_den": 16.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Rights 1:16 @Prem Rs.474"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "ANDHRAPAP",
+        "isin": "INE435A01028",
+        "company": "ANDHRA PAPER LIMITED",
+        "ex_date": "2010-02-23",
+        "record_date": "2010-02-24",
+        "type": "rights",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Rights-Eq3:11 & 1wrnt:1eq"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "ECEIND",
+        "isin": "INE588B01014",
+        "company": "ECE Industries Limited",
+        "ex_date": "2010-05-26",
+        "record_date": "2010-05-28",
+        "type": "rights",
+        "ratio_num": 1.0,
+        "ratio_den": 1.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Rights 1:1 @ Premium Rs.90/-"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "GULFOILCOR",
+        "isin": "INE077F01027",
+        "company": "Gulf Oil Corporation Limited",
+        "ex_date": "2010-07-27",
+        "record_date": null,
+        "type": "rights",
+        "ratio_num": 1.0,
+        "ratio_den": 3.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Dividend Rs.1.80 Per Share And Rights 1:3 @ Premium Rs.30/- Per Share"
+      },
+      {
+        "exchange": "NSE",
+        "symbol": "HINDUJAFO",
+        "isin": "INE291F01016",
+        "company": "Hinduja Foundries Limited",
+        "ex_date": "2010-02-03",
+        "record_date": "2010-02-04",
+        "type": "rights",
+        "ratio_num": 7.0,
+        "ratio_den": 13.0,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Rights 7:13 @Prem Rs.40/-"
+      }
+    ],
+    "merger": [
+      {
+        "exchange": "NSE",
+        "symbol": "SABTN",
+        "isin": "INE416A01036",
+        "company": "Sri Adhikari Brothers Television Network Limited",
+        "ex_date": "2016-03-22",
+        "record_date": "2016-03-23",
+        "type": "merger",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": null,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Composite Scheme Of Amalgamation And Arrangement"
+      }
+    ]
+  },
+  "symbol_history_columns": [
+    "exchange",
+    "isin",
+    "symbol",
+    "valid_from",
+    "valid_to",
+    "trading_days"
+  ],
+  "symbol_history_rows": 4879,
+  "symbol_history_sample": [
+    {
+      "exchange": "NSE",
+      "isin": "IN9110D01011",
+      "symbol": "GUJNREDVR",
+      "valid_from": "2010-05-26",
+      "valid_to": "2018-02-09",
+      "trading_days": 1906
+    },
+    {
+      "exchange": "NSE",
+      "isin": "IN9155A01012",
+      "symbol": "TATAMTRDVR",
+      "valid_from": "2010-01-04",
+      "valid_to": "2011-09-12",
+      "trading_days": 424
+    },
+    {
+      "exchange": "NSE",
+      "isin": "IN9155A01020",
+      "symbol": "TATAMTRDVR",
+      "valid_from": "2011-09-13",
+      "valid_to": "2024-08-29",
+      "trading_days": 3190
+    },
+    {
+      "exchange": "NSE",
+      "isin": "IN9175A01010",
+      "symbol": "JISLDVREQS",
+      "valid_from": "2011-11-30",
+      "valid_to": "2026-10-01",
+      "trading_days": 3650
+    },
+    {
+      "exchange": "NSE",
+      "isin": "IN9623B01058",
+      "symbol": "PRETAILDVR",
+      "valid_from": "2010-01-04",
+      "valid_to": "2013-04-10",
+      "trading_days": 815
+    },
+    {
+      "exchange": "NSE",
+      "isin": "IN9623B01058",
+      "symbol": "FRLDVR",
+      "valid_from": "2013-04-11",
+      "valid_to": "2016-05-12",
+      "trading_days": 753
+    },
+    {
+      "exchange": "NSE",
+      "isin": "IN9623B01058",
+      "symbol": "FELDVR",
+      "valid_from": "2016-05-13",
+      "valid_to": "2026-10-01",
+      "trading_days": 2488
+    },
+    {
+      "exchange": "NSE",
+      "isin": "INE001A01036",
+      "symbol": "HDFC",
+      "valid_from": "2010-01-04",
+      "valid_to": "2023-07-12",
+      "trading_days": 3336
+    },
+    {
+      "exchange": "NSE",
+      "isin": "INE001B01026",
+      "symbol": "KRBL",
+      "valid_from": "2010-01-04",
+      "valid_to": "2026-10-01",
+      "trading_days": 4126
+    },
+    {
+      "exchange": "NSE",
+      "isin": "INE001E01012",
+      "symbol": "PREMCO",
+      "valid_from": "2026-04-20",
+      "valid_to": "2026-10-01",
+      "trading_days": 111
+    }
+  ]
+}
