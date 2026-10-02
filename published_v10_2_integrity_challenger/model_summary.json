@@ -1,0 +1,196 @@
+{
+  "model": "V9.4.1 integrity-corrected challenger",
+  "base_pipeline_version": "signal-gated-ladder-v9.4.1-1",
+  "data_start": "2003-01-01",
+  "data_end": "2026-10-01",
+  "integrity_policy": {
+    "feature_lag_max_trading_days": 252,
+    "feature_price_rows_covered": 253,
+    "primary_label_censor_trading_days": 126,
+    "secondary_label_censor_trading_days": {
+      "y12": 252,
+      "y24": 504
+    },
+    "blocking_classes": [
+      "adjustment_factor_discontinuity",
+      "corporate_action_or_restructuring"
+    ],
+    "corporate_action_match_window_days": {
+      "before": 120,
+      "after": 14
+    },
+    "uses_outcomes_for_integrity_decision": false,
+    "split_bonus_identity_resolution": "action ISIN -> symbol active on ex-date via symbol_history/nse.parquet; fallback to action symbol",
+    "dividends_in_adjusted_close": false,
+    "demergers_mergers_scaled": false
+  },
+  "blocking_jumps": 314,
+  "snapshots_after_integrity_gate": 34368,
+  "y6_censored_rows": 287,
+  "y12_censored_rows": 405,
+  "y24_censored_rows": 688,
+  "forward_history": {
+    "V9.4.1": {
+      "folds": 18,
+      "mean_precision_100": 0.08333333333333333,
+      "median_precision_100": 0.0,
+      "hit_fold_rate_100": 0.4444444444444444,
+      "hit_folds_100": 8,
+      "mean_precision_50": 0.18333333333333335,
+      "median_precision_50": 0.2,
+      "mean_precision_25": 0.4166666666666667,
+      "median_precision_25": 0.5,
+      "mean_dd30_rate": 0.3833333333333333,
+      "median_dd30_rate": 0.4,
+      "mean_capped_lift_100": 1.8610951214898892,
+      "median_lift_100": 0.0,
+      "mean_capped_lift_50": 1.0978703837327375,
+      "median_lift_50": 1.0282758620689654,
+      "mean_capped_lift_25": 1.207462412207362,
+      "median_lift_25": 1.168807302231237
+    },
+    "V9.4": {
+      "folds": 18,
+      "mean_precision_100": 0.12222222222222223,
+      "median_precision_100": 0.1,
+      "hit_fold_rate_100": 0.6111111111111112,
+      "hit_folds_100": 11,
+      "mean_precision_50": 0.2222222222222222,
+      "median_precision_50": 0.2,
+      "mean_precision_25": 0.4444444444444444,
+      "median_precision_25": 0.5,
+      "mean_dd30_rate": 0.35,
+      "median_dd30_rate": 0.3,
+      "mean_capped_lift_100": 2.6282931909764358,
+      "median_lift_100": 2.108256880733945,
+      "mean_capped_lift_50": 1.478796750368856,
+      "median_lift_50": 1.0935864978902954,
+      "mean_capped_lift_25": 1.2748272377011753,
+      "median_lift_25": 1.1271154841427453
+    },
+    "V9.3.1": {
+      "folds": 18,
+      "mean_precision_100": 0.08333333333333333,
+      "median_precision_100": 0.0,
+      "hit_fold_rate_100": 0.4444444444444444,
+      "hit_folds_100": 8,
+      "mean_precision_50": 0.18333333333333335,
+      "median_precision_50": 0.2,
+      "mean_precision_25": 0.4166666666666667,
+      "median_precision_25": 0.5,
+      "mean_dd30_rate": 0.3833333333333333,
+      "median_dd30_rate": 0.4,
+      "mean_capped_lift_100": 1.8610951214898892,
+      "median_lift_100": 0.0,
+      "mean_capped_lift_50": 1.0978703837327375,
+      "median_lift_50": 1.0282758620689654,
+      "mean_capped_lift_25": 1.207462412207362,
+      "median_lift_25": 1.168807302231237
+    },
+    "V9.2_pcal": {
+      "folds": 18,
+      "mean_precision_100": 0.1,
+      "median_precision_100": 0.1,
+      "hit_fold_rate_100": 0.6111111111111112,
+      "hit_folds_100": 11,
+      "mean_precision_50": 0.1888888888888889,
+      "median_precision_50": 0.15000000000000002,
+      "mean_precision_25": 0.4222222222222222,
+      "median_precision_25": 0.5,
+      "mean_dd30_rate": 0.45000000000000007,
+      "median_dd30_rate": 0.45,
+      "mean_capped_lift_100": 2.2088054624838476,
+      "median_lift_100": 2.108256880733945,
+      "mean_capped_lift_50": 0.983600554926691,
+      "median_lift_50": 0.8977470588235295,
+      "mean_capped_lift_25": 1.1746322995647778,
+      "median_lift_25": 1.085894811782504
+    }
+  },
+  "probability_ladder": {
+    "p25_coherent": {
+      "n": 23780,
+      "positives": 9077,
+      "base_rate": 0.38170731707317074,
+      "brier": 0.24458840169526475,
+      "logloss": 0.6837570295825821,
+      "pr_auc": 0.383710925543959,
+      "calibration_slope": -0.14176689554845165,
+      "calibration_intercept": -0.54787939444182
+    },
+    "p50_coherent": {
+      "n": 23780,
+      "positives": 4105,
+      "base_rate": 0.17262405382674517,
+      "brier": 0.1435632461798096,
+      "logloss": 0.4640316617373964,
+      "pr_auc": 0.18549189370196878,
+      "calibration_slope": 0.06869383707231237,
+      "calibration_intercept": -1.4525175391368221
+    },
+    "p100": {
+      "n": 23780,
+      "positives": 988,
+      "base_rate": 0.041547518923465095,
+      "brier": 0.03957294242547104,
+      "logloss": 0.1702427171095892,
+      "pr_auc": 0.06409312173009621,
+      "calibration_slope": 0.7462139662880302,
+      "calibration_intercept": -0.6695960169007286
+    },
+    "best_calibrator_p25": "none",
+    "best_calibrator_p50": "isotonic",
+    "best_calibrator_p100": "platt"
+  },
+  "production_signal_quality": {
+    "p25": {
+      "signal": "p25",
+      "target": "hit25_6m",
+      "probability_column": "hit25_6m_cal_raw",
+      "n": 23780,
+      "positives": 9077,
+      "folds": 26,
+      "base_rate": 0.38170731707317074,
+      "pr_auc": 0.38378916501687166,
+      "pr_auc_lift": 1.0054540425362133,
+      "calibration_slope": -0.14339169428759782,
+      "calibration_intercept": -0.548733048795364,
+      "passed": false,
+      "reasons": [
+        "pr_auc_lift<1.05",
+        "calibration_slope<0.25"
+      ]
+    },
+    "p50": {
+      "signal": "p50",
+      "target": "hit50_6m",
+      "probability_column": "hit50_6m_cal_raw",
+      "n": 23780,
+      "positives": 4105,
+      "folds": 26,
+      "base_rate": 0.17262405382674517,
+      "pr_auc": 0.18549189370196878,
+      "pr_auc_lift": 1.0745425657083598,
+      "calibration_slope": 0.06869383707231237,
+      "calibration_intercept": -1.4525175391368221,
+      "passed": false,
+      "reasons": [
+        "calibration_slope<0.25"
+      ]
+    }
+  },
+  "production_risk_config": {
+    "name": "N75_drop0.10_s0.15_c0.05",
+    "pool_n": 75,
+    "risk_drop": 0.1,
+    "w_safety": 0.15,
+    "w_consensus": 0.05,
+    "baseline": false
+  },
+  "production_ladder_shares_within_upside_weight": {
+    "p100": 1.0,
+    "p50": 0.0,
+    "p25": 0.0
+  },
+  "fallback_rule": "This run is an integrity challenger only; original V9.4.1 remains frozen until comparison and selected-window audit pass."
+}

@@ -1,0 +1,23 @@
+{
+  "model": "V10.2 selected-window residual integrity audit",
+  "selected_oos_rows": 180,
+  "selected_symbols": 159,
+  "selected_symbol_jumps_50pct": 22,
+  "jump_class_counts": {
+    "adjustment_factor_discontinuity": 11,
+    "raw_market_move_or_unresolved": 6,
+    "corporate_action_or_restructuring": 5
+  },
+  "corporate_action_matches": 5,
+  "selected_rows_exposed_feature_252_any_jump": 2,
+  "selected_rows_exposed_y6_any_jump": 0,
+  "selected_rows_exposed_y12_any_jump": 0,
+  "selected_rows_exposed_y24_any_jump": 1,
+  "selected_rows_exposed_feature_252_blocking": 2,
+  "selected_rows_exposed_y6_blocking": 0,
+  "selected_rows_exposed_y12_blocking": 0,
+  "selected_rows_exposed_y24_blocking": 1,
+  "primary_integrity_pass": false,
+  "primary_scope": "V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
+  "note": "No model parameters or outcome-based selection rules are changed by this audit."
+}

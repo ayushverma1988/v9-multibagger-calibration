@@ -1,0 +1,54 @@
+{
+  "model": "V10.2 integrity-corrected V9.4.1 acceptance",
+  "rule_frozen_before_results": true,
+  "candidate_name": "V9.4.1 integrity-corrected challenger",
+  "baseline_name": "V9.4.1 frozen",
+  "alpha_retention_ratios": {
+    "mean_precision_100": 0.8333333333333331,
+    "median_precision_100": 0.0,
+    "mean_capped_lift_100": 0.6277881880244245,
+    "hit_fold_rate_100": 0.7999999999999999
+  },
+  "baseline_dd30": 0.41666666666666663,
+  "candidate_dd30": 0.3833333333333333,
+  "dd_delta": -0.033333333333333326,
+  "p100_pr_auc_lift": 1.5426461890098055,
+  "p100_calibration_slope": 0.7462139662880302,
+  "integrity": {
+    "model": "V10.2 selected-window residual integrity audit",
+    "selected_oos_rows": 180,
+    "selected_symbols": 159,
+    "selected_symbol_jumps_50pct": 22,
+    "jump_class_counts": {
+      "adjustment_factor_discontinuity": 11,
+      "raw_market_move_or_unresolved": 6,
+      "corporate_action_or_restructuring": 5
+    },
+    "corporate_action_matches": 5,
+    "selected_rows_exposed_feature_252_any_jump": 2,
+    "selected_rows_exposed_y6_any_jump": 0,
+    "selected_rows_exposed_y12_any_jump": 0,
+    "selected_rows_exposed_y24_any_jump": 1,
+    "selected_rows_exposed_feature_252_blocking": 2,
+    "selected_rows_exposed_y6_blocking": 0,
+    "selected_rows_exposed_y12_blocking": 0,
+    "selected_rows_exposed_y24_blocking": 1,
+    "primary_integrity_pass": false,
+    "primary_scope": "V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
+    "note": "No model parameters or outcome-based selection rules are changed by this audit."
+  },
+  "gates": {
+    "primary_integrity_pass": false,
+    "oos_folds_at_least_18": true,
+    "mean_precision_retention_95": false,
+    "median_precision_retention_95": false,
+    "lift_retention_95": false,
+    "hit_fold_retention_95": false,
+    "dd_not_worse_3pp": true,
+    "p100_pr_auc_lift_ge_1_05": true,
+    "p100_calibration_slope_ge_0_25": true
+  },
+  "acceptance_gate": false,
+  "action_if_pass": "promote as integrity-corrected production baseline; keep model weights/rules unchanged",
+  "action_if_fail": "block production promotion and investigate data rule; do not tune for performance"
+}
