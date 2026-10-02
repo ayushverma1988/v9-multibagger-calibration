@@ -8,7 +8,7 @@ on:
       - '.github/workflows/v10_2_bag50_w50_parallel.yml'
 
 concurrency:
-  group: v10-2-bag50-w50-parallel-${{ github.ref }}
+  group: v10-2-bag50-w50-screen-parallel-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
