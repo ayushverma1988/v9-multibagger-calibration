@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   experiments:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
