@@ -1,0 +1,88 @@
+{
+  "model": "V10.2 anti-overfit acceptance audit",
+  "candidate": {
+    "folds": 18,
+    "mean_precision_2x": 0.09444444444444446,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.9645271398726636,
+    "hit_fold_rate": 0.5555555555555556,
+    "mean_dd30_rate": 0.4444444444444444
+  },
+  "baseline": {
+    "folds": 18,
+    "mean_precision_2x": 0.10000000000000002,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.9645271398726636,
+    "hit_fold_rate": 0.5555555555555556,
+    "mean_dd30_rate": 0.41666666666666663
+  },
+  "stability": {
+    "mean_jaccard": 0.8541305361305362,
+    "worst_p05_jaccard": 0.6666666666666666,
+    "mean_top1_stability": 0.8328888888888888
+  },
+  "recent_holdout": {
+    "start": "2023-01-01",
+    "candidate": {
+      "folds": 6,
+      "mean_precision_2x": 0.13333333333333333,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 3.165465465465465,
+      "hit_fold_rate": 0.5,
+      "mean_dd30_rate": 0.3333333333333333
+    },
+    "baseline": {
+      "folds": 6,
+      "mean_precision_2x": 0.15000000000000002,
+      "median_precision_2x": 0.1,
+      "mean_capped_lift_2x": 3.165465465465465,
+      "hit_fold_rate": 0.5,
+      "mean_dd30_rate": 0.3
+    },
+    "precision_ratio": 0.8888888888888887,
+    "lift_ratio": 1.0,
+    "hit_ratio": 1.0,
+    "dd_delta": 0.033333333333333326
+  },
+  "paired_bootstrap": {
+    "precision_2x_delta": {
+      "mean": -0.005528888888888888,
+      "p05": -0.016666666666666663,
+      "p50": -0.005555555555555554,
+      "p95": 0.0
+    },
+    "hit_delta": {
+      "mean": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0
+    },
+    "dd30_rate_delta": {
+      "mean": 0.027791666666666662,
+      "p05": 0.005555555555555554,
+      "p50": 0.027777777777777776,
+      "p95": 0.0611111111111111
+    }
+  },
+  "loo": {
+    "min_precision_ratio": 0.9285714285714285,
+    "min_lift_ratio": 1.0,
+    "min_hit_ratio": 1.0,
+    "max_dd_delta": 0.029411764705882415
+  },
+  "gates": {
+    "full_alpha_retention": false,
+    "full_stability": true,
+    "dd_not_worse_3pp": true,
+    "loo_precision_ratio_min_90pct": true,
+    "loo_lift_ratio_min_90pct": true,
+    "loo_hit_ratio_min_90pct": true,
+    "loo_dd_delta_max_4pp": true,
+    "recent_precision_ratio_min_80pct": true,
+    "recent_lift_ratio_min_80pct": true,
+    "recent_hit_ratio_min_80pct": true,
+    "recent_dd_delta_max_5pp": true
+  },
+  "acceptance_gate": false,
+  "note": "audit-only; no selector tuning or parameter choice is performed here"
+}

@@ -1,0 +1,58 @@
+{
+  "model": "V10.2 targeted Bag50 confirmation",
+  "policy": {
+    "name": "bag50_w50",
+    "internal_sims": 50,
+    "freq_weight": 0.5
+  },
+  "selection_rationale": "least-aggressive predeclared Bag50 policy after label-free blocker pass; no outcome-based policy search",
+  "baseline": {
+    "folds": 18,
+    "mean_precision_2x": 0.10000000000000002,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.9645271398726636,
+    "hit_fold_rate": 0.5555555555555556,
+    "mean_dd30_rate": 0.41666666666666663
+  },
+  "screen_100": {
+    "folds": 18,
+    "mean_precision_2x": 0.09444444444444446,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.9645271398726636,
+    "hit_fold_rate": 0.5555555555555556,
+    "mean_dd30_rate": 0.4444444444444444,
+    "mean_jaccard": 0.8521069671069671,
+    "worst_p05_jaccard": 0.6602564102564102,
+    "mean_top1_stability": 0.8511111111111112,
+    "mean_names_replaced_fraction": 0.0837222222222222,
+    "worst_fold": "2024-06-28 00:00:00",
+    "alpha_retention_passed": false,
+    "mean_jaccard_passed": true,
+    "worst_p05_passed": true,
+    "top1_passed": true,
+    "dd_not_worse_3pp": true,
+    "stability_passed": true,
+    "all_gates_passed": false
+  },
+  "confirmation_500": {
+    "folds": 18,
+    "mean_precision_2x": 0.09444444444444446,
+    "median_precision_2x": 0.1,
+    "mean_capped_lift_2x": 2.9645271398726636,
+    "hit_fold_rate": 0.5555555555555556,
+    "mean_dd30_rate": 0.4444444444444444,
+    "mean_jaccard": 0.8541305361305362,
+    "worst_p05_jaccard": 0.6666666666666666,
+    "mean_top1_stability": 0.8328888888888888,
+    "mean_names_replaced_fraction": 0.08246666666666667,
+    "worst_fold": "2017-12-29 00:00:00",
+    "alpha_retention_passed": false,
+    "mean_jaccard_passed": true,
+    "worst_p05_passed": true,
+    "top1_passed": true,
+    "dd_not_worse_3pp": true,
+    "stability_passed": true,
+    "all_gates_passed": false
+  },
+  "promotion_gate": false
+}
