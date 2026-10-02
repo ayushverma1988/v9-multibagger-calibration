@@ -24,6 +24,8 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
     x["_raw_ret_i"]=x.groupby("symbol")["close"].pct_change()
     x["_blocking_jump"]=False
     x["_blocking_type"]=""
+    x["_isin_norm_i"]=x.get("isin",pd.Series(index=x.index,dtype=object)).map(integ.norm_str)
+    x["_symbol_norm_i"]=x["symbol"].map(integ.norm_str)
 
     # Structured merger/demerger events are blocking boundaries regardless of
     # the observed one-day return. They change the economic identity/value of
@@ -42,9 +44,9 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
             ex=pd.Timestamp(getattr(r,"ex_date"))
 
             def candidate_rows():
-                q0=x[x["isin"].map(integ.norm_str)==isin].copy() if isin else pd.DataFrame()
+                q0=x[x["_isin_norm_i"]==isin].copy() if isin else pd.DataFrame()
                 if q0.empty and sym:
-                    q0=x[x["symbol"].map(integ.norm_str)==sym].copy()
+                    q0=x[x["_symbol_norm_i"]==sym].copy()
                 return q0.sort_values("date") if len(q0) else q0
 
             q=candidate_rows()
@@ -123,7 +125,7 @@ def mark_integrity(daily: pd.DataFrame, events_path: str) -> pd.DataFrame:
         dirty=b.rolling(253,min_periods=1).max().astype(bool)
         clean.loc[inds]=~dirty.to_numpy()
     x["integrity_feature_clean"]=clean
-    return x
+    return x.drop(columns=["_isin_norm_i","_symbol_norm_i"],errors="ignore")
 
 
 def build_clean_snapshots(daily: pd.DataFrame, cfg: dict) -> pd.DataFrame:
