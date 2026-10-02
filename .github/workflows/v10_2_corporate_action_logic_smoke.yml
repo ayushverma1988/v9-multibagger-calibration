@@ -49,7 +49,7 @@ jobs:
           d=ci.mark_integrity(d,fp)
 
           rec={}
-          tips=d[(d['symbol']=='TIPSINDLTD')&(d['date']==pd.Timestamp('2023-04-21'))]
+          tips=d[(d['isin'].astype(str).str.upper()=='INE716B01029')&(d['date']==pd.Timestamp('2023-04-21'))]
           rec['tips_split']={
               'present':bool(len(tips)),
               'adj_ret':float(tips.iloc[0]['_adj_ret_i']) if len(tips) else None,
