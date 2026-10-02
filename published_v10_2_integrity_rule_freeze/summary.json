@@ -1,0 +1,36 @@
+{
+  "stage": "V10.2 residual integrity correction",
+  "frozen_on": "2026-10-02",
+  "status": "rule_frozen_before_corrected_performance_results",
+  "rule": {
+    "split_bonus_adjustment": "Resolve corporate-action ISIN through symbol_history/nse.parquet to the symbol active on ex-date, then apply only structured split/bonus factors.",
+    "dividends": "excluded from adjusted close, unchanged from V9.4.1 price-return definition",
+    "demergers_mergers_rights_buybacks": "not multiplicatively scaled",
+    "blocking_discontinuity": "absolute adjusted-price jump >=50% that is either a clear adjustment-factor discontinuity or a large raw-price move with point-in-time corporate-action evidence",
+    "feature_gate": "exclude snapshot when a blocking discontinuity occurs at trading-day offset -252 through 0",
+    "primary_label_censor": "censor y6/DD30/+25%/+50% labels when a blocking discontinuity occurs 1..126 sessions forward",
+    "secondary_label_censor": {
+      "y12": 252,
+      "y24": 504
+    },
+    "outcome_labels_used_to_define_rule": false
+  },
+  "acceptance_gates": {
+    "primary_integrity_pass": true,
+    "oos_folds_min": 18,
+    "mean_precision_retention_min": 0.95,
+    "median_precision_retention_min": 0.95,
+    "mean_capped_lift_retention_min": 0.95,
+    "hit_fold_rate_retention_min": 0.95,
+    "max_dd30_degradation": 0.03,
+    "p100_pr_auc_lift_min": 1.05,
+    "p100_calibration_slope_min": 0.25
+  },
+  "verification_before_freeze": {
+    "TIPSINDLTD": "Structured 2023 action is a 10->1 face-value split stored as TIPSMUSIC; symbol-history resolution maps it back to TIPSINDLTD on the ex-date and restores price continuity.",
+    "MIRZAINT": "Structured action is a demerger on 2023-03-29; no multiplicative split/bonus correction is applied, so the discontinuity remains subject to the feature/label integrity gate.",
+    "smoke_test": "TIPS resolved adjusted return on 2023-04-21 approximately -4.03% versus raw -90.40%; MIRZA adjusted/raw return remains approximately -86.30%."
+  },
+  "action_if_pass": "Promote the integrity-corrected V9.4.1 data pipeline without changing model weights or selector logic, then generate the frozen current-universe production snapshot.",
+  "action_if_fail": "Do not tune for performance. Keep production blocked and diagnose the failed integrity/calibration/alpha gate structurally."
+}
