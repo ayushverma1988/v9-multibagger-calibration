@@ -161,8 +161,11 @@ def main():
     bp=next((x for x in POLICIES if x.name==chosen_name),None)
 
     confirmation=None
+    confirm_mt=None
+    confirm_st=None
     if bp:
-        mt,st=evaluate(oos,cmap,cfg,bp,args.confirm_sims)
+        confirm_mt,confirm_st=evaluate(oos,cmap,cfg,bp,args.confirm_sims)
+        mt,st=confirm_mt,confirm_st
         a=agg(mt);mj=float(st["mean_jaccard"].mean());wp=float(st["p05_jaccard"].min());t1=float(st["top1_stability"].mean())
         confirmation={
             **a,"mean_jaccard":mj,"worst_p05_jaccard":wp,"mean_top1_stability":t1,
@@ -182,10 +185,9 @@ def main():
 
     out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
     tab.to_csv(out/"bagged_grid.csv",index=False)
-    if bp:
-        mt,st=evaluate(oos,cmap,cfg,bp,args.confirm_sims)
-        mt.to_csv(out/"chosen_metrics_by_fold.csv",index=False)
-        st.to_csv(out/"chosen_stability_by_fold.csv",index=False)
+    if bp and confirm_mt is not None and confirm_st is not None:
+        confirm_mt.to_csv(out/"chosen_metrics_by_fold.csv",index=False)
+        confirm_st.to_csv(out/"chosen_stability_by_fold.csv",index=False)
     summary={
         "model":"V10.2 bagged Top-K stability selection",
         "principle":"deterministic inclusion-frequency bagging under fixed 1% score perturbations; no labels used for selection",
