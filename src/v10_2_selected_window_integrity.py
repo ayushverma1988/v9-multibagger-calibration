@@ -206,8 +206,9 @@ def main():
         sym=norm_str(srow.symbol)
         q=structural.copy()
         if len(q):
+            resolved_isin_col="resolved_isin" if "resolved_isin" in q.columns else "isin"
             if isin:
-                qi=q[q["isin"].map(norm_str)==isin]
+                qi=q[q[resolved_isin_col].map(norm_str)==isin]
                 q=qi if len(qi) else q[q["resolved_symbol"].map(norm_str)==sym]
             else:
                 q=q[q["resolved_symbol"].map(norm_str)==sym]
@@ -229,6 +230,7 @@ def main():
                     "event_symbol":getattr(er,"symbol",None),
                     "resolved_symbol":getattr(er,"resolved_symbol",None),
                     "event_isin":getattr(er,"isin",None),
+                    "resolved_event_isin":getattr(er,"resolved_isin",None),
                     "raw_subject":getattr(er,"raw_subject",None),
                 })
     sex=pd.DataFrame(structural_exposure)
