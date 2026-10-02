@@ -1,0 +1,59 @@
+name: V10.2 Adjustment Resolution Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.2-residual-integrity ]
+    paths:
+      - '.github/workflows/v10_2_adjustment_smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-residual-integrity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Verify TIPS split continuity and MIRZA demerger visibility
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          import pandas as pd
+          sys.path.insert(0,'src')
+          import calibrate_v9_2 as base
+          import v10_2_market_integrity as mi
+
+          z=[]
+          for y in [2022,2023,2024]:
+              p=base.hf_hub_download(base.REPO,f'nse/year={y}/nse_{y}.parquet',repo_type='dataset')
+              z.append(pd.read_parquet(p,columns=['date','symbol','series','isin','close','volume','turnover']))
+          d=pd.concat(z,ignore_index=True)
+          d['date']=pd.to_datetime(d['date'])
+          d=d[d['series'].isin(['EQ','BE','BZ'])].copy().sort_values(['symbol','date']).reset_index(drop=True)
+          d['adj_resolved']=mi.apply_split_bonus_adjustment_resolved(d,2022,2024)
+
+          out={}
+          for sym,dt in [('TIPSINDLTD','2023-04-21'),('MIRZAINT','2023-03-29')]:
+              g=d[d['symbol']==sym].sort_values('date').reset_index(drop=True)
+              pos=g.index[g['date']==pd.Timestamp(dt)]
+              if len(pos):
+                  i=int(pos[0])
+                  rows=g.iloc[max(0,i-2):i+3][['date','symbol','isin','close','adj_resolved']].copy()
+                  rows['raw_ret']=rows['close'].pct_change()
+                  rows['adj_ret']=rows['adj_resolved'].pct_change()
+                  out[sym]=rows.astype(object).where(pd.notna(rows),None).to_dict(orient='records')
+          out['resolved_action_symbol_changes']=mi.LAST_ACTION_RESOLUTION_AUDIT
+          os.makedirs('published_v10_2_adjustment_smoke',exist_ok=True)
+          json.dump(out,open('published_v10_2_adjustment_smoke/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-adjustment-smoke
+          path: published_v10_2_adjustment_smoke/
+          retention-days: 90
