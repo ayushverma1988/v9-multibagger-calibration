@@ -1,0 +1,80 @@
+{
+  "home_0": {
+    "status": 403,
+    "len": 370
+  },
+  "home_1": {
+    "status": 200,
+    "len": 368542
+  },
+  "financial_2024": {
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "len": 396,
+    "prefix": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Resource not found</title>\n</head>\n<body style=\"background-color: #e8e8e8;\">\n  <div style=\"font-size: 32px; padding: 50px 25px; text-align: center;\">\n    Resource not found\n  </div>\n<script type=\"text/javascript\"  src=\"/ToO12a"
+  },
+  "financial_2018": {
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "len": 396,
+    "prefix": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Resource not found</title>\n</head>\n<body style=\"background-color: #e8e8e8;\">\n  <div style=\"font-size: 32px; padding: 50px 25px; text-align: center;\">\n    Resource not found\n  </div>\n<script type=\"text/javascript\"  src=\"/ToO12a"
+  },
+  "shareholding_2024": {
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "len": 396,
+    "prefix": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Resource not found</title>\n</head>\n<body style=\"background-color: #e8e8e8;\">\n  <div style=\"font-size: 32px; padding: 50px 25px; text-align: center;\">\n    Resource not found\n  </div>\n<script type=\"text/javascript\"  src=\"/ToO12a"
+  },
+  "shareholding_2018": {
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "len": 396,
+    "prefix": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Resource not found</title>\n</head>\n<body style=\"background-color: #e8e8e8;\">\n  <div style=\"font-size: 32px; padding: 50px 25px; text-align: center;\">\n    Resource not found\n  </div>\n<script type=\"text/javascript\"  src=\"/ToO12a"
+  },
+  "insider_2024": {
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "len": 14227284,
+    "type": "dict",
+    "keys": [
+      "acqNameList",
+      "data"
+    ],
+    "list_key": "acqNameList",
+    "rows": 6122,
+    "sample": [
+      "HEMANT LAKHOTIYA"
+    ]
+  },
+  "announcements_2018": {
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "len": 57062479,
+    "type": "list",
+    "rows": 77182,
+    "sample": [
+      {
+        "an_dt": "31-Dec-2018 21:41:00",
+        "attFileSize": null,
+        "attchmntFile": "https://nsearchives.nseindia.com/corporate/INFRATEL_31122018213931_BIL_InvestorPresentation_31122018_018.pdf",
+        "attchmntText": "Bharti Infratel Limited has informed the Exchange regarding Investor Presentation titled \"Proposed Merger with Indus Towers\".",
+        "bflag": null,
+        "csvName": null,
+        "desc": "Investor Presentation",
+        "difference": "-",
+        "dt": "31122018214100",
+        "exchdisstime": "-",
+        "fileSize": "-",
+        "hasXbrl": false,
+        "old_new": null,
+        "orgid": null,
+        "seq_id": "103191487",
+        "smIndustry": null,
+        "sm_isin": "INE121J01017",
+        "sm_name": "Indus Towers Limited",
+        "sort_date": "2018-12-31 21:41:00",
+        "symbol": "INDUSTOWER"
+      }
+    ]
+  }
+}
