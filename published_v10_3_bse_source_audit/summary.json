@@ -1,0 +1,296 @@
+{
+  "bse_files_sample": [
+    "actions/bse_2024.parquet",
+    "actions/bse_2025.parquet",
+    "actions/bse_2026.parquet",
+    "bse/year=2024/bse_2024.parquet",
+    "bse/year=2025/bse_2025.parquet",
+    "bse/year=2026/bse_2026.parquet",
+    "metrics/bse_2024.parquet",
+    "metrics/bse_2025.parquet",
+    "metrics/bse_2026.parquet",
+    "metrics/bse_latest.parquet",
+    "prices_adjusted/bse_2024.parquet",
+    "prices_adjusted/bse_2025.parquet",
+    "prices_adjusted/bse_2026.parquet",
+    "symbol_history/bse.parquet",
+    "universe/bse_liquid.parquet"
+  ],
+  "bse_file_count": 15,
+  "bse/year=2026/bse_2026.parquet": {
+    "rows": 447347,
+    "columns": [
+      "date",
+      "symbol",
+      "series",
+      "isin",
+      "name",
+      "open",
+      "high",
+      "low",
+      "close",
+      "last",
+      "prev_close",
+      "volume",
+      "turnover",
+      "trades",
+      "year",
+      "month"
+    ],
+    "date_min": "2026-01-01 00:00:00",
+    "date_max": "2026-10-01 00:00:00",
+    "sample": [
+      {
+        "date": "2026-03-25",
+        "symbol": "08ABB",
+        "series": "B",
+        "isin": "INF204KB17R6",
+        "name": "Nippon India Mutual Fund",
+        "open": 0.33,
+        "high": 0.33,
+        "low": 0.33,
+        "close": 0.33,
+        "last": 0.33,
+        "prev_close": 0.3,
+        "volume": 25,
+        "turnover": 8.0,
+        "trades": 1,
+        "year": 2026,
+        "month": 3
+      },
+      {
+        "date": "2026-06-01",
+        "symbol": "08ABB",
+        "series": "B",
+        "isin": "INF204KB17R6",
+        "name": "Nippon India Mutual Fund",
+        "open": 0.36,
+        "high": 0.36,
+        "low": 0.36,
+        "close": 0.36,
+        "last": 0.36,
+        "prev_close": 0.33,
+        "volume": 1000,
+        "turnover": 360.0,
+        "trades": 1,
+        "year": 2026,
+        "month": 6
+      },
+      {
+        "date": "2026-01-01",
+        "symbol": "08AGG",
+        "series": "B",
+        "isin": "INF204KB18R4",
+        "name": "Nippon India Mutual Fund",
+        "open": 45.27,
+        "high": 45.27,
+        "low": 45.27,
+        "close": 45.27,
+        "last": 45.27,
+        "prev_close": 45.29,
+        "volume": 2,
+        "turnover": 90.0,
+        "trades": 1,
+        "year": 2026,
+        "month": 1
+      },
+      {
+        "date": "2026-01-02",
+        "symbol": "08AGG",
+        "series": "B",
+        "isin": "INF204KB18R4",
+        "name": "Nippon India Mutual Fund",
+        "open": 45.26,
+        "high": 45.26,
+        "low": 45.26,
+        "close": 45.26,
+        "last": 45.26,
+        "prev_close": 45.27,
+        "volume": 5,
+        "turnover": 226.0,
+        "trades": 1,
+        "year": 2026,
+        "month": 1
+      },
+      {
+        "date": "2026-01-05",
+        "symbol": "08AGG",
+        "series": "B",
+        "isin": "INF204KB18R4",
+        "name": "Nippon India Mutual Fund",
+        "open": 49.19,
+        "high": 49.19,
+        "low": 41.0,
+        "close": 43.0,
+        "last": 43.0,
+        "prev_close": 45.26,
+        "volume": 127,
+        "turnover": 5434.0,
+        "trades": 18,
+        "year": 2026,
+        "month": 1
+      }
+    ]
+  },
+  "actions/bse_2026.parquet": {
+    "rows": 2209,
+    "columns": [
+      "exchange",
+      "symbol",
+      "isin",
+      "company",
+      "ex_date",
+      "record_date",
+      "type",
+      "ratio_num",
+      "ratio_den",
+      "cash_amount",
+      "face_value_from",
+      "face_value_to",
+      "raw_subject"
+    ],
+    "date_min": null,
+    "date_max": null,
+    "sample": [
+      {
+        "exchange": "BSE",
+        "symbol": "20MICRONS",
+        "isin": "INE144J01027",
+        "company": "20 Microns Ltd",
+        "ex_date": "2026-07-17",
+        "record_date": "2026-07-17",
+        "type": "dividend",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": 1.25,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Final Dividend - Rs. - 1.2500"
+      },
+      {
+        "exchange": "BSE",
+        "symbol": "360ONE",
+        "isin": "INE466L01038",
+        "company": "360 ONE WAM LTD",
+        "ex_date": "2026-04-27",
+        "record_date": "2026-04-27",
+        "type": "dividend",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": 6.0,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Interim Dividend - Rs. - 6.0000"
+      },
+      {
+        "exchange": "BSE",
+        "symbol": "3BBLACKBIO",
+        "isin": "INE994E01018",
+        "company": "3B BlackBio Dx Ltd",
+        "ex_date": "2026-09-22",
+        "record_date": "2026-09-22",
+        "type": "dividend",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": 5.0,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Final Dividend - Rs. - 5.0000"
+      },
+      {
+        "exchange": "BSE",
+        "symbol": "3MINDIA",
+        "isin": "INE470A01017",
+        "company": "3M India Ltd",
+        "ex_date": "2026-07-17",
+        "record_date": "2026-07-17",
+        "type": "dividend",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": 160.0,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Final Dividend - Rs. - 160.0000"
+      },
+      {
+        "exchange": "BSE",
+        "symbol": "3MINDIA",
+        "isin": "INE470A01017",
+        "company": "3M India Ltd",
+        "ex_date": "2026-07-17",
+        "record_date": "2026-07-17",
+        "type": "dividend",
+        "ratio_num": null,
+        "ratio_den": null,
+        "cash_amount": 346.0,
+        "face_value_from": null,
+        "face_value_to": null,
+        "raw_subject": "Special Dividend - Rs. - 346.0000"
+      }
+    ]
+  },
+  "symbol_history/bse.parquet": {
+    "rows": 3158,
+    "columns": [
+      "exchange",
+      "isin",
+      "symbol",
+      "valid_from",
+      "valid_to",
+      "trading_days"
+    ],
+    "date_min": null,
+    "date_max": null,
+    "sample": [
+      {
+        "exchange": "BSE",
+        "isin": "IN9047A01029",
+        "symbol": "GRASIMPP",
+        "valid_from": "2024-08-09",
+        "valid_to": "2024-12-12",
+        "trading_days": 84
+      },
+      {
+        "exchange": "BSE",
+        "isin": "IN9080I01015",
+        "symbol": "LLOYDPP",
+        "valid_from": "2025-09-15",
+        "valid_to": "2026-01-14",
+        "trading_days": 83
+      },
+      {
+        "exchange": "BSE",
+        "isin": "IN9093R01019",
+        "symbol": "LLOYDSENPP",
+        "valid_from": "2025-06-16",
+        "valid_to": "2026-01-27",
+        "trading_days": 153
+      },
+      {
+        "exchange": "BSE",
+        "isin": "IN90GGO01013",
+        "symbol": "KRISHPP",
+        "valid_from": "2026-01-14",
+        "valid_to": "2026-07-10",
+        "trading_days": 73
+      },
+      {
+        "exchange": "BSE",
+        "isin": "IN90I0M01014",
+        "symbol": "PRABHAPP",
+        "valid_from": "2026-04-13",
+        "valid_to": "2026-05-07",
+        "trading_days": 15
+      }
+    ]
+  },
+  "adjusted/bse/year=2026/bse_2026.parquet": {
+    "error": "404 Client Error. (Request ID: Root=1-6ac0ec6a-65fba8586f8614f12b25bc33;5bc8f0c6-086e-49de-83ba-2e274438b1bb)\n\nEntry Not Found for url: https://huggingface.co/datasets/tejhq/indian-markets/resolve/main/adjusted/bse/year%3D2026/bse_2026.parquet."
+  },
+  "universe/bse.parquet": {
+    "error": "404 Client Error. (Request ID: Root=1-6ac0ec6a-06344d4e1f7b103e210daebe;0d643285-b90b-4145-8c9d-f56b4d6f2312)\n\nEntry Not Found for url: https://huggingface.co/datasets/tejhq/indian-markets/resolve/main/universe/bse.parquet."
+  },
+  "metrics/bse/year=2026/bse_2026.parquet": {
+    "error": "404 Client Error. (Request ID: Root=1-6ac0ec6a-307fed6d32f485952dda92c7;cc809c83-e018-4ffb-a2a7-a51a6d039188)\n\nEntry Not Found for url: https://huggingface.co/datasets/tejhq/indian-markets/resolve/main/metrics/bse/year%3D2026/bse_2026.parquet."
+  }
+}
