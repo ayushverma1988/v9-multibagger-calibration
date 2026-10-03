@@ -1,0 +1,81 @@
+name: V10.4 Corrected Fundamental Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - '.github/workflows/v10_4_corrected_fundamental_probe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Probe corrected NSE endpoints
+        run: |
+          python - <<'PY'
+          import requests,json,os,time
+          s=requests.Session()
+          s.headers.update({
+            'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36',
+            'Accept':'application/json,text/plain,*/*',
+            'Accept-Language':'en-US,en;q=0.9',
+            'Referer':'https://www.nseindia.com/companies-listing/corporate-filings-financial-results'
+          })
+          for u in [
+            'https://www.nseindia.com/companies-listing/corporate-filings-financial-results',
+            'https://www.nseindia.com/companies-listing/corporate-filings-shareholding-pattern'
+          ]:
+            try:s.get(u,timeout=20)
+            except:pass
+          eps={
+            'fin_2024':'https://www.nseindia.com/api/corporates-financial-results?index=equities&period=Quarterly&from_date=01-01-2024&to_date=31-12-2024',
+            'fin_2018':'https://www.nseindia.com/api/corporates-financial-results?index=equities&period=Quarterly&from_date=01-01-2018&to_date=31-12-2018',
+            'shp_reliance':'https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&symbol=RELIANCE',
+            'shp_unominda':'https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&symbol=UNOMINDA',
+            'results_reliance':'https://www.nseindia.com/api/results-comparision?symbol=RELIANCE'
+          }
+          out={}
+          for name,url in eps.items():
+            try:
+              r=s.get(url,timeout=30)
+              rec={'status':r.status_code,'len':len(r.content),'ctype':r.headers.get('content-type')}
+              if r.ok:
+                try:
+                  x=r.json(); rec['type']=type(x).__name__
+                  if isinstance(x,list):
+                    rec['rows']=len(x); rec['sample']=x[:2]
+                  elif isinstance(x,dict):
+                    rec['keys']=list(x)[:40]
+                    for k,v in x.items():
+                      if isinstance(v,list):
+                        rec.setdefault('lists',{})[k]={'rows':len(v),'sample':v[:2]}
+                except Exception as e: rec['json_error']=repr(e); rec['prefix']=r.text[:500]
+              else: rec['prefix']=r.text[:500]
+              out[name]=rec
+            except Exception as e: out[name]={'error':repr(e)}
+            time.sleep(.7)
+          os.makedirs('published_v10_4_fundamental_probe',exist_ok=True)
+          json.dump(out,open('published_v10_4_fundamental_probe/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+      - name: Publish probe
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_fundamental_probe
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 corrected fundamental probe [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
