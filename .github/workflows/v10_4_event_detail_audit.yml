@@ -1,0 +1,72 @@
+name: V10.4 Event Detail Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - '.github/workflows/v10_4_event_detail_audit.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - name: Inspect earnings and XBRL records
+        run: |
+          python - <<'PY'
+          import pandas as pd,json,os
+          ev=pd.read_parquet('events/events_all_2016_2026.parquet')
+          e=ev[ev['event_type'].eq('earnings')].copy()
+          sj=e['source_json'].fillna('{}').astype(str)
+          def parse(x):
+              try:return json.loads(x)
+              except:return {}
+          js=[parse(x) for x in sj]
+          e['src_desc']=[str(z.get('desc','')) for z in js]
+          e['src_has_xbrl']=[bool(z.get('hasXbrl',False)) for z in js]
+          e['src_csv_name']=[z.get('csvName') for z in js]
+          e['src_att_file']=[z.get('attchmntFile') for z in js]
+          desc=e['src_desc'].value_counts().head(80).to_dict()
+          actual=e[e['src_desc'].str.contains('financial result|results',case=False,regex=True,na=False)].copy()
+          hasx=e[e['src_has_xbrl']].copy()
+          out={
+            'earnings_rows':int(len(e)),
+            'earnings_desc_top':desc,
+            'earnings_has_xbrl':int(e['src_has_xbrl'].sum()),
+            'actual_result_like_rows':int(len(actual)),
+            'actual_result_like_by_year':actual.assign(year=pd.to_datetime(actual['published_ts']).dt.year).groupby('year').size().to_dict(),
+            'xbrl_by_year':hasx.assign(year=pd.to_datetime(hasx['published_ts']).dt.year).groupby('year').size().to_dict(),
+            'xbrl_sample':hasx[['published_ts','symbol','isin','headline','src_desc','src_csv_name','src_att_file','document_url','source_json']].head(10).astype(object).where(pd.notna(hasx.head(10)),None).to_dict('records') if len(hasx) else []
+          }
+          os.makedirs('published_v10_4_event_detail_audit',exist_ok=True)
+          json.dump(out,open('published_v10_4_event_detail_audit/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+      - name: Publish audit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_event_detail_audit
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 earnings detail audit [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
