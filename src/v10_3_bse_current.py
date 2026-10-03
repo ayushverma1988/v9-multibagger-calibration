@@ -272,8 +272,13 @@ def main():
     _,threshold_info=v94.calibrate_thresholds(oos.copy())
 
     print("Scoring BSE with frozen NSE-trained models...",flush=True)
-    bcur=base.fit_current(data,bse,oos,best100,bestdd,cfg)
-    tcur=v94.current_threshold_predictions(data,bse,oos,threshold_info,cfg)
+    # Bootstrap confidence bands are diagnostic only and are not consumed by
+    # the V9.4.1 selector. Disable them for the BSE transfer run so current
+    # scoring does not repeat 500 block-resamples without changing selection.
+    score_cfg=dict(cfg)
+    score_cfg["bootstrap_blocks"]=0
+    bcur=base.fit_current(data,bse,oos,best100,bestdd,score_cfg)
+    tcur=v94.current_threshold_predictions(data,bse,oos,threshold_info,score_cfg)
 
     spec=dict(model_summary["production_risk_config"])
     shares_dict=model_summary["production_ladder_shares_within_upside_weight"]
