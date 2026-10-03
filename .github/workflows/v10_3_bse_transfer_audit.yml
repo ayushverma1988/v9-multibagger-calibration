@@ -1,0 +1,63 @@
+name: V10.3 BSE Transfer Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.3-bse-integration ]
+    paths:
+      - 'src/v10_3_bse_transfer_audit.py'
+      - '.github/workflows/v10_3_bse_transfer_audit.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.3-bse-integration
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_3_bse_transfer_audit.py
+
+      - name: Download accepted V10.2 validation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: accepted_v10_2
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Run limited BSE transfer diagnostic
+        run: |
+          python src/v10_3_bse_transfer_audit.py \
+            --accepted-dir accepted_v10_2 \
+            --config config_v9_4_1.json \
+            --output published_v10_3_bse_transfer
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-3-bse-transfer-diagnostic
+          path: published_v10_3_bse_transfer/
+          retention-days: 90
+
+      - name: Publish diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_3_bse_transfer
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.3 BSE transfer diagnostic [skip ci]"
+          git pull --rebase origin v10.3-bse-integration
+          git push origin HEAD:v10.3-bse-integration
