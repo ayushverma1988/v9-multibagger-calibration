@@ -1,0 +1,70 @@
+name: V10.3 BSE Data Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.3-bse-integration ]
+    paths:
+      - '.github/workflows/v10_3_bse_source_audit.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.3-bse-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow huggingface_hub
+      - name: Inspect BSE trees and schemas
+        run: |
+          python - <<'PY'
+          import json, os
+          import pandas as pd
+          from huggingface_hub import HfApi, hf_hub_download
+          repo='tejhq/indian-markets'
+          api=HfApi()
+          files=api.list_repo_files(repo_id=repo,repo_type='dataset')
+          bse=[f for f in files if 'bse' in f.lower()]
+          out={'bse_files_sample':bse[:300],'bse_file_count':len(bse)}
+          candidates=[
+            'bse/year=2026/bse_2026.parquet',
+            'actions/bse_2026.parquet',
+            'symbol_history/bse.parquet',
+            'adjusted/bse/year=2026/bse_2026.parquet',
+            'universe/bse.parquet',
+            'metrics/bse/year=2026/bse_2026.parquet',
+          ]
+          for fp in candidates:
+              try:
+                  p=hf_hub_download(repo,fp,repo_type='dataset')
+                  d=pd.read_parquet(p)
+                  out[fp]={
+                    'rows':int(len(d)),
+                    'columns':list(d.columns),
+                    'date_min':str(pd.to_datetime(d['date']).min()) if 'date' in d else None,
+                    'date_max':str(pd.to_datetime(d['date']).max()) if 'date' in d else None,
+                    'sample':d.head(5).astype(object).where(pd.notna(d.head(5)),None).to_dict('records'),
+                  }
+              except Exception as e:
+                  out[fp]={'error':str(e)}
+          os.makedirs('published_v10_3_bse_source_audit',exist_ok=True)
+          json.dump(out,open('published_v10_3_bse_source_audit/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+      - name: Publish audit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_3_bse_source_audit
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.3 BSE source audit [skip ci]"
+          git pull --rebase origin v10.3-bse-integration
+          git push origin HEAD:v10.3-bse-integration
