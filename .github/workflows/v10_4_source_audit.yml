@@ -1,0 +1,118 @@
+name: V10.4 Point-in-Time Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - '.github/workflows/v10_4_source_audit.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow requests
+      - name: Download canonical event archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - name: Audit archive and NSE historical endpoints
+        run: |
+          python - <<'PY'
+          import json, os, re, time
+          import pandas as pd, requests
+          out={}
+          fp='events/events_all_2016_2026.parquet'
+          ev=pd.read_parquet(fp)
+          out['event_archive']={
+              'rows':int(len(ev)),
+              'columns':list(ev.columns),
+              'event_type_counts':ev.get('event_type',pd.Series(dtype=object)).fillna('missing').astype(str).value_counts().head(40).to_dict(),
+              'sample':ev.head(3).astype(object).where(pd.notna(ev.head(3)),None).to_dict('records')
+          }
+          txt=(ev.get('headline',pd.Series('',index=ev.index)).fillna('').astype(str)+' '+ev.get('details',pd.Series('',index=ev.index)).fillna('').astype(str))
+          pats={
+              'financial_results':r'financial results|quarterly results|audited results|unaudited results',
+              'order_win':r'order|contract|letter of award|loa\b|work order',
+              'capex_capacity':r'capex|capacity|commission|plant|expansion',
+              'credit_rating':r'credit rating|rating upgrade|rating downgrade|crisil|icra|care ratings',
+              'auditor':r'auditor|resignation of auditor',
+              'fund_raise_dilution':r'qip|preferential|rights issue|fund rais|warrant|allotment',
+              'default_stress':r'default|insolvency|nclt|bankruptcy|wilful defaulter',
+              'merger_acquisition':r'merger|demerger|acquisition|amalgamation|scheme of arrangement',
+              'buyback':r'buyback|buy-back',
+          }
+          out['event_keyword_counts']={k:int(txt.str.contains(v,case=False,regex=True,na=False).sum()) for k,v in pats.items()}
+
+          s=requests.Session()
+          s.headers.update({
+              'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36',
+              'Accept':'application/json,text/plain,*/*',
+              'Accept-Language':'en-US,en;q=0.9',
+              'Referer':'https://www.nseindia.com/'
+          })
+          try:
+              s.get('https://www.nseindia.com/',timeout=20)
+          except Exception as e:
+              out['nse_home_error']=repr(e)
+
+          endpoints={
+              'financial_results':'https://www.nseindia.com/api/corporate-financial-results?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+              'shareholding':'https://www.nseindia.com/api/corporate-share-holdings?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+              'insider':'https://www.nseindia.com/api/corporates-pit?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+              'announcements':'https://www.nseindia.com/api/corporate-announcements?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+          }
+          for name,url in endpoints.items():
+              rec={'url':url}
+              try:
+                  r=s.get(url,timeout=30)
+                  rec['status']=r.status_code
+                  rec['content_type']=r.headers.get('content-type')
+                  rec['text_prefix']=r.text[:500]
+                  if r.ok:
+                      try:
+                          data=r.json()
+                          rec['json_type']=type(data).__name__
+                          if isinstance(data,list):
+                              rec['rows']=len(data); rec['sample']=data[:2]
+                          elif isinstance(data,dict):
+                              rec['keys']=list(data)[:30]
+                              for k,v in data.items():
+                                  if isinstance(v,list):
+                                      rec['list_key']=k; rec['rows']=len(v); rec['sample']=v[:2]; break
+                      except Exception as e:
+                          rec['json_error']=repr(e)
+              except Exception as e:
+                  rec['error']=repr(e)
+              out[name]=rec
+              time.sleep(1)
+
+          os.makedirs('published_v10_4_source_audit',exist_ok=True)
+          json.dump(out,open('published_v10_4_source_audit/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+      - name: Publish audit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_source_audit
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 point-in-time source audit [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
