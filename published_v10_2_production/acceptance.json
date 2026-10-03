@@ -1,0 +1,58 @@
+{
+  "model": "V10.2 integrity-corrected V9.4.1 acceptance",
+  "rule_frozen_before_results": true,
+  "candidate_name": "V9.4.1 integrity-corrected challenger",
+  "baseline_name": "V9.4.1 frozen",
+  "alpha_retention_ratios": {
+    "mean_precision_100": 1.1666666666666665,
+    "median_precision_100": 1.0,
+    "mean_capped_lift_100": 1.0263057048480715,
+    "hit_fold_rate_100": 1.1
+  },
+  "baseline_dd30": 0.41666666666666663,
+  "candidate_dd30": 0.3666666666666667,
+  "dd_delta": -0.04999999999999993,
+  "p100_pr_auc_lift": 1.5649276086390558,
+  "p100_calibration_slope": 0.7639579191055258,
+  "integrity": {
+    "model": "V10.2 selected-window residual integrity audit",
+    "selected_oos_rows": 180,
+    "selected_symbols": 162,
+    "selected_symbol_jumps_50pct": 26,
+    "jump_class_counts": {
+      "adjustment_factor_discontinuity": 17,
+      "raw_market_move_or_unresolved": 6,
+      "corporate_action_or_restructuring": 3
+    },
+    "corporate_action_matches": 3,
+    "selected_rows_exposed_feature_252_any_jump": 1,
+    "selected_rows_exposed_y6_any_jump": 0,
+    "selected_rows_exposed_y12_any_jump": 0,
+    "selected_rows_exposed_y24_any_jump": 1,
+    "selected_rows_exposed_feature_252_blocking": 0,
+    "selected_rows_exposed_y6_blocking": 0,
+    "selected_rows_exposed_y12_blocking": 0,
+    "selected_rows_exposed_y24_blocking": 1,
+    "selected_rows_exposed_feature_252_structural": 0,
+    "selected_rows_exposed_y6_structural": 0,
+    "selected_rows_exposed_y12_structural": 1,
+    "selected_rows_exposed_y24_structural": 3,
+    "primary_integrity_pass": true,
+    "primary_scope": "V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
+    "note": "No model parameters or outcome-based selection rules are changed by this audit."
+  },
+  "gates": {
+    "primary_integrity_pass": true,
+    "oos_folds_at_least_18": true,
+    "mean_precision_retention_95": true,
+    "median_precision_retention_95": true,
+    "lift_retention_95": true,
+    "hit_fold_retention_95": true,
+    "dd_not_worse_3pp": true,
+    "p100_pr_auc_lift_ge_1_05": true,
+    "p100_calibration_slope_ge_0_25": true
+  },
+  "acceptance_gate": true,
+  "action_if_pass": "promote as integrity-corrected production baseline; keep model weights/rules unchanged",
+  "action_if_fail": "block production promotion and investigate data rule; do not tune for performance"
+}
