@@ -1,0 +1,54 @@
+{
+  "stage": "V10.3 NSE+BSE current-universe extension",
+  "model_weights_changed": false,
+  "selector_rules_changed": false,
+  "nse_validation_source": "accepted V10.2 run 37059786518",
+  "bse_history_available": "2024-01-01 through 2026-10-01",
+  "bse_backtest_status": "insufficient history for an 18-fold independent BSE validation; BSE-only names are explicitly tagged transfer/extrapolation",
+  "current_date": "2026-10-01",
+  "nse_eligible_rows": 1413,
+  "bse_eligible_rows_before_isin_dedupe": 943,
+  "combined_rows_before_cross_exchange_dedupe": 2356,
+  "dual_listed_isins_preferred_to_nse": 918,
+  "combined_unique_isins": 1438,
+  "combined_nse_rows": 1413,
+  "combined_bse_only_rows": 25,
+  "bse_current_integrity_exclusions": 22,
+  "top10_bse_only_count": 0,
+  "probability_distribution_diagnostic": {
+    "BSE": {
+      "n": 25,
+      "p100_mean": 0.06587609311650479,
+      "p100_median": 0.06144115969291222,
+      "p100_p95": 0.09970412165971486,
+      "dd30_mean": 0.22474743284030796
+    },
+    "NSE": {
+      "n": 1413,
+      "p100_mean": 0.03995258419863671,
+      "p100_median": 0.0371951199756778,
+      "p100_p95": 0.07357778196329313,
+      "dd30_mean": 0.1969397880892141
+    }
+  },
+  "production_risk_config": {
+    "name": "N100_drop0.50_s0.20_c0.05",
+    "pool_n": 100,
+    "risk_drop": 0.5,
+    "w_safety": 0.2,
+    "w_consensus": 0.05,
+    "baseline": false
+  },
+  "production_ladder_shares": {
+    "p100": 1.0,
+    "p50": 0.0,
+    "p25": 0.0
+  },
+  "dedupe_rule": "ISIN; prefer eligible NSE listing, otherwise highest-liquidity BSE representation",
+  "bse_corporate_action_rules": {
+    "split_bonus": "point-in-time BSE symbol history resolution; price and share-volume normalization",
+    "name_symbol_change": "same ISIN stitched to continuous history",
+    "merger_demerger": "structural feature reset; current row excluded if event lies inside prior 252 sessions"
+  },
+  "promotion_note": "This extends current coverage only. It does not claim BSE-specific historical validation equivalent to NSE."
+}
