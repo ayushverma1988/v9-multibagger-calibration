@@ -1,0 +1,18 @@
+{
+  "stage": "V10.3 limited BSE transfer diagnostic",
+  "diagnostic_only": true,
+  "model_or_selector_tuning_performed": false,
+  "history_limit": "BSE source begins in 2024, so this cannot replace the 18-fold NSE validation",
+  "folds": 2,
+  "selected_rows": 20,
+  "mean_precision_2x": 0.0,
+  "median_precision_2x": 0.0,
+  "hit_fold_rate_2x": 0.0,
+  "mean_capped_lift_2x": 0.0,
+  "mean_dd30": 0.4,
+  "fold_dates": [
+    "2025-06-30",
+    "2025-12-31"
+  ],
+  "interpretation": "Use only as cross-exchange transfer evidence. Do not retune V10.2 based on these few BSE folds."
+}

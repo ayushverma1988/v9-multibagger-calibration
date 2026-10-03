@@ -1,0 +1,3 @@
+date,eligible,base_rate_2x,precision_2x,lift_2x,hit_fold,dd30_rate,p100_calibrator,dd_calibrator
+2025-06-30,811,0.0036991368680641184,0.0,0.0,0.0,0.3,platt,platt
+2025-12-31,790,0.026582278481012658,0.0,0.0,0.0,0.5,platt,platt
