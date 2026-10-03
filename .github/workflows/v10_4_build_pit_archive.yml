@@ -1,0 +1,48 @@
+name: V10.4 Build PIT Archive
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - 'src/build_v10_4_pit_archive.py'
+      - '.github/workflows/v10_4_build_pit_archive.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow requests huggingface_hub
+      - name: Build point-in-time archive
+        run: |
+          python src/build_v10_4_pit_archive.py \
+            --start-year 2016 \
+            --end-year 2026 \
+            --output outputs_v10_4_pit_archive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-4-pit-archive
+          path: outputs_v10_4_pit_archive/
+          retention-days: 90
+      - name: Publish source summary
+        run: |
+          mkdir -p published_v10_4_pit_archive
+          cp outputs_v10_4_pit_archive/summary.json published_v10_4_pit_archive/summary.json
+          cp outputs_v10_4_pit_archive/shareholding_fetch_errors.csv published_v10_4_pit_archive/shareholding_fetch_errors.csv || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_pit_archive
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 PIT archive summary [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
