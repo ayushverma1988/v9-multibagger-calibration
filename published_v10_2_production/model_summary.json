@@ -1,0 +1,200 @@
+{
+  "model": "V9.4.1 integrity-corrected challenger",
+  "base_pipeline_version": "signal-gated-ladder-v9.4.1-1",
+  "data_start": "2003-01-01",
+  "data_end": "2026-10-01",
+  "integrity_policy": {
+    "feature_lag_max_trading_days": 252,
+    "feature_price_rows_covered": 253,
+    "primary_label_censor_trading_days": 126,
+    "secondary_label_censor_trading_days": {
+      "y12": 252,
+      "y24": 504
+    },
+    "blocking_classes": [
+      "adjustment_factor_discontinuity",
+      "corporate_action_or_restructuring"
+    ],
+    "corporate_action_match_window_days": {
+      "before": 120,
+      "after": 14
+    },
+    "uses_outcomes_for_integrity_decision": false,
+    "split_bonus_identity_resolution": "action ISIN -> symbol active on ex-date via symbol_history/nse.parquet; fallback to action symbol",
+    "dividends_in_adjusted_close": false,
+    "demergers_mergers_scaled": false,
+    "merger_demerger_policy": "structural reset at mapped effective trading boundary; feature history excluded for 252 lags and forward labels censored when crossing event",
+    "name_symbol_change_policy": "same ISIN -> stitch identifier history with no price reset; unresolved/new ISIN -> no synthetic stitching",
+    "split_bonus_volume_policy": "pre-event share volume normalized by inverse price factor; monetary turnover unchanged"
+  },
+  "blocking_jumps": 454,
+  "snapshots_after_integrity_gate": 34160,
+  "y6_censored_rows": 390,
+  "y12_censored_rows": 582,
+  "y24_censored_rows": 1016,
+  "forward_history": {
+    "V9.4.1": {
+      "folds": 18,
+      "mean_precision_100": 0.11666666666666667,
+      "median_precision_100": 0.1,
+      "hit_fold_rate_100": 0.6111111111111112,
+      "hit_folds_100": 11,
+      "mean_precision_50": 0.2666666666666667,
+      "median_precision_50": 0.25,
+      "mean_precision_25": 0.4888888888888888,
+      "median_precision_25": 0.55,
+      "mean_dd30_rate": 0.3666666666666667,
+      "median_dd30_rate": 0.3,
+      "mean_capped_lift_100": 3.0425111158282516,
+      "median_lift_100": 2.3454545454545452,
+      "mean_capped_lift_50": 1.6910136774958984,
+      "median_lift_50": 1.3742117117117116,
+      "mean_capped_lift_25": 1.346859192382862,
+      "median_lift_25": 1.223418261286712
+    },
+    "V9.4": {
+      "folds": 18,
+      "mean_precision_100": 0.13333333333333336,
+      "median_precision_100": 0.15000000000000002,
+      "hit_fold_rate_100": 0.6111111111111112,
+      "hit_folds_100": 11,
+      "mean_precision_50": 0.2833333333333334,
+      "median_precision_50": 0.3,
+      "mean_precision_25": 0.5055555555555554,
+      "median_precision_25": 0.55,
+      "mean_dd30_rate": 0.3444444444444444,
+      "median_dd30_rate": 0.3,
+      "mean_capped_lift_100": 3.476597950562145,
+      "median_lift_100": 2.3454545454545452,
+      "mean_capped_lift_50": 1.8043425236993373,
+      "median_lift_50": 1.3535256410256409,
+      "mean_capped_lift_25": 1.4151402331744605,
+      "median_lift_25": 1.2478502959297857
+    },
+    "V9.3.1": {
+      "folds": 18,
+      "mean_precision_100": 0.11666666666666667,
+      "median_precision_100": 0.1,
+      "hit_fold_rate_100": 0.6111111111111112,
+      "hit_folds_100": 11,
+      "mean_precision_50": 0.2666666666666667,
+      "median_precision_50": 0.25,
+      "mean_precision_25": 0.4888888888888888,
+      "median_precision_25": 0.55,
+      "mean_dd30_rate": 0.3666666666666667,
+      "median_dd30_rate": 0.3,
+      "mean_capped_lift_100": 3.0425111158282516,
+      "median_lift_100": 2.3454545454545452,
+      "mean_capped_lift_50": 1.6910136774958984,
+      "median_lift_50": 1.3742117117117116,
+      "mean_capped_lift_25": 1.346859192382862,
+      "median_lift_25": 1.223418261286712
+    },
+    "V9.2_pcal": {
+      "folds": 18,
+      "mean_precision_100": 0.10555555555555557,
+      "median_precision_100": 0.1,
+      "hit_fold_rate_100": 0.6111111111111112,
+      "hit_folds_100": 11,
+      "mean_precision_50": 0.21666666666666667,
+      "median_precision_50": 0.15000000000000002,
+      "mean_precision_25": 0.43333333333333335,
+      "median_precision_25": 0.4,
+      "mean_dd30_rate": 0.42222222222222217,
+      "median_dd30_rate": 0.3,
+      "mean_capped_lift_100": 2.6901208221542205,
+      "median_lift_100": 2.3454545454545452,
+      "mean_capped_lift_50": 1.2907463380819584,
+      "median_lift_50": 1.1334856904695747,
+      "mean_capped_lift_25": 1.1882233547940428,
+      "median_lift_25": 1.2089447220454619
+    }
+  },
+  "probability_ladder": {
+    "p25_coherent": {
+      "n": 23880,
+      "positives": 9153,
+      "base_rate": 0.38329145728643216,
+      "brier": 0.24539336398206965,
+      "logloss": 0.6847788900504593,
+      "pr_auc": 0.3882775001121569,
+      "calibration_slope": -0.11860407220046079,
+      "calibration_intercept": -0.5241200510522765
+    },
+    "p50_coherent": {
+      "n": 23880,
+      "positives": 4166,
+      "base_rate": 0.17445561139028476,
+      "brier": 0.14929215720381145,
+      "logloss": 0.47591379174408477,
+      "pr_auc": 0.17564610168943975,
+      "calibration_slope": -0.08655806558187877,
+      "calibration_intercept": -1.6926521944282213
+    },
+    "p100": {
+      "n": 23880,
+      "positives": 1017,
+      "base_rate": 0.042587939698492464,
+      "brier": 0.04047526274677389,
+      "logloss": 0.17233494548783498,
+      "pr_auc": 0.06664704262922612,
+      "calibration_slope": 0.7639579191055258,
+      "calibration_intercept": -0.6328047125880475
+    },
+    "best_calibrator_p25": "none",
+    "best_calibrator_p50": "isotonic",
+    "best_calibrator_p100": "platt"
+  },
+  "production_signal_quality": {
+    "p25": {
+      "signal": "p25",
+      "target": "hit25_6m",
+      "probability_column": "hit25_6m_cal_raw",
+      "n": 23880,
+      "positives": 9153,
+      "folds": 26,
+      "base_rate": 0.38329145728643216,
+      "pr_auc": 0.38983558003887153,
+      "pr_auc_lift": 1.0170734897113791,
+      "calibration_slope": -0.11493045755945958,
+      "calibration_intercept": -0.5227313347691276,
+      "passed": false,
+      "reasons": [
+        "pr_auc_lift<1.05",
+        "calibration_slope<0.25"
+      ]
+    },
+    "p50": {
+      "signal": "p50",
+      "target": "hit50_6m",
+      "probability_column": "hit50_6m_cal_raw",
+      "n": 23880,
+      "positives": 4166,
+      "folds": 26,
+      "base_rate": 0.17445561139028476,
+      "pr_auc": 0.17564664947506198,
+      "pr_auc_lift": 1.0068271698186462,
+      "calibration_slope": -0.08654637964884415,
+      "calibration_intercept": -1.692633609458368,
+      "passed": false,
+      "reasons": [
+        "pr_auc_lift<1.05",
+        "calibration_slope<0.25"
+      ]
+    }
+  },
+  "production_risk_config": {
+    "name": "N100_drop0.50_s0.20_c0.05",
+    "pool_n": 100,
+    "risk_drop": 0.5,
+    "w_safety": 0.2,
+    "w_consensus": 0.05,
+    "baseline": false
+  },
+  "production_ladder_shares_within_upside_weight": {
+    "p100": 1.0,
+    "p50": 0.0,
+    "p25": 0.0
+  },
+  "fallback_rule": "This run is an integrity challenger only; original V9.4.1 remains frozen until comparison and selected-window audit pass."
+}
