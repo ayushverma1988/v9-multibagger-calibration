@@ -1,0 +1,31 @@
+{
+  "production_model": "V10.2 integrity-corrected V9.4.1",
+  "status": "PROMOTED",
+  "source_validation_run": 37059786518,
+  "source_validation_commit": "0d38168318b091aec9c306675434a5d4c2120263",
+  "validation_publish_commit": "554d3469ce518c8c4b42c1e68173df929778a814",
+  "data_end": "2026-10-01",
+  "acceptance_gate": true,
+  "selector_policy": "Frozen V9.4.1 selector; Bag50 challenger not promoted",
+  "corporate_action_logic": [
+    "split/bonus normalized with point-in-time symbol-history identity resolution",
+    "same-ISIN name/symbol changes stitched as one security history",
+    "merger/demerger treated as structural reset and forward-label censor boundary",
+    "split/bonus share volume normalized; turnover left unchanged"
+  ],
+  "accepted_metrics": {
+    "mean_precision_2x": 0.11666666666666667,
+    "mean_capped_lift_2x": 3.0425111158282516,
+    "mean_dd30": 0.3666666666666667,
+    "p100_pr_auc_lift": 1.5649276086390558,
+    "p100_calibration_slope": 0.7639579191055258
+  },
+  "integrity": {
+    "primary_integrity_pass": true,
+    "selected_feature_blocking_exposures": 0,
+    "selected_y6_blocking_exposures": 0,
+    "selected_feature_structural_exposures": 0,
+    "selected_y6_structural_exposures": 0
+  },
+  "note": "Production snapshot is copied from the exact full-validation run that passed all frozen acceptance gates; no post-validation retuning or reranking."
+}
