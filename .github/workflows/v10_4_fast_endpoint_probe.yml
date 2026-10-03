@@ -1,0 +1,79 @@
+name: V10.4 Fast NSE Endpoint Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - '.github/workflows/v10_4_fast_endpoint_probe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Probe NSE endpoints
+        run: |
+          python - <<'PY'
+          import requests,json,os,time
+          s=requests.Session()
+          s.headers.update({
+            'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140 Safari/537.36',
+            'Accept':'application/json,text/plain,*/*',
+            'Accept-Language':'en-US,en;q=0.9',
+            'Referer':'https://www.nseindia.com/'
+          })
+          out={}
+          for home in ['https://www.nseindia.com/','https://www.nseindia.com/companies-listing/corporate-filings-financial-results']:
+            try:
+              rr=s.get(home,timeout=20)
+              out['home_'+str(len(out))]={'status':rr.status_code,'len':len(rr.content)}
+            except Exception as e: out['home_error_'+str(len(out))]=repr(e)
+          eps={
+            'financial_2024':'https://www.nseindia.com/api/corporate-financial-results?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+            'financial_2018':'https://www.nseindia.com/api/corporate-financial-results?index=equities&from_date=01-01-2018&to_date=31-12-2018',
+            'shareholding_2024':'https://www.nseindia.com/api/corporate-share-holdings?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+            'shareholding_2018':'https://www.nseindia.com/api/corporate-share-holdings?index=equities&from_date=01-01-2018&to_date=31-12-2018',
+            'insider_2024':'https://www.nseindia.com/api/corporates-pit?index=equities&from_date=01-01-2024&to_date=31-12-2024',
+            'announcements_2018':'https://www.nseindia.com/api/corporate-announcements?index=equities&from_date=01-01-2018&to_date=31-12-2018'
+          }
+          for name,url in eps.items():
+            try:
+              r=s.get(url,timeout=25)
+              rec={'status':r.status_code,'content_type':r.headers.get('content-type'),'len':len(r.content)}
+              if r.ok:
+                try:
+                  x=r.json(); rec['type']=type(x).__name__
+                  if isinstance(x,list): rec['rows']=len(x); rec['sample']=x[:1]
+                  elif isinstance(x,dict):
+                    rec['keys']=list(x)[:30]
+                    for k,v in x.items():
+                      if isinstance(v,list): rec['list_key']=k; rec['rows']=len(v); rec['sample']=v[:1]; break
+                except Exception as e: rec['json_error']=repr(e); rec['prefix']=r.text[:300]
+              else: rec['prefix']=r.text[:300]
+              out[name]=rec
+            except Exception as e: out[name]={'error':repr(e)}
+            time.sleep(.5)
+          os.makedirs('published_v10_4_endpoint_probe',exist_ok=True)
+          json.dump(out,open('published_v10_4_endpoint_probe/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+      - name: Publish probe
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_endpoint_probe
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 NSE endpoint probe [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
