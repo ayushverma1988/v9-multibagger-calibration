@@ -1,31 +1,46 @@
 {
   "production_model": "V10.2 integrity-corrected V9.4.1",
-  "status": "PROMOTED",
-  "source_validation_run": 37059786518,
-  "source_validation_commit": "0d38168318b091aec9c306675434a5d4c2120263",
-  "validation_publish_commit": "554d3469ce518c8c4b42c1e68173df929778a814",
+  "production_status": "accepted_and_promoted",
+  "accepted_validation_run_id": 37059786518,
+  "smoke_test_run_id": 37059786510,
+  "source_branch": "v10.2-residual-integrity",
+  "source_commit": "554d3469ce518c8c4b42c1e68173df929778a814",
+  "production_branch": "v10-fresh-current",
+  "data_start": "2003-01-01",
   "data_end": "2026-10-01",
   "acceptance_gate": true,
-  "selector_policy": "Frozen V9.4.1 selector; Bag50 challenger not promoted",
-  "corporate_action_logic": [
-    "split/bonus normalized with point-in-time symbol-history identity resolution",
-    "same-ISIN name/symbol changes stitched as one security history",
-    "merger/demerger treated as structural reset and forward-label censor boundary",
-    "split/bonus share volume normalized; turnover left unchanged"
-  ],
-  "accepted_metrics": {
-    "mean_precision_2x": 0.11666666666666667,
-    "mean_capped_lift_2x": 3.0425111158282516,
-    "mean_dd30": 0.3666666666666667,
-    "p100_pr_auc_lift": 1.5649276086390558,
-    "p100_calibration_slope": 0.7639579191055258
-  },
-  "integrity": {
-    "primary_integrity_pass": true,
-    "selected_feature_blocking_exposures": 0,
-    "selected_y6_blocking_exposures": 0,
-    "selected_feature_structural_exposures": 0,
-    "selected_y6_structural_exposures": 0
-  },
-  "note": "Production snapshot is copied from the exact full-validation run that passed all frozen acceptance gates; no post-validation retuning or reranking."
+  "primary_integrity_pass": true,
+  "mean_precision_2x": 0.11666666666666667,
+  "median_precision_2x": 0.1,
+  "hit_fold_rate_2x": 0.6111111111111112,
+  "mean_capped_lift_2x": 3.0425111158282516,
+  "mean_dd30": 0.3666666666666667,
+  "p100_pr_auc_lift": 1.5649276086390558,
+  "p100_calibration_slope": 0.7639579191055258,
+  "top10_rows": 10,
+  "selector_note": "Bag50 w50 remains rejected for production because it missed the pre-set 95% alpha-retention gate; no post-hoc threshold weakening.",
+  "corporate_action_logic": {
+    "feature_lag_max_trading_days": 252,
+    "feature_price_rows_covered": 253,
+    "primary_label_censor_trading_days": 126,
+    "secondary_label_censor_trading_days": {
+      "y12": 252,
+      "y24": 504
+    },
+    "blocking_classes": [
+      "adjustment_factor_discontinuity",
+      "corporate_action_or_restructuring"
+    ],
+    "corporate_action_match_window_days": {
+      "before": 120,
+      "after": 14
+    },
+    "uses_outcomes_for_integrity_decision": false,
+    "split_bonus_identity_resolution": "action ISIN -> symbol active on ex-date via symbol_history/nse.parquet; fallback to action symbol",
+    "dividends_in_adjusted_close": false,
+    "demergers_mergers_scaled": false,
+    "merger_demerger_policy": "structural reset at mapped effective trading boundary; feature history excluded for 252 lags and forward labels censored when crossing event",
+    "name_symbol_change_policy": "same ISIN -> stitch identifier history with no price reset; unresolved/new ISIN -> no synthetic stitching",
+    "split_bonus_volume_policy": "pre-event share volume normalized by inverse price factor; monetary turnover unchanged"
+  }
 }
