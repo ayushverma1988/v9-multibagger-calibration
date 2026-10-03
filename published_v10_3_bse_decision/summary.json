@@ -1,0 +1,32 @@
+{
+  "stage": "V10.3 BSE integration decision",
+  "status": "screening_complete_bse_production_not_promoted",
+  "date": "2026-10-03",
+  "current_universe_run_id": 37121457961,
+  "transfer_diagnostic_run_id": 37121722804,
+  "nse_production_model": "V10.2 integrity-corrected V9.4.1",
+  "nse_production_unchanged": true,
+  "bse_current_screening": {
+    "eligible_before_isin_dedupe": 943,
+    "dual_listed_isins_preferred_to_nse": 918,
+    "bse_only_unique_isins": 25,
+    "integrity_exclusions": 22,
+    "bse_only_names_in_combined_top10": 0
+  },
+  "bse_transfer_evidence": {
+    "usable_matured_folds": 2,
+    "selected_rows": 20,
+    "mean_precision_2x": 0,
+    "hit_fold_rate_2x": 0,
+    "mean_capped_lift_2x": 0,
+    "mean_dd30": 0.4,
+    "conclusion": "Insufficient and weak cross-exchange evidence; do not promote BSE-only names into production."
+  },
+  "production_policy": {
+    "bse_only_status": "research_watchlist_only",
+    "dual_listed_status": "prefer NSE representation by ISIN",
+    "model_tuning_from_bse_diagnostic": false,
+    "promotion_condition": "Reassess only when materially more matured BSE history/folds exist; do not retune V10.2 to force a BSE pass."
+  },
+  "current_combined_top10_effect": "No change versus validated NSE Top-10."
+}
