@@ -1,0 +1,224 @@
+name: V10.4 Fundamental Event Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - '.github/workflows/v10_4_challenger.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt requests
+
+      - name: Wait for frozen PIT archive artifact
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          run_id=37163520085
+          for i in $(seq 1 90); do
+            n=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/ayushverma1988/v9-multibagger-calibration/actions/runs/$run_id/artifacts" \
+              | python -c "import sys,json; j=json.load(sys.stdin); print(sum(1 for a in j.get('artifacts',[]) if a.get('name')=='v10-4-pit-archive' and not a.get('expired')))" || echo 0)
+            if [ "$n" -ge 1 ]; then
+              echo "PIT archive ready"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "PIT archive artifact did not become available"
+          exit 1
+
+      - name: Download V10.4 PIT archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive
+          path: pit
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37163520085
+
+      - name: Download canonical event archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Download verified legacy NSE history
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Download accepted V10.2 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: baseline_artifact
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Compile challenger
+        run: python -m py_compile src/v10_4_features.py src/calibrate_v10_4_challenger.py
+
+      - name: Run full V10.4 walk-forward
+        run: |
+          python src/calibrate_v10_4_challenger.py \
+            --config config_v9_4_1.json \
+            --events events/events_all_2016_2026.parquet \
+            --pit-dir pit \
+            --legacy-dir legacy \
+            --output outputs_v10_4_challenger
+
+      - name: Re-audit selected windows
+        run: |
+          python src/v10_2_selected_window_integrity.py \
+            --oos outputs_v10_4_challenger/oos_predictions.parquet \
+            --events events/events_all_2016_2026.parquet \
+            --legacy-dir legacy \
+            --resolve-split-bonus-symbol-history \
+            --output outputs_v10_4_challenger/selected_window_audit
+
+      - name: Apply frozen V10.4 promotion gates
+        run: |
+          python - <<'PY'
+          import glob,json,os
+          import pandas as pd
+          base=json.load(open('published_v10_2_production/model_summary.json'))
+          cand=json.load(open('outputs_v10_4_challenger/summary.json'))
+          integ=json.load(open('outputs_v10_4_challenger/selected_window_audit/summary.json'))
+          bm=base['forward_history']['V9.4.1']; cm=cand['forward_history']['V9.4.1']
+
+          def ratio(a,b):
+              a=float(a); b=float(b)
+              return a/b if b>0 else None
+
+          pr=ratio(cm['mean_precision_100'],bm['mean_precision_100'])
+          lr=ratio(cm['mean_capped_lift_100'],bm['mean_capped_lift_100'])
+          hr=ratio(cm['hit_fold_rate_100'],bm['hit_fold_rate_100'])
+          dd=float(cm['mean_dd30_rate'])-float(bm['mean_dd30_rate'])
+
+          cp=cand['probability_ladder']['p100']
+          bp=base['probability_ladder']['p100']
+          cpl=float(cp['pr_auc'])/float(cp['base_rate'])
+          bpl=float(bp['pr_auc'])/float(bp['base_rate'])
+          prauc_ratio=cpl/bpl if bpl>0 else None
+          slope=float(cp['calibration_slope'])
+
+          cfold=pd.read_csv('outputs_v10_4_challenger/selection_metrics_by_fold.csv')
+          bpaths=glob.glob('baseline_artifact/**/selection_metrics_by_fold.csv',recursive=True)
+          if not bpaths: raise RuntimeError('baseline fold metrics missing')
+          bfold=pd.read_csv(bpaths[0])
+          for d in (cfold,bfold):
+              d['date']=pd.to_datetime(d['date'])
+          c=cfold[(cfold['strategy']=='V9.4.1')&(cfold['date']>=pd.Timestamp('2023-01-01'))]
+          b=bfold[(bfold['strategy']=='V9.4.1')&(bfold['date']>=pd.Timestamp('2023-01-01'))]
+          z=c.merge(b,on='date',suffixes=('_c','_b'))
+          def rr(col):
+              a=float(z[col+'_c'].mean()); bb=float(z[col+'_b'].mean())
+              return a/bb if bb>0 else 1.0
+          recent={
+              'folds':int(len(z)),
+              'precision_ratio':rr('precision_100'),
+              'lift_ratio':rr('lift_100'),
+              'hit_ratio':(
+                  float((z['precision_100_c']>0).mean())/float((z['precision_100_b']>0).mean())
+                  if float((z['precision_100_b']>0).mean())>0 else 1.0
+              ),
+              'dd_delta':float(z['dd30_rate_c'].mean()-z['dd30_rate_b'].mean()) if len(z) else 999,
+          }
+          recent_pass=(
+              recent['folds']>=4 and recent['precision_ratio']>=.90 and
+              recent['lift_ratio']>=.90 and recent['hit_ratio']>=.90 and
+              recent['dd_delta']<=.05
+          )
+
+          gates={
+              'primary_integrity_pass':bool(integ.get('primary_integrity_pass',False)),
+              'oos_folds_at_least_18':int(cm.get('folds',0))>=18,
+              'mean_precision_not_worse':pr is not None and pr>=1.0,
+              'capped_lift_not_worse':lr is not None and lr>=1.0,
+              'hit_fold_rate_not_worse':hr is not None and hr>=1.0,
+              'precision_or_lift_improves_5pct':max(pr or 0,lr or 0)>=1.05,
+              'dd_not_worse_2pp':dd<=.02,
+              'p100_pr_auc_lift_not_worse':prauc_ratio is not None and prauc_ratio>=1.0,
+              'p100_calibration_slope_ge_0_50':slope>=.50,
+              'recent_2023plus_no_material_degradation':recent_pass,
+          }
+          accept=all(gates.values())
+          out={
+              'stage':'V10.4 fundamental/event/ownership challenger decision',
+              'feature_rule_frozen_before_results':True,
+              'control':'V10.2 integrity-corrected V9.4.1',
+              'candidate':'V10.4 fundamental-event-ownership challenger',
+              'ratios':{
+                  'mean_precision_100':pr,'mean_capped_lift_100':lr,
+                  'hit_fold_rate_100':hr,'p100_pr_auc_lift':prauc_ratio,
+              },
+              'candidate_dd30':float(cm['mean_dd30_rate']),
+              'control_dd30':float(bm['mean_dd30_rate']),
+              'dd_delta':dd,
+              'candidate_p100_calibration_slope':slope,
+              'recent_holdout':recent,
+              'integrity':integ,
+              'gates':gates,
+              'acceptance_gate':accept,
+              'action_if_pass':'promote V10.4 challenger after production snapshot verification; do not change selector rules',
+              'action_if_fail':'retain V10.2 production and do not tune V10.4 features post hoc',
+          }
+          os.makedirs('published_v10_4_challenger',exist_ok=True)
+          json.dump(out,open('published_v10_4_challenger/acceptance.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+
+      - name: Stage V10.4 evidence
+        run: |
+          cp outputs_v10_4_challenger/summary.json published_v10_4_challenger/model_summary.json
+          cp outputs_v10_4_challenger/current_top50.csv published_v10_4_challenger/current_top50.csv
+          cp outputs_v10_4_challenger/selection_metrics_by_fold.csv published_v10_4_challenger/selection_metrics_by_fold.csv
+          cp outputs_v10_4_challenger/selected_window_audit/summary.json published_v10_4_challenger/integrity_summary.json
+          cp published_v10_4_feature_freeze/summary.json published_v10_4_challenger/feature_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-4-fundamental-event-challenger
+          path: |
+            outputs_v10_4_challenger/
+            published_v10_4_challenger/
+          retention-days: 90
+
+      - name: Publish challenger evidence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_challenger
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 challenger evidence [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
