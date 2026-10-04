@@ -155,17 +155,18 @@ def attach_features(rows:pd.DataFrame,events:pd.DataFrame,shareholding:pd.DataFr
                     insider:pd.DataFrame|None=None,financial:pd.DataFrame|None=None)->pd.DataFrame:
     r=rows.copy()
     r["_key_v104"]=[security_key(i,s) for i,s in zip(r.get("isin"),r.get("symbol"))]
+    r["_symbol_key_v104"]=["S:"+(norm(s) or "") for s in r.get("symbol")]
     em=_source_map(events,["_opp","_risk","_prom","_material","_signed"])
     sm=_source_map(shareholding,["promoter_pct","report_date"]) if shareholding is not None else {}
     im=_source_map(insider,["_signed_value","_activity"]) if insider is not None else {}
     fm=_source_map(financial,["delay_days","_revision","period_end"]) if financial is not None else {}
 
     rec=[]
-    for z in r[["_key_v104","date"]].itertuples(index=False):
-        key=z[0]; d=np.datetime64(pd.Timestamp(z[1]).normalize())
+    for z in r[["_key_v104","_symbol_key_v104","date"]].itertuples(index=False):
+        key=z[0]; symkey=z[1]; d=np.datetime64(pd.Timestamp(z[2]).normalize())
         vals={c:np.nan for c in FEATURES_V10_4}
 
-        e=em.get(key)
+        e=em.get(key) or em.get(symkey)
         if e:
             dates=e["dates"]; hi=np.searchsorted(dates,d,side="right")
             lo180=np.searchsorted(dates,d-np.timedelta64(180,"D"),side="left")
@@ -189,7 +190,7 @@ def attach_features(rows:pd.DataFrame,events:pd.DataFrame,shareholding:pd.DataFr
             vals["evt_opportunity_180"]=vals["evt_risk_180"]=vals["evt_promoter_180"]=0.0
             vals["evt_intensity_90"]=vals["evt_recency_net_90"]=0.0
 
-        s=sm.get(key)
+        s=sm.get(key) or sm.get(symkey)
         if s:
             dates=s["dates"]; hi=np.searchsorted(dates,d,side="right")
             if hi>0:
@@ -197,7 +198,7 @@ def attach_features(rows:pd.DataFrame,events:pd.DataFrame,shareholding:pd.DataFr
                 if hi>1:
                     vals["promoter_delta_qoq"]=float(s["promoter_pct"][hi-1]-s["promoter_pct"][hi-2])
 
-        q=im.get(key)
+        q=im.get(key) or im.get(symkey)
         if q:
             dates=q["dates"]; hi=np.searchsorted(dates,d,side="right")
             lo=np.searchsorted(dates,d-np.timedelta64(180,"D"),side="left")
@@ -209,7 +210,7 @@ def attach_features(rows:pd.DataFrame,events:pd.DataFrame,shareholding:pd.DataFr
         else:
             vals["insider_net_180"]=0.0; vals["insider_activity_180"]=0.0
 
-        f=fm.get(key)
+        f=fm.get(key) or fm.get(symkey)
         if f:
             dates=f["dates"]; hi=np.searchsorted(dates,d,side="right")
             if hi>0:
@@ -220,7 +221,7 @@ def attach_features(rows:pd.DataFrame,events:pd.DataFrame,shareholding:pd.DataFr
 
     add=pd.DataFrame(rec,index=r.index)
     for c in FEATURES_V10_4:r[c]=add[c]
-    return r.drop(columns=["_key_v104"])
+    return r.drop(columns=["_key_v104","_symbol_key_v104"])
 
 
 def attach_current_to_daily(daily:pd.DataFrame,events,shareholding=None,insider=None,financial=None)->pd.DataFrame:
