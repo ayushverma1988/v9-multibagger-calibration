@@ -80,5 +80,16 @@
     "p100_calibration_slope_min": 0.5,
     "recent_holdout_no_material_degradation": true
   },
-  "failure_policy": "Do not tune feature weights/thresholds to force a pass. Keep V10.2 production if V10.4 fails."
+  "failure_policy": "Do not tune feature weights/thresholds to force a pass. Keep V10.2 production if V10.4 fails.",
+  "feature_implementation": {
+    "event_long_window_days": 180,
+    "event_long_decay_days": 90,
+    "event_short_window_days": 90,
+    "event_short_decay_days": 45,
+    "insider_window_days": 180,
+    "event_availability": "published_ts converted to Asia/Kolkata calendar date; only records available on/before snapshot date",
+    "shareholding_availability": "broadcastDate; period-end date never used as availability",
+    "financial_availability": "broadCastDate; toDate used only for filing-delay calculation",
+    "missing_history_policy": "leave ownership/fundamental values missing for imputation; event/insider activity defaults to zero only when no qualifying prior event exists"
+  }
 }
