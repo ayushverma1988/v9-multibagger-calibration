@@ -121,6 +121,10 @@ def main():
 
     out=Path(args.output); out.parent.mkdir(parents=True,exist_ok=True)
     allf.to_parquet(out,index=False)
+    # Preserve the exact normalized NSE rows fetched by this run separately.
+    # This is infrastructure/audit data only; it does not alter model features.
+    recent_path=out.parent/"event_refresh_recent.parquet"
+    recent.to_parquet(recent_path,index=False)
     summary={
         "base_rows":int(len(base)),
         "recent_rows_fetched":int(len(recent)),
@@ -129,6 +133,7 @@ def main():
         "end":str(allf["published_ts"].max()),
         "refresh_start":str(start.date()),
         "refresh_end":str(today.date()),
+        "recent_fetch_file":str(recent_path),
     }
     json.dump(summary,open(out.parent/"event_refresh_summary.json","w"),indent=2,default=str)
     print(json.dumps(summary,indent=2,default=str))
