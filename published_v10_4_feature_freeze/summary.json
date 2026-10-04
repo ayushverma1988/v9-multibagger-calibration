@@ -90,6 +90,7 @@
     "event_availability": "published_ts converted to Asia/Kolkata calendar date; only records available on/before snapshot date",
     "shareholding_availability": "broadcastDate; period-end date never used as availability",
     "financial_availability": "broadCastDate; toDate used only for filing-delay calculation",
-    "missing_history_policy": "leave ownership/fundamental values missing for imputation; event/insider activity defaults to zero only when no qualifying prior event exists"
+    "missing_history_policy": "leave ownership/fundamental values missing for imputation; event/insider activity defaults to zero only when no qualifying prior event exists",
+    "insider_availability": "Only broadcast/intimation/exchange-announcement timestamps; transaction date is never used as availability fallback."
   }
 }
