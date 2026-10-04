@@ -1,0 +1,65 @@
+{
+  "stage": "V10.4 fundamental/event/ownership challenger decision",
+  "feature_rule_frozen_before_results": true,
+  "control": "V10.2 integrity-corrected V9.4.1",
+  "candidate": "V10.4 fundamental-event-ownership challenger",
+  "ratios": {
+    "mean_precision_100": 0.5714285714285715,
+    "mean_capped_lift_100": 0.635648876631495,
+    "hit_fold_rate_100": 0.7272727272727272,
+    "p100_pr_auc_lift": 0.8847568328893071
+  },
+  "candidate_dd30": 0.27222222222222225,
+  "control_dd30": 0.3666666666666667,
+  "dd_delta": -0.09444444444444444,
+  "candidate_p100_calibration_slope": 0.7833766331592644,
+  "recent_holdout": {
+    "folds": 6,
+    "precision_ratio": 0.5555555555555556,
+    "lift_ratio": 0.5598906366482872,
+    "hit_ratio": 1.0,
+    "dd_delta": -0.016666666666666663
+  },
+  "integrity": {
+    "model": "V10.2 selected-window residual integrity audit",
+    "selected_oos_rows": 180,
+    "selected_symbols": 167,
+    "selected_symbol_jumps_50pct": 33,
+    "jump_class_counts": {
+      "adjustment_factor_discontinuity": 29,
+      "corporate_action_or_restructuring": 2,
+      "raw_market_move_or_unresolved": 2
+    },
+    "corporate_action_matches": 2,
+    "selected_rows_exposed_feature_252_any_jump": 0,
+    "selected_rows_exposed_y6_any_jump": 0,
+    "selected_rows_exposed_y12_any_jump": 0,
+    "selected_rows_exposed_y24_any_jump": 0,
+    "selected_rows_exposed_feature_252_blocking": 0,
+    "selected_rows_exposed_y6_blocking": 0,
+    "selected_rows_exposed_y12_blocking": 0,
+    "selected_rows_exposed_y24_blocking": 0,
+    "selected_rows_exposed_feature_252_structural": 0,
+    "selected_rows_exposed_y6_structural": 0,
+    "selected_rows_exposed_y12_structural": 1,
+    "selected_rows_exposed_y24_structural": 1,
+    "primary_integrity_pass": true,
+    "primary_scope": "V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
+    "note": "No model parameters or outcome-based selection rules are changed by this audit."
+  },
+  "gates": {
+    "primary_integrity_pass": true,
+    "oos_folds_at_least_18": true,
+    "mean_precision_not_worse": false,
+    "capped_lift_not_worse": false,
+    "hit_fold_rate_not_worse": false,
+    "precision_or_lift_improves_5pct": false,
+    "dd_not_worse_2pp": true,
+    "p100_pr_auc_lift_not_worse": false,
+    "p100_calibration_slope_ge_0_50": true,
+    "recent_2023plus_no_material_degradation": false
+  },
+  "acceptance_gate": false,
+  "action_if_pass": "promote V10.4 challenger after production snapshot verification; do not change selector rules",
+  "action_if_fail": "retain V10.2 production and do not tune V10.4 features post hoc"
+}

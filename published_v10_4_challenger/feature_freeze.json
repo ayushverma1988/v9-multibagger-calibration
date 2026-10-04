@@ -1,0 +1,96 @@
+{
+  "stage": "V10.4 Fundamental/Event/Ownership Challenger",
+  "frozen_before_challenger_results": true,
+  "control": "V10.2 integrity-corrected V9.4.1",
+  "philosophy": "Add orthogonal point-in-time information only; no selector, label, threshold, corporate-action, or P100 production-rule tuning.",
+  "feature_windows_calendar_days": {
+    "event_long": 180,
+    "event_short": 90,
+    "insider": 180
+  },
+  "new_model_features": [
+    {
+      "name": "evt_opportunity_180",
+      "definition": "decayed positive score from order_win, capacity_expansion, debt_reduction, buyback, positive credit_rating"
+    },
+    {
+      "name": "evt_risk_180",
+      "definition": "decayed adverse score from dilution, auditor_change, litigation, regulatory, negative credit_rating, adverse pledge_change"
+    },
+    {
+      "name": "evt_promoter_180",
+      "definition": "decayed signed promoter_activity and pledge_change event score"
+    },
+    {
+      "name": "evt_intensity_90",
+      "definition": "log1p count of material classified events in prior 90 calendar days"
+    },
+    {
+      "name": "evt_recency_net_90",
+      "definition": "signed exponentially decayed event_direction*strength over prior 90 days"
+    },
+    {
+      "name": "promoter_pct",
+      "definition": "latest promoter/promoter-group percentage whose broadcast timestamp is no later than snapshot"
+    },
+    {
+      "name": "promoter_delta_qoq",
+      "definition": "latest point-in-time promoter percentage minus prior disclosed quarter"
+    },
+    {
+      "name": "insider_net_180",
+      "definition": "signed log1p transaction-value score for acquisitions minus disposals in prior 180 days"
+    },
+    {
+      "name": "insider_activity_180",
+      "definition": "log1p count of PIT transactions in prior 180 days"
+    },
+    {
+      "name": "result_delay_days",
+      "definition": "days from reported quarter end to latest financial-result broadcast available at snapshot"
+    },
+    {
+      "name": "result_revision_180",
+      "definition": "indicator/count of revised financial-result filings within prior 180 days"
+    }
+  ],
+  "leakage_rules": [
+    "Use broadcast/published timestamps as availability time, never period-end date alone.",
+    "Snapshot may use only records available no later than that snapshot date.",
+    "No outcome labels or future prices influence feature construction.",
+    "Same corporate-action identity/integrity rules as V10.2."
+  ],
+  "model_changes": {
+    "structural_score_weights": "unchanged",
+    "selector": "unchanged",
+    "risk_config_search": "unchanged",
+    "p25_p50_gates": "unchanged",
+    "p100_rule": "unchanged",
+    "ML_feature_matrix": "append frozen V10.4 features only"
+  },
+  "promotion_gates": {
+    "primary_integrity_pass": true,
+    "oos_folds_min": 18,
+    "mean_precision_ratio_min": 1,
+    "capped_lift_ratio_min": 1,
+    "hit_fold_rate_ratio_min": 1,
+    "either_precision_or_lift_improves_by_at_least": 0.05,
+    "max_dd30_degradation_pp": 0.02,
+    "p100_pr_auc_lift_ratio_min": 1,
+    "p100_calibration_slope_min": 0.5,
+    "recent_holdout_no_material_degradation": true
+  },
+  "failure_policy": "Do not tune feature weights/thresholds to force a pass. Keep V10.2 production if V10.4 fails.",
+  "feature_implementation": {
+    "event_long_window_days": 180,
+    "event_long_decay_days": 90,
+    "event_short_window_days": 90,
+    "event_short_decay_days": 45,
+    "insider_window_days": 180,
+    "event_availability": "published_ts converted to Asia/Kolkata calendar date; only records available on/before snapshot date",
+    "shareholding_availability": "broadcastDate; period-end date never used as availability",
+    "financial_availability": "broadCastDate; toDate used only for filing-delay calculation",
+    "missing_history_policy": "leave ownership/fundamental values missing for imputation; event/insider activity defaults to zero only when no qualifying prior event exists",
+    "insider_availability": "Only broadcast/intimation/exchange-announcement timestamps; transaction date is never used as availability fallback."
+  }
+}
