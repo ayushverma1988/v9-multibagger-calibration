@@ -1,0 +1,59 @@
+{
+  "production_model": "V10.2 integrity-corrected V9.4.1",
+  "production_branch": "v10-fresh-current",
+  "accepted_validation_run_id": 37059786518,
+  "frozen_selector": {
+    "name": "N100_drop0.50_s0.20_c0.05",
+    "pool_n": 100,
+    "risk_drop": 0.50,
+    "w_safety": 0.20,
+    "w_consensus": 0.05,
+    "baseline": false
+  },
+  "frozen_ladder_shares": {
+    "p100": 1.0,
+    "p50": 0.0,
+    "p25": 0.0
+  },
+  "accepted_baseline": {
+    "mean_precision_100": 0.11666666666666667,
+    "median_precision_100": 0.10,
+    "hit_fold_rate_100": 0.6111111111111112,
+    "mean_capped_lift_100": 3.0425111158282516,
+    "mean_dd30_rate": 0.3666666666666667,
+    "p100_brier": 0.04047526274677389,
+    "p100_calibration_slope": 0.7639579191055258
+  },
+  "frozen_blob_shas": {
+    "config_v9_4_1.json": "1fbf285f12c88f4100d0c85f8f44de0db5902569",
+    "src/calibrate_v9_4_1_integrity.py": "1de7f09c5ec1c8cc76018db89526c4a51c569072",
+    "src/v10_2_market_integrity.py": "71855691d8aac21bf78889e81e8122663298f666",
+    "src/v10_2_selected_window_integrity.py": "28479bddc3d0d759cf159061d26201382934f99e",
+    "src/calibrate_v9_4_1.py": "b7721fcc6ea5f2c44eae21d8e88b41ed7787b89e",
+    "src/calibrate_v9_4.py": "f4f54646702967899c5afda88a90a0683c7b97a0",
+    "src/calibrate_v9_3_1.py": "c99f183af7bcba26cc43b8b4dd7751f5af88c6ae",
+    "src/calibrate_v9_2.py": "ebc0250814237a2ba9f8d29dc672ab891ede9987"
+  },
+  "monitoring": {
+    "horizon_sessions": 126,
+    "min_mature_batches_for_drift": 5,
+    "min_mature_predictions_for_drift": 50,
+    "precision_retention_warning": 0.70,
+    "hit_rate_retention_warning": 0.75,
+    "dd30_absolute_increase_warning": 0.10,
+    "brier_multiple_warning": 1.25,
+    "calibration_slope_min_warning": 0.40,
+    "calibration_slope_max_warning": 1.60,
+    "stale_data_days_fail": 7
+  },
+  "liquidity_reporting": {
+    "capacity_fractions_of_avg_turnover_63": [0.01, 0.025, 0.05],
+    "informational_only": true
+  },
+  "anti_overfit": {
+    "automatic_model_retuning": false,
+    "automatic_selector_retuning": false,
+    "automatic_p50_p25_promotion": false,
+    "drift_alerts_are_diagnostic_only": true
+  }
+}
