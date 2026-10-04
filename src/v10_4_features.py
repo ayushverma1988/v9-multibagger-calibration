@@ -84,8 +84,9 @@ def prepare_events(path:str|Path)->pd.DataFrame:
 
 def prepare_shareholding(path:str|Path)->pd.DataFrame:
     s=pd.read_parquet(path).copy()
-    b=s.get("broadcastDate",s.get("submissionDate"))
-    s["avail_date"]=pd.to_datetime(b,dayfirst=True,errors="coerce").dt.normalize()
+    b=pd.to_datetime(s.get("broadcastDate",pd.Series(index=s.index,dtype=object)),dayfirst=True,errors="coerce")
+    sub=pd.to_datetime(s.get("submissionDate",pd.Series(index=s.index,dtype=object)),dayfirst=True,errors="coerce")
+    s["avail_date"]=b.fillna(sub).dt.normalize()
     s["key"]=[security_key(i,sy) for i,sy in zip(s.get("isin_norm",s.get("isin")),s.get("symbol_norm",s.get("symbol")))]
     s["promoter_pct"]=_num(s.get("pr_and_prgrp",pd.Series(index=s.index,dtype=object))).clip(0,100)
     s["report_date"]=pd.to_datetime(s.get("date"),dayfirst=True,errors="coerce")
@@ -101,11 +102,12 @@ def _find_col(df,names):
 
 def prepare_insider(path:str|Path)->pd.DataFrame:
     x=pd.read_parquet(path).copy()
-    dc=_find_col(x,["anex","broadcastDate","broadcastDt","intimDt","intimationDate","tdpTransactionDate"])
-    if dc is None:
-        x["avail_date"]=pd.NaT
-    else:
-        x["avail_date"]=pd.to_datetime(x[dc],dayfirst=True,errors="coerce").dt.normalize()
+    x["avail_date"]=pd.NaT
+    for nm in ["broadcastDate","broadcastDt","intimDt","intimationDate","anex","tdpTransactionDate"]:
+        dc=_find_col(x,[nm])
+        if dc is not None:
+            z=pd.to_datetime(x[dc],dayfirst=True,errors="coerce").dt.normalize()
+            x["avail_date"]=pd.to_datetime(x["avail_date"],errors="coerce").fillna(z)
     ic=_find_col(x,["isin","isin_norm","secIsin"])
     sc=_find_col(x,["symbol","symbol_norm"])
     iv=x[ic] if ic else pd.Series(index=x.index,dtype=object)
@@ -129,7 +131,9 @@ def prepare_insider(path:str|Path)->pd.DataFrame:
 
 def prepare_financial(path:str|Path)->pd.DataFrame:
     f=pd.read_parquet(path).copy()
-    f["avail_date"]=pd.to_datetime(f.get("broadCastDate"),dayfirst=True,errors="coerce").dt.normalize()
+    b=pd.to_datetime(f.get("broadCastDate",pd.Series(index=f.index,dtype=object)),dayfirst=True,errors="coerce")
+    fd=pd.to_datetime(f.get("filingDate",pd.Series(index=f.index,dtype=object)),dayfirst=True,errors="coerce")
+    f["avail_date"]=b.fillna(fd).dt.normalize()
     f["period_end"]=pd.to_datetime(f.get("toDate"),dayfirst=True,errors="coerce")
     f["key"]=[security_key(i,s) for i,s in zip(f.get("isin_norm",f.get("isin")),f.get("symbol_norm",f.get("symbol")))]
     f["delay_days"]=(f["avail_date"]-f["period_end"].dt.normalize()).dt.days.clip(lower=0,upper=365)
