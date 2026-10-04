@@ -100,8 +100,20 @@ def main():
     base=pd.read_parquet(find_one(args.baseline_dir,"oos_predictions.parquet"))
     v104=pd.read_parquet(find_one(args.v104_dir,"oos_predictions.parquet"))
     base["date"]=pd.to_datetime(base["date"]); v104["date"]=pd.to_datetime(v104["date"])
-    risk=v104[["date","symbol","p_dd30_cal"]].rename(columns={"p_dd30_cal":"p_dd30_v104"})
-    z=base.merge(risk,on=["date","symbol"],how="left")
+    risk=v104[["date","symbol","p_dd30_cal","p_dd30_raw"]].copy()
+    # Coverage-only repair frozen after missingness audit:
+    # use calibrated V10.4 DD30 when available; otherwise use the same
+    # point-in-time V10.4 raw DD30 prediction. No outcome data or selector
+    # parameter is used to choose the fallback.
+    risk["p_dd30_v104"]=pd.to_numeric(risk["p_dd30_cal"],errors="coerce")
+    raw=pd.to_numeric(risk["p_dd30_raw"],errors="coerce")
+    risk["p_dd30_v104"]=risk["p_dd30_v104"].fillna(raw)
+    risk["p_dd30_v104_source"]=np.where(
+        pd.to_numeric(risk["p_dd30_cal"],errors="coerce").notna(),
+        "calibrated",
+        np.where(raw.notna(),"raw_fallback","missing"),
+    )
+    z=base.merge(risk[["date","symbol","p_dd30_v104","p_dd30_v104_source"]],on=["date","symbol"],how="left")
     risk_coverage=float(z["p_dd30_v104"].notna().mean())
 
     rows=[]; selected_rows=[]; reproduction=[]
@@ -140,7 +152,7 @@ def main():
             "veto_count_applied":int(cand["veto_count_applied"].iloc[0]),
             "control_reproduction_jaccard":len(recon&actual)/len(recon|actual) if len(recon|actual) else np.nan,
         })
-        q=cand[["date","symbol","baseline_rank","overlay_rank","p100_cal","p_dd30_cal","p_dd30_v104","y6","dd30_6m"]].copy()
+        q=cand[["date","symbol","baseline_rank","overlay_rank","p100_cal","p_dd30_cal","p_dd30_v104","p_dd30_v104_source","y6","dd30_6m"]].copy()
         selected_rows.append(q)
 
     folds=pd.DataFrame(rows)
@@ -189,7 +201,11 @@ def main():
     # Current snapshot.
     bcur=pd.read_csv(find_one(args.baseline_dir,"current_selection.csv"))
     rcur=pd.read_csv(find_one(args.v104_dir,"current_selection.csv"))
-    cur=bcur.merge(rcur[["date","symbol","p_dd30_cal"]].rename(columns={"p_dd30_cal":"p_dd30_v104"}),on=["date","symbol"],how="left")
+    rr=rcur[["date","symbol","p_dd30_cal","p_dd30_raw"]].copy()
+    rr["p_dd30_v104"]=pd.to_numeric(rr["p_dd30_cal"],errors="coerce").fillna(
+        pd.to_numeric(rr["p_dd30_raw"],errors="coerce")
+    )
+    cur=bcur.merge(rr[["date","symbol","p_dd30_v104"]],on=["date","symbol"],how="left")
     prod=json.load(open("published_v10_2_production/model_summary.json"))
     spec=dict(prod["production_risk_config"])
     shares=(1.0,0.0,0.0)
@@ -201,7 +217,8 @@ def main():
     summary={
         "stage":"V10.5B alpha-preserve risk overlay",
         "control":"V10.2 integrity-corrected V9.4.1",
-        "risk_source":"V10.4 point-in-time augmented DD30 probability only; V10.4 alpha predictions ignored",
+        "risk_source":"V10.4 point-in-time augmented DD30 probability only; calibrated when available, same-model raw fallback only for calibration-availability gaps; V10.4 alpha predictions ignored",
+        "coverage_repair":"p_dd30_cal else p_dd30_raw, frozen from missingness audit before this rerun",
         "frozen_overlay_rule":"reconstruct V10.2 top20; flag two highest V10.4 DD30-risk names; if flagged names are in top10, veto them and refill by next V10.2 rank",
         "model_tuning":False,
         "risk_join_coverage":risk_coverage,
