@@ -26,7 +26,7 @@
     "mean_capped_lift_100": 3.0425111158282516,
     "mean_dd30_rate": 0.3666666666666667,
     "p100_brier": 0.04047526274677389,
-    "p100_calibration_slope": 0.763957919105525
+    "p100_calibration_slope": 0.7639579191055258
   },
   "frozen_blob_shas_verified": true,
   "anti_overfit": {
