@@ -1,0 +1,11 @@
+{
+  "stage": "V10.5B technical execution retry marker",
+  "reason": "Previous coverage-repair run failed only because the current-selection artifact lacked p_dd30_raw. Historical OOS evaluation logic and all frozen gates remain unchanged.",
+  "failed_run_id": 37173650859,
+  "model_logic_changed": false,
+  "overlay_rule_changed": false,
+  "acceptance_gates_changed": false,
+  "historical_coverage_rule_changed": false,
+  "technical_fix": "Current snapshot now uses p_dd30_cal when p_dd30_raw is absent.",
+  "retry_policy": "Run the same frozen coverage-repair evaluation once to completion."
+}
