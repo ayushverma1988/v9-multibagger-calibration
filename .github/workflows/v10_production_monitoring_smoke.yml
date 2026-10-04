@@ -25,7 +25,10 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
       - run: pip install -r requirements.txt
-      - run: python -m py_compile src/v10_production_finalize.py src/v10_production_monitor.py
+      - run: python -m py_compile src/v10_production_finalize.py src/v10_production_monitor.py src/v10_refresh_events.py
+
+      - name: Event refresher CLI smoke
+        run: python src/v10_refresh_events.py --help >/dev/null
 
       - name: Download accepted V10.2 evidence
         uses: actions/download-artifact@v4
