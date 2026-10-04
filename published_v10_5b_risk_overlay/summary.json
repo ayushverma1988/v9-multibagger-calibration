@@ -1,0 +1,78 @@
+{
+  "stage": "V10.5B alpha-preserve risk overlay",
+  "control": {
+    "folds": 18,
+    "mean_precision_100": 0.11666666666666667,
+    "median_precision_100": 0.1,
+    "hit_fold_rate_100": 0.6111111111111112,
+    "mean_capped_lift_100": 3.0425111158282516,
+    "mean_dd30_rate": 0.3666666666666667,
+    "median_dd30_rate": 0.3
+  },
+  "risk_source": "V10.4 point-in-time augmented DD30 probability only; V10.4 alpha predictions ignored",
+  "frozen_overlay_rule": "reconstruct V10.2 top20; flag two highest V10.4 DD30-risk names; if flagged names are in top10, veto them and refill by next V10.2 rank",
+  "model_tuning": false,
+  "risk_join_coverage": 0.8458486823462738,
+  "control_reproduction_mean_top10_overlap": 1.0,
+  "candidate": {
+    "folds": 18,
+    "mean_precision_100": 0.1277777777777778,
+    "median_precision_100": 0.1,
+    "hit_fold_rate_100": 0.6666666666666666,
+    "mean_capped_lift_100": 3.73066797857335,
+    "mean_dd30_rate": 0.3666666666666667,
+    "median_dd30_rate": 0.3
+  },
+  "alpha_retention_ratios": {
+    "mean_precision_100": 1.0952380952380953,
+    "median_precision_100": 1.0,
+    "hit_fold_rate_100": 1.0909090909090908,
+    "mean_capped_lift_100": 1.2261805582780143
+  },
+  "dd_delta": 0.0,
+  "recent_2023plus": {
+    "control": {
+      "folds": 6,
+      "mean_precision_100": 0.15,
+      "median_precision_100": 0.2,
+      "hit_fold_rate_100": 0.6666666666666666,
+      "mean_capped_lift_100": 3.95090990990991,
+      "mean_dd30_rate": 0.30000000000000004,
+      "median_dd30_rate": 0.25
+    },
+    "candidate": {
+      "folds": 6,
+      "mean_precision_100": 0.16666666666666666,
+      "median_precision_100": 0.2,
+      "hit_fold_rate_100": 0.6666666666666666,
+      "mean_capped_lift_100": 4.234021021021021,
+      "mean_dd30_rate": 0.3166666666666667,
+      "median_dd30_rate": 0.3
+    },
+    "ratios": {
+      "precision": 1.1111111111111112,
+      "lift": 1.0716571922839837,
+      "hit": 1.0,
+      "dd_delta": 0.016666666666666663,
+      "folds": 6
+    }
+  },
+  "gates": {
+    "risk_join_coverage_ge_0_99": false,
+    "evaluable_folds_ge_18": true,
+    "control_reproduction_mean_ge_0_99": true,
+    "mean_precision_retention_ge_0_95": true,
+    "capped_lift_retention_ge_0_95": true,
+    "hit_fold_retention_ge_0_95": true,
+    "median_precision_retention_ge_0_95": true,
+    "dd30_improves_at_least_3pp": false,
+    "recent_folds_ge_4": true,
+    "recent_precision_retention_ge_0_90": true,
+    "recent_lift_retention_ge_0_90": true,
+    "recent_hit_retention_ge_0_90": true,
+    "recent_dd_not_worse_2pp": true
+  },
+  "acceptance_gate": false,
+  "action_if_pass": "eligible for production snapshot verification; V10.2 alpha model remains unchanged",
+  "action_if_fail": "retain V10.2 production; do not tune veto count or threshold post hoc"
+}

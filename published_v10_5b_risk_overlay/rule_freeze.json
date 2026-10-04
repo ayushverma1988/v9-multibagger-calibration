@@ -1,0 +1,37 @@
+{
+  "stage": "V10.5B alpha-preserve risk overlay rule freeze",
+  "frozen_before_results": true,
+  "control": "V10.2 integrity-corrected V9.4.1",
+  "alpha_model_changed": false,
+  "risk_source": "V10.4 point-in-time augmented DD30 probability only",
+  "overlay_rule": {
+    "candidate_list": "V10.2 top 20 reconstructed with the exact fold-specific frozen selector",
+    "veto_count": 2,
+    "veto_definition": "two highest V10.4 DD30-risk names among the V10.2 top 20",
+    "application": "remove only if a vetoed name is inside the original top 10",
+    "refill": "next V10.2-ranked non-vetoed name",
+    "parameter_search": false
+  },
+  "acceptance": {
+    "risk_join_coverage_min": 0.99,
+    "evaluable_folds_min": 18,
+    "control_reproduction_mean_min": 0.99,
+    "mean_precision_retention_min": 0.95,
+    "median_precision_retention_min": 0.95,
+    "capped_lift_retention_min": 0.95,
+    "hit_fold_retention_min": 0.95,
+    "dd30_improvement_min_pp": 3.0,
+    "recent_2023plus_folds_min": 4,
+    "recent_precision_retention_min": 0.90,
+    "recent_lift_retention_min": 0.90,
+    "recent_hit_retention_min": 0.90,
+    "recent_dd_max_degradation_pp": 2.0
+  },
+  "anti_overfit": [
+    "No search over veto count",
+    "No outcome-dependent thresholds",
+    "No fold-specific tuning",
+    "V10.4 alpha probabilities are ignored",
+    "If the frozen rule fails, retain V10.2 and do not weaken gates"
+  ]
+}
