@@ -1,0 +1,65 @@
+name: V10.4 Fast PIT Archive
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - 'src/build_v10_4_pit_archive_fast.py'
+      - '.github/workflows/v10_4_fast_pit_archive.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas pyarrow requests huggingface_hub
+
+      - name: Download accepted V10.2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: baseline
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Build fast PIT archive
+        run: |
+          SNAP=$(find baseline -name snapshot_dataset.parquet | head -1)
+          test -n "$SNAP"
+          python src/build_v10_4_pit_archive_fast.py \
+            --snapshot-file "$SNAP" \
+            --start-year 2016 \
+            --end-year 2026 \
+            --workers 6 \
+            --output outputs_v10_4_pit_archive_fast
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: outputs_v10_4_pit_archive_fast/
+          retention-days: 90
+
+      - name: Publish fast archive summary
+        run: |
+          mkdir -p published_v10_4_pit_archive_fast
+          cp outputs_v10_4_pit_archive_fast/summary.json published_v10_4_pit_archive_fast/summary.json
+          cp outputs_v10_4_pit_archive_fast/shareholding_fetch_errors.csv published_v10_4_pit_archive_fast/shareholding_fetch_errors.csv || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_4_pit_archive_fast
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.4 fast PIT archive summary [skip ci]"
+          git pull --rebase origin v10.4-fundamental-event-challenger
+          git push origin HEAD:v10.4-fundamental-event-challenger
