@@ -1,0 +1,67 @@
+name: V10 Hugging Face Archive Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v10_hf_archive_smoke.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  archive-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile archive code
+        run: python -m py_compile src/v10_refresh_events.py src/v10_hf_archive.py
+
+      - name: Download canonical event base
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Fetch recent NSE announcements
+        run: |
+          python src/v10_refresh_events.py \
+            --base-events events_base/events_all_2016_2026.parquet \
+            --output events_current/events_all_current.parquet \
+            --lookback-days 7
+
+      - name: Upload durable archive to private Hugging Face dataset
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v10_hf_archive.py \
+            --production-dir published_v10_production_monitor \
+            --events-current events_current/events_all_current.parquet \
+            --events-recent events_current/event_refresh_recent.parquet \
+            --event-summary events_current/event_refresh_summary.json \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --stage-dir hf_archive_stage
+
+      - name: Save archive smoke manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: v10-hf-archive-smoke-manifest
+          path: hf_archive_stage/manifests/
+          retention-days: 30
