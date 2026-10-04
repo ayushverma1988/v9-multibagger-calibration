@@ -5,7 +5,13 @@ on:
   push:
     branches: [ v10.4-fundamental-event-challenger ]
     paths:
+      - 'src/v10_4_features.py'
+      - 'src/calibrate_v10_4_challenger.py'
       - '.github/workflows/v10_4_challenger.yml'
+
+concurrency:
+  group: v10-4-challenger-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   actions: read
