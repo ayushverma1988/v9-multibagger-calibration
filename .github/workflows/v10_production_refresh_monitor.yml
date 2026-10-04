@@ -1,0 +1,143 @@
+name: V10 Production Refresh and Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 13 * * 1-5'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v10_production_refresh_monitor.yml'
+
+concurrency:
+  group: v10-production-refresh-monitor
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  refresh-monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile production monitoring code
+        run: |
+          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py
+
+      - name: Download canonical event base
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Refresh recent NSE announcements
+        run: |
+          python src/v10_refresh_events.py             --base-events events_base/events_all_2016_2026.parquet             --output events_current/events_all_current.parquet             --lookback-days 120
+
+      - name: Download verified legacy NSE history
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Refresh fixed V10.2 model path
+        run: |
+          python src/calibrate_v9_4_1_integrity.py             --config config_v9_4_1.json             --events events_current/events_all_current.parquet             --legacy-dir legacy             --output outputs_v10_prod_refresh
+
+      - name: Re-audit selected windows
+        run: |
+          python src/v10_2_selected_window_integrity.py             --oos outputs_v10_prod_refresh/oos_predictions.parquet             --events events_current/events_all_current.parquet             --legacy-dir legacy             --resolve-split-bonus-symbol-history             --output outputs_v10_prod_refresh/selected_window_audit
+
+      - name: Enforce production integrity gate
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open("outputs_v10_prod_refresh/selected_window_audit/summary.json"))
+          print(json.dumps(s,indent=2))
+          if not s.get("primary_integrity_pass",False):
+              raise SystemExit("Primary integrity gate failed. Production publication blocked.")
+          PY
+
+      - name: Apply frozen production selector
+        run: |
+          python src/v10_production_finalize.py             --model-output outputs_v10_prod_refresh             --monitor-config config_v10_production_monitor.json             --output outputs_v10_prod_final
+
+      - name: Update live prediction ledger and drift monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          if [ -f published_v10_production_monitor/prediction_ledger.csv ]; then
+            EXTRA+=(--existing-ledger published_v10_production_monitor/prediction_ledger.csv)
+          fi
+          python src/v10_production_monitor.py             --refresh-dir outputs_v10_prod_final             --monitor-config config_v10_production_monitor.json             --events events_current/events_all_current.parquet             --legacy-dir legacy             --output outputs_v10_prod_monitor             "${EXTRA[@]}"
+
+      - name: Stage production monitor evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v10_production_monitor/history
+          cp outputs_v10_prod_final/production_manifest.json published_v10_production_monitor/production_manifest.json
+          cp outputs_v10_prod_final/production_top10.csv published_v10_production_monitor/latest_top10.csv
+          cp outputs_v10_prod_final/production_top10_compact.csv published_v10_production_monitor/latest_top10_compact.csv
+          cp outputs_v10_prod_final/current_universe_frozen_selector.csv published_v10_production_monitor/current_universe_frozen_selector.csv
+          cp outputs_v10_prod_monitor/prediction_ledger.csv published_v10_production_monitor/prediction_ledger.csv
+          cp outputs_v10_prod_monitor/drift_report.json published_v10_production_monitor/drift_report.json
+          cp outputs_v10_prod_monitor/latest_status.json published_v10_production_monitor/latest_status.json
+          cp outputs_v10_prod_monitor/prospective_performance_by_batch.csv published_v10_production_monitor/prospective_performance_by_batch.csv
+          cp events_current/event_refresh_summary.json published_v10_production_monitor/event_refresh_summary.json
+          cp outputs_v10_prod_refresh/selected_window_audit/summary.json published_v10_production_monitor/integrity_summary.json
+
+          PDATE=$(python - <<'PY'
+          import pandas as pd
+          x=pd.read_csv("outputs_v10_prod_final/production_top10.csv")
+          print(pd.Timestamp(x["date"].iloc[0]).date())
+          PY
+          )
+          cp outputs_v10_prod_final/production_top10_compact.csv "published_v10_production_monitor/history/${PDATE}_top10.csv"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-production-refresh-monitor
+          path: |
+            outputs_v10_prod_final/
+            outputs_v10_prod_monitor/
+            published_v10_production_monitor/
+          retention-days: 90
+
+      - name: Publish production monitor state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_production_monitor
+          if git diff --cached --quiet; then
+            echo "No new market-date batch to publish."
+            exit 0
+          fi
+          git commit -m "Refresh V10 production monitor [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
