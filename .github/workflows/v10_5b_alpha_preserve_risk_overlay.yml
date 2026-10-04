@@ -1,0 +1,87 @@
+name: V10.5B Alpha Preserve Risk Overlay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.5-alpha-preserve-risk-overlay ]
+    paths:
+      - 'published_v10_5b_rule_freeze/summary.json'
+
+concurrency:
+  group: v10-5b-risk-overlay-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.5-alpha-preserve-risk-overlay
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Download accepted V10.2 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: baseline_artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Download V10.4 challenger evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-fundamental-event-challenger
+          path: v104_artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37167474079
+
+      - name: Compile V10.5B
+        run: python -m py_compile src/v10_5b_alpha_preserve_risk_overlay.py
+
+      - name: Run frozen V10.5B
+        run: |
+          python src/v10_5b_alpha_preserve_risk_overlay.py \
+            --baseline-dir baseline_artifact \
+            --v104-dir v104_artifact \
+            --output outputs_v10_5b_risk_overlay
+
+      - name: Stage evidence
+        run: |
+          mkdir -p published_v10_5b_risk_overlay
+          cp outputs_v10_5b_risk_overlay/summary.json published_v10_5b_risk_overlay/summary.json
+          cp outputs_v10_5b_risk_overlay/current_top10_v105b.csv published_v10_5b_risk_overlay/current_top10_v105b.csv 2>/dev/null || true
+          cp outputs_v10_5b_risk_overlay/fold_metrics.csv published_v10_5b_risk_overlay/fold_metrics.csv
+          cp published_v10_5b_rule_freeze/summary.json published_v10_5b_risk_overlay/rule_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-5b-alpha-preserve-risk-overlay
+          path: |
+            outputs_v10_5b_risk_overlay/
+            published_v10_5b_risk_overlay/
+          retention-days: 90
+
+      - name: Publish V10.5B evidence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_5b_risk_overlay
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.5B risk overlay evidence [skip ci]"
+          git pull --rebase origin v10.5-alpha-preserve-risk-overlay
+          git push origin HEAD:v10.5-alpha-preserve-risk-overlay
