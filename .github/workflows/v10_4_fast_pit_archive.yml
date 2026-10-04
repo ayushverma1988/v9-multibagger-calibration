@@ -30,7 +30,7 @@ jobs:
         with:
           name: v10-2-integrity-corrected-challenger
           path: baseline
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
 
