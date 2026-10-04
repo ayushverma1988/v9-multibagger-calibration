@@ -1,0 +1,33 @@
+name: V10.4 Code Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.4-fundamental-event-challenger ]
+    paths:
+      - 'src/v10_4_features.py'
+      - 'src/calibrate_v10_4_challenger.py'
+      - '.github/workflows/v10_4_code_smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.4-fundamental-event-challenger
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Compile
+        run: python -m py_compile src/v10_4_features.py src/calibrate_v10_4_challenger.py src/calibrate_v9_4_1_integrity.py
+      - name: Feature list invariant
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          import v10_4_features as f
+          assert len(f.FEATURES_V10_4)==11
+          assert len(set(f.FEATURES_V10_4))==11
+          print(f.FEATURES_V10_4)
+          PY
