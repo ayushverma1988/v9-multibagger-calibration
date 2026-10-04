@@ -43,7 +43,7 @@ jobs:
           for i in $(seq 1 90); do
             n=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/ayushverma1988/v9-multibagger-calibration/actions/runs/$run_id/artifacts" \
-              | python -c "import sys,json; j=json.load(sys.stdin); print(sum(1 for a in j.get('artifacts',[]) if a.get('name')=='v10-4-pit-archive-fast' and/g not a.get('expired')))" || echo 0)
+              | python -c "import sys,json; j=json.load(sys.stdin); print(sum(1 for a in j.get('artifacts',[]) if a.get('name')=='v10-4-pit-archive-fast' and not a.get('expired')))" || echo 0)
             if [ "$n" -ge 1 ]; then
               echo "PIT archive ready"
               exit 0
