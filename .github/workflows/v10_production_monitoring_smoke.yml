@@ -1,0 +1,103 @@
+name: V10 Production Monitoring Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10-production-monitoring ]
+    paths:
+      - '.github/workflows/v10_production_monitoring_smoke.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-production-monitoring
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile src/v10_production_finalize.py src/v10_production_monitor.py
+
+      - name: Download accepted V10.2 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: accepted
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Locate accepted model output
+        shell: bash
+        run: |
+          set -euo pipefail
+          CUR=$(find accepted -name current_selection.csv -type f | head -1)
+          if [ -z "$CUR" ]; then echo "current_selection.csv not found"; exit 1; fi
+          MODEL_DIR=$(dirname "$CUR")
+          echo "MODEL_DIR=$MODEL_DIR" >> "$GITHUB_ENV"
+          echo "Using $MODEL_DIR"
+
+      - name: Apply frozen production selector
+        run: |
+          python src/v10_production_finalize.py \
+            --model-output "$MODEL_DIR" \
+            --monitor-config config_v10_production_monitor.json \
+            --output outputs_v10_prod_smoke
+
+      - name: Create prediction ledger and drift state
+        run: |
+          python src/v10_production_monitor.py \
+            --refresh-dir outputs_v10_prod_smoke \
+            --monitor-config config_v10_production_monitor.json \
+            --output outputs_v10_monitor_smoke
+
+      - name: Validate smoke outputs
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          t=pd.read_csv("outputs_v10_prod_smoke/production_top10.csv")
+          l=pd.read_csv("outputs_v10_monitor_smoke/prediction_ledger.csv")
+          d=json.load(open("outputs_v10_monitor_smoke/drift_report.json"))
+          assert len(t)==10
+          assert len(l)==10
+          assert t["production_rank"].tolist()==list(range(1,11))
+          assert (t["production_share_p100"]==1.0).all()
+          assert (t["production_share_p50"]==0.0).all()
+          assert (t["production_share_p25"]==0.0).all()
+          assert d["automatic_retuning"] is False
+          print(json.dumps({"top10":len(t),"ledger":len(l),"drift_status":d["status"]},indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-production-monitoring-smoke
+          path: |
+            outputs_v10_prod_smoke/
+            outputs_v10_monitor_smoke/
+          retention-days: 90
+
+      - name: Publish validation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf published_v10_production_monitor_validation
+          mkdir -p published_v10_production_monitor_validation
+          cp outputs_v10_prod_smoke/production_manifest.json published_v10_production_monitor_validation/
+          cp outputs_v10_prod_smoke/production_top10_compact.csv published_v10_production_monitor_validation/
+          cp outputs_v10_monitor_smoke/drift_report.json published_v10_production_monitor_validation/
+          cp outputs_v10_monitor_smoke/latest_status.json published_v10_production_monitor_validation/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_production_monitor_validation
+          git diff --cached --quiet || git commit -m "Publish V10 production monitor smoke evidence [skip ci]"
+          git pull --rebase origin v10-production-monitoring
+          git push origin HEAD:v10-production-monitoring
