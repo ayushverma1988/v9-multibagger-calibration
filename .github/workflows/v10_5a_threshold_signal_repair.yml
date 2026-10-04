@@ -1,0 +1,78 @@
+name: V10.5A Threshold Signal Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.5-threshold-signal-repair ]
+    paths:
+      - 'published_v10_5a_rule_freeze/summary.json'
+
+concurrency:
+  group: v10-5a-threshold-repair-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.5-threshold-signal-repair
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Download accepted V10.2 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: baseline_artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Compile V10.5A
+        run: python -m py_compile src/v10_5a_threshold_signal_repair.py
+
+      - name: Run frozen V10.5A repair
+        run: |
+          python src/v10_5a_threshold_signal_repair.py \
+            --baseline-dir baseline_artifact \
+            --config config_v9_4_1.json \
+            --output outputs_v10_5a_threshold_repair
+
+      - name: Stage evidence
+        run: |
+          mkdir -p published_v10_5a_threshold_repair
+          cp outputs_v10_5a_threshold_repair/summary.json published_v10_5a_threshold_repair/summary.json
+          cp outputs_v10_5a_threshold_repair/current_top10_v105a.csv published_v10_5a_threshold_repair/current_top10_v105a.csv 2>/dev/null || true
+          cp outputs_v10_5a_threshold_repair/selection_metrics_by_fold_v105a.csv published_v10_5a_threshold_repair/selection_metrics_by_fold_v105a.csv
+          cp published_v10_5a_rule_freeze/summary.json published_v10_5a_threshold_repair/rule_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-5a-threshold-signal-repair
+          path: |
+            outputs_v10_5a_threshold_repair/
+            published_v10_5a_threshold_repair/
+          retention-days: 90
+
+      - name: Publish V10.5A evidence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_5a_threshold_repair
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V10.5A threshold repair evidence [skip ci]"
+          git pull --rebase origin v10.5-threshold-signal-repair
+          git push origin HEAD:v10.5-threshold-signal-repair
