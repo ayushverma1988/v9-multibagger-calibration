@@ -37,7 +37,7 @@ jobs:
 
       - name: Compile production monitoring code
         run: |
-          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py
+          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py             src/v10_hf_archive.py
 
       - name: Download canonical event base
         uses: actions/download-artifact@v4
@@ -141,3 +141,16 @@ jobs:
           git commit -m "Refresh V10 production monitor [skip ci]"
           git pull --rebase origin v10-fresh-current
           git push origin HEAD:v10-fresh-current
+
+
+      - name: Archive production run to private Hugging Face dataset
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v10_hf_archive.py \
+            --production-dir published_v10_production_monitor \
+            --events-current events_current/events_all_current.parquet \
+            --events-recent events_current/event_refresh_recent.parquet \
+            --event-summary events_current/event_refresh_summary.json \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --stage-dir hf_archive_stage
