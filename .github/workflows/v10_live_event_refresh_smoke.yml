@@ -1,0 +1,44 @@
+name: V10 Live Event Refresh Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10-production-monitoring ]
+    paths:
+      - '.github/workflows/v10_live_event_refresh_smoke.yml'
+
+permissions:
+  actions: read
+
+jobs:
+  event-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-production-monitoring
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download canonical event base
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - name: Refresh last 7 days from NSE
+        run: |
+          python src/v10_refresh_events.py \
+            --base-events events_base/events_all_2016_2026.parquet \
+            --output events_current/events_all_current.parquet \
+            --lookback-days 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-live-event-refresh-smoke
+          path: events_current/
+          retention-days: 7
