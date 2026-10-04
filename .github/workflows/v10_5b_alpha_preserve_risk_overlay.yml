@@ -6,6 +6,7 @@ on:
     branches: [ v10.5-alpha-preserve-risk-overlay ]
     paths:
       - 'published_v10_5b_rule_freeze/summary.json'
+      - 'published_v10_5b_coverage_repair_freeze/summary.json'
 
 concurrency:
   group: v10-5b-risk-overlay-${{ github.ref }}
