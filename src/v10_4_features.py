@@ -103,7 +103,7 @@ def _find_col(df,names):
 def prepare_insider(path:str|Path)->pd.DataFrame:
     x=pd.read_parquet(path).copy()
     x["avail_date"]=pd.NaT
-    for nm in ["broadcastDate","broadcastDt","intimDt","intimationDate","anex","tdpTransactionDate"]:
+    for nm in ["broadcastDate","broadcastDt","intimDt","intimationDate","anex"]:
         dc=_find_col(x,[nm])
         if dc is not None:
             z=pd.to_datetime(x[dc],dayfirst=True,errors="coerce").dt.normalize()
