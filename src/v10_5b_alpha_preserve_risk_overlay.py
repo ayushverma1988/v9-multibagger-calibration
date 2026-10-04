@@ -201,10 +201,10 @@ def main():
     # Current snapshot.
     bcur=pd.read_csv(find_one(args.baseline_dir,"current_selection.csv"))
     rcur=pd.read_csv(find_one(args.v104_dir,"current_selection.csv"))
-    rr=rcur[["date","symbol","p_dd30_cal","p_dd30_raw"]].copy()
-    rr["p_dd30_v104"]=pd.to_numeric(rr["p_dd30_cal"],errors="coerce").fillna(
-        pd.to_numeric(rr["p_dd30_raw"],errors="coerce")
-    )
+    rr=rcur[["date","symbol","p_dd30_cal"] + (["p_dd30_raw"] if "p_dd30_raw" in rcur.columns else [])].copy()
+    rr["p_dd30_v104"]=pd.to_numeric(rr["p_dd30_cal"],errors="coerce")
+    if "p_dd30_raw" in rr.columns:
+        rr["p_dd30_v104"]=rr["p_dd30_v104"].fillna(pd.to_numeric(rr["p_dd30_raw"],errors="coerce"))
     cur=bcur.merge(rr[["date","symbol","p_dd30_v104"]],on=["date","symbol"],how="left")
     prod=json.load(open("published_v10_2_production/model_summary.json"))
     spec=dict(prod["production_risk_config"])
