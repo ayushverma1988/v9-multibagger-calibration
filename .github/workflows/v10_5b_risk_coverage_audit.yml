@@ -1,0 +1,61 @@
+name: V10.5B Risk Coverage Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v10.5-alpha-preserve-risk-overlay ]
+    paths:
+      - '.github/workflows/v10_5b_risk_coverage_audit.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.5-alpha-preserve-risk-overlay
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Download accepted V10.2 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: baseline_artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Download V10.4 challenger evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-fundamental-event-challenger
+          path: v104_artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37167474079
+      - run: python -m py_compile src/v10_5b_risk_coverage_audit.py
+      - name: Audit V10.4 DD30 coverage
+        run: |
+          python src/v10_5b_risk_coverage_audit.py \
+            --baseline-dir baseline_artifact \
+            --v104-dir v104_artifact \
+            --output outputs_v10_5b_risk_coverage_audit
+      - name: Publish audit
+        run: |
+          mkdir -p published_v10_5b_risk_coverage_audit
+          cp outputs_v10_5b_risk_coverage_audit/summary.json published_v10_5b_risk_coverage_audit/summary.json
+          cp outputs_v10_5b_risk_coverage_audit/coverage_by_date.csv published_v10_5b_risk_coverage_audit/coverage_by_date.csv
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v10_5b_risk_coverage_audit
+          git commit -m "Publish V10.5B risk coverage audit [skip ci]"
+          git pull --rebase origin v10.5-alpha-preserve-risk-overlay
+          git push origin HEAD:v10.5-alpha-preserve-risk-overlay
