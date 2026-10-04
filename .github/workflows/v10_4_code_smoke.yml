@@ -23,11 +23,37 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Compile
         run: python -m py_compile src/v10_4_features.py src/calibrate_v10_4_challenger.py src/calibrate_v9_4_1_integrity.py
-      - name: Feature list invariant
+      - name: Feature and point-in-time invariants
         run: |
           PYTHONPATH=src python - <<'PY'
+          import numpy as np, pandas as pd
           import v10_4_features as f
           assert len(f.FEATURES_V10_4)==11
           assert len(set(f.FEATURES_V10_4))==11
-          print(f.FEATURES_V10_4)
+
+          rows=pd.DataFrame([{'date':pd.Timestamp('2024-06-30'),'symbol':'TEST','isin':'INE000X01010'}])
+          ev=pd.DataFrame([
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-06-20'),'_opp':1.0,'_risk':0.0,'_prom':0.0,'_material':1.0,'_signed':1.0},
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-07-01'),'_opp':0.0,'_risk':9.0,'_prom':0.0,'_material':1.0,'_signed':-1.0},
+          ])
+          shp=pd.DataFrame([
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-04-15'),'promoter_pct':50.0,'report_date':pd.Timestamp('2024-03-31')},
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-07-15'),'promoter_pct':70.0,'report_date':pd.Timestamp('2024-06-30')},
+          ])
+          ins=pd.DataFrame([
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-06-10'),'_signed_value':2.0,'_activity':1.0},
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-07-02'),'_signed_value':-10.0,'_activity':1.0},
+          ])
+          fin=pd.DataFrame([
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-05-15'),'delay_days':45.0,'_revision':0.0,'period_end':pd.Timestamp('2024-03-31')},
+            {'key':'I:INE000X01010','avail_date':pd.Timestamp('2024-07-20'),'delay_days':20.0,'_revision':1.0,'period_end':pd.Timestamp('2024-06-30')},
+          ])
+          z=f.attach_features(rows,ev,shp,ins,fin).iloc[0]
+          assert z['evt_opportunity_180']>0
+          assert z['evt_risk_180']==0
+          assert z['promoter_pct']==50.0
+          assert z['insider_net_180']==2.0
+          assert z['result_delay_days']==45.0
+          assert z['result_revision_180']==0.0
+          print('point-in-time invariants passed')
           PY
