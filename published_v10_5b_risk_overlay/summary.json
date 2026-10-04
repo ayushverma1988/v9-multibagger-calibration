@@ -9,10 +9,11 @@
     "mean_dd30_rate": 0.3666666666666667,
     "median_dd30_rate": 0.3
   },
-  "risk_source": "V10.4 point-in-time augmented DD30 probability only; V10.4 alpha predictions ignored",
+  "risk_source": "V10.4 point-in-time augmented DD30 probability only; calibrated when available, same-model raw fallback only for calibration-availability gaps; V10.4 alpha predictions ignored",
+  "coverage_repair": "p_dd30_cal else p_dd30_raw, frozen from missingness audit before this rerun",
   "frozen_overlay_rule": "reconstruct V10.2 top20; flag two highest V10.4 DD30-risk names; if flagged names are in top10, veto them and refill by next V10.2 rank",
   "model_tuning": false,
-  "risk_join_coverage": 0.8458486823462738,
+  "risk_join_coverage": 1.0,
   "control_reproduction_mean_top10_overlap": 1.0,
   "candidate": {
     "folds": 18,
@@ -58,7 +59,7 @@
     }
   },
   "gates": {
-    "risk_join_coverage_ge_0_99": false,
+    "risk_join_coverage_ge_0_99": true,
     "evaluable_folds_ge_18": true,
     "control_reproduction_mean_ge_0_99": true,
     "mean_precision_retention_ge_0_95": true,
