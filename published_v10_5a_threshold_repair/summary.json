@@ -1,0 +1,207 @@
+{
+  "stage": "V10.5A P25/P50 temporal signal repair",
+  "method": "fixed low-dimensional temporal logistic stack: logit(P100), logit(direct threshold raw), direct-model dispersion",
+  "coefficient_policy": "fit only on earlier OOS folds; C=0.20 fixed before results; no hyperparameter search",
+  "p100_changed": false,
+  "signals": {
+    "p25": {
+      "candidate": {
+        "n": 18474,
+        "folds": 18,
+        "positives": 6881,
+        "base_rate": 0.3724694164772112,
+        "pr_auc": 0.39810054835053765,
+        "pr_auc_lift": 1.068814057582885,
+        "brier": 0.23701236386197932,
+        "brier_climatology": 0.233735950266337,
+        "logloss": 0.6677867159188173,
+        "calibration_slope": 0.1447842760612245,
+        "calibration_intercept": -0.4566352111782879
+      },
+      "old_same_rows": {
+        "n": 18474,
+        "folds": 18,
+        "positives": 6881,
+        "base_rate": 0.3724694164772112,
+        "pr_auc": 0.4074889793940173,
+        "pr_auc_lift": 1.094019968801784,
+        "brier": 0.23866465341449158,
+        "brier_climatology": 0.233735950266337,
+        "logloss": 0.6707910091933833,
+        "calibration_slope": 0.23041586193396882,
+        "calibration_intercept": -0.43308331368002534
+      },
+      "recent_2023plus": {
+        "n": 7671,
+        "folds": 6,
+        "positives": 2740,
+        "base_rate": 0.3571894146786599,
+        "pr_auc": 0.4299393823091838,
+        "pr_auc_lift": 1.2036733582823902,
+        "brier": 0.22938265783283163,
+        "brier_climatology": 0.22960513672017627,
+        "logloss": 0.6512592718144795,
+        "calibration_slope": 0.8996933440420938,
+        "calibration_intercept": -0.24284128624101117
+      },
+      "gates": {
+        "rows_ge_3000": true,
+        "folds_ge_8": true,
+        "positives_ge_100": true,
+        "pr_auc_lift_ge_1_05": true,
+        "calibration_slope_ge_0_25": false,
+        "calibration_slope_le_2_50": true,
+        "positive_brier_skill": false,
+        "pr_auc_not_worse_than_old": false,
+        "recent_pr_auc_lift_ge_1_00": true,
+        "recent_calibration_slope_positive": true
+      },
+      "passed": false
+    },
+    "p50": {
+      "candidate": {
+        "n": 18474,
+        "folds": 18,
+        "positives": 3096,
+        "base_rate": 0.16758687885677168,
+        "pr_auc": 0.21514450772363228,
+        "pr_auc_lift": 1.2837789520950849,
+        "brier": 0.13886290002326493,
+        "brier_climatology": 0.13950151689181742,
+        "logloss": 0.45013760869631086,
+        "calibration_slope": 0.6409172656025492,
+        "calibration_intercept": -0.6437120710407667
+      },
+      "old_same_rows": {
+        "n": 18474,
+        "folds": 18,
+        "positives": 3096,
+        "base_rate": 0.16758687885677168,
+        "pr_auc": 0.2129046834941034,
+        "pr_auc_lift": 1.2704137993766365,
+        "brier": 0.1379352037961765,
+        "brier_climatology": 0.13950151689181742,
+        "logloss": 0.446576680604663,
+        "calibration_slope": 1.0727432400147225,
+        "calibration_intercept": 0.10885845080476714
+      },
+      "recent_2023plus": {
+        "n": 7671,
+        "folds": 6,
+        "positives": 1189,
+        "base_rate": 0.15499934819449876,
+        "pr_auc": 0.22696918879897823,
+        "pr_auc_lift": 1.464323504858673,
+        "brier": 0.12941527396413338,
+        "brier_climatology": 0.1309745502537793,
+        "logloss": 0.4257300170479365,
+        "calibration_slope": 0.9337005872341171,
+        "calibration_intercept": -0.30551371327545707
+      },
+      "gates": {
+        "rows_ge_3000": true,
+        "folds_ge_8": true,
+        "positives_ge_100": true,
+        "pr_auc_lift_ge_1_05": true,
+        "calibration_slope_ge_0_25": true,
+        "calibration_slope_le_2_50": true,
+        "positive_brier_skill": true,
+        "pr_auc_not_worse_than_old": true,
+        "recent_pr_auc_lift_ge_1_00": true,
+        "recent_calibration_slope_positive": true
+      },
+      "passed": true
+    }
+  },
+  "signals_passed": [
+    "p50"
+  ],
+  "candidate_forward_history": {
+    "folds": 18,
+    "mean_precision_100": 0.12222222222222223,
+    "median_precision_100": 0.1,
+    "hit_fold_rate_100": 0.6111111111111112,
+    "hit_folds_100": 11,
+    "mean_precision_50": 0.27222222222222225,
+    "median_precision_50": 0.25,
+    "mean_precision_25": 0.49444444444444435,
+    "median_precision_25": 0.55,
+    "mean_dd30_rate": 0.3666666666666667,
+    "median_dd30_rate": 0.3,
+    "mean_capped_lift_100": 3.1424326844557027,
+    "median_lift_100": 2.3454545454545452,
+    "mean_capped_lift_50": 1.7140683282378455,
+    "median_lift_50": 1.3742117117117116,
+    "mean_capped_lift_25": 1.377402927607448,
+    "median_lift_25": 1.223418261286712
+  },
+  "control_forward_history": {
+    "folds": 18,
+    "mean_precision_100": 0.11666666666666667,
+    "median_precision_100": 0.1,
+    "hit_fold_rate_100": 0.6111111111111112,
+    "hit_folds_100": 11,
+    "mean_precision_50": 0.2666666666666667,
+    "median_precision_50": 0.25,
+    "mean_precision_25": 0.4888888888888888,
+    "median_precision_25": 0.55,
+    "mean_dd30_rate": 0.3666666666666667,
+    "median_dd30_rate": 0.3,
+    "mean_capped_lift_100": 3.0425111158282516,
+    "median_lift_100": 2.3454545454545452,
+    "mean_capped_lift_50": 1.6910136774958984,
+    "median_lift_50": 1.3742117117117116,
+    "mean_capped_lift_25": 1.346859192382862,
+    "median_lift_25": 1.223418261286712
+  },
+  "alpha_retention_ratios": {
+    "mean_precision_100": 1.0476190476190477,
+    "mean_capped_lift_100": 1.0328418088951665,
+    "hit_fold_rate_100": 1.0,
+    "median_precision_100": 1.0
+  },
+  "dd_delta": 0.0,
+  "production_ladder_shares_if_used": {
+    "p100": 1.0,
+    "p50": 0.0,
+    "p25": 0.0
+  },
+  "production_signal_gates_after_repair": {
+    "p25": {
+      "signal": "p25",
+      "target": "hit25_6m",
+      "probability_column": "hit25_6m_cal_raw",
+      "n": 23880,
+      "positives": 9153,
+      "folds": 26,
+      "base_rate": 0.38329145728643216,
+      "pr_auc": 0.38983558003887153,
+      "pr_auc_lift": 1.0170734897113791,
+      "calibration_slope": -0.11493045755945958,
+      "calibration_intercept": -0.5227313347691276,
+      "passed": false,
+      "reasons": [
+        "pr_auc_lift<1.05",
+        "calibration_slope<0.25"
+      ]
+    },
+    "p50": {
+      "signal": "p50",
+      "target": "hit50_6m",
+      "probability_column": "hit50_6m_cal_raw",
+      "n": 18474,
+      "positives": 3096,
+      "folds": 18,
+      "base_rate": 0.16758687885677168,
+      "pr_auc": 0.21514450772363228,
+      "pr_auc_lift": 1.2837789520950849,
+      "calibration_slope": 0.6409172656025492,
+      "calibration_intercept": -0.6437120710407667,
+      "passed": true,
+      "reasons": []
+    }
+  },
+  "selector_alpha_gate": true,
+  "promotion_allowed": false,
+  "rule": "A repaired signal can pass independently. Production weight remains zero unless the unchanged ladder optimizer and alpha-retention gates also pass."
+}
