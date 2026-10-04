@@ -1,0 +1,21 @@
+{
+  "stage": "V10.5B risk-coverage repair freeze",
+  "frozen_before_rerun": true,
+  "reason_for_change": "Missingness audit showed 4,352 missing calibrated DD30 rows, zero join failures, and raw V10.4 DD30 available for all 4,352 rows.",
+  "audit_run_id": 37173546988,
+  "audit_findings": {
+    "rows": 28232,
+    "prior_calibrated_coverage": 0.8458486823462738,
+    "missing_rows": 4352,
+    "missing_with_raw_available": 4352,
+    "missing_due_join": 0
+  },
+  "coverage_only_rule": "Use V10.4 p_dd30_cal when available; otherwise use V10.4 p_dd30_raw from the same point-in-time risk model.",
+  "overlay_rule_unchanged": "Reconstruct V10.2 top20; flag exactly two highest V10.4 DD30-risk names; if flagged names are in original top10, veto them and refill by next V10.2 rank.",
+  "veto_count": 2,
+  "selector_thresholds_changed": false,
+  "alpha_model_changed": false,
+  "outcome_dependent_tuning": false,
+  "acceptance_gates_changed": false,
+  "rerun_policy": "One rerun only after this coverage repair; no further threshold/veto tuning if it fails."
+}
