@@ -2,6 +2,11 @@ name: V10 Production Refresh and Monitor
 
 on:
   workflow_dispatch:
+    inputs:
+      target_date:
+        description: 'Optional NSE trading date YYYY-MM-DD; blank = automatic IST date'
+        required: false
+        type: string
   schedule:
     - cron: '45 15 * * 1-5'
   push:
@@ -35,54 +40,75 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Ingest and validate official NSE market data
+      - name: Compile production code
+        run: |
+          python -m py_compile \
+            src/calibrate_v9_4_1_integrity.py \
+            src/v10_2_market_integrity.py \
+            src/v10_2_selected_window_integrity.py \
+            src/v10_production_finalize.py \
+            src/v10_production_monitor.py \
+            src/v10_refresh_events.py \
+            src/v10_hf_archive.py \
+            src/v10_nse_market_ingest.py \
+            src/v10_fetch_legacy_archive.py
+
+      - name: Resolve production target date
         shell: bash
+        env:
+          REQUESTED_TARGET_DATE: ${{ inputs.target_date }}
         run: |
           set -euo pipefail
-          TARGET_DATE=$(TZ=Asia/Kolkata date +%F)
-          echo "Production target date (IST): $TARGET_DATE"
-          python src/v10_nse_market_ingest.py \
-            --date "$TARGET_DATE" \
-            --output-dir nse_direct \
-            --poll-attempts 6 \
-            --poll-seconds 600 \
-            --allow-hf-fallback
-
-          OVERLAY=$(python - <<'PY'
-          import json
-          s=json.load(open("nse_direct/market_ingest_summary.json"))
-          print(s["overlay_parquet"])
+          TARGET_DATE=$(python - <<'PY'
+          import os
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+          req=os.environ.get("REQUESTED_TARGET_DATE","").strip()
+          if req:
+              print(req)
+          else:
+              now=datetime.now(ZoneInfo("Asia/Kolkata"))
+              d=now.date()
+              if now.hour < 18:
+                  d-=timedelta(days=1)
+                  while d.weekday()>=5:
+                      d-=timedelta(days=1)
+              print(d.isoformat())
           PY
           )
-          echo "V10_CURRENT_YEAR_MARKET_PARQUET=$OVERLAY" >> "$GITHUB_ENV"
           echo "V10_MARKET_TARGET_DATE=$TARGET_DATE" >> "$GITHUB_ENV"
-
-      - name: Compile production monitoring code
-        run: |
-          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py             src/v10_hf_archive.py             src/v10_nse_market_ingest.py             src/v10_nse_market_ingest.py
+          echo "Production target date: $TARGET_DATE"
 
       - name: Resolve validated market input
         shell: bash
         run: |
           set -euo pipefail
-          TARGET_DATE=$(TZ=Asia/Kolkata date +%F)
-          echo "Target NSE trading date: ${TARGET_DATE}"
           python src/v10_nse_market_ingest.py \
-            --date "${TARGET_DATE}" \
+            --date "$V10_MARKET_TARGET_DATE" \
             --output-dir nse_direct \
-            --poll-attempts 8 \
+            --poll-attempts 6 \
             --poll-seconds 600 \
             --allow-hf-fallback
           python - <<'PY'
           import json, os
           s=json.load(open("nse_direct/market_ingest_summary.json"))
           print(json.dumps(s,indent=2))
-          p=s["overlay_parquet"]
+          if s.get("combined_max_date") != s.get("target_date"):
+              raise SystemExit("Validated market overlay did not reach target date")
           with open(os.environ["GITHUB_ENV"],"a") as f:
-              f.write(f"V10_CURRENT_YEAR_MARKET_PARQUET={p}\n")
+              f.write(f"V10_CURRENT_YEAR_MARKET_PARQUET={s['overlay_parquet']}\n")
               f.write(f"V10_MARKET_SOURCE_STATUS={s['status']}\n")
-              f.write(f"V10_MARKET_TARGET_DATE={s['target_date']}\n")
           PY
+
+      - name: Restore verified 2003-2009 legacy NSE history
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python src/v10_fetch_legacy_archive.py \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --output-dir legacy \
+            --bootstrap-github-artifacts
 
       - name: Download canonical event base
         uses: actions/download-artifact@v4
@@ -95,25 +121,27 @@ jobs:
 
       - name: Refresh recent NSE announcements
         run: |
-          python src/v10_refresh_events.py             --base-events events_base/events_all_2016_2026.parquet             --output events_current/events_all_current.parquet             --lookback-days 120
-
-      - name: Download verified legacy NSE history
-        uses: actions/download-artifact@v4
-        with:
-          pattern: nse-legacy-*
-          path: legacy
-          merge-multiple: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ayushverma1988/v9-multibagger-calibration
-          run-id: 36398827406
+          python src/v10_refresh_events.py \
+            --base-events events_base/events_all_2016_2026.parquet \
+            --output events_current/events_all_current.parquet \
+            --lookback-days 120
 
       - name: Refresh fixed V10.2 model path
         run: |
-          python src/calibrate_v9_4_1_integrity.py             --config config_v9_4_1.json             --events events_current/events_all_current.parquet             --legacy-dir legacy             --output outputs_v10_prod_refresh
+          python src/calibrate_v9_4_1_integrity.py \
+            --config config_v9_4_1.json \
+            --events events_current/events_all_current.parquet \
+            --legacy-dir legacy \
+            --output outputs_v10_prod_refresh
 
       - name: Re-audit selected windows
         run: |
-          python src/v10_2_selected_window_integrity.py             --oos outputs_v10_prod_refresh/oos_predictions.parquet             --events events_current/events_all_current.parquet             --legacy-dir legacy             --resolve-split-bonus-symbol-history             --output outputs_v10_prod_refresh/selected_window_audit
+          python src/v10_2_selected_window_integrity.py \
+            --oos outputs_v10_prod_refresh/oos_predictions.parquet \
+            --events events_current/events_all_current.parquet \
+            --legacy-dir legacy \
+            --resolve-split-bonus-symbol-history \
+            --output outputs_v10_prod_refresh/selected_window_audit
 
       - name: Enforce production integrity gate
         run: |
@@ -127,7 +155,28 @@ jobs:
 
       - name: Apply frozen production selector
         run: |
-          python src/v10_production_finalize.py             --model-output outputs_v10_prod_refresh             --monitor-config config_v10_production_monitor.json             --output outputs_v10_prod_final
+          python src/v10_production_finalize.py \
+            --model-output outputs_v10_prod_refresh \
+            --monitor-config config_v10_production_monitor.json \
+            --output outputs_v10_prod_final
+
+      - name: Enforce frozen-history invariants
+        run: |
+          python - <<'PY'
+          import json, os, pandas as pd
+          m=json.load(open("outputs_v10_prod_final/production_manifest.json"))
+          start=pd.Timestamp(m["data_start"])
+          end=pd.Timestamp(m["data_end"])
+          folds=int(m["historical_monitor_metrics"]["folds"])
+          target=pd.Timestamp(os.environ["V10_MARKET_TARGET_DATE"])
+          print({"data_start":str(start.date()),"data_end":str(end.date()),"folds":folds,"target":str(target.date())})
+          if start > pd.Timestamp("2003-01-31"):
+              raise SystemExit("Historical coverage regression: V10.2 lost 2003-2009 history")
+          if folds < 18:
+              raise SystemExit(f"Historical fold regression: {folds} < 18")
+          if end.normalize() != target.normalize():
+              raise SystemExit("Production data_end does not equal validated target date")
+          PY
 
       - name: Update live prediction ledger and drift monitor
         shell: bash
@@ -137,7 +186,13 @@ jobs:
           if [ -f published_v10_production_monitor/prediction_ledger.csv ]; then
             EXTRA+=(--existing-ledger published_v10_production_monitor/prediction_ledger.csv)
           fi
-          python src/v10_production_monitor.py             --refresh-dir outputs_v10_prod_final             --monitor-config config_v10_production_monitor.json             --events events_current/events_all_current.parquet             --legacy-dir legacy             --output outputs_v10_prod_monitor             "${EXTRA[@]}"
+          python src/v10_production_monitor.py \
+            --refresh-dir outputs_v10_prod_final \
+            --monitor-config config_v10_production_monitor.json \
+            --events events_current/events_all_current.parquet \
+            --legacy-dir legacy \
+            --output outputs_v10_prod_monitor \
+            "${EXTRA[@]}"
 
       - name: Stage production monitor evidence
         shell: bash
@@ -154,6 +209,8 @@ jobs:
           cp outputs_v10_prod_monitor/prospective_performance_by_batch.csv published_v10_production_monitor/prospective_performance_by_batch.csv
           cp events_current/event_refresh_summary.json published_v10_production_monitor/event_refresh_summary.json
           cp outputs_v10_prod_refresh/selected_window_audit/summary.json published_v10_production_monitor/integrity_summary.json
+          cp nse_direct/market_ingest_summary.json published_v10_production_monitor/market_ingest_summary.json
+          cp legacy/legacy_fetch_summary.json published_v10_production_monitor/legacy_fetch_summary.json
 
           PDATE=$(python - <<'PY'
           import pandas as pd
@@ -170,6 +227,8 @@ jobs:
             outputs_v10_prod_final/
             outputs_v10_prod_monitor/
             published_v10_production_monitor/
+            nse_direct/market_ingest_summary.json
+            legacy/legacy_fetch_summary.json
           retention-days: 90
 
       - name: Publish production monitor state
@@ -181,12 +240,11 @@ jobs:
           git add published_v10_production_monitor
           if git diff --cached --quiet; then
             echo "No new market-date batch to publish."
-            exit 0
+          else
+            git commit -m "Refresh V10 production monitor [skip ci]"
+            git pull --rebase origin v10-fresh-current
+            git push origin HEAD:v10-fresh-current
           fi
-          git commit -m "Refresh V10 production monitor [skip ci]"
-          git pull --rebase origin v10-fresh-current
-          git push origin HEAD:v10-fresh-current
-
 
       - name: Archive production run to private Hugging Face dataset
         env:
@@ -199,5 +257,4 @@ jobs:
             --event-summary events_current/event_refresh_summary.json \
             --repo-id ayushverma1988/v10-multibagger-archive \
             --stage-dir hf_archive_stage \
-            --market-ingest-dir nse_direct \
             --market-ingest-dir nse_direct
