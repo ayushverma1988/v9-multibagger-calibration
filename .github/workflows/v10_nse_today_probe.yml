@@ -1,0 +1,36 @@
+name: V10.2 Official NSE Today Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v10_nse_today_probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-nse-direct-ingestion
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Probe official NSE 5 Oct 2026
+        run: |
+          python src/v10_nse_market_ingest.py \
+            --date 2026-10-05 \
+            --output-dir nse_today_probe \
+            --poll-attempts 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-nse-today-probe
+          path: nse_today_probe/
+          retention-days: 7
