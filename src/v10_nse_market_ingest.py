@@ -195,6 +195,9 @@ def main():
 
             summary = {
                 "status": "official_nse_validated",
+                "official_primary_used": True,
+                "market_source": "NSE_official_UDiFF",
+                "validation_source": "NSE_full_bhavcopy",
                 "target_date": str(target.date()),
                 "primary_url": primary_url,
                 "secondary_url": secondary_url,
@@ -237,6 +240,8 @@ def main():
                 "overlay_parquet":str(overlay),
                 "validation_pass":True,
                 "official_primary_used":False,
+                "market_source":"tejhq/indian-markets",
+                "validation_source":None,
             }
             (outdir/"market_ingest_summary.json").write_text(json.dumps(summary,indent=2))
             print(json.dumps(summary,indent=2))
