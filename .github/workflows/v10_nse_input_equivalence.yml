@@ -1,0 +1,64 @@
+name: V10.2 NSE Input Equivalence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v10_nse_input_equivalence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  input-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-nse-direct-ingestion
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Build official NSE overlay for 1 Oct
+        run: |
+          python src/v10_nse_market_ingest.py --date 2026-10-01 --output-dir eq --poll-attempts 1
+      - name: Gate close volume turnover equivalence
+        run: |
+          python - <<'PY'
+          import json, pandas as pd, numpy as np
+          from huggingface_hub import hf_hub_download
+          p=hf_hub_download("tejhq/indian-markets","nse/year=2026/nse_2026.parquet",repo_type="dataset")
+          a=pd.read_parquet(p,columns=["date","symbol","series","isin","close","volume","turnover"])
+          b=pd.read_parquet("eq/nse_2026_official_overlay.parquet")
+          for x in (a,b):
+              x["date"]=pd.to_datetime(x["date"]).dt.normalize()
+          d=pd.Timestamp("2026-10-01")
+          a=a[(a.date==d)&a.series.isin(["EQ","BE","BZ"])].copy()
+          b=b[(b.date==d)&b.series.isin(["EQ","BE","BZ"])].copy()
+          m=a.merge(b,on=["date","symbol","series"],suffixes=("_hf","_nse"))
+          out={"hf_rows":len(a),"nse_rows":len(b),"overlap":len(m)}
+          for c in ["close","volume","turnover"]:
+              x=pd.to_numeric(m[c+"_hf"],errors="coerce")
+              y=pd.to_numeric(m[c+"_nse"],errors="coerce")
+              absd=(x-y).abs()
+              reld=absd/(x.abs().clip(lower=1.0))
+              out[c]={
+                  "median_abs":float(absd.median()),
+                  "p99_abs":float(absd.quantile(.99)),
+                  "max_abs":float(absd.max()),
+                  "median_rel":float(reld.median()),
+                  "p99_rel":float(reld.quantile(.99)),
+              }
+          isin=(m.isin_hf.fillna("").astype(str).str.strip().str.upper()==m.isin_nse.fillna("").astype(str).str.strip().str.upper())
+          out["isin_match_rate"]=float(isin.mean())
+          print(json.dumps(out,indent=2))
+          if len(m)<500: raise SystemExit("overlap gate failed")
+          if out["close"]["p99_abs"]>0.10: raise SystemExit("close gate failed")
+          if out["volume"]["p99_rel"]>1e-9: raise SystemExit("volume gate failed")
+          if out["turnover"]["p99_rel"]>1e-6: raise SystemExit("turnover gate failed")
+          if out["isin_match_rate"]<0.99: raise SystemExit("ISIN gate failed")
+          PY
