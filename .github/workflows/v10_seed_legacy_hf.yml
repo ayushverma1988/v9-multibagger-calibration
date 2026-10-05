@@ -1,0 +1,130 @@
+name: Seed V10 Legacy NSE Archive
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v10_seed_legacy_hf.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2003, 2004, 2005, 2006, 2007, 2008, 2009]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install pandas pyarrow requests
+
+      - name: Rebuild official NSE legacy year
+        run: |
+          python src/fetch_legacy_nse.py \
+            --year ${{ matrix.year }} \
+            --out legacy/nse_${{ matrix.year }}.parquet \
+            --workers 8
+
+      - name: Validate legacy year
+        run: |
+          python - <<'PY'
+          import os, pandas as pd
+          y=int(os.environ["YEAR"])
+          p=f"legacy/nse_{y}.parquet"
+          x=pd.read_parquet(p)
+          x["date"]=pd.to_datetime(x["date"])
+          assert len(x) > 10000, (y,len(x))
+          assert x["date"].dt.year.eq(y).all()
+          assert x["date"].nunique() > 150
+          print(y, len(x), x["symbol"].nunique(), x["date"].min(), x["date"].max())
+          PY
+        env:
+          YEAR: ${{ matrix.year }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-legacy-${{ matrix.year }}
+          path: legacy/nse_${{ matrix.year }}.parquet
+          retention-days: 7
+
+  publish-private-hf:
+    needs: build-year
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install pandas pyarrow huggingface_hub
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v10-legacy-*
+          path: legacy_seed
+          merge-multiple: true
+
+      - name: Validate complete 2003-2009 set and create manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          import pandas as pd
+
+          root=Path("legacy_seed")
+          rec=[]
+          for y in range(2003,2010):
+              p=root/f"nse_{y}.parquet"
+              if not p.exists():
+                  raise SystemExit(f"Missing {p}")
+              x=pd.read_parquet(p)
+              x["date"]=pd.to_datetime(x["date"])
+              h=hashlib.sha256(p.read_bytes()).hexdigest()
+              rec.append({
+                  "year":y,
+                  "rows":int(len(x)),
+                  "symbols":int(x["symbol"].nunique()),
+                  "trading_dates":int(x["date"].nunique()),
+                  "date_min":str(x["date"].min().date()),
+                  "date_max":str(x["date"].max().date()),
+                  "sha256":h,
+              })
+          (root/"manifest.json").write_text(json.dumps({
+              "source":"official NSE historical EQUITIES bhavcopy archive",
+              "years":"2003-2009",
+              "files":rec,
+          },indent=2))
+          print(json.dumps(rec,indent=2))
+          PY
+
+      - name: Upload durable legacy history to private Hugging Face dataset
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          info=api.repo_info("ayushverma1988/v10-multibagger-archive",repo_type="dataset")
+          if not info.private:
+              raise SystemExit("Archive dataset is not private")
+          r=api.upload_folder(
+              repo_id="ayushverma1988/v10-multibagger-archive",
+              repo_type="dataset",
+              folder_path="legacy_seed",
+              path_in_repo="market_data/legacy",
+              commit_message="Persist verified NSE 2003-2009 legacy market history",
+          )
+          print(r)
+          PY
