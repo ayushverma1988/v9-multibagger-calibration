@@ -58,6 +58,7 @@ def main():
     ap.add_argument("--event-summary",required=True)
     ap.add_argument("--repo-id",default=DEFAULT_ARCHIVE_REPO)
     ap.add_argument("--stage-dir",default="hf_archive_stage")
+    ap.add_argument("--market-ingest-dir",default=None)
     args=ap.parse_args()
 
     token=os.environ.get("HF_ARCHIVE_TOKEN")
@@ -79,7 +80,25 @@ def main():
     files=[]
 
     # 1) Raw daily market source used by the production date.
-    stage_market_day(data_end,stage,files)
+    # Prefer the exact official NSE files when this production run used them.
+    if args.market_ingest_dir:
+        mid=Path(args.market_ingest_dir)
+        sm=mid/"market_ingest_summary.json"
+        if sm.exists():
+            ingest=json.load(open(sm))
+            td=pd.Timestamp(ingest["target_date"])
+            root=stage/f"market_data/nse_official_raw/{td.year}/{td.month:02d}/{td.date()}"
+            for p in (mid/"raw").glob("*"):
+                if p.is_file():
+                    copy_if_exists(p,root/p.name,files)
+            copy_if_exists(sm,root/"market_ingest_summary.json",files)
+            overlay=Path(ingest.get("overlay_parquet",""))
+            if overlay.exists():
+                copy_if_exists(overlay,stage/f"market_data/current_year_overlays/{td.year}/nse_{td.year}_official_overlay_{td.date()}.parquet",files)
+        else:
+            stage_market_day(data_end,stage,files)
+    else:
+        stage_market_day(data_end,stage,files)
 
     # 2) Exact recent NSE announcement fetch for this run.
     recent_src=Path(args.events_recent)
