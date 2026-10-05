@@ -156,6 +156,7 @@ def main():
     ap.add_argument("--output-dir", default="nse_direct")
     ap.add_argument("--poll-attempts", type=int, default=1)
     ap.add_argument("--poll-seconds", type=int, default=1200)
+    ap.add_argument("--allow-hf-fallback", action="store_true")
     args = ap.parse_args()
 
     target = pd.Timestamp(args.date).normalize()
@@ -214,6 +215,32 @@ def main():
             if attempt < args.poll_attempts:
                 time.sleep(args.poll_seconds)
 
+    if args.allow_hf_fallback:
+        year=int(target.year)
+        src=hf_hub_download(HF_REPO,f"nse/year={year}/nse_{year}.parquet",repo_type="dataset")
+        base=pd.read_parquet(src)
+        base["date"]=pd.to_datetime(base["date"]).dt.normalize()
+        day=base[(base["date"].eq(target)) & base["series"].astype(str).isin(SERIES)].copy()
+        if len(day)>=500:
+            required=["date","symbol","series","isin","close","volume","turnover"]
+            overlay=outdir/f"nse_{year}_official_overlay.parquet"
+            base[required].to_parquet(overlay,index=False)
+            summary={
+                "status":"hf_fallback_target_date_present",
+                "target_date":str(target.date()),
+                "fallback_reason":last,
+                "source_market_dataset":HF_REPO,
+                "target_rows":int(len(day)),
+                "hf_baseline_max_date":str(pd.Timestamp(base["date"].max()).date()),
+                "combined_max_date":str(pd.Timestamp(base["date"].max()).date()),
+                "combined_rows":int(len(base)),
+                "overlay_parquet":str(overlay),
+                "validation_pass":True,
+                "official_primary_used":False,
+            }
+            (outdir/"market_ingest_summary.json").write_text(json.dumps(summary,indent=2))
+            print(json.dumps(summary,indent=2))
+            return
     raise RuntimeError(f"Official NSE market data unavailable/invalid for {target.date()}: {last}")
 
 
