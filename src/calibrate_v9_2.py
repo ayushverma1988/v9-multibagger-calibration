@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, json, math, warnings
+import argparse, json, math, warnings, os
 from pathlib import Path
 from typing import List, Tuple
 
@@ -130,8 +130,13 @@ def load_market(start_year:int,end_year:int,legacy_dir:str|None=None)->pd.DataFr
 
     hf_start=max(2010,int(start_year))
     z=[]
+    market_override=os.environ.get('V10_CURRENT_YEAR_MARKET_PARQUET')
     for y in range(hf_start,end_year+1):
-        pth=hf_hub_download(REPO,f'nse/year={y}/nse_{y}.parquet',repo_type='dataset')
+        if market_override and y==int(end_year):
+            pth=market_override
+            print(f'Using validated official-NSE current-year overlay: {pth}')
+        else:
+            pth=hf_hub_download(REPO,f'nse/year={y}/nse_{y}.parquet',repo_type='dataset')
         x=pd.read_parquet(pth,columns=['date','symbol','series','isin','close','volume','turnover'])
         z.append(x)
     newer=pd.concat(z,ignore_index=True)
