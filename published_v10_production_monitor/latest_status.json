@@ -1,6 +1,6 @@
 {
   "status": "production_refresh_complete",
-  "data_end": "2026-10-05",
+  "data_end": "2026-10-01",
   "selected_rows": 10,
   "drift_status": "insufficient_prospective_history",
   "warnings": [],
