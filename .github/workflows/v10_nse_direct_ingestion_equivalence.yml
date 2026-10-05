@@ -1,0 +1,154 @@
+name: V10.2 Official NSE Ingestion Equivalence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v10_nse_direct_ingestion_equivalence.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10.2-nse-direct-ingestion
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile official NSE ingestion path
+        run: |
+          python -m py_compile src/v10_nse_market_ingest.py src/calibrate_v9_2.py
+
+      - name: Fetch and validate official NSE 2026-10-01 data
+        run: |
+          python src/v10_nse_market_ingest.py \
+            --date 2026-10-01 \
+            --output-dir nse_direct_equiv \
+            --poll-attempts 1
+
+      - name: Compare official row set with existing HF row set
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          from huggingface_hub import hf_hub_download
+          p=hf_hub_download("tejhq/indian-markets","nse/year=2026/nse_2026.parquet",repo_type="dataset")
+          h=pd.read_parquet(p,columns=["date","symbol","series","isin","close","volume","turnover"])
+          h["date"]=pd.to_datetime(h["date"]).dt.normalize()
+          h=h[(h["date"]==pd.Timestamp("2026-10-01")) & h["series"].isin(["EQ","BE","BZ"])]
+          o=pd.read_parquet("nse_direct_equiv/nse_2026_official_overlay.parquet")
+          o["date"]=pd.to_datetime(o["date"]).dt.normalize()
+          o=o[(o["date"]==pd.Timestamp("2026-10-01")) & o["series"].isin(["EQ","BE","BZ"])]
+          m=h.merge(o,on=["date","symbol","series"],suffixes=("_hf","_nse"))
+          d=(m.close_hf-m.close_nse).abs()
+          report={
+            "hf_rows":len(h),"nse_rows":len(o),"overlap":len(m),
+            "close_median_abs_diff":float(d.median()) if len(d) else None,
+            "close_p99_abs_diff":float(d.quantile(.99)) if len(d) else None,
+            "close_max_abs_diff":float(d.max()) if len(d) else None,
+          }
+          print(json.dumps(report,indent=2))
+          if len(m)<500 or float(d.quantile(.99))>0.10:
+              raise SystemExit("Official NSE vs HF equivalence gate failed")
+          PY
+
+      - name: Download canonical event base
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Refresh recent NSE announcements
+        run: |
+          python src/v10_refresh_events.py \
+            --base-events events_base/events_all_2016_2026.parquet \
+            --output events_current/events_all_current.parquet \
+            --lookback-days 120
+
+      - name: Download verified legacy NSE history
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nse-legacy-*
+          path: legacy
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36398827406
+
+      - name: Run frozen V10.2 with official NSE overlay
+        env:
+          V10_CURRENT_YEAR_MARKET_PARQUET: nse_direct_equiv/nse_2026_official_overlay.parquet
+        run: |
+          python src/calibrate_v9_4_1_integrity.py \
+            --config config_v9_4_1.json \
+            --events events_current/events_all_current.parquet \
+            --legacy-dir legacy \
+            --output outputs_equiv
+
+      - name: Re-audit integrity
+        run: |
+          python src/v10_2_selected_window_integrity.py \
+            --oos outputs_equiv/oos_predictions.parquet \
+            --events events_current/events_all_current.parquet \
+            --legacy-dir legacy \
+            --resolve-split-bonus-symbol-history \
+            --output outputs_equiv/selected_window_audit
+          python - <<'PY'
+          import json
+          s=json.load(open("outputs_equiv/selected_window_audit/summary.json"))
+          print(json.dumps(s,indent=2))
+          if not s.get("primary_integrity_pass",False):
+              raise SystemExit("Primary integrity gate failed")
+          PY
+
+      - name: Apply frozen selector
+        run: |
+          python src/v10_production_finalize.py \
+            --model-output outputs_equiv \
+            --monitor-config config_v10_production_monitor.json \
+            --output outputs_equiv_final
+
+      - name: Compare Top10 against current frozen production
+        run: |
+          python - <<'PY'
+          import json, pandas as pd, numpy as np
+          a=pd.read_csv("published_v10_production_monitor/latest_top10_compact.csv")
+          b=pd.read_csv("outputs_equiv_final/production_top10_compact.csv")
+          syma=a["symbol"].astype(str).tolist()
+          symb=b["symbol"].astype(str).tolist()
+          numeric=[c for c in a.columns if c in b.columns and pd.api.types.is_numeric_dtype(a[c]) and pd.api.types.is_numeric_dtype(b[c])]
+          diffs={}
+          for c in numeric:
+              x=pd.to_numeric(a[c],errors="coerce").to_numpy(float)
+              y=pd.to_numeric(b[c],errors="coerce").to_numpy(float)
+              if len(x)==len(y):
+                  diffs[c]=float(np.nanmax(np.abs(x-y))) if len(x) else 0.0
+          report={"same_symbols_same_order":syma==symb,"old_symbols":syma,"new_symbols":symb,"numeric_max_abs_diff":diffs}
+          print(json.dumps(report,indent=2))
+          if syma!=symb:
+              raise SystemExit("Top10 equivalence failed")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v10-2-official-nse-equivalence
+          path: |
+            nse_direct_equiv/
+            outputs_equiv_final/
+            outputs_equiv/selected_window_audit/
+          retention-days: 30
