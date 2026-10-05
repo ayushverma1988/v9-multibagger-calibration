@@ -59,10 +59,25 @@ def append_batch(ledger: pd.DataFrame, top: pd.DataFrame, model_cfg: dict) -> pd
     if ledger.empty:
         out=new
     else:
+        ledger=ledger.copy()
+        ledger["prediction_date"]=pd.to_datetime(ledger["prediction_date"])
+        same=ledger["prediction_date"].dt.normalize().eq(pred_date)
+        if same.any():
+            existing_status=ledger.loc[same,"outcome_status"].fillna("pending")
+            if (~existing_status.eq("pending")).any():
+                raise RuntimeError(
+                    f"Refusing to replace non-pending production batch for {pred_date.date()}"
+                )
+            # A same-date production rerun is a correction/republication. Replace
+            # the entire 10-stock batch so stale symbols cannot survive.
+            ledger=ledger.loc[~same].copy()
         out=pd.concat([ledger,new],ignore_index=True,sort=False)
     out["prediction_date"]=pd.to_datetime(out["prediction_date"])
-    out=out.sort_values(["prediction_date","rank","symbol"])
-    out=out.drop_duplicates(["prediction_date","symbol"],keep="last").reset_index(drop=True)
+    out=out.sort_values(["prediction_date","rank","symbol"]).reset_index(drop=True)
+    counts=out.groupby(out["prediction_date"].dt.normalize()).size()
+    if (counts!=10).any():
+        bad=counts[counts!=10].to_dict()
+        raise RuntimeError(f"Prediction ledger batch-size invariant failed: {bad}")
     return out
 
 
