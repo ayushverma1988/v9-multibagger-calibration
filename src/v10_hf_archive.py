@@ -78,6 +78,7 @@ def main():
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
     files=[]
+    market_ingest_meta=None
 
     # 1) Raw daily market source used by the production date.
     # Prefer the exact official NSE files when this production run used them.
@@ -86,6 +87,7 @@ def main():
         sm=mid/"market_ingest_summary.json"
         if sm.exists():
             ingest=json.load(open(sm))
+            market_ingest_meta=ingest
             td=pd.Timestamp(ingest["target_date"])
             root=stage/f"market_data/nse_official_raw/{td.year}/{td.month:02d}/{td.date()}"
             for p in (mid/"raw").glob("*"):
@@ -148,7 +150,8 @@ def main():
         "archive_run_date_ist":str(run_date),
         "github_run_id":os.environ.get("GITHUB_RUN_ID"),
         "github_sha":os.environ.get("GITHUB_SHA"),
-        "source_market_dataset":SOURCE_DATASET,
+        "source_market_dataset": (market_ingest_meta or {}).get("market_source", SOURCE_DATASET),
+        "market_ingest": market_ingest_meta,
         "canonical_event_baseline_uploaded":canonical_remote not in remote_files,
         "files":files,
     }
