@@ -1,14 +1,14 @@
 {
   "model": "V10.2 selected-window residual integrity audit",
-  "selected_oos_rows": 110,
-  "selected_symbols": 105,
-  "selected_symbol_jumps_50pct": 7,
+  "selected_oos_rows": 180,
+  "selected_symbols": 162,
+  "selected_symbol_jumps_50pct": 26,
   "jump_class_counts": {
-    "raw_market_move_or_unresolved": 4,
-    "adjustment_factor_discontinuity": 2,
-    "corporate_action_or_restructuring": 1
+    "adjustment_factor_discontinuity": 17,
+    "raw_market_move_or_unresolved": 6,
+    "corporate_action_or_restructuring": 3
   },
-  "corporate_action_matches": 1,
+  "corporate_action_matches": 3,
   "selected_rows_exposed_feature_252_any_jump": 1,
   "selected_rows_exposed_y6_any_jump": 0,
   "selected_rows_exposed_y12_any_jump": 0,
@@ -20,7 +20,7 @@
   "selected_rows_exposed_feature_252_structural": 0,
   "selected_rows_exposed_y6_structural": 0,
   "selected_rows_exposed_y12_structural": 1,
-  "selected_rows_exposed_y24_structural": 2,
+  "selected_rows_exposed_y24_structural": 3,
   "primary_integrity_pass": true,
   "primary_scope": "V9.4.1 includes ret_252, so the feature-integrity check covers trading-day offsets -252 through 0 (253 price rows); the primary y6 outcome is 126 trading sessions. y12/y24 are diagnostic.",
   "note": "No model parameters or outcome-based selection rules are changed by this audit."
