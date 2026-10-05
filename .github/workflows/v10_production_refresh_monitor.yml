@@ -3,7 +3,7 @@ name: V10 Production Refresh and Monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 13 * * 1-5'
+    - cron: '45 15 * * 1-5'
   push:
     branches: [ main ]
     paths:
@@ -37,7 +37,30 @@ jobs:
 
       - name: Compile production monitoring code
         run: |
-          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py             src/v10_hf_archive.py
+          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py             src/v10_hf_archive.py             src/v10_nse_market_ingest.py
+
+      - name: Resolve validated market input
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_DATE=$(TZ=Asia/Kolkata date +%F)
+          echo "Target NSE trading date: ${TARGET_DATE}"
+          python src/v10_nse_market_ingest.py \
+            --date "${TARGET_DATE}" \
+            --output-dir nse_direct \
+            --poll-attempts 8 \
+            --poll-seconds 600 \
+            --allow-hf-fallback
+          python - <<'PY'
+          import json, os
+          s=json.load(open("nse_direct/market_ingest_summary.json"))
+          print(json.dumps(s,indent=2))
+          p=s["overlay_parquet"]
+          with open(os.environ["GITHUB_ENV"],"a") as f:
+              f.write(f"V10_CURRENT_YEAR_MARKET_PARQUET={p}\n")
+              f.write(f"V10_MARKET_SOURCE_STATUS={s['status']}\n")
+              f.write(f"V10_MARKET_TARGET_DATE={s['target_date']}\n")
+          PY
 
       - name: Download canonical event base
         uses: actions/download-artifact@v4
@@ -153,4 +176,4 @@ jobs:
             --events-recent events_current/event_refresh_recent.parquet \
             --event-summary events_current/event_refresh_summary.json \
             --repo-id ayushverma1988/v10-multibagger-archive \
-            --stage-dir hf_archive_stage
+            --stage-dir hf_archive_stage \\\n            --market-ingest-dir nse_direct
