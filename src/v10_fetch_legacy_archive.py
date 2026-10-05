@@ -6,6 +6,8 @@ import io
 import json
 import os
 import shutil
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -16,7 +18,8 @@ from huggingface_hub import HfApi, hf_hub_download
 DEFAULT_REPO="ayushverma1988/v10-multibagger-archive"
 GITHUB_REPO="ayushverma1988/v9-multibagger-calibration"
 
-# Exact legacy artifacts used by the accepted V10.2 integrity validation run.
+# Historical artifact IDs are retained only as a best-effort fast path.
+# GitHub Actions artifacts expire, so production must never depend on them.
 LEGACY_ARTIFACTS={
     2003:10959427979,
     2004:10959721175,
@@ -48,7 +51,10 @@ def validate_file(path:Path,year:int,expected:dict|None=None)->dict:
     if not x["date"].dt.year.eq(year).all():
         raise RuntimeError(f"Out-of-year rows in {year}")
     if len(x)<10000 or x["date"].nunique()<150:
-        raise RuntimeError(f"Legacy file {year} unexpectedly sparse: rows={len(x)} dates={x['date'].nunique()}")
+        raise RuntimeError(
+            f"Legacy file {year} unexpectedly sparse: "
+            f"rows={len(x)} dates={x['date'].nunique()}"
+        )
     digest=sha256_file(path)
     if expected is not None:
         if digest != expected["sha256"]:
@@ -66,6 +72,33 @@ def validate_file(path:Path,year:int,expected:dict|None=None)->dict:
         "date_max":str(x["date"].max().date()),
         "sha256":digest,
     }
+
+
+def write_manifest(out:Path,verified:list[dict],source:str,extra:dict|None=None)->Path:
+    manifest={
+        "source":source,
+        "years":"2003-2009",
+        "files":verified,
+    }
+    if extra:
+        manifest.update(extra)
+    p=out/"manifest.json"
+    p.write_text(json.dumps(manifest,indent=2))
+    return p
+
+
+def upload_private_hf(out:Path,repo_id:str,hf_token:str,commit_message:str)->None:
+    api=HfApi(token=hf_token)
+    info=api.repo_info(repo_id,repo_type="dataset")
+    if not info.private:
+        raise RuntimeError("Legacy archive destination must be private")
+    api.upload_folder(
+        repo_id=repo_id,
+        repo_type="dataset",
+        folder_path=str(out),
+        path_in_repo="market_data/legacy",
+        commit_message=commit_message,
+    )
 
 
 def restore_hf(repo_id:str,out:Path,token:str)->list[dict]:
@@ -103,6 +136,11 @@ def bootstrap_from_github(out:Path,repo_id:str,hf_token:str,gh_token:str)->list[
     for y,aid in LEGACY_ARTIFACTS.items():
         url=f"https://api.github.com/repos/{GITHUB_REPO}/actions/artifacts/{aid}/zip"
         r=requests.get(url,headers=headers,timeout=120)
+        if r.status_code in (404,410):
+            raise RuntimeError(
+                f"Legacy artifact {aid} for {y} is unavailable/expired "
+                f"(HTTP {r.status_code})"
+            )
         r.raise_for_status()
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:
             matches=[n for n in z.namelist() if Path(n).name==f"nse_{y}.parquet"]
@@ -113,27 +151,73 @@ def bootstrap_from_github(out:Path,repo_id:str,hf_token:str,gh_token:str)->list[
                 shutil.copyfileobj(src,d)
         verified.append(validate_file(dst,y))
 
-    manifest={
-        "source":"Pinned GitHub Actions artifacts used by accepted V10.2 integrity validation",
-        "source_repository":GITHUB_REPO,
-        "artifact_ids":LEGACY_ARTIFACTS,
-        "years":"2003-2009",
-        "files":verified,
-    }
-    (out/"manifest.json").write_text(json.dumps(manifest,indent=2))
-
-    api=HfApi(token=hf_token)
-    info=api.repo_info(repo_id,repo_type="dataset")
-    if not info.private:
-        raise RuntimeError("Legacy archive destination must be private")
-    api.upload_folder(
-        repo_id=repo_id,
-        repo_type="dataset",
-        folder_path=str(out),
-        path_in_repo="market_data/legacy",
-        commit_message="Persist accepted V10.2 NSE 2003-2009 legacy history",
+    write_manifest(
+        out,
+        verified,
+        "Pinned GitHub Actions artifacts used by accepted V10.2 integrity validation",
+        {
+            "source_repository":GITHUB_REPO,
+            "artifact_ids":LEGACY_ARTIFACTS,
+        },
+    )
+    upload_private_hf(
+        out,
+        repo_id,
+        hf_token,
+        "Persist accepted V10.2 NSE 2003-2009 legacy history",
     )
     return verified
+
+
+def rebuild_from_official_nse(out:Path,repo_id:str,hf_token:str)->list[dict]:
+    fetcher=Path(__file__).with_name("fetch_legacy_nse.py")
+    if not fetcher.exists():
+        raise RuntimeError(f"Missing official NSE legacy fetcher: {fetcher}")
+
+    verified=[]
+    for y in range(2003,2010):
+        dst=out/f"nse_{y}.parquet"
+        print(f"Rebuilding official NSE legacy year {y}",flush=True)
+        subprocess.run(
+            [
+                sys.executable,
+                str(fetcher),
+                "--year",str(y),
+                "--out",str(dst),
+                "--workers","8",
+            ],
+            check=True,
+        )
+        rec=validate_file(dst,y)
+        verified.append(rec)
+        print(
+            f"Verified {y}: rows={rec['rows']} "
+            f"dates={rec['trading_dates']} sha256={rec['sha256'][:12]}...",
+            flush=True,
+        )
+
+    write_manifest(
+        out,
+        verified,
+        "Official NSE historical EQUITIES bhavcopy archive rebuilt at runtime",
+        {
+            "source_url_pattern":
+                "https://nsearchives.nseindia.com/content/historical/EQUITIES/"
+                "{YYYY}/{MON}/cm{DD}{MON}{YYYY}bhav.csv.zip",
+        },
+    )
+    upload_private_hf(
+        out,
+        repo_id,
+        hf_token,
+        "Rebuild and persist verified NSE 2003-2009 legacy history",
+    )
+    return verified
+
+
+def clean_parquets(out:Path)->None:
+    for p in out.glob("nse_*.parquet"):
+        p.unlink()
 
 
 def main():
@@ -153,19 +237,41 @@ def main():
     source="private_hf_archive"
     try:
         verified=restore_hf(args.repo_id,out,hf_token)
-    except Exception as exc:
+    except Exception as hf_exc:
         if not args.bootstrap_github_artifacts:
             raise
-        print(f"HF legacy restore unavailable, bootstrapping pinned accepted artifacts: {exc}",flush=True)
+        print(
+            f"HF legacy restore unavailable: {type(hf_exc).__name__}: {hf_exc}",
+            flush=True,
+        )
+
+        seeded=False
         gh_token=os.environ.get("GITHUB_TOKEN")
-        if not gh_token:
-            raise RuntimeError("GITHUB_TOKEN required for legacy bootstrap")
-        verified=bootstrap_from_github(out,args.repo_id,hf_token,gh_token)
-        # Re-read from HF and verify the persisted copy before production uses it.
-        for p in out.glob("nse_*.parquet"):
-            p.unlink()
+        if gh_token:
+            try:
+                print("Trying pinned GitHub artifacts as fast bootstrap",flush=True)
+                verified=bootstrap_from_github(
+                    out,args.repo_id,hf_token,gh_token
+                )
+                seeded=True
+                source="pinned_artifacts_seeded_and_verified_in_private_hf"
+            except Exception as gh_exc:
+                print(
+                    "Pinned GitHub artifact bootstrap unavailable; "
+                    f"falling back to official NSE rebuild: "
+                    f"{type(gh_exc).__name__}: {gh_exc}",
+                    flush=True,
+                )
+
+        if not seeded:
+            clean_parquets(out)
+            verified=rebuild_from_official_nse(out,args.repo_id,hf_token)
+            source="official_nse_rebuilt_and_verified_in_private_hf"
+
+        # Production must consume the durable private-HF copy, not the bootstrap
+        # working files. Re-download and re-verify after upload.
+        clean_parquets(out)
         verified=restore_hf(args.repo_id,out,hf_token)
-        source="pinned_artifacts_seeded_and_verified_in_private_hf"
 
     summary={
         "status":"verified_private_hf_legacy_archive",
