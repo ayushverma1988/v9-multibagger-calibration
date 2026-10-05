@@ -1,9 +1,9 @@
 {
   "production_model": "V10.2 integrity-corrected V9.4.1",
   "production_rules_frozen": true,
-  "data_start": "2003-01-01",
-  "data_end": "2026-10-01",
-  "eligible_current_rows": 1413,
+  "data_start": "2010-01-04",
+  "data_end": "2026-10-05",
+  "eligible_current_rows": 1409,
   "selected_rows": 10,
   "selector": {
     "name": "N100_drop0.50_s0.20_c0.05",
@@ -20,13 +20,13 @@
   },
   "refresh_fit_policy": "Fixed algorithms/rules may refit on newly available historical data; no selector/feature/gate search is allowed in production finalization.",
   "historical_monitor_metrics": {
-    "folds": 18,
-    "mean_precision_100": 0.11666666666666667,
-    "hit_fold_rate_100": 0.6111111111111112,
-    "mean_capped_lift_100": 3.0425111158282516,
-    "mean_dd30_rate": 0.3666666666666667,
-    "p100_brier": 0.04047526274677389,
-    "p100_calibration_slope": 0.7639579191055258
+    "folds": 11,
+    "mean_precision_100": 0.10909090909090911,
+    "hit_fold_rate_100": 0.7272727272727273,
+    "mean_capped_lift_100": 2.7629354028089206,
+    "mean_dd30_rate": 0.2818181818181818,
+    "p100_brier": 0.0410163023367603,
+    "p100_calibration_slope": 0.8743605185107857
   },
   "frozen_blob_shas_verified": true,
   "anti_overfit": {
