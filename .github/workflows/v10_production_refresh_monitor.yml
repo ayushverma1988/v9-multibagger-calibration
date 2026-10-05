@@ -35,9 +35,31 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Ingest and validate official NSE market data
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_DATE=$(TZ=Asia/Kolkata date +%F)
+          echo "Production target date (IST): $TARGET_DATE"
+          python src/v10_nse_market_ingest.py \
+            --date "$TARGET_DATE" \
+            --output-dir nse_direct \
+            --poll-attempts 6 \
+            --poll-seconds 600 \
+            --allow-hf-fallback
+
+          OVERLAY=$(python - <<'PY'
+          import json
+          s=json.load(open("nse_direct/market_ingest_summary.json"))
+          print(s["overlay_parquet"])
+          PY
+          )
+          echo "V10_CURRENT_YEAR_MARKET_PARQUET=$OVERLAY" >> "$GITHUB_ENV"
+          echo "V10_MARKET_TARGET_DATE=$TARGET_DATE" >> "$GITHUB_ENV"
+
       - name: Compile production monitoring code
         run: |
-          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py             src/v10_hf_archive.py             src/v10_nse_market_ingest.py
+          python -m py_compile             src/calibrate_v9_4_1_integrity.py             src/v10_2_market_integrity.py             src/v10_2_selected_window_integrity.py             src/v10_production_finalize.py             src/v10_production_monitor.py             src/v10_refresh_events.py             src/v10_hf_archive.py             src/v10_nse_market_ingest.py             src/v10_nse_market_ingest.py
 
       - name: Resolve validated market input
         shell: bash
@@ -177,4 +199,5 @@ jobs:
             --event-summary events_current/event_refresh_summary.json \
             --repo-id ayushverma1988/v10-multibagger-archive \
             --stage-dir hf_archive_stage \
+            --market-ingest-dir nse_direct \
             --market-ingest-dir nse_direct
