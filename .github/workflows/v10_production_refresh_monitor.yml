@@ -176,5 +176,5 @@ jobs:
             --events-recent events_current/event_refresh_recent.parquet \
             --event-summary events_current/event_refresh_summary.json \
             --repo-id ayushverma1988/v10-multibagger-archive \
-            --stage-dir hf_archive_stage \\
+            --stage-dir hf_archive_stage \
             --market-ingest-dir nse_direct
