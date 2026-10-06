@@ -1,6 +1,7 @@
 {
-  "rss_entries": 0,
+  "rss_entries": 20,
   "matched_rows": 0,
   "themes": [],
-  "feed": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3"
+  "feed": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1",
+  "fetch_errors": []
 }
