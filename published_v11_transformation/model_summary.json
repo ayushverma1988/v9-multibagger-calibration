@@ -1,0 +1,53 @@
+{
+  "model": "V11 Transformation-First Discovery",
+  "objective": "discover transformation stories before they become obvious",
+  "architecture": "fundamental/corporate catalyst first; promoter/volume accumulation second; technical confirmation last",
+  "control": "V10.2 integrity-corrected V9.4.1",
+  "rules_frozen_before_backtest": true,
+  "weights": {
+    "catalyst": 0.35,
+    "business_inflection": 0.2,
+    "ownership_accumulation": 0.25,
+    "early_stage": 0.1,
+    "technical_confirmation": 0.1
+  },
+  "risk_penalty": 0.15,
+  "gate": {
+    "catalyst_raw_min": 0.2,
+    "promoter_score_min": 0.6,
+    "accumulation_score_min": 0.65,
+    "technical_min": 0.3,
+    "max_priced_in_penalty": 0.9
+  },
+  "priced_in": {
+    "ret120_soft": 0.6,
+    "ret120_hard": 2.0,
+    "ret252_soft": 1.2,
+    "ret252_hard": 4.0
+  },
+  "current_date": "2026-10-05",
+  "current_qualified": 447,
+  "current_selected": 10,
+  "evaluation": {
+    "evaluated_folds": 20,
+    "mean_precision_100": 0.05,
+    "mean_lift_100": 1.0660890101931966,
+    "hit_fold_rate_100": 0.35,
+    "mean_dd30_rate": 0.205,
+    "mean_control_precision_100": 0.125,
+    "mean_control_lift_100": 3.778208067945541,
+    "mean_control_dd30_rate": 0.36
+  },
+  "source_coverage": {
+    "events": 1315316,
+    "insider": 332250,
+    "shareholding": 31496
+  },
+  "principles": [
+    "capacity expansion/commissioning, order wins and new/futuristic products are discovery signals",
+    "promoter open-market buying and persistent abnormal volume can independently qualify a candidate",
+    "technical momentum is confirmation, not the primary discovery engine",
+    "large prior rerating receives an explicit already-priced-in penalty",
+    "no outcome-based feature/weight tuning is allowed in this frozen run"
+  ]
+}

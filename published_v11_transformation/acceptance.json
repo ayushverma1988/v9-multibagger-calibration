@@ -1,0 +1,18 @@
+{
+  "stage": "V11 Transformation-First frozen evidence gate",
+  "objective": "early transformation discovery",
+  "control": "V10.2",
+  "precision_ratio": 0.4,
+  "lift_ratio": 0.28216789309141965,
+  "dd_delta": -0.155,
+  "gates": {
+    "evaluated_folds_ge_6": true,
+    "precision_retention_ge_90pct": false,
+    "lift_retention_ge_90pct": false,
+    "dd_not_worse_5pp": true,
+    "current_qualified_ge_5": true,
+    "current_watchlist_not_forced": true
+  },
+  "all_gates_pass": false,
+  "promotion_policy": "Do not overwrite V10.2 history. If gates pass, start V11 prospective shadow tracking; production replacement requires prospective evidence."
+}
