@@ -76,6 +76,8 @@ def main():
         raw="|".join(["NSE",recid,symbol,str(ts),headline])
         eid=hashlib.sha256(raw.encode()).hexdigest()
         conf=cg.event_confidence(1.0,sw,cts,neg,1)
+        capctx=cg.catalyst_context(text)
+        capm=cg.extract_capacity_metrics(capctx)
         # Keep only material primary evidence. Routine filings belong in the
         # audit archive, not in the catalyst graph.
         if not cts and sw < 0.40:
@@ -96,8 +98,12 @@ def main():
             "themes":json.dumps(th),
             "stage":st,
             "stage_weight":sw,
-            "money_crore_max":cg.extract_money_crore(cg.catalyst_context(text)),
-            "capacity_pct_max":cg.extract_capacity_pct(cg.catalyst_context(text)),
+            "money_crore_max":cg.extract_money_crore(capctx),
+            "capacity_pct_max":capm["capacity_pct"],
+            "capacity_pct_direct":capm["capacity_pct_direct"],
+            "capacity_pct_inferred":capm["capacity_pct_inferred"],
+            "capacity_inference_method":capm["capacity_inference_method"],
+            "capacity_quantities":json.dumps(capm["capacity_quantities"]),
             "negative_flag":neg,
             "corroboration_count":1,
             "evidence_confidence":conf,
