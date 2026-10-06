@@ -14,14 +14,17 @@
     "Technical momentum is a confirmation layer only and receives 10% of the positive score.",
     "Stocks with very large prior 6-12 month rerating receive an explicit already-priced-in penalty; recent commissioning partially relaxes that penalty.",
     "The watchlist is maximum Top-10, not a requirement to force ten weak names.",
-    "No outcome-based weight, threshold or keyword tuning is permitted after seeing the first V11 backtest result."
+    "No outcome-based weight, threshold or keyword tuning is permitted after seeing the first V11 backtest result.",
+    "Pledge reduction is a positive ownership-quality signal; new/increased pledge is a risk penalty.",
+    "Persistent multi-day abnormal volume is preferred over a single volume spike.",
+    "Approvals, PLI/incentives and strategic integrations are supporting catalysts, with lower weights than commissioning/capacity/order wins."
   ],
   "weights": {
     "catalyst": 0.35,
-    "business_inflection": 0.20,
+    "business_inflection": 0.2,
     "ownership_accumulation": 0.25,
-    "early_stage": 0.10,
-    "technical_confirmation": 0.10,
+    "early_stage": 0.1,
+    "technical_confirmation": 0.1,
     "risk_penalty": 0.15
   },
   "data_policy": {
@@ -30,5 +33,17 @@
     "shareholding": "Latest disclosed promoter holding available as of each scoring date.",
     "volume_price": "Backward-looking market data only; no future labels in features.",
     "technical_control": "V10.2 calibrated probability/downside used only after discovery signals are formed."
+  },
+  "pre_first_benchmark_amendment": {
+    "reason": "The first V11 workflow failed before model scoring because GitHub secrets were escaped literally; therefore no V11 outcome or backtest result had been observed when these additions were frozen.",
+    "added_signals": [
+      "pledge reduction/release versus pledge creation/invocation",
+      "buyback/capital-allocation confidence",
+      "product/regulatory approvals and customer qualification",
+      "strategic partnership/JV/backward-forward integration",
+      "PLI/subsidy/government incentive",
+      "persistent large up-volume days",
+      "up-volume versus down-volume ratio"
+    ]
   }
 }
