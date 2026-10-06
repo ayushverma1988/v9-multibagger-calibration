@@ -1,0 +1,65 @@
+{
+  "model": "V11.1 Hybrid Transformation + V10.2",
+  "objective": "V10.2 anchored transformation discovery",
+  "design": "temporal elastic-net stack + protected V10.2 anchor + separate early-discovery radar",
+  "current_date": "2026-10-05",
+  "current_main_selected": 10,
+  "current_radar_selected": 5,
+  "historical_metrics": {
+    "folds": 28,
+    "mean_hybrid_precision_100": 0.11428571428571431,
+    "mean_control_precision_100": 0.12142857142857144,
+    "mean_hybrid_lift_100": 4.149102319812023,
+    "mean_control_lift_100": 4.134015048920257,
+    "hybrid_hit_fold_rate": 0.6785714285714286,
+    "control_hit_fold_rate": 0.6428571428571429,
+    "mean_hybrid_dd30_rate": 0.3464285714285714,
+    "mean_control_dd30_rate": 0.37857142857142867,
+    "precision_ratio": 0.9411764705882354,
+    "lift_ratio": 1.0036495442598128,
+    "dd_delta": -0.03214285714285725,
+    "recent_folds": 6,
+    "recent_hybrid_precision_100": 0.18333333333333332,
+    "recent_control_precision_100": 0.15,
+    "recent_precision_ratio": 1.222222222222222,
+    "acceptance_gates": {
+      "precision_ratio": false,
+      "lift_ratio": true,
+      "dd_delta": true,
+      "recent_precision_ratio": true
+    },
+    "all_gates_pass": false
+  },
+  "config": {
+    "model_name": "V11.1 Hybrid Transformation + V10.2",
+    "design_date": "2026-10-06",
+    "main_k": 10,
+    "radar_k": 5,
+    "min_prior_folds": 6,
+    "rolling_train_years": 8,
+    "meta_C": 0.35,
+    "meta_l1_ratio": 0.15,
+    "anchor_weight": 0.7,
+    "meta_weight": 0.3,
+    "risk_penalty": 0.08,
+    "main_candidate_pool": {
+      "v10_top_percentile": 0.92,
+      "allow_strong_transformation": true,
+      "strong_transformation_percentile": 0.9
+    },
+    "radar": {
+      "min_catalyst_score": 0.8,
+      "min_ownership_accumulation_score": 0.65,
+      "max_priced_in_penalty": 0.35,
+      "max_v10_percentile": 0.92
+    },
+    "acceptance": {
+      "precision_ratio_min": 0.95,
+      "lift_ratio_min": 0.95,
+      "dd_delta_max": 0.03,
+      "recent_precision_ratio_min": 0.9
+    },
+    "note": "Post-V11.0 redesign. V10.2 remains the anchor; transformation features can only modify the score through temporally forward-trained stacking. Main Top-10 and Early Discovery Radar are evaluated separately."
+  },
+  "important_note": "V11.1 was designed after observing V11.0 failure. Historical evidence is therefore research evidence, not an untouched final holdout; prospective shadow tracking is required before replacing V10.2."
+}

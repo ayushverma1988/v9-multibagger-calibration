@@ -1,0 +1,33 @@
+{
+  "stage": "V11.1 hybrid acceptance",
+  "control": "V10.2",
+  "objective": "retain V10.2 predictive quality while adding earlier transformation discovery",
+  "metrics": {
+    "folds": 28,
+    "mean_hybrid_precision_100": 0.11428571428571431,
+    "mean_control_precision_100": 0.12142857142857144,
+    "mean_hybrid_lift_100": 4.149102319812023,
+    "mean_control_lift_100": 4.134015048920257,
+    "hybrid_hit_fold_rate": 0.6785714285714286,
+    "control_hit_fold_rate": 0.6428571428571429,
+    "mean_hybrid_dd30_rate": 0.3464285714285714,
+    "mean_control_dd30_rate": 0.37857142857142867,
+    "precision_ratio": 0.9411764705882354,
+    "lift_ratio": 1.0036495442598128,
+    "dd_delta": -0.03214285714285725,
+    "recent_folds": 6,
+    "recent_hybrid_precision_100": 0.18333333333333332,
+    "recent_control_precision_100": 0.15,
+    "recent_precision_ratio": 1.222222222222222,
+    "acceptance_gates": {
+      "precision_ratio": false,
+      "lift_ratio": true,
+      "dd_delta": true,
+      "recent_precision_ratio": true
+    },
+    "all_gates_pass": false
+  },
+  "acceptance_gate": false,
+  "production_action": "Do not replace V10.2 automatically. If accepted, begin V11.1 prospective shadow tracking alongside V10.2.",
+  "research_caveat": "V11.1 was designed after observing V11.0 results; prospective evidence remains mandatory."
+}
