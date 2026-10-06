@@ -1,0 +1,96 @@
+name: V11.4 Financial Source Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_financial_probe.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v11-4-financial-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Probe NSE financial payloads
+        run: |
+          python - <<'PY'
+          import requests,json,os,time
+          s=requests.Session()
+          s.headers.update({
+            'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36',
+            'Accept':'application/json,text/plain,*/*',
+            'Accept-Language':'en-US,en;q=0.9',
+            'Referer':'https://www.nseindia.com/companies-listing/corporate-filings-financial-results'
+          })
+          for u in [
+            'https://www.nseindia.com/companies-listing/corporate-filings-financial-results',
+            'https://www.nseindia.com/companies-listing/corporate-integrated-filing'
+          ]:
+            try:s.get(u,timeout=20)
+            except Exception:pass
+
+          urls={
+            'financial_2026':'https://www.nseindia.com/api/corporates-financial-results?index=equities&period=Quarterly&from_date=01-01-2026&to_date=31-12-2026',
+            'compare_reliance':'https://www.nseindia.com/api/results-comparision?symbol=RELIANCE',
+            'compare_tataelxsi':'https://www.nseindia.com/api/results-comparision?symbol=TATAELXSI',
+            'compare_kpigreen':'https://www.nseindia.com/api/results-comparision?symbol=KPIGREEN'
+          }
+          out={}
+          for name,url in urls.items():
+            try:
+              r=s.get(url,timeout=45)
+              rec={'status':r.status_code,'ctype':r.headers.get('content-type'),'length':len(r.content)}
+              if r.ok:
+                x=r.json()
+                rec['type']=type(x).__name__
+                if isinstance(x,list):
+                  rec['rows']=len(x)
+                  rec['sample']=x[:3]
+                  rec['keys']=sorted(set().union(*(z.keys() for z in x[:50] if isinstance(z,dict))))
+                elif isinstance(x,dict):
+                  rec['keys']=list(x.keys())
+                  rec['sample']={}
+                  for k,v in x.items():
+                    if isinstance(v,list):
+                      rec['sample'][k]=v[:3]
+                    elif isinstance(v,(str,int,float,bool)) or v is None:
+                      rec['sample'][k]=v
+                out[name]=rec
+              else:
+                rec['prefix']=r.text[:1000]
+                out[name]=rec
+            except Exception as e:
+              out[name]={'error':repr(e)}
+            time.sleep(.7)
+          os.makedirs('published_v11_4_financial_probe',exist_ok=True)
+          json.dump(out,open('published_v11_4_financial_probe/summary.json','w'),indent=2,default=str)
+          print(json.dumps(out,indent=2,default=str))
+          PY
+
+      - name: Publish probe
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_financial_probe
+          git commit -m "Publish V11.4 financial endpoint probe [skip ci]" || exit 0
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
