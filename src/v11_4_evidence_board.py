@@ -47,10 +47,12 @@ def financial_inflection(row):
     ry=signed_growth_score(row.get("revenue_yoy"),0,0.50)
     ey=signed_growth_score(row.get("ebitda_yoy"),0,0.75)
     py=signed_growth_score(row.get("pat_yoy"),0,1.00)
+    pat_turn=clip01(max(float(row.get("pat_turnaround_yoy") or 0), float(row.get("pat_turnaround_qoq") or 0)))
+    ebitda_turn=clip01(max(float(row.get("ebitda_turnaround_yoy") or 0), float(row.get("ebitda_turnaround_qoq") or 0)))
     mq=signed_growth_score(row.get("ebitda_margin_qoq_change"),0,0.08)
     my=signed_growth_score(row.get("ebitda_margin_yoy_change"),0,0.12)
     rq=signed_growth_score(row.get("revenue_qoq"),0,0.25)
-    raw=0.25*ry+0.25*ey+0.15*py+0.15*mq+0.10*my+0.10*rq
+    raw=0.22*ry+0.22*ey+0.12*py+0.13*mq+0.08*my+0.08*rq+0.08*pat_turn+0.07*ebitda_turn
     return float(np.clip(0.5+0.5*raw,0,1))
 
 
