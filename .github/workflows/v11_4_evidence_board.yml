@@ -138,6 +138,53 @@ jobs:
           path: outputs_v11_4_board/
           retention-days: 90
 
+      - name: Archive V11.4 prospective evidence privately
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          import pandas as pd
+          from huggingface_hub import HfApi
+
+          stage=Path("hf_v11_4_stage")
+          stage.mkdir(exist_ok=True)
+          wanted=[
+              ("outputs_v11_4_board/evidence_board.csv","evidence_board.csv"),
+              ("outputs_v11_4_board/primary_confirmed_shortlist.csv","primary_confirmed_shortlist.csv"),
+              ("outputs_v11_4_board/current_financial_inflection.csv","current_financial_inflection.csv"),
+              ("outputs_v11_4_board/catalyst_absorption.csv","catalyst_absorption.csv"),
+              ("outputs_v11_4_board/evidence_board_summary.json","evidence_board_summary.json"),
+              ("outputs_v11_4_board/known_case_sanity.json","known_case_sanity.json"),
+              (os.environ["ALL_EVIDENCE"],"all_company_evidence.parquet"),
+              (os.environ["COMPANY_LIST"],"company_catalyst_intelligence.csv"),
+          ]
+          for src,name in wanted:
+              p=Path(src)
+              if p.exists(): shutil.copy2(p,stage/name)
+
+          date="unknown"
+          p=stage/"evidence_board.csv"
+          if p.exists():
+              try:
+                  d=pd.read_csv(p)
+                  if "latest_evidence" in d and d["latest_evidence"].notna().any():
+                      date=str(pd.to_datetime(d["latest_evidence"],utc=True,errors="coerce").max().date())
+              except Exception: pass
+
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          api.upload_folder(
+              folder_path=str(stage),
+              repo_id="ayushverma1988/v10-multibagger-archive",
+              repo_type="dataset",
+              path_in_repo=f"v11_4/prospective/{date}/source_run_{os.environ['SOURCE_RUN_ID']}",
+              commit_message=f"Archive V11.4 catalyst intelligence {date}",
+          )
+          print("Archived",len(list(stage.iterdir())),"V11.4 evidence files")
+          PY
+
       - name: Publish V11.4 research board
         shell: bash
         run: |
