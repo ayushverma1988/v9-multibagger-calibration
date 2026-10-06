@@ -1,0 +1,30 @@
+{
+  "model_name": "V11.2 Discovery-Weighted Hybrid",
+  "design_date": "2026-10-06",
+  "main_k": 10,
+  "min_prior_folds": 6,
+  "rolling_train_years": 8,
+  "meta_C": 0.30,
+  "meta_l1_ratio": 0.20,
+  "v10_confirmation_weight": 0.40,
+  "transformation_weight": 0.60,
+  "risk_penalty": 0.10,
+  "gate": {
+    "min_catalyst_score": 0.60,
+    "min_business_with_catalyst": 0.70,
+    "min_secondary_catalyst": 0.45,
+    "min_promoter_score": 0.60,
+    "min_accumulation_score": 0.60,
+    "max_priced_in_penalty": 0.75,
+    "min_v10_percentile": 0.25
+  },
+  "acceptance": {
+    "precision_ratio_min": 0.85,
+    "lift_ratio_min": 0.90,
+    "dd_delta_max": 0.03,
+    "recent_precision_ratio_min": 0.90,
+    "selected_transformation_rate_min": 0.80,
+    "early_stage_score_min": 0.55
+  },
+  "note": "Designed after V11.1. Transformation-only temporal meta-model receives 60% of final score; V10.2 is confirmation only. Main list is not backfilled by pure V10 names that fail the transformation gate."
+}
