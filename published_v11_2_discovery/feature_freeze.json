@@ -1,0 +1,25 @@
+{
+  "stage": "V11.2 Discovery-Weighted Hybrid rule freeze",
+  "frozen_before_V11_2_results": true,
+  "known_evidence_before_freeze": {
+    "V11_0": "Transformation-only event model reduced downside but failed precision/lift.",
+    "V11_1": "70% V10.2 / 30% meta retained 94.1% of control precision, slightly improved lift, improved hit-fold rate and drawdown, and improved recent precision."
+  },
+  "objective": "Discover transformation stories before price momentum makes them obvious.",
+  "architecture": [
+    "Transformation meta-model excludes V10.2 p100 and technical probability from its input matrix.",
+    "Transformation/meta evidence receives 60% of final ranking; V10.2 receives 40% as confirmation.",
+    "Every main-list stock must pass a transformation gate; pure V10.2 momentum cannot backfill the list.",
+    "Transformation gate can be passed by strong catalyst evidence, business inflection plus catalyst evidence, or promoter conviction plus persistent accumulation.",
+    "Already-priced-in penalty must remain below the frozen maximum.",
+    "V10.2 confirmation has only a low minimum percentile so early stories can enter before strong momentum appears.",
+    "Top-10 is a maximum, not a quota.",
+    "Evaluation includes precision/lift/drawdown plus early-stage and priced-in diagnostics."
+  ],
+  "final_score": {
+    "transformation_meta": 0.6,
+    "V10_2_confirmation": 0.4,
+    "risk_penalty": 0.1
+  },
+  "methodology_note": "V11.2 is model development after V11.0/V11.1 research. Historical backtests are research evidence; prospective shadow validation remains mandatory before replacement."
+}
