@@ -68,6 +68,38 @@ jobs:
           echo "COMPANY_LIST=$COMPANY_LIST" >> "$GITHUB_ENV"
           echo "MARKET=$MARKET" >> "$GITHUB_ENV"
 
+      - name: Diagnostic sanity case - SHANTIGOLD
+        run: |
+          mkdir -p outputs_v11_4_board
+          python - <<'PY'
+          import json, pandas as pd, os
+          e=pd.read_parquet(os.environ["ALL_EVIDENCE"])
+          q=e[e["symbol"].astype(str).str.upper().eq("SHANTIGOLD")].copy()
+          types=set()
+          themes=set()
+          for v in q.get("catalyst_types",[]):
+              try: types.update(json.loads(v) if isinstance(v,str) else [])
+              except: pass
+          for v in q.get("themes",[]):
+              try: themes.update(json.loads(v) if isinstance(v,str) else [])
+              except: pass
+          stage=pd.to_numeric(q.get("stage_weight"),errors="coerce") if len(q) else pd.Series(dtype=float)
+          out={
+              "case":"SHANTIGOLD",
+              "diagnostic_only":True,
+              "evidence_rows":int(len(q)),
+              "primary_rows":int(pd.to_numeric(q.get("source_tier"),errors="coerce").eq(1).sum()) if len(q) else 0,
+              "catalyst_types":sorted(types),
+              "themes":sorted(themes),
+              "max_stage_weight":float(stage.max()) if stage.notna().any() else None,
+              "capacity_pct_max":float(pd.to_numeric(q.get("capacity_pct_max"),errors="coerce").max()) if len(q) and pd.to_numeric(q.get("capacity_pct_max"),errors="coerce").notna().any() else None,
+              "detected_transformation_chain":bool(len(q) and ({"capacity","commissioning"} & types)),
+              "note":"Not used as a model feature, weight or acceptance gate."
+          }
+          json.dump(out,open("outputs_v11_4_board/known_case_sanity.json","w"),indent=2)
+          print(json.dumps(out,indent=2))
+          PY
+
       - name: Extract integrated financial inflection for catalyst universe
         run: |
           python src/v11_4_integrated_financials.py             --symbols-file "$COMPANY_LIST"             --output outputs_v11_4_board/current_financial_inflection.csv             --max-symbols 120
@@ -115,6 +147,7 @@ jobs:
           cp outputs_v11_4_board/primary_confirmed_shortlist.csv published_v11_4_board/
           cp outputs_v11_4_board/current_financial_inflection.csv published_v11_4_board/
           cp outputs_v11_4_board/financial_summary.json published_v11_4_board/
+          cp outputs_v11_4_board/known_case_sanity.json published_v11_4_board/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add published_v11_4_board
