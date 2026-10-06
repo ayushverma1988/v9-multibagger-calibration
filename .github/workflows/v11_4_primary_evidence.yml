@@ -1,4 +1,4 @@
-# V11.4 240-day catalyst-stage horizon rev3
+# V11.4 deep primary verification rev4
 name: V11.4 Primary Catalyst Evidence
 
 on:
@@ -63,6 +63,34 @@ jobs:
       - name: Link secondary evidence to listed companies
         run: |
           python src/v11_4_catalyst_graph.py             --evidence outputs_v11_4_primary/public_evidence.parquet             --queries-config config/v11_4_discovery_queries.json             --source-registry config/v11_4_source_registry.json             --output outputs_v11_4_primary/secondary_company_evidence.parquet             --fetch-pages
+
+      - name: Deep-verify candidate stories in official NSE documents
+        run: |
+          python src/v11_4_deep_primary_candidates.py \
+            --events outputs_v11_4_primary/events_current.parquet \
+            --secondary outputs_v11_4_primary/secondary_company_evidence.parquet \
+            --initial-primary outputs_v11_4_primary/nse_primary_evidence.parquet \
+            --queries-config config/v11_4_discovery_queries.json \
+            --output outputs_v11_4_primary/nse_deep_primary_evidence.parquet \
+            --lookback-days 240 \
+            --max-seed-symbols 140 \
+            --max-docs-per-symbol 12
+
+      - name: Combine direct and deep Tier-1 evidence
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          a=pd.read_parquet("outputs_v11_4_primary/nse_primary_evidence.parquet")
+          b=pd.read_parquet("outputs_v11_4_primary/nse_deep_primary_evidence.parquet")
+          cols=sorted(set(a.columns)|set(b.columns))
+          for x in (a,b):
+              for col in cols:
+                  if col not in x:x[col]=pd.NA
+          z=pd.concat([a[cols],b[cols]],ignore_index=True)
+          if len(z): z=z.drop_duplicates("evidence_id").sort_values("published_ts",ascending=False)
+          z.to_parquet("outputs_v11_4_primary/nse_primary_evidence_combined.parquet",index=False)
+          print({"direct":len(a),"deep":len(b),"combined":len(z),"companies":z["symbol"].nunique() if len(z) else 0})
+          PY
 
       - name: Collect primary PIB theme-demand evidence
         run: |
