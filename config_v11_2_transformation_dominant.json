@@ -1,0 +1,35 @@
+{
+  "model_name": "V11.2 Transformation-Dominant Hybrid",
+  "design_date": "2026-10-06",
+  "main_k": 10,
+  "radar_k": 5,
+  "min_prior_folds": 6,
+  "rolling_train_years": 8,
+  "meta_C": 0.30,
+  "meta_l1_ratio": 0.20,
+  "transformation_weight": 0.65,
+  "v10_confirmation_weight": 0.35,
+  "risk_penalty": 0.10,
+  "main_gate": {
+    "route_a_catalyst_score_min": 0.65,
+    "route_a_early_stage_min": 0.35,
+    "route_a_v10_percentile_min": 0.40,
+    "route_b_ownership_accumulation_min": 0.75,
+    "route_b_accumulation_min": 0.75,
+    "route_b_v10_percentile_min": 0.35,
+    "max_priced_in_penalty": 0.65
+  },
+  "radar": {
+    "min_transformation_percentile": 0.90,
+    "max_v10_percentile": 0.60,
+    "max_priced_in_penalty": 0.35
+  },
+  "acceptance": {
+    "precision_ratio_min": 0.90,
+    "lift_ratio_min": 0.90,
+    "dd_delta_max": 0.03,
+    "recent_precision_ratio_min": 0.90,
+    "minimum_transformation_coverage_top10": 0.80
+  },
+  "note": "V11.2 deliberately prioritizes transformation discovery. The transformation meta-model excludes V10.2 probability. V10.2 is only a 35% confirmation layer and a permissive minimum confirmation gate."
+}
