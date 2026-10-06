@@ -1,0 +1,29 @@
+{
+  "model_name": "V11 Transformation-First Discovery",
+  "start_year": 2003,
+  "selection_k": 10,
+  "evaluation_start": "2016-01-01",
+  "weights": {
+    "catalyst": 0.35,
+    "business_inflection": 0.20,
+    "ownership_accumulation": 0.25,
+    "early_stage": 0.10,
+    "technical_confirmation": 0.10
+  },
+  "risk_penalty": 0.15,
+  "gate": {
+    "catalyst_raw_min": 0.20,
+    "promoter_score_min": 0.60,
+    "accumulation_score_min": 0.65,
+    "technical_min": 0.30,
+    "max_priced_in_penalty": 0.90
+  },
+  "priced_in": {
+    "ret120_soft": 0.60,
+    "ret120_hard": 2.00,
+    "ret252_soft": 1.20,
+    "ret252_hard": 4.00
+  },
+  "design_freeze_date": "2026-10-06",
+  "design_note": "Frozen before V11 backtest. The objective is early transformation discovery, not continuation-momentum ranking. V10.2 is retained as the control and technical-confirmation engine only."
+}
