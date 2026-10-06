@@ -65,11 +65,12 @@ def main():
     ap.add_argument("--config",required=True)
     ap.add_argument("--output",required=True)
     ap.add_argument("--lookback-days",type=int,default=None)
+    ap.add_argument("--max-records",type=int,default=None)
     args=ap.parse_args()
 
     cfg=json.load(open(args.config))
     days=int(args.lookback_days or cfg.get("lookback_days_default",14))
-    max_records=int(cfg.get("gdelt_max_records",250))
+    max_records=int(args.max_records or cfg.get("gdelt_max_records",250))
     rows=[]
     errors=[]
     for q in cfg["queries"]:
