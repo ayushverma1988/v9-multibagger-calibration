@@ -27,6 +27,11 @@ def fetch_gdelt(query:str,days:int,max_records:int,retries:int=4):
     for i in range(retries):
         try:
             r=requests.get(GDELT,params=params,headers={"User-Agent":UA},timeout=60)
+            if r.status_code==429:
+                retry=r.headers.get("Retry-After")
+                wait=float(retry) if retry and str(retry).isdigit() else min(45,8*(i+1))
+                time.sleep(wait)
+                raise RuntimeError(f"GDELT HTTP 429 rate limited; waited {wait}s")
             r.raise_for_status()
             j=r.json()
             arts=j.get("articles",[]) if isinstance(j,dict) else []
@@ -79,6 +84,7 @@ def main():
             arts=fetch_gdelt(query,days,max_records)
             rows.extend(norm_article(a,family,query) for a in arts)
             print(f"{family}: {len(arts)} articles",flush=True)
+            time.sleep(5)
         except Exception as e:
             errors.append({"family":family,"error":repr(e)})
             print(f"{family}: ERROR {e!r}",flush=True)
