@@ -1,0 +1,26 @@
+{
+  "lookback_days_default": 14,
+  "gdelt_max_records": 250,
+  "queries": [
+    {"family":"capacity_live","query":"(\"commercial production\" OR commissioning OR commissioned OR \"trial production\" OR \"capacity expansion\" OR \"new plant\") sourcecountry:India"},
+    {"family":"orders","query":"(\"order win\" OR \"purchase order\" OR \"letter of award\" OR \"L1 bidder\" OR \"lowest bidder\" OR \"work order\" OR \"contract awarded\") sourcecountry:India"},
+    {"family":"product_market_access","query":"(\"new product\" OR \"product launch\" OR \"vendor approval\" OR \"customer qualification\" OR certification OR \"regulatory approval\") sourcecountry:India"},
+    {"family":"policy_demand","query":"(PLI OR tender OR procurement OR capex OR investment) (battery OR BESS OR semiconductor OR electronics OR defence OR aerospace OR rail OR solar OR transmission OR datacenter OR \"data center\" OR greenhydrogen) sourcecountry:India"},
+    {"family":"rating_capex","query":"(capex OR expansion OR \"order book\" OR commissioning OR capacity) (domain:crisilratings.com OR domain:icra.in OR domain:careedge.in)"},
+    {"family":"government_demand","query":"(procurement OR tender OR investment OR project OR scheme OR PLI OR manufacturing) domain:pib.gov.in"}
+  ],
+  "themes": {
+    "battery_bess":["battery","bess","energy storage","advanced chemistry cell","acc battery"],
+    "ev_auto":["electric vehicle","ev","e-mobility","auto component","traction motor","power electronics"],
+    "semiconductor_electronics":["semiconductor","chip","pcb","printed circuit board","electronics manufacturing","ems","display fab"],
+    "defence_aerospace":["defence","defense","aerospace","missile","radar","electronic warfare","drone","uav"],
+    "railways":["railway","railways","rolling stock","wagon","metro","vande bharat","kavach"],
+    "renewables":["solar","renewable","wind","inverter","module","cell manufacturing"],
+    "power_td":["transmission","transformer","switchgear","substation","power grid","distribution"],
+    "data_centres":["data center","data centre","server","gpu cluster","cloud infrastructure"],
+    "green_hydrogen":["green hydrogen","electrolyser","electrolyzer","hydrogen"],
+    "industrial_automation":["robotics","automation","industrial electronics","motion control","servo"],
+    "water_environment":["water treatment","wastewater","desalination","sewage treatment"],
+    "pharma_specialty":["api","pharma","cdmo","cmo","usfda","drug approval","specialty chemical"]
+  }
+}
