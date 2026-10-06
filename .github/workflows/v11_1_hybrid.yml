@@ -1,0 +1,116 @@
+name: V11.1 Hybrid Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_1_hybrid.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-1-hybrid
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile hybrid code
+        run: python -m py_compile src/v11_1_hybrid.py
+
+      - name: Download accepted V11 transformation evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-transformation-first-challenger
+          path: v11_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37426120089
+
+      - name: Locate V11 evidence files
+        shell: bash
+        run: |
+          set -euo pipefail
+          HIST=$(find v11_base -type f -name 'historical_scored.parquet' | head -n 1)
+          CUR=$(find v11_base -type f -name 'current_universe_scored.csv' | head -n 1)
+          if [ -z "$HIST" ] || [ -z "$CUR" ]; then
+            echo "Required V11 evidence files not found"
+            find v11_base -maxdepth 5 -type f | sort | head -200
+            exit 1
+          fi
+          echo "V11_HIST=$HIST" >> "$GITHUB_ENV"
+          echo "V11_CUR=$CUR" >> "$GITHUB_ENV"
+
+      - name: Run frozen V11.1 hybrid
+        run: |
+          python src/v11_1_hybrid.py             --config config_v11_1_hybrid.json             --historical-scored "$V11_HIST"             --current-scored "$V11_CUR"             --output outputs_v11_1_hybrid
+
+      - name: Apply acceptance gate
+        run: |
+          python - <<'PY'
+          import json, os
+          s=json.load(open("outputs_v11_1_hybrid/summary.json"))
+          m=s["historical_metrics"]
+          out={
+            "stage":"V11.1 hybrid acceptance",
+            "control":"V10.2",
+            "objective":"retain V10.2 predictive quality while adding earlier transformation discovery",
+            "metrics":m,
+            "acceptance_gate":bool(m.get("all_gates_pass",False)),
+            "production_action":"Do not replace V10.2 automatically. If accepted, begin V11.1 prospective shadow tracking alongside V10.2.",
+            "research_caveat":"V11.1 was designed after observing V11.0 results; prospective evidence remains mandatory."
+          }
+          os.makedirs("published_v11_1_hybrid",exist_ok=True)
+          json.dump(out,open("published_v11_1_hybrid/acceptance.json","w"),indent=2)
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Stage V11.1 evidence
+        run: |
+          mkdir -p published_v11_1_hybrid
+          cp outputs_v11_1_hybrid/summary.json published_v11_1_hybrid/model_summary.json
+          cp outputs_v11_1_hybrid/fold_metrics.csv published_v11_1_hybrid/fold_metrics.csv
+          cp outputs_v11_1_hybrid/current_hybrid_top10.csv published_v11_1_hybrid/current_hybrid_top10.csv
+          cp outputs_v11_1_hybrid/current_early_discovery_radar.csv published_v11_1_hybrid/current_early_discovery_radar.csv
+          cp outputs_v11_1_hybrid/current_universe_hybrid_scored.csv published_v11_1_hybrid/current_universe_hybrid_scored.csv
+          cp published_v11_1_feature_freeze/summary.json published_v11_1_hybrid/feature_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-1-hybrid-challenger
+          path: |
+            outputs_v11_1_hybrid/
+            published_v11_1_hybrid/
+          retention-days: 90
+
+      - name: Publish V11.1 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_1_hybrid
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish V11.1 hybrid challenger evidence [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
