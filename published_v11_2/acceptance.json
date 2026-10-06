@@ -1,0 +1,37 @@
+{
+  "stage": "V11.2 transformation-weighted hybrid acceptance",
+  "control": "V10.2",
+  "objective": "discover transformation stories earlier while retaining adequate validated 2x signal",
+  "metrics": {
+    "folds": 28,
+    "mean_hybrid_precision_100": 0.0892857142857143,
+    "mean_control_precision_100": 0.12142857142857144,
+    "mean_hybrid_lift_100": 1.9810670390705738,
+    "mean_control_lift_100": 4.134015048920257,
+    "hybrid_hit_fold_rate": 0.5,
+    "control_hit_fold_rate": 0.6428571428571429,
+    "mean_hybrid_dd30_rate": 0.33214285714285713,
+    "mean_control_dd30_rate": 0.37857142857142867,
+    "mean_hybrid_priced_in_penalty": 0.156505035835761,
+    "mean_control_priced_in_penalty": 0.22354156472908868,
+    "precision_ratio": 0.7352941176470589,
+    "lift_ratio": 0.47921137577571205,
+    "dd_delta": -0.04642857142857154,
+    "priced_in_improvement": 0.06703652889332767,
+    "recent_folds": 6,
+    "recent_hybrid_precision_100": 0.08333333333333333,
+    "recent_control_precision_100": 0.15,
+    "recent_precision_ratio": 0.5555555555555556,
+    "acceptance_gates": {
+      "precision_ratio": false,
+      "lift_ratio": false,
+      "dd_delta": true,
+      "recent_precision_ratio": false,
+      "priced_in_improvement": true
+    },
+    "all_gates_pass": false
+  },
+  "acceptance_gate": false,
+  "production_action": "Do not replace V10.2 automatically. If accepted, run V11.2 prospectively in shadow mode and compare daily selections.",
+  "research_caveat": "V11.2 was specified before inspecting V11.1 metrics, but after V11.0 failure; prospective evidence is mandatory."
+}
