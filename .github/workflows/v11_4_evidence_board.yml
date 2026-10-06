@@ -72,6 +72,12 @@ jobs:
         run: |
           python src/v11_4_integrated_financials.py             --symbols-file "$COMPANY_LIST"             --output outputs_v11_4_board/current_financial_inflection.csv             --max-symbols 120
 
+      - name: Calculate catalyst-specific price absorption
+        run: |
+          python src/v11_4_catalyst_absorption.py \
+            --evidence "$ALL_EVIDENCE" \
+            --output outputs_v11_4_board/catalyst_absorption.csv
+
       - name: Build explainable catalyst evidence board
         run: |
           python src/v11_4_evidence_board.py             --evidence "$ALL_EVIDENCE"             --financials outputs_v11_4_board/current_financial_inflection.csv             --market-transform "$MARKET"             --config config_v11_4_catalyst_intelligence.json             --output outputs_v11_4_board/evidence_board.csv
