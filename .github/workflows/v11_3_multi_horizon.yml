@@ -1,0 +1,117 @@
+name: V11.3 Multi-Horizon Transformation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_3_multi_horizon.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-3-multi-horizon
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile V11.3 code
+        run: |
+          python -m py_compile             src/v11_1_hybrid.py             src/v11_3_multi_horizon.py
+
+      - name: Download V11 transformation evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-transformation-first-challenger
+          path: v11_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37426120089
+
+      - name: Locate evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          HIST=$(find v11_base -type f -name 'historical_scored.parquet' | head -n 1)
+          CUR=$(find v11_base -type f -name 'current_universe_scored.csv' | head -n 1)
+          if [ -z "$HIST" ] || [ -z "$CUR" ]; then
+            echo "V11 evidence files not found"
+            find v11_base -maxdepth 5 -type f | sort | head -200
+            exit 1
+          fi
+          echo "V11_HIST=$HIST" >> "$GITHUB_ENV"
+          echo "V11_CUR=$CUR" >> "$GITHUB_ENV"
+
+      - name: Run frozen V11.3 multi-horizon model
+        run: |
+          python src/v11_3_multi_horizon.py             --config config_v11_3_multi_horizon.json             --historical-scored "$V11_HIST"             --current-scored "$V11_CUR"             --output outputs_v11_3
+
+      - name: Stage V11.3 acceptance evidence
+        run: |
+          python - <<'PY'
+          import json, os
+          s=json.load(open("outputs_v11_3/summary.json"))
+          m=s["historical_metrics"]
+          out={
+            "stage":"V11.3 multi-horizon transformation acceptance",
+            "control":"V10.2",
+            "objective":"discover transformation stories before obvious rerating",
+            "metrics":m,
+            "acceptance_gate":bool(m.get("all_gates_pass",False)),
+            "production_action":"Do not replace V10.2 automatically. If accepted, run V11.3 prospectively beside V10.2 with separate main and early-discovery outputs.",
+            "research_caveat":"V11.3 is a development model after V11.0-V11.2 research; prospective validation is mandatory."
+          }
+          os.makedirs("published_v11_3",exist_ok=True)
+          json.dump(out,open("published_v11_3/acceptance.json","w"),indent=2)
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Stage V11.3 files
+        run: |
+          mkdir -p published_v11_3
+          cp outputs_v11_3/summary.json published_v11_3/model_summary.json
+          cp outputs_v11_3/fold_metrics.csv published_v11_3/fold_metrics.csv
+          cp outputs_v11_3/current_multi_horizon_top10.csv published_v11_3/current_multi_horizon_top10.csv
+          cp outputs_v11_3/current_early_discovery_radar.csv published_v11_3/current_early_discovery_radar.csv
+          cp outputs_v11_3/current_universe_scored.csv published_v11_3/current_universe_scored.csv
+          cp published_v11_3_feature_freeze/summary.json published_v11_3/feature_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-3-multi-horizon
+          path: |
+            outputs_v11_3/
+            published_v11_3/
+          retention-days: 90
+
+      - name: Publish V11.3 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_3
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish V11.3 multi-horizon evidence [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
