@@ -309,8 +309,9 @@ def main():
             if not text:
                 continue
             cts=catalyst_types(text)
-            th=themes(text,qcfg)
             st,sw=stage(text)
+            capctx=catalyst_context(text)
+            th=themes(capctx,qcfg)
             neg=bool(NEGATIVE_PATTERNS.search(text))
             rows.append({
                 "evidence_id":getattr(r,"evidence_id",None),
@@ -345,10 +346,10 @@ def main():
         domain=str(getattr(r,"domain","") or urlparse(url).netloc)
         tier,trust=source_tier(domain,registry)
         cts=catalyst_types(text)
-        th=themes(text,qcfg)
         st,sw=stage(text)
-        neg=bool(NEGATIVE_PATTERNS.search(text))
         capctx=catalyst_context(text)
+        th=themes(capctx,qcfg)
+        neg=bool(NEGATIVE_PATTERNS.search(text))
         capm=extract_capacity_metrics(capctx)
         rows.append({
             "evidence_id":getattr(r,"evidence_id",None),
