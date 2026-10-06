@@ -104,11 +104,21 @@ def match_company(text,master):
     return hits[0][:3]
 
 
+def _keyword_hit(text,term):
+    term=str(term or "").strip().lower()
+    if not term:
+        return False
+    # Exact token/phrase matching. Short tokens such as EV or API must not
+    # match inside unrelated words like revenue/capital.
+    pat=re.escape(term)
+    pat=pat.replace(r"\ ",r"[\\s\\-/]+")
+    return re.search(r"(?<![A-Za-z0-9])"+pat+r"(?![A-Za-z0-9])",str(text),re.I) is not None
+
 def themes(text,cfg):
-    t=str(text).lower()
+    t=str(text or "")
     out=[]
     for theme,words in cfg["themes"].items():
-        if any(w.lower() in t for w in words):
+        if any(_keyword_hit(t,w) for w in words):
             out.append(theme)
     return out
 
