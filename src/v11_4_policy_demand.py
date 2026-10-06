@@ -7,6 +7,7 @@ from pathlib import Path
 
 import feedparser
 import pandas as pd
+import requests
 
 def theme_hits(text,cfg):
     t=str(text).lower()
@@ -24,8 +25,30 @@ def main():
     args=ap.parse_args()
 
     cfg=json.load(open(args.queries_config))
-    feed="https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3"
-    d=feedparser.parse(feed)
+    feeds=[
+        "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1",
+        "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
+        "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=48",
+    ]
+    headers={
+        "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134 Safari/537.36",
+        "Accept":"application/rss+xml,application/xml,text/xml,text/html;q=0.9,*/*;q=0.8",
+        "Referer":"https://www.pib.gov.in/ViewRss.aspx?lang=1&reg=3",
+    }
+    d=None; feed=None; fetch_errors=[]
+    for candidate in feeds:
+        try:
+            r=requests.get(candidate,headers=headers,timeout=35)
+            r.raise_for_status()
+            parsed=feedparser.parse(r.content)
+            if len(parsed.entries):
+                d=parsed; feed=candidate; break
+            fetch_errors.append({"feed":candidate,"status":r.status_code,"bytes":len(r.content),"entries":0})
+        except Exception as exc:
+            fetch_errors.append({"feed":candidate,"error":repr(exc)})
+    if d is None:
+        d=feedparser.FeedParserDict(entries=[])
+        feed=feeds[0]
     now=pd.Timestamp.now(tz="UTC")
     rows=[]
     for e in d.entries:
@@ -72,6 +95,7 @@ def main():
         "matched_rows":int(len(df)),
         "themes":agg.sort_values("theme_demand_score",ascending=False).to_dict("records") if len(agg) else [],
         "feed":feed,
+        "fetch_errors":fetch_errors,
     }
     json.dump(summary,open(out.parent/"policy_demand_summary.json","w"),indent=2,default=str)
     print(json.dumps(summary,indent=2,default=str))
