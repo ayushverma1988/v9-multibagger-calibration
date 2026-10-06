@@ -40,11 +40,15 @@ def main():
     ap.add_argument("--events",required=True)
     ap.add_argument("--queries-config",required=True)
     ap.add_argument("--output",required=True)
+    ap.add_argument("--lookback-days",type=int,default=240)
     ap.add_argument("--fetch-attachments",action="store_true")
     args=ap.parse_args()
 
     cfg=json.load(open(args.queries_config))
     ev=pd.read_parquet(args.events).copy()
+    ev["published_ts"]=pd.to_datetime(ev["published_ts"],utc=True,errors="coerce")
+    cutoff=pd.Timestamp.now(tz="UTC")-pd.Timedelta(days=int(args.lookback_days))
+    ev=ev[ev["published_ts"].notna() & (ev["published_ts"]>=cutoff)].copy()
     rows=[]
     fetched=0
     for r in ev.itertuples(index=False):
@@ -72,6 +76,10 @@ def main():
         raw="|".join(["NSE",recid,symbol,str(ts),headline])
         eid=hashlib.sha256(raw.encode()).hexdigest()
         conf=cg.event_confidence(1.0,sw,cts,neg,1)
+        # Keep only material primary evidence. Routine filings belong in the
+        # audit archive, not in the catalyst graph.
+        if not cts and sw < 0.40:
+            continue
         rows.append({
             "evidence_id":eid,
             "published_ts":ts,
@@ -108,6 +116,7 @@ def main():
     ] if len(df) else df
     summary={
         "input_rows":int(len(ev)),
+        "lookback_days":int(args.lookback_days),
         "output_rows":int(len(df)),
         "meaningful_rows":int(len(meaningful)),
         "companies":int(meaningful["symbol"].nunique()) if len(meaningful) else 0,
