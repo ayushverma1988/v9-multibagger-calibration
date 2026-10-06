@@ -1,0 +1,36 @@
+{
+  "stage": "V11.1 Hybrid feature/rule freeze",
+  "frozen_before_V11_1_results": true,
+  "known_prior_result": "V11.0 transformation-only failed acceptance: 5% mean precision vs 12.5% V10.2, but lower drawdown.",
+  "objective": "Combine V10.2's validated market signal with transformation-first evidence without allowing weak catalyst features to replace the control.",
+  "architecture": [
+    "V10.2 calibrated p100 is the anchor signal.",
+    "Transformation features are used in a regularized temporal meta-model trained only on prior folds.",
+    "Final hybrid score retains 70% V10.2 anchor and 30% meta-model evidence before downside penalty.",
+    "Candidate pool is the union of high V10.2 candidates and unusually strong transformation candidates.",
+    "A separate Early Discovery Radar captures strong early catalysts with low already-priced-in penalty even when they are not in the main Top-10.",
+    "The main list is judged against V10.2 on precision, lift, drawdown and recent-fold performance.",
+    "No V11.1 weight or threshold is changed after observing V11.1 results."
+  ],
+  "meta_features": [
+    "V10.2 logit p100",
+    "catalyst_score",
+    "business_inflection_score",
+    "promoter_conviction_score",
+    "accumulation_score",
+    "ownership_accumulation_score",
+    "early_stage_score",
+    "priced_in_penalty",
+    "risk_score",
+    "commissioning evidence",
+    "capacity evidence",
+    "order-win evidence",
+    "new/futuristic-product evidence",
+    "approval/customer evidence",
+    "pledge improvement/risk",
+    "catalyst x early-stage",
+    "promoter x accumulation",
+    "catalyst x accumulation",
+    "business-inflection x catalyst"
+  ]
+}
