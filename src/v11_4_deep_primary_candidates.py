@@ -93,9 +93,9 @@ def main():
             st,sw=cg.stage(text)
             if not cts and sw<0.40:
                 continue
-            th=cg.themes(text,cfg)
-            neg=bool(cg.NEGATIVE_PATTERNS.search(text))
             capctx=cg.catalyst_context(text)
+            th=cg.themes(capctx,cfg)
+            neg=bool(cg.NEGATIVE_PATTERNS.search(text))
             capm=cg.extract_capacity_metrics(capctx)
             ts=parse_ts(getattr(r,"published_ts",None))
             recid=str(getattr(r,"source_record_id","") or "")
