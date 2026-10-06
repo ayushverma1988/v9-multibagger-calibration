@@ -33,15 +33,19 @@ jobs:
 
       - name: Compile V11.4 source code
         run: |
-          python -m py_compile             src/v11_4_collect_public_evidence.py             src/v11_4_catalyst_graph.py
+          python -m py_compile             src/v11_4_collect_public_evidence.py             src/v11_4_collect_nse_primary.py             src/v11_4_catalyst_graph.py
 
       - name: Collect multi-source public evidence
         run: |
           python src/v11_4_collect_public_evidence.py             --config config/v11_4_discovery_queries.json             --output outputs_v11_4_sources/public_evidence.parquet             --lookback-days 7             --max-records 60
 
+      - name: Collect direct NSE primary evidence
+        run: |
+          python src/v11_4_collect_nse_primary.py             --output outputs_v11_4_sources/nse_primary_evidence.parquet             --lookback-days 45
+
       - name: Build catalyst graph
         run: |
-          python src/v11_4_catalyst_graph.py             --evidence outputs_v11_4_sources/public_evidence.parquet             --queries-config config/v11_4_discovery_queries.json             --source-registry config/v11_4_source_registry.json             --output outputs_v11_4_sources/company_linked_evidence.parquet             --fetch-pages
+          python src/v11_4_catalyst_graph.py             --evidence outputs_v11_4_sources/public_evidence.parquet             --primary-evidence outputs_v11_4_sources/nse_primary_evidence.parquet             --queries-config config/v11_4_discovery_queries.json             --source-registry config/v11_4_source_registry.json             --output outputs_v11_4_sources/company_linked_evidence.parquet             --fetch-pages
 
       - name: Gate source quality
         run: |
@@ -53,6 +57,10 @@ jobs:
               raise SystemExit("Too few company-linked catalyst rows")
           if s.get("companies",0) < 5:
               raise SystemExit("Too few companies linked")
+          if s.get("primary_rows",0) < 25:
+              raise SystemExit("Too few primary-source catalyst rows")
+          if s.get("primary_rows",0) / max(s.get("linked_rows",1),1) < 0.20:
+              raise SystemExit("Primary-source share below 20%")
           PY
 
       - uses: actions/upload-artifact@v4
