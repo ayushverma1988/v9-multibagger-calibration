@@ -1,0 +1,21 @@
+{
+  "tiers": {
+    "1": {"trust": 1.0, "description": "Primary/official evidence"},
+    "2": {"trust": 0.8, "description": "High-quality corroborating evidence"},
+    "3": {"trust": 0.5, "description": "Discovery-only secondary evidence"}
+  },
+  "sources": [
+    {"name":"NSE corporate announcements","tier":1,"role":["company_event","order","capacity","commissioning","approval","promoter","press_release"]},
+    {"name":"NSE announcement XBRL","tier":1,"role":["structured_event","shareholding","capital_action"]},
+    {"name":"NSE integrated financial XBRL","tier":1,"role":["revenue","ebitda","profit","debt","cash_flow","margin_inflection"]},
+    {"name":"BSE corporate announcements","tier":1,"role":["company_event","cross_exchange_corroboration"]},
+    {"name":"Company investor relations / presentations / earnings calls","tier":1,"role":["capacity_timeline","utilisation","order_pipeline","product","guidance","customer_qualification"]},
+    {"name":"CPPP/eProcure bid awards and tenders","tier":1,"role":["tender_pipeline","award","l1_or_prequalification","customer_demand"]},
+    {"name":"PIB and ministry releases","tier":1,"role":["sector_demand","government_capex","policy","pli","procurement"]},
+    {"name":"CRISIL / ICRA / CARE / India Ratings rationales","tier":1,"role":["capex_progress","capacity","debt","liquidity","order_book","revenue_expectation","execution_risk"]},
+    {"name":"Sector regulators / approval agencies","tier":1,"role":["product_approval","certification","market_access"]},
+    {"name":"GDELT news discovery","tier":2,"role":["news_discovery","cross_source_corroboration"]},
+    {"name":"Reputable financial/business news","tier":2,"role":["management_interview","sector_context","customer_capex","news_corroboration"]},
+    {"name":"Unverified social/media chatter","tier":3,"role":["lead_generation_only"],"cannot_drive_selection":true}
+  ]
+}
