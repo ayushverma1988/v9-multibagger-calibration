@@ -1,0 +1,62 @@
+name: V11.4 Catalyst Source Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_source_smoke.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v11-4-source-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install smoke dependencies
+        run: pip install pandas pyarrow requests beautifulsoup4 lxml
+
+      - name: Compile V11.4 source code
+        run: |
+          python -m py_compile             src/v11_4_collect_public_evidence.py             src/v11_4_catalyst_graph.py
+
+      - name: Collect multi-source public evidence
+        run: |
+          python src/v11_4_collect_public_evidence.py             --config config/v11_4_discovery_queries.json             --output outputs_v11_4_sources/public_evidence.parquet             --lookback-days 7             --max-records 60
+
+      - name: Build catalyst graph
+        run: |
+          python src/v11_4_catalyst_graph.py             --evidence outputs_v11_4_sources/public_evidence.parquet             --queries-config config/v11_4_discovery_queries.json             --source-registry config/v11_4_source_registry.json             --output outputs_v11_4_sources/company_linked_evidence.parquet             --fetch-pages
+
+      - name: Gate source quality
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open("outputs_v11_4_sources/catalyst_graph_summary.json"))
+          print(json.dumps(s,indent=2))
+          if s.get("linked_rows",0) < 10:
+              raise SystemExit("Too few company-linked catalyst rows")
+          if s.get("companies",0) < 5:
+              raise SystemExit("Too few companies linked")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-catalyst-source-smoke
+          path: outputs_v11_4_sources/
+          retention-days: 30
