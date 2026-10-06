@@ -1,0 +1,20 @@
+{
+  "stage": "V11.3 Multi-Horizon Transformation rule freeze",
+  "frozen_before_V11_3_results": true,
+  "known_prior_evidence": {
+    "V11_1": "70% V10.2 anchor nearly retained control precision and improved recent precision/drawdown but remained momentum-dominated.",
+    "V11_2_60_40_hard_gate": "Retained ~97.8% of 6m precision and selected earlier/lower-priced-in stories, but recent 6m precision and lift weakened.",
+    "V11_2_65_35_effective": "Earlier/lower-priced-in selections improved, but 6m precision/lift deteriorated substantially."
+  },
+  "objective": "Find transformation stories before they become obvious, even when the 2x realization takes longer than six months.",
+  "core_change": [
+    "Stop judging transformation discovery primarily on a six-month 2x label.",
+    "Train independent transformation models for 6m, 12m and 24m 2x outcomes.",
+    "Weight transformation horizon probability 20% y6, 35% y12, 45% y24.",
+    "Transformation evidence receives 70% of final ranking; V10.2 receives 30% as confirmation.",
+    "Pure V10.2 momentum names cannot enter without a transformation gate.",
+    "Track early-stage, priced-in penalty and catalyst prevalence alongside return outcomes.",
+    "Keep a separate radar for very early transformation candidates with weak technical confirmation."
+  ],
+  "methodology_note": "This is a new objective definition after observing that higher transformation weights improve early-stage characteristics but can look weak under a six-month-only target. Prospective shadow validation remains mandatory."
+}
