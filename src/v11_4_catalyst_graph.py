@@ -144,6 +144,30 @@ def catalyst_context(text, radius=450):
     return " ".join(s[a:b] for a,b in merged[:12])
 
 
+MONEY_CONTEXT_RE=re.compile(
+    r"\b(order|contract|work order|purchase order|letter of award|\bloa\b|"
+    r"capex|capital expenditure|investment|project cost|expansion|capacity|"
+    r"new plant|new facility|facility|award value|order value|worth)\b",
+    re.I,
+)
+
+def extract_catalyst_money_crore(text, radius=140):
+    s=str(text or "")
+    vals=[]
+    pats=[
+        re.compile(r"(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(crore|cr)\b",re.I),
+        re.compile(r"([0-9][0-9,]*(?:\.[0-9]+)?)\s*(crore|cr)\b",re.I),
+    ]
+    for p in pats:
+        for m in p.finditer(s):
+            a=max(0,m.start()-radius); b=min(len(s),m.end()+radius)
+            if not MONEY_CONTEXT_RE.search(s[a:b]):
+                continue
+            try: vals.append(float(m.group(1).replace(",","")))
+            except Exception: pass
+    return max(vals) if vals else np.nan
+
+
 def extract_money_crore(text):
     vals=[]
     pats=[
@@ -297,7 +321,7 @@ def main():
             "themes":json.dumps(th),
             "stage":st,
             "stage_weight":sw,
-            "money_crore_max":extract_money_crore(capctx),
+            "money_crore_max":extract_catalyst_money_crore(capctx),
             "capacity_pct_max":capm["capacity_pct"],
             "capacity_pct_direct":capm["capacity_pct_direct"],
             "capacity_pct_inferred":capm["capacity_pct_inferred"],
