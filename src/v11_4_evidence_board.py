@@ -171,6 +171,7 @@ def main():
     ap.add_argument("--evidence",required=True)
     ap.add_argument("--financials",required=True)
     ap.add_argument("--market-transform",required=True)
+    ap.add_argument("--absorption",required=False)
     ap.add_argument("--config",required=True)
     ap.add_argument("--output",required=True)
     args=ap.parse_args()
@@ -191,6 +192,9 @@ def main():
     ]
     keep=[c for c in keep if c in mt.columns]
     board=board.merge(mt[keep].drop_duplicates("symbol"),on="symbol",how="left")
+    if args.absorption:
+        ab=pd.read_csv(args.absorption)
+        board=board.merge(ab,on="symbol",how="left")
 
     board["promoter_accumulation_score"]=(
         0.45*pd.to_numeric(board.get("promoter_conviction_score"),errors="coerce").fillna(0)
@@ -211,7 +215,13 @@ def main():
 
     p10=pd.to_numeric(board.get("p100_anchor",board.get("p100_cal")),errors="coerce")
     board["v10_confirmation_percentile"]=rank_pct(p10)
-    priced=pd.to_numeric(board.get("priced_in_penalty"),errors="coerce").fillna(0.5).clip(0,1)
+    generic_priced=pd.to_numeric(board.get("priced_in_penalty"),errors="coerce").fillna(0.5).clip(0,1)
+    if "catalyst_priced_in_penalty" in board:
+        catalyst_priced=pd.to_numeric(board["catalyst_priced_in_penalty"],errors="coerce")
+        priced=catalyst_priced.where(catalyst_priced.notna(),generic_priced).clip(0,1)
+    else:
+        priced=generic_priced
+    board["effective_priced_in_penalty"]=priced
     layer_cfg=cfg["final_layers"]
     board["short_term_catalyst_score"]=(
         float(layer_cfg["catalyst_intelligence"])*board["catalyst_intelligence_score"]
@@ -236,7 +246,8 @@ def main():
             f"themes={r['themes'] or '-'}; orderP={r['order_probability_score']:.2f}; "
             f"financial={r.get('financial_inflection_score',np.nan):.2f}; "
             f"promoterAccum={r.get('promoter_accumulation_score',0):.2f}; "
-            f"pricedIn={r.get('priced_in_penalty',np.nan):.2f}"
+            f"catalystRet={r.get('return_since_catalyst',np.nan):.2f}; "
+            f"pricedIn={r.get('effective_priced_in_penalty',np.nan):.2f}"
         ),axis=1
     )
 
@@ -260,7 +271,7 @@ def main():
         "top_qualified":board[board["evidence_qualified"]].head(15)[
             ["symbol","short_term_catalyst_score","catalyst_intelligence_score","catalyst_types",
              "themes","max_stage","primary_rows","financial_inflection_score",
-             "promoter_accumulation_score","priced_in_penalty","best_title"]
+             "promoter_accumulation_score","return_since_catalyst","effective_priced_in_penalty","best_title"]
         ].to_dict("records"),
         "important_note":"No V11.4 Top-10 is promoted from this board. Primary-source linkage and financial-unit audit must pass before production ranking."
     }
