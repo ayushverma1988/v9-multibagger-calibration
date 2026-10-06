@@ -98,7 +98,7 @@ def main():
             "themes":json.dumps(th),
             "stage":st,
             "stage_weight":sw,
-            "money_crore_max":cg.extract_money_crore(capctx),
+            "money_crore_max":cg.extract_catalyst_money_crore(capctx),
             "capacity_pct_max":capm["capacity_pct"],
             "capacity_pct_direct":capm["capacity_pct_direct"],
             "capacity_pct_inferred":capm["capacity_pct_inferred"],
