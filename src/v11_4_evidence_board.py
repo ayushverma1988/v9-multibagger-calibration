@@ -296,7 +296,7 @@ def main():
         "top_qualified":board[board["evidence_qualified"]].head(15)[
             ["symbol","short_term_catalyst_score","catalyst_intelligence_score","catalyst_types",
              "themes","max_stage","primary_rows","financial_inflection_score",
-             "promoter_accumulation_score","return_since_catalyst","effective_priced_in_penalty","best_title"]
+             "promoter_accumulation_score","effective_priced_in_penalty","best_title"]
         ].to_dict("records"),
         "important_note":"No V11.4 Top-10 is promoted from this board. Primary-source linkage and financial-unit audit must pass before production ranking."
     }
