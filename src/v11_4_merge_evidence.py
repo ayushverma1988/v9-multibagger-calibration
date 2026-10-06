@@ -23,6 +23,18 @@ def main():
 
     sec=pd.read_parquet(args.secondary)
     pri=pd.read_parquet(args.primary)
+
+    # A normal exchange filing is not a catalyst. Tier-1 confirmation requires
+    # actual catalyst language or a meaningful execution stage.
+    pri_stage=pd.to_numeric(pri.get("stage_weight"),errors="coerce").fillna(0)
+    pri_types=pri.get("catalyst_types",pd.Series("[]",index=pri.index)).fillna("[]").astype(str)
+    pri=pri[(pri_stage>=0.40) | pri_types.ne("[]")].copy()
+
+    # Secondary discovery rows also need at least a catalyst/stage signal.
+    sec_stage=pd.to_numeric(sec.get("stage_weight"),errors="coerce").fillna(0)
+    sec_types=sec.get("catalyst_types",pd.Series("[]",index=sec.index)).fillna("[]").astype(str)
+    sec=sec[(sec_stage>=0.40) | sec_types.ne("[]")].copy()
+
     cols=sorted(set(sec.columns)|set(pri.columns))
     for c in cols:
         if c not in sec: sec[c]=pd.NA
