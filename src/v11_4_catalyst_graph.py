@@ -111,7 +111,7 @@ def _keyword_hit(text,term):
     # Exact token/phrase matching. Short tokens such as EV or API must not
     # match inside unrelated words like revenue/capital.
     pat=re.escape(term)
-    pat=pat.replace(r"\ ",r"[\\s\\-/]+")
+    pat=pat.replace(r"\\ ",r"(?:\\s|[-/])+")
     return re.search(r"(?<![A-Za-z0-9])"+pat+r"(?![A-Za-z0-9])",str(text),re.I) is not None
 
 def themes(text,cfg):
