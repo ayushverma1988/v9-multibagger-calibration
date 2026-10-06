@@ -3,11 +3,27 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 from pathlib import Path
 
 import feedparser
 import pandas as pd
 import requests
+
+def fetch_body_text(url, headers):
+    if not url:
+        return ""
+    try:
+        r=requests.get(url,headers=headers,timeout=30)
+        r.raise_for_status()
+        txt=r.text
+        txt=re.sub(r"(?is)<script.*?>.*?</script>"," ",txt)
+        txt=re.sub(r"(?is)<style.*?>.*?</style>"," ",txt)
+        txt=re.sub(r"(?s)<[^>]+>"," ",txt)
+        txt=re.sub(r"\s+"," ",txt)
+        return txt[:150000]
+    except Exception:
+        return ""
 
 def theme_hits(text,cfg):
     t=str(text).lower()
@@ -61,7 +77,8 @@ def main():
         age=max((now-dt).total_seconds()/86400,0)
         if age>args.lookback_days:
             continue
-        hits=theme_hits(title+" "+summary,cfg)
+        body=fetch_body_text(link,headers)
+        hits=theme_hits(title+" "+summary+" "+body,cfg)
         for theme in hits:
             freshness=math.exp(-age/14.0)
             rows.append({
@@ -73,6 +90,7 @@ def main():
                 "theme":theme,
                 "freshness":freshness,
                 "primary_source":True,
+                "body_scanned":bool(body),
             })
     df=pd.DataFrame(rows)
     out=Path(args.output); out.parent.mkdir(parents=True,exist_ok=True)
