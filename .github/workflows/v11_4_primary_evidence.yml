@@ -1,3 +1,4 @@
+# V11.4 source integration rev6
 # V11.4 final source semantics rev5
 name: V11.4 Primary Catalyst Evidence
 
@@ -94,11 +95,11 @@ jobs:
 
       - name: Collect primary PIB theme-demand evidence
         run: |
-          python src/v11_4_policy_demand.py             --queries-config config/v11_4_discovery_queries.json             --output outputs_v11_4_primary/pib_theme_evidence.parquet             --lookback-days 30
+          python src/v11_4_policy_demand.py             --queries-config config/v11_4_discovery_queries.json             --output outputs_v11_4_primary/pib_theme_evidence.parquet             --lookback-days 90
 
       - name: Merge primary and secondary catalyst intelligence
         run: |
-          python src/v11_4_merge_evidence.py             --secondary outputs_v11_4_primary/secondary_company_evidence.parquet             --primary outputs_v11_4_primary/nse_primary_evidence.parquet             --theme-demand outputs_v11_4_primary/theme_demand_scores.csv             --output outputs_v11_4_primary/all_company_evidence.parquet
+          python src/v11_4_merge_evidence.py             --secondary outputs_v11_4_primary/secondary_company_evidence.parquet             --primary outputs_v11_4_primary/nse_primary_evidence_combined.parquet             --theme-demand outputs_v11_4_primary/theme_demand_scores.csv             --output outputs_v11_4_primary/all_company_evidence.parquet
 
       - name: Enforce evidence quality gate
         run: |
