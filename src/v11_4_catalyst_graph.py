@@ -19,7 +19,7 @@ LEGAL_STOP={
 
 STAGE_PATTERNS=[
     ("utilisation_ramp_or_repeat_order",1.10,re.compile(r"\b(utili[sz]ation ramp|ramp[- ]up|repeat order|repeat contract)\b",re.I)),
-    ("commercial_production_or_purchase_order",1.00,re.compile(r"\b(commercial production|commenced commercial|purchase order|work order|firm order)\b",re.I)),
+    ("commercial_production_or_purchase_order",1.00,re.compile(r"\b(commercial production|commencement of (?:commercial )?production|commenced (?:commercial )?production|production (?:has )?commenced|production commencement|fully operational|facility (?:is )?(?:now )?operational|operations (?:have )?commenced|purchase order|work order|firm order)\b",re.I)),
     ("commissioned_or_loa",0.85,re.compile(r"\b(commissioned|commissioning completed|letter of award|\bloa\b|contract awarded)\b",re.I)),
     ("trial_production_or_l1_bidder",0.70,re.compile(r"\b(trial production|trial run|l1 bidder|lowest bidder|preferred bidder|shortlisted)\b",re.I)),
     ("under_construction_or_vendor_approved",0.55,re.compile(r"\b(under construction|civil work|equipment installation|vendor approval|customer qualification|approved vendor)\b",re.I)),
@@ -29,7 +29,7 @@ STAGE_PATTERNS=[
 
 CATALYST_PATTERNS={
     "capacity":re.compile(r"\b(capacity expansion|expand capacity|capacity addition|greenfield|brownfield|new plant|new facility|capex)\b",re.I),
-    "commissioning":re.compile(r"\b(commissioned|commissioning|commercial production|trial production|operations commenced|plant operational)\b",re.I),
+    "commissioning":re.compile(r"\b(commissioned|commissioning|commercial production|commencement of (?:commercial )?production|commenced (?:commercial )?production|production (?:has )?commenced|production commencement|trial production|operations commenced|operations have commenced|plant operational|facility (?:is )?(?:now )?operational|fully operational)\b",re.I),
     "order":re.compile(r"\b(order win|purchase order|work order|letter of award|\bloa\b|contract awarded|l1 bidder|lowest bidder|order book)\b",re.I),
     "product":re.compile(r"\b(new product|product launch|commerciali[sz]ation|new technology|new platform)\b",re.I),
     "approval":re.compile(r"\b(regulatory approval|product approval|vendor approval|customer qualification|certification|usfda|ce marking)\b",re.I),
