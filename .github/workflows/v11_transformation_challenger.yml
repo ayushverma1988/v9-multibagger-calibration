@@ -1,0 +1,225 @@
+name: V11 Transformation-First Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_transformation_challenger.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-transformation-challenger
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt requests
+
+      - name: Compile V11 transformation code
+        run: |
+          python -m py_compile \
+            src/v11_transformation_overlay.py \
+            src/v10_nse_market_ingest.py \
+            src/v10_fetch_legacy_archive.py \
+            src/v10_refresh_events.py
+
+      - name: Resolve current production date
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_DATE=$(python - <<'PY'
+          import pandas as pd
+          x=pd.read_csv("published_v10_production_monitor/current_universe_frozen_selector.csv")
+          print(pd.Timestamp(x["date"].max()).date())
+          PY
+          )
+          echo "V11_TARGET_DATE=$TARGET_DATE" >> "$GITHUB_ENV"
+          echo "V11 target date: $TARGET_DATE"
+
+      - name: Restore validated official NSE market overlay
+        shell: bash
+        env:
+          HF_ARCHIVE_TOKEN: \${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python src/v10_nse_market_ingest.py \
+            --date "$V11_TARGET_DATE" \
+            --output-dir nse_direct \
+            --poll-attempts 1 \
+            --poll-seconds 30 \
+            --allow-hf-fallback
+          python - <<'PY'
+          import json,os
+          s=json.load(open("nse_direct/market_ingest_summary.json"))
+          if s.get("combined_max_date") != s.get("target_date"):
+              raise SystemExit("V11 market overlay did not reach target date")
+          with open(os.environ["GITHUB_ENV"],"a") as f:
+              f.write(f"V10_CURRENT_YEAR_MARKET_PARQUET={s['overlay_parquet']}\n")
+          print(json.dumps(s,indent=2))
+          PY
+
+      - name: Restore verified 2003-2009 legacy NSE history
+        env:
+          HF_ARCHIVE_TOKEN: \${{ secrets.HF_ARCHIVE_TOKEN }}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python src/v10_fetch_legacy_archive.py \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --output-dir legacy \
+            --bootstrap-github-artifacts
+
+      - name: Download canonical point-in-time event archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_base
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Refresh recent NSE corporate announcements
+        run: |
+          python src/v10_refresh_events.py \
+            --base-events events_base/events_all_2016_2026.parquet \
+            --output events_current/events_all_current.parquet \
+            --lookback-days 120
+
+      - name: Download frozen point-in-time promoter/shareholding archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: pit
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+
+      - name: Download accepted V10.2 OOS control evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: baseline
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
+      - name: Run frozen V11 transformation-first overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          OOS=$(find baseline -type f -name 'oos_predictions.parquet' | head -n 1)
+          if [ -z "$OOS" ]; then
+            echo "Accepted V10.2 OOS predictions not found"
+            find baseline -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+          python src/v11_transformation_overlay.py \
+            --config config_v11_transformation.json \
+            --baseline-oos "$OOS" \
+            --current-universe published_v10_production_monitor/current_universe_frozen_selector.csv \
+            --events events_current/events_all_current.parquet \
+            --pit-dir pit \
+            --legacy-dir legacy \
+            --output outputs_v11_transformation
+
+      - name: Apply pre-frozen V11 evidence gate
+        run: |
+          python - <<'PY'
+          import json, math
+          import pandas as pd
+
+          s=json.load(open("outputs_v11_transformation/summary.json"))
+          e=s["evaluation"]
+          cur=pd.read_csv("outputs_v11_transformation/current_transformation_watchlist.csv")
+
+          def finite(v):
+              return v is not None and math.isfinite(float(v))
+
+          precision_ratio=(
+              float(e["mean_precision_100"])/float(e["mean_control_precision_100"])
+              if finite(e.get("mean_precision_100")) and finite(e.get("mean_control_precision_100"))
+              and float(e["mean_control_precision_100"])>0 else None
+          )
+          lift_ratio=(
+              float(e["mean_lift_100"])/float(e["mean_control_lift_100"])
+              if finite(e.get("mean_lift_100")) and finite(e.get("mean_control_lift_100"))
+              and float(e["mean_control_lift_100"])>0 else None
+          )
+          dd_delta=(
+              float(e["mean_dd30_rate"])-float(e["mean_control_dd30_rate"])
+              if finite(e.get("mean_dd30_rate")) and finite(e.get("mean_control_dd30_rate"))
+              else None
+          )
+
+          gates={
+              "evaluated_folds_ge_6": int(e.get("evaluated_folds",0))>=6,
+              "precision_retention_ge_90pct": precision_ratio is not None and precision_ratio>=0.90,
+              "lift_retention_ge_90pct": lift_ratio is not None and lift_ratio>=0.90,
+              "dd_not_worse_5pp": dd_delta is not None and dd_delta<=0.05,
+              "current_qualified_ge_5": int(s.get("current_qualified",0))>=5,
+              "current_watchlist_not_forced": len(cur)<=10,
+          }
+          out={
+              "stage":"V11 Transformation-First frozen evidence gate",
+              "objective":"early transformation discovery",
+              "control":"V10.2",
+              "precision_ratio":precision_ratio,
+              "lift_ratio":lift_ratio,
+              "dd_delta":dd_delta,
+              "gates":gates,
+              "all_gates_pass":all(gates.values()),
+              "promotion_policy":"Do not overwrite V10.2 history. If gates pass, start V11 prospective shadow tracking; production replacement requires prospective evidence."
+          }
+          import os
+          os.makedirs("published_v11_transformation",exist_ok=True)
+          json.dump(out,open("published_v11_transformation/acceptance.json","w"),indent=2)
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Stage V11 evidence
+        run: |
+          mkdir -p published_v11_transformation
+          cp outputs_v11_transformation/summary.json published_v11_transformation/model_summary.json
+          cp outputs_v11_transformation/fold_metrics.csv published_v11_transformation/fold_metrics.csv
+          cp outputs_v11_transformation/current_transformation_watchlist.csv published_v11_transformation/current_transformation_watchlist.csv
+          cp outputs_v11_transformation/current_universe_scored.csv published_v11_transformation/current_universe_scored.csv
+          cp published_v11_feature_freeze/summary.json published_v11_transformation/feature_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-transformation-first-challenger
+          path: |
+            outputs_v11_transformation/
+            published_v11_transformation/
+          retention-days: 90
+
+      - name: Publish V11 challenger evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_transformation
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish V11 transformation-first challenger evidence [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
