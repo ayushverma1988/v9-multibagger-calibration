@@ -124,6 +124,26 @@ def catalyst_types(text):
     return [k for k,p in CATALYST_PATTERNS.items() if p.search(text)]
 
 
+def catalyst_context(text, radius=450):
+    """Return local windows around catalyst/stage terms for magnitude extraction."""
+    s=str(text or "")
+    spans=[]
+    patterns=list(CATALYST_PATTERNS.values())+[p for _,_,p in STAGE_PATTERNS]
+    for p in patterns:
+        for m in p.finditer(s):
+            spans.append((max(0,m.start()-radius),min(len(s),m.end()+radius)))
+    if not spans:
+        return ""
+    spans.sort()
+    merged=[]
+    for a,b in spans:
+        if merged and a<=merged[-1][1]+80:
+            merged[-1]=(merged[-1][0],max(merged[-1][1],b))
+        else:
+            merged.append((a,b))
+    return " ".join(s[a:b] for a,b in merged[:12])
+
+
 def extract_money_crore(text):
     vals=[]
     pats=[
@@ -199,8 +219,8 @@ def main():
             "themes":json.dumps(th),
             "stage":st,
             "stage_weight":sw,
-            "money_crore_max":extract_money_crore(text),
-            "capacity_pct_max":extract_capacity_pct(text),
+            "money_crore_max":extract_money_crore(catalyst_context(text)),
+            "capacity_pct_max":extract_capacity_pct(catalyst_context(text)),
             "negative_flag":neg,
         })
 
