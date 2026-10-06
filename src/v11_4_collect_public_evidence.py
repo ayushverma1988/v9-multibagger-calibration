@@ -29,7 +29,7 @@ def fetch_gdelt(query:str,days:int,max_records:int,retries:int=4):
             r=requests.get(GDELT,params=params,headers={"User-Agent":UA},timeout=60)
             if r.status_code==429:
                 retry=r.headers.get("Retry-After")
-                wait=float(retry) if retry and str(retry).isdigit() else min(45,8*(i+1))
+                wait=float(retry) if retry and str(retry).isdigit() else min(70,25*(i+1))
                 time.sleep(wait)
                 raise RuntimeError(f"GDELT HTTP 429 rate limited; waited {wait}s")
             r.raise_for_status()
@@ -71,6 +71,7 @@ def main():
     ap.add_argument("--output",required=True)
     ap.add_argument("--lookback-days",type=int,default=None)
     ap.add_argument("--max-records",type=int,default=None)
+    ap.add_argument("--query-delay",type=float,default=20.0)
     args=ap.parse_args()
 
     cfg=json.load(open(args.config))
@@ -84,7 +85,7 @@ def main():
             arts=fetch_gdelt(query,days,max_records)
             rows.extend(norm_article(a,family,query) for a in arts)
             print(f"{family}: {len(arts)} articles",flush=True)
-            time.sleep(5)
+            time.sleep(max(0.0,float(args.query_delay)))
         except Exception as e:
             errors.append({"family":family,"error":repr(e)})
             print(f"{family}: ERROR {e!r}",flush=True)
