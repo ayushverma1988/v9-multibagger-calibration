@@ -1,0 +1,12 @@
+{
+  "case": "SHANTIGOLD",
+  "diagnostic_only": true,
+  "evidence_rows": 0,
+  "primary_rows": 0,
+  "catalyst_types": [],
+  "themes": [],
+  "max_stage_weight": null,
+  "capacity_pct_max": null,
+  "detected_transformation_chain": false,
+  "note": "Not used as a model feature, weight or acceptance gate."
+}
