@@ -68,15 +68,15 @@ def main():
             fetched += 1 if body else 0
         text=(base+" "+body).strip()
         cts=cg.catalyst_types(text)
-        th=cg.themes(text,cfg)
         st,sw=cg.stage(text)
+        capctx=cg.catalyst_context(text)
+        th=cg.themes(capctx,cfg)
         neg=bool(cg.NEGATIVE_PATTERNS.search(text))
         ts=pd.to_datetime(getattr(r,"published_ts",None),utc=True,errors="coerce")
         recid=str(getattr(r,"source_record_id","") or "")
         raw="|".join(["NSE",recid,symbol,str(ts),headline])
         eid=hashlib.sha256(raw.encode()).hexdigest()
         conf=cg.event_confidence(1.0,sw,cts,neg,1)
-        capctx=cg.catalyst_context(text)
         capm=cg.extract_capacity_metrics(capctx)
         # Keep only material primary evidence. Routine filings belong in the
         # audit archive, not in the catalyst graph.
