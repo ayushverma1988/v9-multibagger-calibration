@@ -157,6 +157,82 @@ def extract_money_crore(text):
     return max(vals) if vals else np.nan
 
 
+def _capacity_unit(u):
+    s=str(u or "").lower().replace(".","").strip()
+    aliases={
+        "kgs":"kg","kilogram":"kg","kilograms":"kg",
+        "ton":"tonne","tons":"tonne","tonnes":"tonne","tpa":"tonne",
+        "mtpa":"mtpa","mmtpa":"mmtpa",
+        "mw":"mw","gw":"gw","kw":"kw",
+        "units":"unit","unit":"unit",
+        "kl":"kl","klpd":"klpd","mld":"mld",
+    }
+    return aliases.get(s,s)
+
+def _capacity_scale(unit):
+    # Normalize only within unambiguous families.
+    return {
+        "kg":("mass",1.0),
+        "tonne":("mass",1000.0),
+        "mw":("power",1.0),
+        "gw":("power",1000.0),
+        "kw":("power",0.001),
+        "unit":("unit",1.0),
+        "kl":("volume",1.0),
+        "klpd":("flow",1.0),
+        "mld":("flow_mld",1.0),
+        "mtpa":("mtpa",1.0),
+        "mmtpa":("mtpa",1000.0),
+    }.get(unit,(unit,1.0))
+
+CAP_AMOUNT=r"([0-9][0-9,]*(?:\.[0-9]+)?)\s*(kg|kgs|kilograms?|tonnes?|tons?|\bmt\b|tpa|mtpa|mmtpa|mw|gw|kw|units?|klpd|mld|kl)\b"
+
+def extract_capacity_metrics(text):
+    s=str(text or "")
+    direct=extract_capacity_pct(s)
+    candidates=[]
+
+    # Explicit from X to Y is highest confidence.
+    p=re.compile(r"(?:capacity[^.]{0,100}?)?from\s*"+CAP_AMOUNT+r"[^.]{0,100}?\bto\s*"+CAP_AMOUNT,re.I)
+    for m in p.finditer(s):
+        x=float(m.group(1).replace(",","")); ux=_capacity_unit(m.group(2))
+        y=float(m.group(3).replace(",","")); uy=_capacity_unit(m.group(4))
+        fx,sx=_capacity_scale(ux); fy,sy=_capacity_scale(uy)
+        if fx==fy and x>0 and y>x:
+            pct=(y*sy/(x*sx)-1)*100
+            candidates.append(("from_to",pct,x,ux,y,uy))
+
+    # "add X ... taking total capacity to Y" / "adds X ... total capacity Y".
+    p2=re.compile(r"(?:add(?:s|ed|ition(?:al)?)?|increase(?:s|d)?)[^.]{0,50}?"+CAP_AMOUNT+r"[^.]{0,140}?(?:total\s+capacity|capacity)[^.]{0,50}?(?:to|of|at)\s*"+CAP_AMOUNT,re.I)
+    for m in p2.finditer(s):
+        add=float(m.group(1).replace(",","")); ua=_capacity_unit(m.group(2))
+        total=float(m.group(3).replace(",","")); ut=_capacity_unit(m.group(4))
+        fa,sa=_capacity_scale(ua); ft,st=_capacity_scale(ut)
+        addn=add*sa; totaln=total*st
+        if fa==ft and addn>0 and totaln>addn:
+            old=totaln-addn
+            pct=addn/old*100
+            candidates.append(("addition_to_total",pct,add,ua,total,ut))
+
+    # Record all capacity quantities for audit even when percentage cannot be inferred.
+    quantities=[]
+    for m in re.finditer(CAP_AMOUNT,s,re.I):
+        try:
+            quantities.append({"value":float(m.group(1).replace(",","")),"unit":_capacity_unit(m.group(2))})
+        except Exception:
+            pass
+
+    inferred=max([z[1] for z in candidates],default=np.nan)
+    pct=max([v for v in [direct,inferred] if pd.notna(v)],default=np.nan)
+    return {
+        "capacity_pct":pct,
+        "capacity_pct_direct":direct,
+        "capacity_pct_inferred":inferred,
+        "capacity_inference_method":max(candidates,key=lambda z:z[1])[0] if candidates else None,
+        "capacity_quantities":quantities[:12],
+    }
+
+
 def extract_capacity_pct(text):
     vals=[]
     for m in re.finditer(r"([0-9]+(?:\.[0-9]+)?)\s*%\s*(?:increase|expansion|higher|additional|capacity)",text,re.I):
@@ -203,6 +279,8 @@ def main():
         th=themes(text,qcfg)
         st,sw=stage(text)
         neg=bool(NEGATIVE_PATTERNS.search(text))
+        capctx=catalyst_context(text)
+        capm=extract_capacity_metrics(capctx)
         rows.append({
             "evidence_id":getattr(r,"evidence_id",None),
             "published_ts":getattr(r,"published_ts",None),
@@ -219,8 +297,12 @@ def main():
             "themes":json.dumps(th),
             "stage":st,
             "stage_weight":sw,
-            "money_crore_max":extract_money_crore(catalyst_context(text)),
-            "capacity_pct_max":extract_capacity_pct(catalyst_context(text)),
+            "money_crore_max":extract_money_crore(capctx),
+            "capacity_pct_max":capm["capacity_pct"],
+            "capacity_pct_direct":capm["capacity_pct_direct"],
+            "capacity_pct_inferred":capm["capacity_pct_inferred"],
+            "capacity_inference_method":capm["capacity_inference_method"],
+            "capacity_quantities":json.dumps(capm["capacity_quantities"]),
             "negative_flag":neg,
         })
 
