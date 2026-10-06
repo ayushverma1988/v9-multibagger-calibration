@@ -185,6 +185,23 @@ def main():
     fin["financial_inflection_score"]=[financial_inflection(r) for _,r in fin.iterrows()]
     board=board.merge(fin,on="symbol",how="left",suffixes=("","_fin"))
 
+    # Normalize disclosed catalyst amount to current business scale. XBRL facts
+    # are parsed in INR; evidence amounts are in crore.
+    annual_rev=pd.to_numeric(board.get("latest_revenue"),errors="coerce")*4.0
+    money_inr=pd.to_numeric(board.get("money_crore_max"),errors="coerce")*1e7
+    board["catalyst_money_to_annualized_revenue"]=money_inr/annual_rev.replace(0,np.nan)
+    relative_money=board["catalyst_money_to_annualized_revenue"].map(
+        lambda v: squash_pos(v,0.50) if pd.notna(v) else 0.0
+    )
+    cap_score=pd.to_numeric(board.get("capacity_pct"),errors="coerce").map(
+        lambda v: squash_pos(v,50.0) if pd.notna(v) else 0.0
+    )
+    # Prefer relative magnitude once financial scale is known; retain the
+    # earlier conservative proxy only where neither quantitative measure exists.
+    quantified=(0.58*cap_score+0.42*relative_money).clip(0,1)
+    has_quant=cap_score.gt(0)|relative_money.gt(0)
+    board.loc[has_quant,"catalyst_magnitude_score"]=quantified[has_quant]
+
     keep=[
         "symbol","p100_cal","p100_anchor","promoter_conviction_score","accumulation_score",
         "ownership_accumulation_score","technical_confirmation_score","priced_in_penalty",
