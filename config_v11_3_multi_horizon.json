@@ -1,0 +1,41 @@
+{
+  "model_name": "V11.3 Multi-Horizon Transformation Discovery",
+  "design_date": "2026-10-06",
+  "main_k": 10,
+  "radar_k": 5,
+  "min_prior_folds": 6,
+  "rolling_train_years": 10,
+  "meta_C": 0.30,
+  "meta_l1_ratio": 0.20,
+  "horizon_weights": {
+    "y6": 0.20,
+    "y12": 0.35,
+    "y24": 0.45
+  },
+  "transformation_weight": 0.70,
+  "v10_confirmation_weight": 0.30,
+  "risk_penalty": 0.10,
+  "gate": {
+    "min_catalyst_score": 0.60,
+    "min_business_with_catalyst": 0.55,
+    "min_secondary_catalyst": 0.40,
+    "min_promoter_score": 0.60,
+    "min_accumulation_score": 0.60,
+    "max_priced_in_penalty": 0.70,
+    "min_v10_percentile": 0.20
+  },
+  "radar": {
+    "min_transform_percentile": 0.90,
+    "max_v10_percentile": 0.55,
+    "max_priced_in_penalty": 0.35
+  },
+  "acceptance": {
+    "y6_precision_ratio_min": 0.75,
+    "y12_precision_ratio_min": 0.95,
+    "y24_precision_ratio_min": 1.00,
+    "dd_delta_max": 0.03,
+    "selected_transformation_rate_min": 0.80,
+    "early_stage_score_min": 0.55
+  },
+  "note": "The objective is pre-obvious transformation discovery. The transformation model is trained independently at 6/12/24-month 2x horizons and weighted toward 12/24 months. V10.2 is only 30% technical confirmation."
+}
