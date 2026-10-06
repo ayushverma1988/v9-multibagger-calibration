@@ -1,0 +1,31 @@
+{
+  "model_name": "V11.1 Hybrid Transformation + V10.2",
+  "design_date": "2026-10-06",
+  "main_k": 10,
+  "radar_k": 5,
+  "min_prior_folds": 6,
+  "rolling_train_years": 8,
+  "meta_C": 0.35,
+  "meta_l1_ratio": 0.15,
+  "anchor_weight": 0.70,
+  "meta_weight": 0.30,
+  "risk_penalty": 0.08,
+  "main_candidate_pool": {
+    "v10_top_percentile": 0.92,
+    "allow_strong_transformation": true,
+    "strong_transformation_percentile": 0.90
+  },
+  "radar": {
+    "min_catalyst_score": 0.80,
+    "min_ownership_accumulation_score": 0.65,
+    "max_priced_in_penalty": 0.35,
+    "max_v10_percentile": 0.92
+  },
+  "acceptance": {
+    "precision_ratio_min": 0.95,
+    "lift_ratio_min": 0.95,
+    "dd_delta_max": 0.03,
+    "recent_precision_ratio_min": 0.90
+  },
+  "note": "Post-V11.0 redesign. V10.2 remains the anchor; transformation features can only modify the score through temporally forward-trained stacking. Main Top-10 and Early Discovery Radar are evaluated separately."
+}
