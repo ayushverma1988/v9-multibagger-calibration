@@ -1,0 +1,118 @@
+name: V11.4 Explainable Evidence Board
+
+on:
+  workflow_run:
+    workflows: ["V11.4 Primary Catalyst Evidence"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-4-evidence-board
+  cancel-in-progress: true
+
+jobs:
+  build-board:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile V11.4 intelligence code
+        run: |
+          python -m py_compile             src/v11_4_integrated_financials.py             src/v11_4_evidence_board.py
+
+      - name: Download corrected primary catalyst evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-primary-catalyst-evidence
+          path: primary
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download V11 market/promoter/accumulation evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-transformation-first-challenger
+          path: v11_market
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37426120089
+
+      - name: Locate evidence files
+        shell: bash
+        run: |
+          set -euo pipefail
+          ALL_EVIDENCE=$(find primary -type f -name 'all_company_evidence.parquet' | head -n 1)
+          COMPANY_LIST=$(find primary -type f -name 'company_catalyst_intelligence.csv' | head -n 1)
+          MARKET=$(find v11_market -type f -name 'current_universe_scored.csv' | head -n 1)
+          test -n "$ALL_EVIDENCE"
+          test -n "$COMPANY_LIST"
+          test -n "$MARKET"
+          echo "ALL_EVIDENCE=$ALL_EVIDENCE" >> "$GITHUB_ENV"
+          echo "COMPANY_LIST=$COMPANY_LIST" >> "$GITHUB_ENV"
+          echo "MARKET=$MARKET" >> "$GITHUB_ENV"
+
+      - name: Extract integrated financial inflection for catalyst universe
+        run: |
+          python src/v11_4_integrated_financials.py             --symbols-file "$COMPANY_LIST"             --output outputs_v11_4_board/current_financial_inflection.csv             --max-symbols 120
+
+      - name: Build explainable catalyst evidence board
+        run: |
+          python src/v11_4_evidence_board.py             --evidence "$ALL_EVIDENCE"             --financials outputs_v11_4_board/current_financial_inflection.csv             --market-transform "$MARKET"             --config config_v11_4_catalyst_intelligence.json             --output outputs_v11_4_board/evidence_board.csv
+
+      - name: Enforce research-board quality gate
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          s=json.load(open("outputs_v11_4_board/evidence_board_summary.json"))
+          b=pd.read_csv("outputs_v11_4_board/evidence_board.csv")
+          f=json.load(open("outputs_v11_4_board/financial_summary.json"))
+          print(json.dumps({"board":s,"financial":f},indent=2))
+          if s.get("primary_confirmed",0) < 10:
+              raise SystemExit("Primary-confirmed catalyst universe too small")
+          if s.get("evidence_qualified",0) < 5:
+              raise SystemExit("Too few evidence-qualified short-term catalyst candidates")
+          if f.get("coverage",0) < 0.70:
+              raise SystemExit("Financial extraction coverage below 70%")
+          if s.get("primary_confirmed",0) > 500:
+              raise SystemExit("Primary confirmation semantics appear too broad")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-explainable-evidence-board
+          path: outputs_v11_4_board/
+          retention-days: 90
+
+      - name: Publish V11.4 research board
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_board
+          cp outputs_v11_4_board/evidence_board_summary.json published_v11_4_board/
+          cp outputs_v11_4_board/primary_confirmed_shortlist.csv published_v11_4_board/
+          cp outputs_v11_4_board/current_financial_inflection.csv published_v11_4_board/
+          cp outputs_v11_4_board/financial_summary.json published_v11_4_board/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_board
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 explainable catalyst research board [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
