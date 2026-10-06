@@ -57,7 +57,7 @@ jobs:
       - name: Restore validated official NSE market overlay
         shell: bash
         env:
-          HF_ARCHIVE_TOKEN: \${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: |
           set -euo pipefail
           python src/v10_nse_market_ingest.py \
@@ -78,8 +78,8 @@ jobs:
 
       - name: Restore verified 2003-2009 legacy NSE history
         env:
-          HF_ARCHIVE_TOKEN: \${{ secrets.HF_ARCHIVE_TOKEN }}
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python src/v10_fetch_legacy_archive.py \
             --repo-id ayushverma1988/v10-multibagger-archive \
@@ -91,7 +91,7 @@ jobs:
         with:
           name: v9-7-canonical-events-2016-2026
           path: events_base
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 36804202373
 
@@ -107,7 +107,7 @@ jobs:
         with:
           name: v10-4-pit-archive-fast
           path: pit
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37164416825
 
@@ -116,7 +116,7 @@ jobs:
         with:
           name: v10-2-integrity-corrected-challenger
           path: baseline
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
 
