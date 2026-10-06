@@ -47,10 +47,24 @@ def main():
         rank=sec.groupby("symbol")["linked_evidence_score"].max().sort_values(ascending=False)
     else:
         rank=sec.groupby("symbol").size().sort_values(ascending=False)
-    seeds=list(rank.head(int(args.max_seed_symbols)).index.astype(str).str.upper())
-    # Include initial primary names so generic presentations can enrich an
-    # already-known catalyst chain.
-    seeds=list(dict.fromkeys(seeds + list(pri.get("symbol",pd.Series(dtype=str)).dropna().astype(str).str.upper())))
+    secondary_seeds=list(rank.head(int(args.max_seed_symbols)).index.astype(str).str.upper())
+
+    # Rank primary candidates too; cap the COMBINED deep-document universe.
+    if len(pri):
+        p=pri.copy()
+        p["_pstage"]=pd.to_numeric(p.get("stage_weight"),errors="coerce").fillna(0)
+        p["_pconf"]=pd.to_numeric(p.get("evidence_confidence"),errors="coerce").fillna(0)
+        prank=p.groupby("symbol").agg(stage=("_pstage","max"),conf=("_pconf","max"))
+        prank["score"]=0.65*prank["stage"].clip(0,1)+0.35*prank["conf"].clip(0,1)
+        primary_seeds=list(prank.sort_values("score",ascending=False).head(int(args.max_seed_symbols)).index.astype(str).str.upper())
+    else:
+        primary_seeds=[]
+
+    interleaved=[]
+    for i in range(max(len(secondary_seeds),len(primary_seeds))):
+        if i<len(secondary_seeds):interleaved.append(secondary_seeds[i])
+        if i<len(primary_seeds):interleaved.append(primary_seeds[i])
+    seeds=list(dict.fromkeys(interleaved))[:int(args.max_seed_symbols)]
 
     rows=[]; fetched=0; errors=[]
     for sym in seeds:
