@@ -1,6 +1,7 @@
 name: V11.4 Explainable Evidence Board
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["V11.4 Primary Catalyst Evidence"]
     types: [completed]
@@ -112,7 +113,7 @@ jobs:
 
       - name: Build explainable catalyst evidence board
         run: |
-          python src/v11_4_evidence_board.py             --evidence "$ALL_EVIDENCE"             --financials outputs_v11_4_board/current_financial_inflection.csv             --market-transform "$MARKET"             --config config_v11_4_catalyst_intelligence.json             --output outputs_v11_4_board/evidence_board.csv
+          python src/v11_4_evidence_board.py             --evidence "$ALL_EVIDENCE"             --financials outputs_v11_4_board/current_financial_inflection.csv             --market-transform "$MARKET"             --absorption outputs_v11_4_board/catalyst_absorption.csv             --config config_v11_4_catalyst_intelligence.json             --output outputs_v11_4_board/evidence_board.csv
 
       - name: Enforce research-board quality gate
         run: |
