@@ -278,6 +278,7 @@ def main():
     ap.add_argument("--queries-config",required=True)
     ap.add_argument("--source-registry",required=True)
     ap.add_argument("--output",required=True)
+    ap.add_argument("--primary-evidence",default=None)
     ap.add_argument("--master-url",default="https://archives.nseindia.com/content/equities/EQUITY_L.csv")
     ap.add_argument("--fetch-pages",action="store_true")
     args=ap.parse_args()
@@ -286,8 +287,42 @@ def main():
     registry=json.load(open(args.source_registry))
     master=load_master(args.master_url)
     ev=pd.read_parquet(args.evidence)
+    primary=pd.read_parquet(args.primary_evidence) if args.primary_evidence else pd.DataFrame()
 
     rows=[]
+    if len(primary):
+        for r in primary.itertuples(index=False):
+            title=str(getattr(r,"title","") or "")
+            details=str(getattr(r,"details","") or "")
+            url=str(getattr(r,"url","") or "")
+            text=(title+" "+details).strip()
+            if not text:
+                continue
+            cts=catalyst_types(text)
+            th=themes(text,qcfg)
+            st,sw=stage(text)
+            neg=bool(NEGATIVE_PATTERNS.search(text))
+            rows.append({
+                "evidence_id":getattr(r,"evidence_id",None),
+                "published_ts":getattr(r,"published_ts",None),
+                "symbol":str(getattr(r,"symbol","") or "").upper(),
+                "company_name":None,
+                "isin":getattr(r,"isin",None),
+                "domain":"nseindia.com",
+                "url":url,
+                "title":title,
+                "query_family":"nse_corporate_announcement",
+                "source_tier":1,
+                "source_trust":1.0,
+                "catalyst_types":json.dumps(cts),
+                "themes":json.dumps(th),
+                "stage":st,
+                "stage_weight":sw,
+                "money_crore_max":extract_money_crore(text),
+                "capacity_pct_max":extract_capacity_pct(text),
+                "negative_flag":neg,
+            })
+
     for r in ev.itertuples(index=False):
         title=str(getattr(r,"title","") or "")
         url=str(getattr(r,"url","") or "")
