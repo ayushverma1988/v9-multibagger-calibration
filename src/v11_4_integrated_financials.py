@@ -213,6 +213,21 @@ def pct(a,b):
     if a is None or b is None or abs(b)<1e-12:return None
     return a/b-1.0
 
+def profit_growth(a,b):
+    """Growth only when the prior base is positive; sign changes are separate flags."""
+    if a is None or b is None or b<=0:
+        return None
+    return a/b-1.0
+
+def turnaround(a,b):
+    if a is None or b is None:
+        return None
+    if b<=0 and a>0:
+        return 1.0
+    if b>0 and a<=0:
+        return -1.0
+    return 0.0
+
 def margin(v,rev):
     if v is None or rev is None or abs(rev)<1e-12:return None
     return v/rev
@@ -230,15 +245,19 @@ def compute_metrics(q):
     if len(q)>=2:
         prev=q[1]
         out["revenue_qoq"]=pct(latest["facts"].get("revenue"),prev["facts"].get("revenue"))
-        out["pat_qoq"]=pct(latest["facts"].get("pat"),prev["facts"].get("pat"))
-        out["ebitda_qoq"]=pct(latest["facts"].get("ebitda_proxy"),prev["facts"].get("ebitda_proxy"))
+        out["pat_qoq"]=profit_growth(latest["facts"].get("pat"),prev["facts"].get("pat"))
+        out["pat_turnaround_qoq"]=turnaround(latest["facts"].get("pat"),prev["facts"].get("pat"))
+        out["ebitda_qoq"]=profit_growth(latest["facts"].get("ebitda_proxy"),prev["facts"].get("ebitda_proxy"))
+        out["ebitda_turnaround_qoq"]=turnaround(latest["facts"].get("ebitda_proxy"),prev["facts"].get("ebitda_proxy"))
         pm=margin(prev["facts"].get("ebitda_proxy"),prev["facts"].get("revenue"))
         out["ebitda_margin_qoq_change"]=(out["latest_ebitda_margin"]-pm) if out["latest_ebitda_margin"] is not None and pm is not None else None
     if len(q)>=5:
         py=q[4]
         out["revenue_yoy"]=pct(latest["facts"].get("revenue"),py["facts"].get("revenue"))
-        out["pat_yoy"]=pct(latest["facts"].get("pat"),py["facts"].get("pat"))
-        out["ebitda_yoy"]=pct(latest["facts"].get("ebitda_proxy"),py["facts"].get("ebitda_proxy"))
+        out["pat_yoy"]=profit_growth(latest["facts"].get("pat"),py["facts"].get("pat"))
+        out["pat_turnaround_yoy"]=turnaround(latest["facts"].get("pat"),py["facts"].get("pat"))
+        out["ebitda_yoy"]=profit_growth(latest["facts"].get("ebitda_proxy"),py["facts"].get("ebitda_proxy"))
+        out["ebitda_turnaround_yoy"]=turnaround(latest["facts"].get("ebitda_proxy"),py["facts"].get("ebitda_proxy"))
         pym=margin(py["facts"].get("ebitda_proxy"),py["facts"].get("revenue"))
         out["ebitda_margin_yoy_change"]=(out["latest_ebitda_margin"]-pym) if out["latest_ebitda_margin"] is not None and pym is not None else None
     return out
