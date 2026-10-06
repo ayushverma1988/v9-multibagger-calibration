@@ -17,10 +17,18 @@ BASE_API="https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w"
 PAGE="https://www.bseindia.com/corporates/ann.html"
 ATTACH="https://www.bseindia.com/xml-data/corpfiling/AttachLive/"
 HEADERS={
-    "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134 Safari/537.36",
+    "Host":"api.bseindia.com",
     "Referer":PAGE,
+    "User-Agent":"Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.166 Safari/537.36",
+    "Sec-CH-UA":'"Google Chrome";v="134", "Chromium";v="134", "Not?A_Brand";v="99"',
+    "Sec-CH-UA-Mobile":"?0",
+    "Sec-CH-UA-Platform":'"Windows"',
+    "DNT":"1",
     "Accept":"application/json, text/plain, */*",
+    "Accept-Encoding":"gzip, deflate, br",
     "Accept-Language":"en-US,en;q=0.9",
+    "Cache-Control":"no-cache",
+    "Connection":"keep-alive",
 }
 
 def first(d,*names):
@@ -33,20 +41,18 @@ def first(d,*names):
 def fetch_page(start,end,page,retries=4):
     params={
         "pageno":int(page),
-        "strCat":"-1",
-        "subcategory":"-1",
+        "strType":"C",
+        "strSearch":"P",
         "strPrevDate":start.strftime("%Y%m%d"),
         "strToDate":end.strftime("%Y%m%d"),
-        "strSearch":"P",
-        "strscrip":"",
-        "strType":"C",
     }
     last=None
     for i in range(retries):
         try:
             s=requests.Session()
             s.headers.update(HEADERS)
-            s.get(PAGE,timeout=30)
+            # Do not pre-visit the main BSE page; it currently returns 403
+            # from cloud runners while the JSON endpoint can still work directly.
             r=s.get(BASE_API,params=params,timeout=60)
             r.raise_for_status()
             j=r.json()
