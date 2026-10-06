@@ -161,7 +161,7 @@ def _capacity_unit(u):
     s=str(u or "").lower().replace(".","").strip()
     aliases={
         "kgs":"kg","kilogram":"kg","kilograms":"kg",
-        "ton":"tonne","tons":"tonne","tonnes":"tonne","tpa":"tonne",
+        "ton":"tonne","tons":"tonne","tonnes":"tonne","tpa":"tonne","mt":"tonne",
         "mtpa":"mtpa","mmtpa":"mmtpa",
         "mw":"mw","gw":"gw","kw":"kw",
         "units":"unit","unit":"unit",
@@ -203,7 +203,7 @@ def extract_capacity_metrics(text):
             candidates.append(("from_to",pct,x,ux,y,uy))
 
     # "add X ... taking total capacity to Y" / "adds X ... total capacity Y".
-    p2=re.compile(r"(?:add(?:s|ed|ition(?:al)?)?|increase(?:s|d)?)[^.]{0,50}?"+CAP_AMOUNT+r"[^.]{0,140}?(?:total\s+capacity|capacity)[^.]{0,50}?(?:to|of|at)\s*"+CAP_AMOUNT,re.I)
+    p2=re.compile(r"(?:add(?:s|ed|ition(?:al)?)?|increase(?:s|d)?|new|additional)[^.]{0,50}?"+CAP_AMOUNT+r"[^.]{0,140}?(?:total\s+capacity|capacity)[^.]{0,50}?(?:to|of|at)\s*"+CAP_AMOUNT,re.I)
     for m in p2.finditer(s):
         add=float(m.group(1).replace(",","")); ua=_capacity_unit(m.group(2))
         total=float(m.group(3).replace(",","")); ut=_capacity_unit(m.group(4))
