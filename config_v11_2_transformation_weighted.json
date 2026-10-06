@@ -1,0 +1,34 @@
+{
+  "model_name": "V11.2 Transformation-Weighted Hybrid",
+  "design_date": "2026-10-06",
+  "main_k": 10,
+  "radar_k": 5,
+  "min_prior_folds": 6,
+  "rolling_train_years": 8,
+  "meta_C": 0.35,
+  "meta_l1_ratio": 0.15,
+  "anchor_weight": 0.35,
+  "transformation_meta_weight": 0.55,
+  "early_stage_weight": 0.1,
+  "risk_penalty": 0.08,
+  "main_candidate_pool": {
+    "transform_percentile_min": 0.75,
+    "v10_confirmation_min": 0.4,
+    "max_priced_in_penalty": 0.65,
+    "exceptional_transform_percentile": 0.9,
+    "exceptional_max_priced_in_penalty": 0.35
+  },
+  "radar": {
+    "transform_percentile_min": 0.9,
+    "max_priced_in_penalty": 0.3,
+    "max_v10_percentile": 0.7
+  },
+  "acceptance": {
+    "precision_ratio_min": 0.85,
+    "lift_ratio_min": 0.85,
+    "dd_delta_max": 0.03,
+    "recent_precision_ratio_min": 0.8,
+    "priced_in_improvement_min": 0.05
+  },
+  "note": "Transformation-first redesign requested before inspecting V11.1 metrics. The learned meta-model excludes V10.2 probability; V10.2 is used only as a separate 35% confirmation signal after transformation learning."
+}
