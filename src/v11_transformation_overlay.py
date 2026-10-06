@@ -22,6 +22,12 @@ EVENT_FEATURES = [
     "evt_debt_reduction_180",
     "evt_credit_positive_180",
     "evt_earnings_positive_180",
+    "evt_approval_180",
+    "evt_strategic_180",
+    "evt_incentive_180",
+    "evt_buyback_180",
+    "evt_pledge_improvement_180",
+    "evt_pledge_risk_180",
     "evt_risk_180",
     "evt_catalyst_breadth_180",
     "evt_catalyst_recent_90",
@@ -58,7 +64,12 @@ CUSTOMER_RE = re.compile(
     re.I,
 )
 DEBT_RE = re.compile(r"\b(debt reduction|reduce(?:d|s|ing)? debt|deleverag|debt free|repay(?:ment|ing)? debt)\b", re.I)
-RISK_RE = re.compile(r"\b(default|insolvency|cirp|fraud|forensic audit|auditor resignation|litigation|penalty|show cause|pledge invocation)\b", re.I)
+APPROVAL_RE = re.compile(r"\b(product approval|regulatory approval|received approval|approval received|certification received|certified by|usfda approval|eu[- ]gmp|who[- ]gmp|ce certification|bis certification|vendor approval|customer qualification)\b", re.I)
+STRATEGIC_RE = re.compile(r"\b(strategic partnership|joint venture|\bjv\b|technology partnership|technical collaboration|strategic alliance|long[- ]term collaboration|backward integration|forward integration)\b", re.I)
+INCENTIVE_RE = re.compile(r"\b(production linked incentive|\bpli\b|government incentive|capital subsidy|subsidy approval|grant approved|incentive scheme)\b", re.I)
+PLEDGE_IMPROVE_RE = re.compile(r"\b(release of pledge|pledge released|revocation of pledge|pledge reduced|reduction in pledge|decrease in pledge|nil pledge|zero pledge|encumbrance released)\b", re.I)
+PLEDGE_RISK_RE = re.compile(r"\b(pledge created|creation of pledge|increase in pledge|additional pledge|encumbrance created|pledge invocation)\b", re.I)
+RISK_RE = re.compile(r"\b(default|insolvency|cirp|fraud|forensic audit|auditor resignation|litigation|penalty|show cause|pledge invocation|fund diversion)\b", re.I)
 
 
 def norm(v):
@@ -101,6 +112,11 @@ def add_accumulation_features(daily: pd.DataFrame) -> pd.DataFrame:
         g["up_volume_share_20"] = upv / allv.replace(0, np.nan)
         active = ((r1 > 0) & (v > med60)).astype(float)
         g["accumulation_days_20"] = active.rolling(20, min_periods=12).mean()
+        large_up = ((r1 >= 0) & (v > 2.0 * med60)).astype(float)
+        g["large_up_volume_days_20"] = large_up.rolling(20, min_periods=12).mean()
+        up_mean = v.where(r1 > 0).rolling(20, min_periods=12).mean()
+        down_mean = v.where(r1 < 0).rolling(20, min_periods=12).mean()
+        g["up_down_volume_ratio_20"] = up_mean / down_mean.replace(0, np.nan)
         modest = 1.0 - np.clip(np.abs(pd.to_numeric(g.get("ret_20"), errors="coerce")) / 0.50, 0, 1)
         g["accumulation_absorption"] = (
             np.clip(g["rvol_20_60"], 0, 3)
@@ -137,7 +153,13 @@ def prepare_events(path: str | Path) -> pd.DataFrame:
     debt = typ.eq("debt_reduction") | txt.str.contains(DEBT_RE, na=False)
     credit_pos = typ.eq("credit_rating") & (direction > 0)
     earnings_pos = typ.eq("earnings") & (direction > 0)
-    risk = typ.isin(["dilution", "auditor_change", "litigation", "regulatory"]) | txt.str.contains(RISK_RE, na=False)
+    approval = txt.str.contains(APPROVAL_RE, na=False)
+    strategic = txt.str.contains(STRATEGIC_RE, na=False)
+    incentive = txt.str.contains(INCENTIVE_RE, na=False)
+    buyback = typ.eq("buyback")
+    pledge_improve = txt.str.contains(PLEDGE_IMPROVE_RE, na=False) | (typ.eq("pledge_change") & (direction > 0))
+    pledge_risk = txt.str.contains(PLEDGE_RISK_RE, na=False) | (typ.eq("pledge_change") & (direction < 0))
+    risk = typ.isin(["dilution", "auditor_change", "litigation", "regulatory"]) | txt.str.contains(RISK_RE, na=False) | pledge_risk
 
     e["_capacity"] = np.where(cap, strength, 0.0)
     e["_commissioning"] = np.where(commission, np.maximum(strength, 0.8), 0.0)
@@ -148,8 +170,14 @@ def prepare_events(path: str | Path) -> pd.DataFrame:
     e["_debt"] = np.where(debt, strength, 0.0)
     e["_credit_pos"] = np.where(credit_pos, np.maximum(direction, 0) * strength, 0.0)
     e["_earnings_pos"] = np.where(earnings_pos, np.maximum(direction, 0) * strength, 0.0)
+    e["_approval"] = np.where(approval, np.maximum(strength, 0.6), 0.0)
+    e["_strategic"] = np.where(strategic, np.maximum(strength, 0.4), 0.0)
+    e["_incentive"] = np.where(incentive, np.maximum(strength, 0.5), 0.0)
+    e["_buyback"] = np.where(buyback, np.maximum(strength, 0.6), 0.0)
+    e["_pledge_improve"] = np.where(pledge_improve, np.maximum(strength, 0.6), 0.0)
+    e["_pledge_risk"] = np.where(pledge_risk, np.maximum(strength, 0.7), 0.0)
     e["_risk"] = np.where(risk, strength, 0.0)
-    material = cap | commission | order | product | customer | debt | credit_pos | earnings_pos
+    material = cap | commission | order | product | customer | debt | credit_pos | earnings_pos | approval | strategic | incentive | buyback | pledge_improve
     e["_material"] = material.astype(float)
     return e[e["avail_date"].notna() & e["key"].ne("S:")].sort_values(["key", "avail_date"]).reset_index(drop=True)
 
@@ -232,7 +260,8 @@ def attach_point_in_time(rows: pd.DataFrame, events: pd.DataFrame, insider: pd.D
     r["_symkey_v11"] = ["S:" + (norm(s) or "") for s in r.get("symbol")]
     em = _source_map(events, [
         "_capacity", "_commissioning", "_order", "_new_product", "_future_product",
-        "_customer", "_debt", "_credit_pos", "_earnings_pos", "_risk", "_material",
+        "_customer", "_debt", "_credit_pos", "_earnings_pos", "_approval", "_strategic",
+        "_incentive", "_buyback", "_pledge_improve", "_pledge_risk", "_risk", "_material",
     ])
     im = _source_map(insider, ["_promoter_signed", "_promoter_buy_count"]) if insider is not None else {}
     sm = _source_map(shareholding, ["promoter_pct"]) if shareholding is not None else {}
@@ -266,8 +295,14 @@ def attach_point_in_time(rows: pd.DataFrame, events: pd.DataFrame, insider: pd.D
                 vals["evt_debt_reduction_180"] = ws("_debt")
                 vals["evt_credit_positive_180"] = ws("_credit_pos")
                 vals["evt_earnings_positive_180"] = ws("_earnings_pos")
+                vals["evt_approval_180"] = ws("_approval")
+                vals["evt_strategic_180"] = ws("_strategic")
+                vals["evt_incentive_180"] = ws("_incentive")
+                vals["evt_buyback_180"] = ws("_buyback")
+                vals["evt_pledge_improvement_180"] = ws("_pledge_improve")
+                vals["evt_pledge_risk_180"] = ws("_pledge_risk")
                 vals["evt_risk_180"] = ws("_risk")
-                kinds = ["_capacity", "_commissioning", "_order", "_new_product", "_future_product", "_customer", "_debt", "_credit_pos", "_earnings_pos"]
+                kinds = ["_capacity", "_commissioning", "_order", "_new_product", "_future_product", "_customer", "_debt", "_credit_pos", "_earnings_pos", "_approval", "_strategic", "_incentive", "_buyback", "_pledge_improve"]
                 vals["evt_catalyst_breadth_180"] = float(sum(np.nansum(e[c][lo180:hi].astype(float)) > 0 for c in kinds))
             if hi > lo90:
                 vals["evt_catalyst_recent_90"] = float(np.nansum(e["_material"][lo90:hi].astype(float)))
@@ -327,6 +362,9 @@ def add_discovery_scores(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             + 0.85 * g["evt_new_product_180"].fillna(0)
             + 1.00 * g["evt_future_product_180"].fillna(0)
             + 0.70 * g["evt_customer_180"].fillna(0)
+            + 0.55 * g["evt_approval_180"].fillna(0)
+            + 0.35 * g["evt_strategic_180"].fillna(0)
+            + 0.45 * g["evt_incentive_180"].fillna(0)
             + 0.40 * g["evt_catalyst_breadth_180"].fillna(0)
             + 0.35 * g["evt_catalyst_recent_90"].fillna(0)
         )
@@ -334,18 +372,26 @@ def add_discovery_scores(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             0.80 * g["evt_earnings_positive_180"].fillna(0)
             + 0.70 * g["evt_debt_reduction_180"].fillna(0)
             + 0.50 * g["evt_credit_positive_180"].fillna(0)
+            + 0.45 * g["evt_buyback_180"].fillna(0)
+            + 0.35 * g["evt_pledge_improvement_180"].fillna(0)
         )
         promoter_raw = np.maximum(pd.to_numeric(g["promoter_buy_net_180"], errors="coerce").fillna(0), 0)
         promoter_delta = np.maximum(pd.to_numeric(g["promoter_delta_qoq"], errors="coerce").fillna(0), 0)
 
         catalyst = positive_rank(catalyst_raw)
         business = positive_rank(business_raw)
-        promoter = 0.75 * positive_rank(promoter_raw) + 0.25 * positive_rank(promoter_delta)
+        promoter = (
+            0.65 * positive_rank(promoter_raw)
+            + 0.20 * positive_rank(g["promoter_buy_count_180"])
+            + 0.15 * positive_rank(promoter_delta)
+        )
         accumulation = (
-            0.35 * standard_rank(g["rvol_20_60"])
-            + 0.30 * standard_rank(g["up_volume_share_20"])
-            + 0.20 * standard_rank(g["accumulation_days_20"])
-            + 0.15 * positive_rank(g["accumulation_absorption"])
+            0.25 * standard_rank(g["rvol_20_60"])
+            + 0.20 * standard_rank(g["up_volume_share_20"])
+            + 0.15 * standard_rank(g["accumulation_days_20"])
+            + 0.20 * positive_rank(g["large_up_volume_days_20"])
+            + 0.10 * standard_rank(g["up_down_volume_ratio_20"])
+            + 0.10 * positive_rank(g["accumulation_absorption"])
         )
 
         ret120 = pd.to_numeric(g.get("ret_120"), errors="coerce").fillna(0.0)
@@ -365,8 +411,14 @@ def add_discovery_scores(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             + 0.20 * standard_rank(g.get("turnover_accel", pd.Series(np.nan, index=g.index)))
             + 0.10 * standard_rank(g.get("mom_accel", pd.Series(np.nan, index=g.index)))
         )
-        risk = 0.55 * standard_rank(pdd) + 0.45 * positive_rank(g["evt_risk_180"])
-        ownership_accum = 0.55 * promoter + 0.45 * accumulation
+        pledge = positive_rank(g["evt_pledge_improvement_180"])
+        pledge_risk = positive_rank(g["evt_pledge_risk_180"])
+        risk = (
+            0.45 * standard_rank(pdd)
+            + 0.35 * positive_rank(g["evt_risk_180"])
+            + 0.20 * pledge_risk
+        )
+        ownership_accum = 0.45 * promoter + 0.40 * accumulation + 0.15 * pledge
 
         score = (
             float(w["catalyst"]) * catalyst
@@ -495,7 +547,8 @@ def main():
     mcols = [
         "date", "symbol", "isin", "ret_20", "ret_60", "ret_120", "ret_252", "mom_accel",
         "turnover_accel", "trend_consistency_60", "rvol_20_60", "up_volume_share_20",
-        "accumulation_days_20", "accumulation_absorption",
+        "accumulation_days_20", "large_up_volume_days_20", "up_down_volume_ratio_20",
+        "accumulation_absorption",
     ]
     market_rows = daily[mcols].merge(needed[["date", "symbol"]], on=["date", "symbol"], how="inner")
 
