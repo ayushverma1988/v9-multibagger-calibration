@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from pathlib import Path
+
+import feedparser
+import pandas as pd
+
+def theme_hits(text,cfg):
+    t=str(text).lower()
+    hits=[]
+    for theme,words in cfg["themes"].items():
+        if any(w.lower() in t for w in words):
+            hits.append(theme)
+    return hits
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--queries-config",required=True)
+    ap.add_argument("--output",required=True)
+    ap.add_argument("--lookback-days",type=int,default=30)
+    args=ap.parse_args()
+
+    cfg=json.load(open(args.queries_config))
+    feed="https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3"
+    d=feedparser.parse(feed)
+    now=pd.Timestamp.now(tz="UTC")
+    rows=[]
+    for e in d.entries:
+        title=str(e.get("title",""))
+        summary=str(e.get("summary",""))
+        link=str(e.get("link",""))
+        dt=pd.to_datetime(e.get("published") or e.get("updated"),utc=True,errors="coerce")
+        if pd.isna(dt):
+            continue
+        age=max((now-dt).total_seconds()/86400,0)
+        if age>args.lookback_days:
+            continue
+        hits=theme_hits(title+" "+summary,cfg)
+        for theme in hits:
+            freshness=math.exp(-age/14.0)
+            rows.append({
+                "published_ts":dt,
+                "source":"PIB",
+                "domain":"pib.gov.in",
+                "title":title,
+                "url":link,
+                "theme":theme,
+                "freshness":freshness,
+                "primary_source":True,
+            })
+    df=pd.DataFrame(rows)
+    out=Path(args.output); out.parent.mkdir(parents=True,exist_ok=True)
+    df.to_parquet(out,index=False)
+
+    if len(df):
+        agg=df.groupby("theme").agg(
+            pib_releases=("title","count"),
+            distinct_releases=("url","nunique"),
+            demand_score_raw=("freshness","sum"),
+            latest=("published_ts","max"),
+        ).reset_index()
+        # bounded score: 1-exp(-sum), so repeated fresh releases saturate.
+        agg["theme_demand_score"]=1.0-(-agg["demand_score_raw"]).map(math.exp)
+    else:
+        agg=pd.DataFrame(columns=["theme","pib_releases","distinct_releases","demand_score_raw","latest","theme_demand_score"])
+    agg.to_csv(out.parent/"theme_demand_scores.csv",index=False)
+    summary={
+        "rss_entries":int(len(d.entries)),
+        "matched_rows":int(len(df)),
+        "themes":agg.sort_values("theme_demand_score",ascending=False).to_dict("records") if len(agg) else [],
+        "feed":feed,
+    }
+    json.dump(summary,open(out.parent/"policy_demand_summary.json","w"),indent=2,default=str)
+    print(json.dumps(summary,indent=2,default=str))
+
+if __name__=="__main__":
+    main()
