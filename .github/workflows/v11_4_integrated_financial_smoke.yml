@@ -1,0 +1,71 @@
+name: V11.4 Integrated Financial Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_integrated_financial_smoke.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v11-4-integrated-financial-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install pandas requests
+
+      - name: Compile extractor
+        run: python -m py_compile src/v11_4_integrated_financials.py
+
+      - name: Extract current point-in-time financial inflection
+        run: |
+          python src/v11_4_integrated_financials.py             --symbols-file published_v11_3/current_multi_horizon_top10.csv             --output outputs_v11_4_financial/current_financial_inflection.csv             --max-symbols 10
+
+      - name: Gate extraction quality
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          s=json.load(open("outputs_v11_4_financial/financial_summary.json"))
+          d=pd.read_csv("outputs_v11_4_financial/current_financial_inflection.csv")
+          print(json.dumps(s,indent=2))
+          print(d.to_string(index=False))
+          if s.get("coverage",0) < 0.70:
+              raise SystemExit("Integrated financial extraction coverage below 70%")
+          if s.get("symbols_with_5q",0) < 3:
+              raise SystemExit("Too few companies with five-quarter history for YoY inflection")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-integrated-financial-smoke
+          path: outputs_v11_4_financial/
+          retention-days: 30
+
+      - name: Publish financial smoke summary
+        run: |
+          mkdir -p published_v11_4_financial_smoke
+          cp outputs_v11_4_financial/financial_summary.json published_v11_4_financial_smoke/
+          cp outputs_v11_4_financial/current_financial_inflection.csv published_v11_4_financial_smoke/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_financial_smoke
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 integrated financial smoke [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
