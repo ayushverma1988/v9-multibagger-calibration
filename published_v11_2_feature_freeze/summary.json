@@ -1,28 +1,25 @@
 {
-  "stage": "V11.2 Transformation-Weighted Hybrid feature/rule freeze",
+  "stage": "V11.2 Discovery-Weighted Hybrid rule freeze",
   "frozen_before_V11_2_results": true,
-  "decision_basis": "User objective: discover transformation stories before they become obvious. V11.1 metrics were deliberately not inspected before this redesign.",
-  "architecture": [
-    "Transformation meta-model excludes V10.2 probability entirely.",
-    "Transformation meta-model uses catalysts, business inflection, promoter conviction, accumulation, ownership quality, pledge signals, and early-stage/priced-in interactions.",
-    "Final score blends 55% independent transformation meta evidence, 35% V10.2 confirmation, and 10% explicit early-stage score, less risk penalty.",
-    "Main candidate eligibility is transformation-first. High V10.2 momentum alone cannot qualify a stock.",
-    "A moderate V10.2 confirmation is normally required, but exceptionally strong early transformation evidence can bypass it when priced-in penalty is very low.",
-    "No weak names are force-filled into the current Top-10.",
-    "Early Discovery Radar remains separate for very strong transformation candidates that are still technically early.",
-    "Historical acceptance tolerates some loss of V10.2 precision only if the selected names are measurably earlier-stage and drawdown remains controlled."
-  ],
-  "weights": {
-    "transformation_meta": 0.55,
-    "v10_2_confirmation": 0.35,
-    "explicit_early_stage": 0.1,
-    "risk_penalty": 0.08
+  "known_evidence_before_freeze": {
+    "V11_0": "Transformation-only event model reduced downside but failed precision/lift.",
+    "V11_1": "70% V10.2 / 30% meta retained 94.1% of control precision, slightly improved lift, improved hit-fold rate and drawdown, and improved recent precision."
   },
-  "acceptance": {
-    "precision_retention_min": 0.85,
-    "lift_retention_min": 0.85,
-    "recent_precision_retention_min": 0.8,
-    "drawdown_delta_max": 0.03,
-    "mean_priced_in_penalty_improvement_min": 0.05
-  }
+  "objective": "Discover transformation stories before price momentum makes them obvious.",
+  "architecture": [
+    "Transformation meta-model excludes V10.2 p100 and technical probability from its input matrix.",
+    "Transformation/meta evidence receives 60% of final ranking; V10.2 receives 40% as confirmation.",
+    "Every main-list stock must pass a transformation gate; pure V10.2 momentum cannot backfill the list.",
+    "Transformation gate can be passed by strong catalyst evidence, business inflection plus catalyst evidence, or promoter conviction plus persistent accumulation.",
+    "Already-priced-in penalty must remain below the frozen maximum.",
+    "V10.2 confirmation has only a low minimum percentile so early stories can enter before strong momentum appears.",
+    "Top-10 is a maximum, not a quota.",
+    "Evaluation includes precision/lift/drawdown plus early-stage and priced-in diagnostics."
+  ],
+  "final_score": {
+    "transformation_meta": 0.6,
+    "V10_2_confirmation": 0.4,
+    "risk_penalty": 0.1
+  },
+  "methodology_note": "V11.2 is model development after V11.0/V11.1 research. Historical backtests are research evidence; prospective shadow validation remains mandatory before replacement."
 }
