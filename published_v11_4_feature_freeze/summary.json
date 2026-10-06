@@ -1,0 +1,19 @@
+{
+  "stage":"V11.4 Short-Term Catalyst Intelligence rule freeze",
+  "frozen_before_V11_4_results":true,
+  "reason_for_redesign":"V11.0-V11.3 still relied too heavily on already-public price momentum and shallow event labels. The target is causal, early transformation discovery.",
+  "objective":"2x primarily inside 6-12 months, with 24 months only a low-weight fallback horizon.",
+  "horizon_weights":{"6m":0.40,"12m":0.50,"24m":0.10},
+  "mandatory_changes":[
+    "Create a multi-source document/evidence layer independent of price.",
+    "Link company -> product -> end-market/theme -> demand accelerator -> company catalyst -> expected financial impact.",
+    "Separate announced capacity from funded, under-construction, trial, commissioned, commercial-production and utilisation-ramp stages.",
+    "Estimate catalyst magnitude relative to company scale, not binary event presence.",
+    "Estimate order probability using L1/shortlist/vendor approval/customer tender/LOA/purchase order stages; rumours alone cannot qualify.",
+    "Parse promoter purchases by transaction quality and combine with persistent accumulation rather than one-day volume spikes.",
+    "Extract point-in-time numeric fundamentals from NSE integrated financial XBRL.",
+    "Use primary-source trust, corroboration, freshness and contradiction penalties.",
+    "Apply explicit already-priced-in penalty from the first catalyst timestamp.",
+    "V10.2 can confirm a story but cannot create eligibility."
+  ]
+}
