@@ -1,0 +1,116 @@
+name: V11.2 Transformation-Weighted Hybrid
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_2_transformation_weighted.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-2-transformation-weighted
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compile V11.2 code
+        run: python -m py_compile src/v11_2_transformation_weighted.py
+
+      - name: Download frozen V11 transformation evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-transformation-first-challenger
+          path: v11_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37426120089
+
+      - name: Locate V11 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          HIST=$(find v11_base -type f -name 'historical_scored.parquet' | head -n 1)
+          CUR=$(find v11_base -type f -name 'current_universe_scored.csv' | head -n 1)
+          if [ -z "$HIST" ] || [ -z "$CUR" ]; then
+            echo "V11 evidence missing"
+            find v11_base -maxdepth 5 -type f | sort | head -200
+            exit 1
+          fi
+          echo "V11_HIST=$HIST" >> "$GITHUB_ENV"
+          echo "V11_CUR=$CUR" >> "$GITHUB_ENV"
+
+      - name: Run frozen V11.2 transformation-weighted hybrid
+        run: |
+          python src/v11_2_transformation_weighted.py             --config config_v11_2_transformation_weighted.json             --historical-scored "$V11_HIST"             --current-scored "$V11_CUR"             --output outputs_v11_2
+
+      - name: Stage acceptance evidence
+        run: |
+          python - <<'PY'
+          import json, os
+          s=json.load(open("outputs_v11_2/summary.json"))
+          m=s["historical_metrics"]
+          out={
+            "stage":"V11.2 transformation-weighted hybrid acceptance",
+            "control":"V10.2",
+            "objective":"discover transformation stories earlier while retaining adequate validated 2x signal",
+            "metrics":m,
+            "acceptance_gate":bool(m.get("all_gates_pass",False)),
+            "production_action":"Do not replace V10.2 automatically. If accepted, run V11.2 prospectively in shadow mode and compare daily selections.",
+            "research_caveat":"V11.2 was specified before inspecting V11.1 metrics, but after V11.0 failure; prospective evidence is mandatory."
+          }
+          os.makedirs("published_v11_2",exist_ok=True)
+          json.dump(out,open("published_v11_2/acceptance.json","w"),indent=2)
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Stage V11.2 files
+        run: |
+          mkdir -p published_v11_2
+          cp outputs_v11_2/summary.json published_v11_2/model_summary.json
+          cp outputs_v11_2/fold_metrics.csv published_v11_2/fold_metrics.csv
+          cp outputs_v11_2/current_hybrid_top10.csv published_v11_2/current_hybrid_top10.csv
+          cp outputs_v11_2/current_early_discovery_radar.csv published_v11_2/current_early_discovery_radar.csv
+          cp outputs_v11_2/current_universe_hybrid_scored.csv published_v11_2/current_universe_hybrid_scored.csv
+          cp published_v11_2_feature_freeze/summary.json published_v11_2/feature_freeze.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-2-transformation-weighted
+          path: |
+            outputs_v11_2/
+            published_v11_2/
+          retention-days: 90
+
+      - name: Publish V11.2 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_2
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish V11.2 transformation-weighted evidence [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
