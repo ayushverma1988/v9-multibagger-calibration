@@ -63,7 +63,8 @@ def evidence_company_features(e):
         g["stage_weight_num"]=pd.to_numeric(g["stage_weight"],errors="coerce").fillna(0)
         g["linked_num"]=pd.to_numeric(g.get("linked_evidence_score"),errors="coerce").fillna(0)
         g["tier_num"]=pd.to_numeric(g["source_tier"],errors="coerce").fillna(3)
-        g["demand_num"]=pd.to_numeric(g.get("theme_demand_max"),errors="coerce").fillna(0)
+        demand_col="theme_demand_signal" if "theme_demand_signal" in g.columns else "theme_demand_max"
+        g["demand_num"]=pd.to_numeric(g.get(demand_col),errors="coerce").fillna(0)
         g["money_num"]=pd.to_numeric(g.get("money_crore_max"),errors="coerce")
         g["cap_num"]=pd.to_numeric(g.get("capacity_pct_max"),errors="coerce")
         primary=g[g["tier_num"].eq(1)]
