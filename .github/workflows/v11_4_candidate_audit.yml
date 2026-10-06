@@ -1,0 +1,102 @@
+name: V11.4 Causal Candidate Audit
+
+on:
+  workflow_run:
+    workflows: ["V11.4 Primary Catalyst Evidence"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-4-causal-candidate-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile V11.4 audit code
+        run: |
+          python -m py_compile             src/v11_4_financial_inflection.py             src/v11_4_candidate_audit.py
+
+      - name: Download corrected catalyst evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-primary-catalyst-evidence
+          path: v11_4_evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Locate evidence parquet
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVID=$(find v11_4_evidence -type f -name 'all_company_evidence.parquet' | head -n 1)
+          if [ -z "$EVID" ]; then
+            echo "all_company_evidence.parquet missing"
+            find v11_4_evidence -type f | sort | head -200
+            exit 1
+          fi
+          echo "V11_4_EVIDENCE=$EVID" >> "$GITHUB_ENV"
+
+      - name: Build structured financial inflection features
+        run: |
+          python src/v11_4_financial_inflection.py             --companies published_v11_4_evidence/company_catalyst_intelligence.csv             --output outputs_v11_4_audit/financial_inflection.csv             --max-symbols 220             --sleep 0.45
+
+      - name: Run causal candidate audit
+        run: |
+          python src/v11_4_candidate_audit.py             --config config_v11_4_catalyst_intelligence.json             --company-intelligence published_v11_4_evidence/company_catalyst_intelligence.csv             --evidence "$V11_4_EVIDENCE"             --financials outputs_v11_4_audit/financial_inflection.csv             --market published_v11_3/current_universe_scored.csv             --output outputs_v11_4_audit
+
+      - name: Evidence-quality gate
+        run: |
+          python - <<'PY'
+          import json
+          f=json.load(open("outputs_v11_4_audit/financial_inflection_summary.json"))
+          a=json.load(open("outputs_v11_4_audit/candidate_audit_summary.json"))
+          print(json.dumps({"financial":f,"audit":a},indent=2))
+          if f.get("financial_available",0) < 40:
+              raise SystemExit("Financial coverage too low")
+          if a.get("eligible",0) < 3:
+              raise SystemExit("Too few causal candidates; do not rank")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-causal-candidate-audit
+          path: outputs_v11_4_audit/
+          retention-days: 60
+
+      - name: Publish audit board
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_audit
+          cp outputs_v11_4_audit/candidate_audit_summary.json published_v11_4_audit/
+          cp outputs_v11_4_audit/candidate_audit_top20.csv published_v11_4_audit/
+          cp outputs_v11_4_audit/financial_inflection_summary.json published_v11_4_audit/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_audit
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 causal candidate audit [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
