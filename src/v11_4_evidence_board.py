@@ -72,10 +72,13 @@ def evidence_company_features(e):
 
         types=set()
         themes=set()
+        primary_themes=set()
         for v in g["catalyst_types"]:
             types.update(jlist(v))
         for v in g["themes"]:
             themes.update(jlist(v))
+        for v in primary["themes"]:
+            primary_themes.update(jlist(v))
 
         order_rows=g[g["catalyst_types"].map(lambda x:"order" in jlist(x))]
         capacity_rows=g[g["catalyst_types"].map(lambda x:any(t in {"capacity","commissioning"} for t in jlist(x)))]
@@ -100,6 +103,8 @@ def evidence_company_features(e):
             +0.10*min(order_domains/2.0,1)
             +0.10*demand
         ) if len(order_rows) else 0.0
+        if len(order_rows) and order_primary==0:
+            order_probability=min(order_probability,0.45)
 
         stage_reality=clip01(
             0.55*min(max_primary_stage,1.0)
@@ -116,11 +121,12 @@ def evidence_company_features(e):
             +0.25*squash_pos(g["money_num"].max() if g["money_num"].notna().any() else 0,1000.0)
         )
 
+        primary_theme_link=1.0 if primary_themes else (0.35 if themes else 0.0)
         product_demand=clip01(
-            0.45*demand
-            +0.25*min(pcount(product_rows),1)
+            0.35*demand
+            +0.30*min(pcount(product_rows),1)
             +0.15*min(len(product_rows)/2.0,1)
-            +0.15*(1.0 if themes else 0.0)
+            +0.20*primary_theme_link
         ) if len(product_rows) or themes else 0.0
 
         funding_execution=clip01(
@@ -139,6 +145,7 @@ def evidence_company_features(e):
             "primary_confirmed":bool(len(primary)),
             "catalyst_types":"|".join(sorted(types)),
             "themes":"|".join(sorted(themes)),
+            "primary_themes":"|".join(sorted(primary_themes)),
             "max_stage":best["stage"] if best is not None else None,
             "max_stage_weight":max_stage,
             "max_primary_stage_weight":max_primary_stage,
