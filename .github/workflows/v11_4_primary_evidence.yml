@@ -1,0 +1,110 @@
+name: V11.4 Primary Catalyst Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_primary_evidence.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-4-primary-evidence
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt beautifulsoup4 lxml pypdf feedparser
+
+      - name: Compile V11.4 evidence code
+        run: |
+          python -m py_compile             src/v10_refresh_events.py             src/v11_4_collect_public_evidence.py             src/v11_4_catalyst_graph.py             src/v11_4_nse_primary_evidence.py             src/v11_4_policy_demand.py             src/v11_4_merge_evidence.py
+
+      - name: Download canonical point-in-time event archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Refresh recent official NSE announcements
+        run: |
+          python src/v10_refresh_events.py             --base-events events_base/events_all_2016_2026.parquet             --output outputs_v11_4_primary/events_current.parquet             --lookback-days 45
+
+      - name: Extract Tier-1 NSE catalyst evidence
+        run: |
+          python src/v11_4_nse_primary_evidence.py             --events outputs_v11_4_primary/event_refresh_recent.parquet             --queries-config config/v11_4_discovery_queries.json             --output outputs_v11_4_primary/nse_primary_evidence.parquet             --fetch-attachments
+
+      - name: Collect secondary discovery evidence
+        run: |
+          python src/v11_4_collect_public_evidence.py             --config config/v11_4_discovery_queries.json             --output outputs_v11_4_primary/public_evidence.parquet             --lookback-days 14             --max-records 120
+
+      - name: Link secondary evidence to listed companies
+        run: |
+          python src/v11_4_catalyst_graph.py             --evidence outputs_v11_4_primary/public_evidence.parquet             --queries-config config/v11_4_discovery_queries.json             --source-registry config/v11_4_source_registry.json             --output outputs_v11_4_primary/secondary_company_evidence.parquet             --fetch-pages
+
+      - name: Collect primary PIB theme-demand evidence
+        run: |
+          python src/v11_4_policy_demand.py             --queries-config config/v11_4_discovery_queries.json             --output outputs_v11_4_primary/pib_theme_evidence.parquet             --lookback-days 30
+
+      - name: Merge primary and secondary catalyst intelligence
+        run: |
+          python src/v11_4_merge_evidence.py             --secondary outputs_v11_4_primary/secondary_company_evidence.parquet             --primary outputs_v11_4_primary/nse_primary_evidence.parquet             --theme-demand outputs_v11_4_primary/theme_demand_scores.csv             --output outputs_v11_4_primary/all_company_evidence.parquet
+
+      - name: Enforce evidence quality gate
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open("outputs_v11_4_primary/nse_primary_summary.json"))
+          m=json.load(open("outputs_v11_4_primary/merged_catalyst_summary.json"))
+          print(json.dumps({"nse":a,"merged":m},indent=2))
+          if a.get("meaningful_rows",0) < 20:
+              raise SystemExit("Insufficient meaningful NSE primary catalyst rows")
+          if m.get("primary_rows",0) < 20:
+              raise SystemExit("Insufficient Tier-1 evidence after merge")
+          if m.get("primary_confirmed_companies",0) < 10:
+              raise SystemExit("Too few companies with primary-confirmed catalysts")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-primary-catalyst-evidence
+          path: outputs_v11_4_primary/
+          retention-days: 60
+
+      - name: Publish evidence summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_evidence
+          cp outputs_v11_4_primary/nse_primary_summary.json published_v11_4_evidence/
+          cp outputs_v11_4_primary/policy_demand_summary.json published_v11_4_evidence/
+          cp outputs_v11_4_primary/merged_catalyst_summary.json published_v11_4_evidence/
+          cp outputs_v11_4_primary/company_catalyst_intelligence.csv published_v11_4_evidence/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_evidence
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 primary catalyst evidence [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
