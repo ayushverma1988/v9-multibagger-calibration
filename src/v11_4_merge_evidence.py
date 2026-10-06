@@ -49,6 +49,20 @@ def main():
     allf["theme_demand_max"]=[
         max([demand.get(t,0.0) for t in jlist(v)] or [0.0]) for v in allf["themes"]
     ]
+
+    # Cross-company primary breadth: multiple independent listed companies
+    # showing material catalysts in the same theme is evidence that the demand
+    # accelerator is not merely one management team's narrative.
+    primary=allf[pd.to_numeric(allf["source_tier"],errors="coerce").eq(1)].copy()
+    theme_companies={}
+    for _,r in primary.iterrows():
+        for t in jlist(r.get("themes")):
+            theme_companies.setdefault(t,set()).add(str(r.get("symbol")))
+    theme_breadth={t:1.0-np.exp(-len(syms)/5.0) for t,syms in theme_companies.items()}
+    allf["theme_primary_breadth"]=[
+        max([theme_breadth.get(t,0.0) for t in jlist(v)] or [0.0]) for v in allf["themes"]
+    ]
+    allf["theme_demand_signal"]=allf[["theme_demand_max","theme_primary_breadth"]].max(axis=1)
     allf["catalyst_type_count"]=[len(jlist(v)) for v in allf["catalyst_types"]]
     allf["magnitude_proxy"]=(
         np.clip(pd.to_numeric(allf["capacity_pct_max"],errors="coerce").fillna(0)/100.0,0,2)
@@ -58,7 +72,7 @@ def main():
         0.28*pd.to_numeric(allf["evidence_confidence"],errors="coerce").fillna(0)
         +0.22*pd.to_numeric(allf["stage_weight"],errors="coerce").fillna(0).clip(0,1)
         +0.16*np.clip(allf["catalyst_type_count"]/3.0,0,1)
-        +0.14*allf["theme_demand_max"]
+        +0.14*allf["theme_demand_signal"]
         +0.12*np.clip(allf["magnitude_proxy"]/2.0,0,1)
         +0.08*(pd.to_numeric(allf["source_tier"],errors="coerce").eq(1)).astype(float)
         -0.20*allf["negative_flag"].fillna(False).astype(float)
@@ -80,6 +94,8 @@ def main():
             "max_primary_score":float(primary["linked_evidence_score"].max()) if len(primary) else 0.0,
             "max_stage_weight":float(pd.to_numeric(g["stage_weight"],errors="coerce").fillna(0).max()),
             "max_theme_demand":float(g["theme_demand_max"].max()),
+            "max_theme_primary_breadth":float(g["theme_primary_breadth"].max()),
+            "max_theme_demand_signal":float(g["theme_demand_signal"].max()),
             "max_money_crore":float(pd.to_numeric(g["money_crore_max"],errors="coerce").max()) if pd.to_numeric(g["money_crore_max"],errors="coerce").notna().any() else None,
             "max_capacity_pct":float(pd.to_numeric(g["capacity_pct_max"],errors="coerce").max()) if pd.to_numeric(g["capacity_pct_max"],errors="coerce").notna().any() else None,
             "latest_evidence":str(g["published_ts"].max()),
