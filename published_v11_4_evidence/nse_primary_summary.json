@@ -1,5 +1,5 @@
 {
-  "input_rows": 23368,
+  "input_rows": 23477,
   "lookback_days": 240,
   "output_rows": 211,
   "meaningful_rows": 211,
