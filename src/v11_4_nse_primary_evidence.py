@@ -78,6 +78,7 @@ def main():
         eid=hashlib.sha256(raw.encode()).hexdigest()
         conf=cg.event_confidence(1.0,sw,cts,neg,1)
         capm=cg.extract_capacity_metrics(capctx)
+        mon=cg.summarize_catalyst_money(capctx)
         # Keep only material primary evidence. Routine filings belong in the
         # audit archive, not in the catalyst graph.
         if not cts and sw < 0.40:
@@ -98,11 +99,19 @@ def main():
             "themes":json.dumps(th),
             "stage":st,
             "stage_weight":sw,
-            "money_crore_max":cg.extract_catalyst_money_crore(capctx),
+            "money_crore_max":mon["money_crore_max"],
+            "order_value_crore":mon["order_value_crore"],
+            "capex_value_crore":mon["capex_value_crore"],
+            "revenue_guidance_crore":mon["revenue_guidance_crore"],
+            "money_type":mon["money_type"],
+            "money_confidence":mon["money_confidence"],
+            "money_context_snippet":mon["money_context_snippet"],
             "capacity_pct_max":capm["capacity_pct"],
             "capacity_pct_direct":capm["capacity_pct_direct"],
             "capacity_pct_inferred":capm["capacity_pct_inferred"],
             "capacity_inference_method":capm["capacity_inference_method"],
+            "capacity_confidence":capm["capacity_confidence"],
+            "capacity_context_snippet":capm["capacity_context_snippet"],
             "capacity_quantities":json.dumps(capm["capacity_quantities"]),
             "negative_flag":neg,
             "corroboration_count":1,
