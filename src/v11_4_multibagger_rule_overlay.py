@@ -67,8 +67,16 @@ def main():
 
     cfg=json.load(open(args.config))
     dfs=[]
-    for path in [args.base_audit,args.quarterly,args.annual,args.chart,args.valuation,args.ownership]:
-        d=pd.read_csv(path)
+    paths=[args.base_audit,args.quarterly,args.annual,args.chart,args.valuation,args.ownership]
+    for idx,path in enumerate(paths):
+        try:
+            d=pd.read_csv(path)
+        except pd.errors.EmptyDataError:
+            d=pd.DataFrame(columns=["symbol"])
+        if "symbol" not in d.columns:
+            if idx==0:
+                raise RuntimeError(f"Base audit missing symbol column: {path}")
+            d=pd.DataFrame(columns=["symbol"])
         d["symbol"]=d["symbol"].astype(str).str.upper().str.strip()
         dfs.append(d)
     x=dfs[0]
