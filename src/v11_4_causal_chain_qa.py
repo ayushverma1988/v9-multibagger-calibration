@@ -34,18 +34,38 @@ def main():
 
     for c in ["primary_event_count","stage_reality_score","already_priced_penalty_used",
               "earnings_inflection_score","catalyst_magnitude_score","order_probability_score",
-              "promoter_accumulation_score","technical_confirmation_used"]:
+              "promoter_accumulation_score","technical_confirmation_used","fresh_catalyst_generation_score",
+              "remaining_business_upside_score","same_catalyst_priced_penalty","max_prior_runup_252"]:
         if c not in a:a[c]=0
         a[c]=pd.to_numeric(a[c],errors="coerce").fillna(0)
 
     a["gate_primary"]=a["primary_event_count"]>=int(g["primary_company_evidence_min"])
     a["gate_external_demand"]=a["external_theme_demand"]>=float(g["external_theme_demand_min"])
     a["gate_stage"]=a["stage_reality_score"]>=float(g["catalyst_stage_min"])
-    a["gate_not_priced_in"]=a["already_priced_penalty_used"]<=float(g["priced_in_penalty_max"])
     a["gate_impact"]=(a["earnings_inflection_score"]>=0.45)|(a["catalyst_magnitude_score"]>=0.45)
     a["gate_causal_mechanism"]=(a["order_probability_score"]>=0.55)|(a["stage_reality_score"]>=0.55)
+
+    sleeve=a.get("opportunity_sleeve",pd.Series("RESEARCH_OTHER",index=a.index)).fillna("RESEARCH_OTHER")
+    pre=sleeve.eq("PRE_OBVIOUS_DISCOVERY")
+    second=sleeve.eq("SECOND_LEG_REACCELERATION")
+    a["gate_not_priced_in"]=np.where(
+        second,
+        a["same_catalyst_priced_penalty"]<=float(cfg["sleeve_requirements"]["second_leg_reacceleration"]["same_catalyst_priced_penalty_max"]),
+        a["already_priced_penalty_used"]<=float(cfg["sleeve_requirements"]["pre_obvious_discovery"]["priced_in_penalty_max"])
+    )
+    a["gate_fresh_generation"]=np.where(
+        second,
+        a["fresh_catalyst_generation_score"]>=float(cfg["sleeve_requirements"]["second_leg_reacceleration"]["fresh_catalyst_generation_min"]),
+        True
+    )
+    a["gate_remaining_upside"]=np.where(
+        second,
+        a["remaining_business_upside_score"]>=float(cfg["sleeve_requirements"]["second_leg_reacceleration"]["remaining_business_upside_min"]),
+        True
+    )
     a["causal_chain_pass"]=a[[
-        "gate_primary","gate_external_demand","gate_stage","gate_not_priced_in","gate_impact","gate_causal_mechanism"
+        "gate_primary","gate_external_demand","gate_stage","gate_not_priced_in",
+        "gate_impact","gate_causal_mechanism","gate_fresh_generation","gate_remaining_upside"
     ]].all(axis=1)
 
     confirmations=(
@@ -69,21 +89,27 @@ def main():
         +0.12*a["order_probability_score"].clip(0,1)
         +0.07*a["promoter_accumulation_score"].clip(0,1)
         +0.05*a["technical_confirmation_used"].clip(0,1)
-        -0.12*a["already_priced_penalty_used"].clip(0,1)
+        -0.12*np.where(second,a["same_catalyst_priced_penalty"].clip(0,1),a["already_priced_penalty_used"].clip(0,1))
+        +0.08*np.where(second,a["fresh_catalyst_generation_score"].clip(0,1),0.0)
     )
     a=a.sort_values(["causal_chain_pass","causal_grade","causal_qa_score"],ascending=[False,True,False])
     out=Path(args.output);out.parent.mkdir(parents=True,exist_ok=True)
     a.to_csv(out,index=False)
     passed=a[a["causal_chain_pass"]].copy()
     passed.to_csv(out.parent/"causal_chain_pass.csv",index=False)
+    passed[passed.get("opportunity_sleeve",pd.Series(index=passed.index,dtype=object)).eq("PRE_OBVIOUS_DISCOVERY")].to_csv(out.parent/"pre_obvious_pass.csv",index=False)
+    passed[passed.get("opportunity_sleeve",pd.Series(index=passed.index,dtype=object)).eq("SECOND_LEG_REACCELERATION")].to_csv(out.parent/"second_leg_pass.csv",index=False)
     summary={
         "rows":int(len(a)),"passed":int(len(passed)),
         "grade_A":int((a["causal_grade"]=="A").sum()),
         "grade_B":int((a["causal_grade"]=="B").sum()),
         "grade_C":int((a["causal_grade"]=="C").sum()),
         "rejected":int((a["causal_grade"]=="REJECT").sum()),
+        "pre_obvious_passed":int((passed.get("opportunity_sleeve",pd.Series(index=passed.index,dtype=object))=="PRE_OBVIOUS_DISCOVERY").sum()),
+        "second_leg_passed":int((passed.get("opportunity_sleeve",pd.Series(index=passed.index,dtype=object))=="SECOND_LEG_REACCELERATION").sum()),
         "top_passed":passed.head(20)[[c for c in [
-            "symbol","causal_grade","causal_qa_score","external_theme_demand",
+            "symbol","causal_grade","opportunity_sleeve","causal_qa_score","external_theme_demand",
+            "fresh_catalyst_generation_score","remaining_business_upside_score","max_prior_runup_252",
             "stage_reality_score","catalyst_magnitude_score","earnings_inflection_score",
             "order_probability_score","promoter_accumulation_score","already_priced_penalty_used",
             "strongest_event_title"
