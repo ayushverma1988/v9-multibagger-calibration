@@ -328,6 +328,16 @@ def compute_metrics(q):
         pm=margin(prev["facts"].get("ebitda_proxy"),prev["facts"].get("revenue"))
         out["ebitda_margin_qoq_change"]=(out["latest_ebitda_margin"]-pm) if out["latest_ebitda_margin"] is not None and pm is not None else None
 
+    if len(q)>=3:
+        q1=q[1]; q2=q[2]
+        out["revenue_vs_2q_back"]=pct(latest["facts"].get("revenue"),q2["facts"].get("revenue"))
+        p0=latest["facts"].get("pat"); p1=q1["facts"].get("pat"); p2=q2["facts"].get("pat")
+        out["pat_latest"]=p0
+        out["pat_preceding"]=p1
+        out["pat_2q_back"]=p2
+        out["pat_latest_gt_preceding"]=bool(p0 is not None and p1 is not None and p0>p1)
+        out["pat_preceding_gt_2q_back"]=bool(p1 is not None and p2 is not None and p1>p2)
+
     if len(q)>=5:
         py=q[4]
         out["revenue_yoy"]=pct(latest["facts"].get("revenue"),py["facts"].get("revenue"))
