@@ -1,10 +1,13 @@
 {
   "case": "SHANTIGOLD",
   "diagnostic_only": true,
-  "evidence_rows": 1,
-  "primary_rows": 0,
+  "evidence_rows": 5,
+  "primary_rows": 4,
   "catalyst_types": [
-    "capacity"
+    "approval",
+    "capacity",
+    "commissioning",
+    "product"
   ],
   "themes": [
     "power_td"
