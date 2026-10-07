@@ -57,6 +57,35 @@ def main():
         product=g[g["catalyst_types"].map(lambda x:bool(set(jlist(x))&{"product","approval"}))]
         capacity=g[g["catalyst_types"].map(lambda x:"capacity" in jlist(x))]
         neg=g[g["negative_flag"].fillna(False)]
+        prim_chron=prim.sort_values("published_ts").copy()
+        latest_primary_ts=prim_chron["published_ts"].max() if len(prim_chron) else pd.NaT
+        first_primary_ts=prim_chron["published_ts"].min() if len(prim_chron) else pd.NaT
+        recent_primary=pd.DataFrame(columns=prim_chron.columns)
+        prior_primary=pd.DataFrame(columns=prim_chron.columns)
+        if len(prim_chron) and pd.notna(latest_primary_ts):
+            recent_primary=prim_chron[prim_chron["published_ts"]>=latest_primary_ts-pd.Timedelta(days=45)]
+            prior_primary=prim_chron[prim_chron["published_ts"]<latest_primary_ts-pd.Timedelta(days=45)]
+        def _types(q):
+            out=set()
+            for v in q.get("catalyst_types",pd.Series(dtype=object)):
+                out.update(jlist(v))
+            return out
+        recent_types=_types(recent_primary)
+        prior_types=_types(prior_primary)
+        new_type_count=len(recent_types-prior_types)
+        recent_stage=float(pd.to_numeric(recent_primary.get("stage_weight"),errors="coerce").max()) if len(recent_primary) else 0.0
+        prior_stage=float(pd.to_numeric(prior_primary.get("stage_weight"),errors="coerce").max()) if len(prior_primary) else 0.0
+        if pd.isna(recent_stage): recent_stage=0.0
+        if pd.isna(prior_stage): prior_stage=0.0
+        stage_upgrade=max(0.0,recent_stage-prior_stage)
+        repeat_material=bool(len(prior_primary) and len(recent_primary) and recent_stage>=0.85 and bool(recent_types&{"order","commissioning","capacity","product","approval"}))
+        if pd.notna(latest_primary_ts):
+            age_days=max((pd.Timestamp.now(tz="UTC")-latest_primary_ts).total_seconds()/86400.0,0.0)
+            recency=float(np.exp(-age_days/75.0))
+        else:
+            recency=0.0
+        fresh_core=max(0.75 if new_type_count>0 else 0.0,min(stage_upgrade/0.30,1.0),0.65 if repeat_material else 0.0)
+        fresh_generation_score=float(np.clip(recency*fresh_core,0,1))
         strongest=(prim.sort_values(["linked_evidence_score","published_ts"],ascending=[False,False]).iloc[0] if len(prim) else g.iloc[0])
         e_rows.append({
             "symbol":sym,
@@ -67,6 +96,11 @@ def main():
             "product_approval_score":float(product["stage_weight"].max()) if len(product) else 0.0,
             "capacity_stage_score":float(capacity["stage_weight"].max()) if len(capacity) else 0.0,
             "negative_event_count":int(len(neg)),
+            "first_primary_event_date":str(first_primary_ts) if pd.notna(first_primary_ts) else "",
+            "latest_primary_event_date":str(latest_primary_ts) if pd.notna(latest_primary_ts) else "",
+            "fresh_catalyst_generation_score":fresh_generation_score,
+            "new_catalyst_type_count":int(new_type_count),
+            "primary_stage_upgrade":float(stage_upgrade),
             "strongest_event_title":str(strongest.get("title",""))[:500],
             "strongest_event_url":str(strongest.get("url","")),
             "strongest_event_date":str(strongest.get("published_ts","")),
