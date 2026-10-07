@@ -133,8 +133,8 @@ def main():
     summary={
         "symbols_requested":len(syms),
         "symbols_with_shareholding":int(own["promoter_holding"].notna().sum()) if len(own) else 0,
-        "promoter_holding_coverage":float(own["promoter_holding"].notna().mean()) if len(own) else 0,
-        "pledge_coverage_high_conf":float(((pd.to_numeric(own["pledged_pct_confidence"],errors="coerce")>=0.70)&own["pledged_pct"].notna()).mean()) if len(own) else 0,
+        "promoter_holding_coverage":float(own["promoter_holding"].notna().sum()/max(len(syms),1)) if len(own) else 0,
+        "pledge_coverage_high_conf":float(((pd.to_numeric(own["pledged_pct_confidence"],errors="coerce")>=0.70)&own["pledged_pct"].notna()).sum()/max(len(syms),1)) if len(own) else 0,
         "promoter_open_market_buyers_180":int((pd.to_numeric(own.get("promoter_open_market_net_value_180"),errors="coerce").fillna(0)>0).sum()) if len(own) else 0,
     }
     json.dump(summary,open(out.parent/"ownership_summary.json","w"),indent=2)
