@@ -56,25 +56,31 @@
   },
   "sleeves": {
     "pre_obvious_discovery": {
-      "description": "business inflection before the market has fully rerated it",
+      "description": "business inflection before a material rerating; prior price move remains below roughly 12%",
       "prior_runup_threshold_any_of": {
-        "ret_60": 0.5,
-        "ret_120": 0.5,
-        "ret_252": 0.5
+        "ret_60": 0.12,
+        "ret_120": 0.12,
+        "ret_252": 0.12
       },
       "already_priced_penalty_applies": true
     },
     "second_leg_reacceleration": {
-      "description": "stock has already rerated materially but a fresh catalyst generation and remaining business upside can support another major leg",
+      "description": "stock has already moved roughly 12-100% but a fresh catalyst generation and remaining business upside can support another major leg",
       "prior_runup_threshold_any_of": {
-        "ret_60": 0.5,
-        "ret_120": 0.5,
-        "ret_252": 0.5
+        "ret_60": 0.12,
+        "ret_120": 0.12,
+        "ret_252": 0.12
       },
       "fresh_catalyst_generation_min": 0.45,
       "remaining_business_upside_min": 0.55,
       "same_catalyst_priced_in_reset_factor": 0.65,
-      "principle": "a previous 50-100% rise is not an automatic rejection; only the portion attributable to the same already-known catalyst remains penalized"
+      "principle": "a prior 12-100% rerating is not an automatic rejection; qualify only when a fresh catalyst generation and remaining business upside justify a second major leg",
+      "prior_runup_min": 0.12,
+      "prior_runup_max": 1
+    },
+    "over_100pct_extended_review": {
+      "description": "stocks already up more than 100% remain visible for research but are excluded from the standard second-leg sleeve unless a later model version defines a separate exceptional-reacceleration rule",
+      "prior_runup_min_exclusive": 1
     }
   }
 }
