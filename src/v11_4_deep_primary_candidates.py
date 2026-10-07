@@ -97,7 +97,7 @@ def main():
             th=cg.themes(capctx,cfg)
             neg=bool(cg.NEGATIVE_PATTERNS.search(text))
             capm=cg.extract_capacity_metrics(capctx)
-        mon=cg.summarize_catalyst_money(capctx)
+            mon=cg.summarize_catalyst_money(capctx)
             ts=parse_ts(getattr(r,"published_ts",None))
             recid=str(getattr(r,"source_record_id","") or "")
             eid=hashlib.sha256("|".join(["NSE_DEEP",recid,sym,str(ts),headline]).encode()).hexdigest()
