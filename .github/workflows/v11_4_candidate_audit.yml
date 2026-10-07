@@ -99,6 +99,9 @@ jobs:
           cp outputs_v11_4_audit/candidate_audit_summary.json published_v11_4_audit/
           cp outputs_v11_4_audit/candidate_audit_top20.csv published_v11_4_audit/
           cp outputs_v11_4_audit/candidate_audit_eligible.csv published_v11_4_audit/
+          cp outputs_v11_4_audit/pre_obvious_discovery.csv published_v11_4_audit/
+          cp outputs_v11_4_audit/second_leg_reacceleration.csv published_v11_4_audit/
+          cp outputs_v11_4_audit/overextended_already_priced.csv published_v11_4_audit/
           cp outputs_v11_4_audit/financial_summary.json published_v11_4_audit/integrated_financial_summary.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
