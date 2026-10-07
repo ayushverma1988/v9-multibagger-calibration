@@ -53,6 +53,8 @@ def get_symbol(s,symbol,retries=4):
             r.raise_for_status()
             j=r.json()
             rows=j.get("resCmpData",[]) if isinstance(j,dict) else []
+            if not isinstance(rows,list):
+                rows=[]
             return rows,j.get("bankNonBnking") if isinstance(j,dict) else None,None
         except Exception as e:
             last=repr(e)
@@ -62,7 +64,11 @@ def get_symbol(s,symbol,retries=4):
 
 def quarter_rows(rows):
     q=[]
+    if not isinstance(rows,list):
+        rows=[]
     for r in rows:
+        if not isinstance(r,dict):
+            continue
         fr=pd.to_datetime(r.get("re_from_dt"),errors="coerce",dayfirst=True)
         to=pd.to_datetime(r.get("re_to_dt"),errors="coerce",dayfirst=True)
         if pd.isna(fr) or pd.isna(to):
@@ -197,7 +203,7 @@ def main():
         rows,bank,err=get_symbol(s,sym)
         q=quarter_rows(rows)
         feats.append(feature_row(sym,q,bank,err))
-        raw_summary.append({"symbol":sym,"raw_rows":len(rows),"quarter_rows":len(q),"error":err})
+        raw_summary.append({"symbol":sym,"raw_rows":len(rows) if isinstance(rows,list) else 0,"quarter_rows":len(q),"error":err})
         if i%25==0:
             print(f"financial {i}/{len(symbols)}",flush=True)
         time.sleep(max(0,float(args.sleep)))
