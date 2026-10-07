@@ -1,0 +1,38 @@
+{
+  "lookback_days": 120,
+  "max_records_per_query": 60,
+  "official_domains": [
+    "pib.gov.in",
+    "heavyindustries.gov.in",
+    "mnre.gov.in",
+    "powermin.gov.in",
+    "powergrid.in",
+    "indianrailways.gov.in",
+    "railmin.gov.in",
+    "mod.gov.in",
+    "ddpmod.gov.in",
+    "meity.gov.in",
+    "dot.gov.in",
+    "morth.nic.in",
+    "eprocure.gov.in"
+  ],
+  "secondary_domains": [
+    "business-standard.com",
+    "moneycontrol.com",
+    "economictimes.indiatimes.com",
+    "financialexpress.com",
+    "livemint.com"
+  ],
+  "demand_terms": [
+    "procurement","tender","award","order","capex","investment","scheme","PLI",
+    "production linked incentive","approved","sanctioned","project","capacity",
+    "manufacturing","commissioning","rollout","deployment"
+  ],
+  "event_weights": {
+    "procurement_or_award": 1.00,
+    "capex_or_project": 0.85,
+    "policy_or_pli": 0.70,
+    "deployment_or_commissioning": 0.80,
+    "general_demand": 0.45
+  }
+}
