@@ -1,8 +1,8 @@
 {
   "model_name": "V11.4 Short-Term Catalyst Intelligence",
   "design_date": "2026-10-06",
-  "objective": "discover under-recognized transformation stories capable of 2x primarily within 6-12 months",
-  "horizon_weights": {"y6": 0.40, "y12": 0.50, "y24": 0.10},
+  "objective": "discover under-recognized transformation stories capable of 2x primarily within 6 months, with 12 months as secondary confirmation and 24 months only a minimal fallback horizon",
+  "horizon_weights": {"y6": 0.70, "y12": 0.25, "y24": 0.05},
   "final_layers": {
     "catalyst_intelligence": 0.80,
     "technical_confirmation_v10_2": 0.20
