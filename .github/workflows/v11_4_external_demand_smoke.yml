@@ -1,0 +1,54 @@
+name: V11.4 External Demand Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_external_demand_smoke.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v11-4-external-demand-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install pandas pyarrow requests
+
+      - name: Compile external demand collector
+        run: python -m py_compile src/v11_4_external_demand.py
+
+      - name: Collect external theme demand
+        run: |
+          python src/v11_4_external_demand.py             --queries-config config/v11_4_discovery_queries.json             --source-config config/v11_4_external_demand_sources.json             --output outputs_v11_4_demand/external_demand_evidence.parquet
+
+      - name: Gate demand coverage
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open("outputs_v11_4_demand/external_demand_summary.json"))
+          print(json.dumps(s,indent=2))
+          if s.get("themes_with_any_evidence",0) < 3:
+              raise SystemExit("Too few themes with demand evidence")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-external-demand-smoke
+          path: outputs_v11_4_demand/
+          retention-days: 30
