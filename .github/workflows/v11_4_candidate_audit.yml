@@ -79,8 +79,10 @@ jobs:
           print(json.dumps({"financial":f,"audit":a},indent=2))
           if f.get("symbols_extracted",0) < 80:
               raise SystemExit("Integrated financial coverage too low")
-          if f.get("symbols_with_5q",0) < 60:
-              raise SystemExit("Insufficient 5-quarter financial history")
+          if f.get("symbols_with_8q",0) < 100:
+              raise SystemExit("Insufficient two-year financial context")
+          if f.get("symbols_with_12q",0) < 50:
+              raise SystemExit("Insufficient three-year financial context")
           if a.get("eligible",0) < 3:
               raise SystemExit("Too few causal candidates; do not rank")
           PY
