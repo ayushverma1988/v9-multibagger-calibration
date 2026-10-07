@@ -1,10 +1,14 @@
 {
-  "stage":"V11.4 Short-Term Catalyst Intelligence rule freeze",
-  "frozen_before_V11_4_results":true,
-  "reason_for_redesign":"V11.0-V11.3 still relied too heavily on already-public price momentum and shallow event labels. The target is causal, early transformation discovery.",
-  "objective":"2x primarily inside 6-12 months, with 24 months only a low-weight fallback horizon.",
-  "horizon_weights":{"6m":0.40,"12m":0.50,"24m":0.10},
-  "mandatory_changes":[
+  "stage": "V11.4 Short-Term Catalyst Intelligence rule freeze",
+  "frozen_before_V11_4_results": true,
+  "reason_for_redesign": "V11.0-V11.3 still relied too heavily on already-public price momentum and shallow event labels. The target is causal, early transformation discovery.",
+  "objective": "Discover under-recognized transformation stories with primary emphasis on 2x within 6 months.",
+  "horizon_weights": {
+    "6m": 0.7,
+    "12m": 0.25,
+    "24m": 0.05
+  },
+  "mandatory_changes": [
     "Create a multi-source document/evidence layer independent of price.",
     "Link company -> product -> end-market/theme -> demand accelerator -> company catalyst -> expected financial impact.",
     "Separate announced capacity from funded, under-construction, trial, commissioned, commercial-production and utilisation-ramp stages.",
@@ -15,5 +19,7 @@
     "Use primary-source trust, corroboration, freshness and contradiction penalties.",
     "Apply explicit already-priced-in penalty from the first catalyst timestamp.",
     "V10.2 can confirm a story but cannot create eligibility."
-  ]
+  ],
+  "horizon_rationale": "Short-term turnaround is the target. Six-month outcomes dominate model selection; twelve-month outcomes provide secondary evidence; twenty-four-month outcomes carry only a small fallback weight and must not rescue weak short-term candidates.",
+  "freeze_note": "Horizon weights updated before V11.4 historical validation. No V11.4 historical backtest result had been used to choose these weights."
 }
