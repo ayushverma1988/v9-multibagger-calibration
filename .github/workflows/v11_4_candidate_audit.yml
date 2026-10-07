@@ -46,17 +46,21 @@ jobs:
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: ${{ github.event.workflow_run.id }}
 
-      - name: Locate evidence parquet
+      - name: Locate evidence and demand inputs
         shell: bash
         run: |
           set -euo pipefail
           EVID=$(find v11_4_evidence -type f -name 'all_company_evidence.parquet' | head -n 1)
-          if [ -z "$EVID" ]; then
-            echo "all_company_evidence.parquet missing"
+          DEMAND=$(find v11_4_evidence -type f -name 'theme_demand_scores.csv' | head -n 1)
+          DSUM=$(find v11_4_evidence -type f -name 'external_demand_summary.json' | head -n 1)
+          if [ -z "$EVID" ] || [ -z "$DEMAND" ] || [ -z "$DSUM" ]; then
+            echo "Required V11.4 evidence/demand input missing"
             find v11_4_evidence -type f | sort | head -200
             exit 1
           fi
           echo "V11_4_EVIDENCE=$EVID" >> "$GITHUB_ENV"
+          echo "V11_4_DEMAND=$DEMAND" >> "$GITHUB_ENV"
+          echo "V11_4_DEMAND_SUMMARY=$DSUM" >> "$GITHUB_ENV"
 
       - name: Build current integrated-XBRL financial features
         run: |
@@ -68,15 +72,23 @@ jobs:
 
       - name: Run causal candidate audit
         run: |
-          python src/v11_4_candidate_audit.py             --config config_v11_4_catalyst_intelligence.json             --company-intelligence published_v11_4_evidence/company_catalyst_intelligence.csv             --evidence "$V11_4_EVIDENCE"             --financials outputs_v11_4_audit/financial_inflection.csv             --market published_v11_3/current_universe_scored.csv             --output outputs_v11_4_audit
+          python src/v11_4_candidate_audit.py             --config config_v11_4_catalyst_intelligence.json             --company-intelligence published_v11_4_evidence/company_catalyst_intelligence.csv             --evidence "$V11_4_EVIDENCE"             --financials outputs_v11_4_audit/financial_inflection.csv             --market published_v11_3/current_universe_scored.csv             --external-demand "$V11_4_DEMAND"             --output outputs_v11_4_audit
 
       - name: Evidence-quality gate
         run: |
           python - <<'PY'
           import json
+          import os
           f=json.load(open("outputs_v11_4_audit/financial_summary.json"))
           a=json.load(open("outputs_v11_4_audit/candidate_audit_summary.json"))
-          print(json.dumps({"financial":f,"audit":a},indent=2))
+          d=json.load(open(os.environ["V11_4_DEMAND_SUMMARY"]))
+          print(json.dumps({"financial":f,"demand":d,"audit":a},indent=2))
+          if not d.get("required_sources_ok",False):
+              raise SystemExit("GDELT/Google News source health failed")
+          if d.get("themes_with_official_evidence",0) < 3:
+              raise SystemExit("Insufficient official demand coverage")
+          if not a.get("external_demand_loaded",False):
+              raise SystemExit("External demand was not loaded into audit")
           if f.get("symbols_extracted",0) < 80:
               raise SystemExit("Integrated financial coverage too low")
           if f.get("symbols_with_8q",0) < 100:
@@ -103,7 +115,10 @@ jobs:
           cp outputs_v11_4_audit/candidate_audit_eligible.csv published_v11_4_audit/
           cp outputs_v11_4_audit/pre_obvious_discovery.csv published_v11_4_audit/
           cp outputs_v11_4_audit/second_leg_reacceleration.csv published_v11_4_audit/
-          cp outputs_v11_4_audit/overextended_already_priced.csv published_v11_4_audit/
+          cp outputs_v11_4_audit/over_100pct_extended_review.csv published_v11_4_audit/
+          cp outputs_v11_4_audit/moved_12_100_but_failed_gates.csv published_v11_4_audit/
+          cp "$V11_4_DEMAND_SUMMARY" published_v11_4_audit/external_demand_summary.json
+          cp "$V11_4_DEMAND" published_v11_4_audit/theme_demand_scores.csv
           cp outputs_v11_4_audit/financial_summary.json published_v11_4_audit/integrated_financial_summary.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
