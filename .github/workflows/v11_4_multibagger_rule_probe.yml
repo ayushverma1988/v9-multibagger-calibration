@@ -1,0 +1,180 @@
+name: V11.4 Multibagger Rule Feature Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_multibagger_rule_probe.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-4-multibagger-rule-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt lxml
+
+      - name: Compile rule-feature code
+        run: |
+          python -m py_compile \
+            src/v11_4_integrated_financials.py \
+            src/v11_4_longterm_fundamentals.py \
+            src/v11_4_chart_triggers.py \
+            src/v11_4_nse_valuation.py \
+            src/v11_4_ownership_features.py \
+            src/v11_4_multibagger_rule_overlay.py
+
+      - name: Download latest completed causal-audit artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-causal-candidate-audit
+          path: audit_seed
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37640107502
+
+      - name: Download PIT ownership archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: pit_seed
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+
+      - name: Locate seed inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=$(find audit_seed -type f -name 'candidate_audit_eligible.csv' | head -n 1)
+          QFIN=$(find audit_seed -type f \( -name 'financial_inflection.csv' -o -name 'financials_3y.csv' \) | head -n 1)
+          SH=$(find pit_seed -type f -name 'shareholding_master.parquet' | head -n 1)
+          INS=$(find pit_seed -type f -name 'insider_trades.parquet' | head -n 1)
+          test -n "$BASE"
+          test -n "$QFIN"
+          test -n "$SH"
+          test -n "$INS"
+          echo "BASE_AUDIT=$BASE" >> "$GITHUB_ENV"
+          echo "QFIN=$QFIN" >> "$GITHUB_ENV"
+          echo "SHAREHOLDING=$SH" >> "$GITHUB_ENV"
+          echo "INSIDER=$INS" >> "$GITHUB_ENV"
+
+      - name: Build official annual 5-7 year fundamentals
+        run: |
+          python src/v11_4_longterm_fundamentals.py \
+            --symbols-file "$BASE_AUDIT" \
+            --symbol-column symbol \
+            --output outputs_v11_4_mb_rules/annual_fundamentals.csv \
+            --max-symbols 120 \
+            --max-years 8
+
+      - name: Build chart and trigger features
+        run: |
+          python src/v11_4_chart_triggers.py \
+            --symbols-file "$BASE_AUDIT" \
+            --symbol-column symbol \
+            --asof 2026-10-07 \
+            --output outputs_v11_4_mb_rules/chart_triggers.csv
+
+      - name: Build NSE valuation and SME features
+        run: |
+          python src/v11_4_nse_valuation.py \
+            --symbols-file "$BASE_AUDIT" \
+            --symbol-column symbol \
+            --output outputs_v11_4_mb_rules/valuation.csv \
+            --max-symbols 120
+
+      - name: Build PIT ownership features
+        run: |
+          python src/v11_4_ownership_features.py \
+            --shareholding "$SHAREHOLDING" \
+            --insider "$INSIDER" \
+            --symbols-file "$BASE_AUDIT" \
+            --symbol-column symbol \
+            --asof 2026-10-07T23:59:59+00:00 \
+            --output outputs_v11_4_mb_rules/ownership.csv \
+            --fetch-pledge-xbrl
+
+      - name: Evaluate three multibagger rule families
+        run: |
+          python src/v11_4_multibagger_rule_overlay.py \
+            --config config/v11_4_multibagger_rule_families.json \
+            --base-audit "$BASE_AUDIT" \
+            --quarterly "$QFIN" \
+            --annual outputs_v11_4_mb_rules/annual_fundamentals.csv \
+            --chart outputs_v11_4_mb_rules/chart_triggers.csv \
+            --valuation outputs_v11_4_mb_rules/valuation.csv \
+            --ownership outputs_v11_4_mb_rules/ownership.csv \
+            --output outputs_v11_4_mb_rules/multibagger_rule_candidates.csv
+
+      - name: Feature coverage readiness gate
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open("outputs_v11_4_mb_rules/annual_fundamental_summary.json"))
+          c=json.load(open("outputs_v11_4_mb_rules/chart_trigger_summary.json"))
+          v=json.load(open("outputs_v11_4_mb_rules/valuation_summary.json"))
+          o=json.load(open("outputs_v11_4_mb_rules/ownership_summary.json"))
+          r=json.load(open("outputs_v11_4_mb_rules/multibagger_rule_summary.json"))
+          s={"annual":a,"chart":c,"valuation":v,"ownership":o,"rules":r}
+          print(json.dumps(s,indent=2))
+          if c.get("dma50_coverage",0)<0.75:
+              raise SystemExit("DMA50 coverage too low")
+          if c.get("dma200_coverage",0)<0.60:
+              raise SystemExit("DMA200 coverage too low")
+          if a.get("symbols_with_5y",0)<15:
+              raise SystemExit("5-year annual fundamental coverage too low")
+          if o.get("promoter_holding_coverage",0)<0.50:
+              raise SystemExit("Promoter holding coverage too low")
+          if v.get("pe_coverage",0)<0.40:
+              raise SystemExit("PE coverage too low")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-multibagger-rule-probe
+          path: outputs_v11_4_mb_rules/
+          retention-days: 60
+
+      - name: Publish multibagger-rule probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_mb_rules
+          cp outputs_v11_4_mb_rules/multibagger_rule_summary.json published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/multibagger_rule_top30.csv published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/multi_family_overlap.csv published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/annual_fundamental_summary.json published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/chart_trigger_summary.json published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/valuation_summary.json published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/ownership_summary.json published_v11_4_mb_rules/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_mb_rules
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 multibagger rule feature probe [skip ci]"
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin v10-fresh-current || true
+            if git push origin HEAD:v10-fresh-current; then exit 0; fi
+            sleep $((attempt*8))
+          done
+          exit 1
