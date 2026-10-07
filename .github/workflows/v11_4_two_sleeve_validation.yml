@@ -1,0 +1,120 @@
+name: V11.4 Two-Sleeve Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_two_sleeve_validation.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-4-two-sleeve-validation
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile two-sleeve code
+        run: |
+          python -m py_compile \
+            src/v11_4_integrated_financials.py \
+            src/v11_4_candidate_audit.py \
+            src/v11_4_causal_chain_qa.py
+
+      - name: Download clean V11.4 evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-primary-catalyst-evidence
+          path: v11_4_evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37572490741
+
+      - name: Locate evidence parquet
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVID=$(find v11_4_evidence -type f -name 'all_company_evidence.parquet' | head -n 1)
+          test -n "$EVID"
+          echo "V11_4_EVIDENCE=$EVID" >> "$GITHUB_ENV"
+
+      - name: Build 3-year integrated financial context
+        run: |
+          python src/v11_4_integrated_financials.py \
+            --symbols-file published_v11_4_evidence/company_catalyst_intelligence.csv \
+            --symbol-column symbol \
+            --output outputs_v11_4_two_sleeve/financials_3y.csv \
+            --max-symbols 220
+
+      - name: Run two-sleeve candidate audit
+        run: |
+          python src/v11_4_candidate_audit.py \
+            --config config_v11_4_catalyst_intelligence.json \
+            --company-intelligence published_v11_4_evidence/company_catalyst_intelligence.csv \
+            --evidence "$V11_4_EVIDENCE" \
+            --financials outputs_v11_4_two_sleeve/financials_3y.csv \
+            --market published_v11_3/current_universe_scored.csv \
+            --output outputs_v11_4_two_sleeve
+
+      - name: Validate sleeve outputs
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          s=json.load(open("outputs_v11_4_two_sleeve/candidate_audit_summary.json"))
+          f=json.load(open("outputs_v11_4_two_sleeve/financial_summary.json"))
+          print(json.dumps({"audit":s,"financials":f},indent=2))
+          for p in [
+              "pre_obvious_discovery.csv",
+              "second_leg_reacceleration.csv",
+              "overextended_already_priced.csv",
+          ]:
+              df=pd.read_csv("outputs_v11_4_two_sleeve/"+p)
+              print(p,len(df))
+          if f.get("symbols_with_8q",0) < 100:
+              raise SystemExit("Insufficient multi-year financial coverage")
+          if s.get("pre_obvious_count",0) < 1:
+              raise SystemExit("Pre-obvious sleeve is empty")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-two-sleeve-validation
+          path: outputs_v11_4_two_sleeve/
+          retention-days: 60
+
+      - name: Publish two-sleeve validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_two_sleeve
+          cp outputs_v11_4_two_sleeve/candidate_audit_summary.json published_v11_4_two_sleeve/
+          cp outputs_v11_4_two_sleeve/financial_summary.json published_v11_4_two_sleeve/
+          cp outputs_v11_4_two_sleeve/pre_obvious_discovery.csv published_v11_4_two_sleeve/
+          cp outputs_v11_4_two_sleeve/second_leg_reacceleration.csv published_v11_4_two_sleeve/
+          cp outputs_v11_4_two_sleeve/overextended_already_priced.csv published_v11_4_two_sleeve/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_two_sleeve
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 two-sleeve validation [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
