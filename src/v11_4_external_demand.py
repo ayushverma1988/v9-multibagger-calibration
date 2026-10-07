@@ -350,37 +350,57 @@ def main():
     source_items["cppp_direct"]=cppp_count
     source_health["cppp_direct"]=cppp_count>0
 
-    # 5) Dedicated official-domain discovery via Google News. Results count as
-    # official only when the publisher/source domain is an approved official domain.
+    # 5) Dedicated official-domain discovery via Google News. Query the small
+    # ministry/domain set relevant to each theme separately. Large OR-ed site:
+    # expressions produced very poor recall and hid genuine PIB/ministry releases.
     google_official_count=0
     if direct_cfg.get("google_news_official_domain_discovery",False):
+        theme_domains=direct_cfg.get("theme_domains",{})
+        per_domain=int(direct_cfg.get("max_google_official_results_per_domain",20))
         for theme,words in qcfg["themes"].items():
-            q=google_official_query(words,days,scfg.get("official_domains",[]))
-            try:
-                arts=fetch_google_news(google_url,q,min(mx,40))
-            except Exception as e:
-                errors.append({"source":"google_official","theme":theme,"error":repr(e)})
-                continue
-            for item in arts:
-                ts=parse_ts(item.get("published"))
-                if pd.isna(ts): continue
-                d=article_domain(item)
-                resolved_url=resolve_url(str(item.get("url") or ""))
-                rd=urlparse(resolved_url).netloc.lower().replace("www.","")
-                if rd and "news.google." not in rd and rd!="news.google.com":
-                    d=rd
-                    item=dict(item); item["url"]=resolved_url
-                if not domain_matches(d,scfg.get("official_domains",[])):
+            domains=theme_domains.get(theme,["pib.gov.in"])
+            seen_theme_urls=set()
+            for official_domain in domains:
+                q=google_official_query(words,days,[official_domain])
+                try:
+                    arts=fetch_google_news(google_url,q,min(mx,per_domain))
+                except Exception as e:
+                    errors.append({
+                        "source":"google_official","theme":theme,
+                        "domain":official_domain,"error":repr(e)
+                    })
                     continue
-                text=str(item.get("title") or "")
-                b=get_body(str(item.get("url") or ""))
-                if b:text+=" "+b
-                hits=themes_for(text,qcfg["themes"])
-                if theme not in hits:
-                    continue
-                add_row(rows,theme,ts,"google_official",item,d,"official",1.0,text,scfg,resolved=True)
-                google_official_count+=1
-            time.sleep(.25)
+                for item in arts:
+                    ts=parse_ts(item.get("published"))
+                    if pd.isna(ts): continue
+                    d=article_domain(item)
+                    # Google News RSS exposes the publisher source URL. Accept only
+                    # the specifically queried official domain (or an official subdomain).
+                    if not domain_matches(d,[official_domain]):
+                        resolved_url=resolve_url(str(item.get("url") or ""))
+                        rd=urlparse(resolved_url).netloc.lower().replace("www.","")
+                        if not domain_matches(rd,[official_domain]):
+                            continue
+                        d=rd
+                        item=dict(item); item["url"]=resolved_url
+                    url_key=str(item.get("url") or "")+"|"+norm_title(item.get("title"))
+                    if url_key in seen_theme_urls:
+                        continue
+                    seen_theme_urls.add(url_key)
+                    text=str(item.get("title") or "")
+                    # The query is theme constrained; still require explicit theme
+                    # language in title/body so site search noise cannot qualify.
+                    b=get_body(str(item.get("url") or ""))
+                    if b:text+=" "+b
+                    hits=themes_for(text,qcfg["themes"])
+                    if theme not in hits:
+                        continue
+                    add_row(
+                        rows,theme,ts,"google_official",item,d,
+                        "official",1.0,text,scfg,resolved=True
+                    )
+                    google_official_count+=1
+                time.sleep(.18)
     source_items["google_official"]=google_official_count
 
     df=pd.DataFrame(rows)
