@@ -1,16 +1,16 @@
 {
-  "input_rows": 23477,
+  "input_rows": 23561,
   "lookback_days": 240,
-  "output_rows": 211,
-  "meaningful_rows": 211,
+  "output_rows": 212,
+  "meaningful_rows": 212,
   "companies": 146,
-  "attachments_extracted": 211,
+  "attachments_extracted": 212,
   "stages": {
     "commercial_production_or_purchase_order": 75,
     "unspecified_or_early": 70,
-    "commissioned_or_loa": 45,
+    "commissioned_or_loa": 47,
     "trial_production_or_l1_bidder": 7,
-    "management_intent": 6,
+    "management_intent": 5,
     "board_approved_or_funded": 3,
     "under_construction_or_vendor_approved": 3,
     "utilisation_ramp_or_repeat_order": 2
