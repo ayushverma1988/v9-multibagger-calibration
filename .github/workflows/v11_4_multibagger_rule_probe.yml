@@ -48,7 +48,7 @@ jobs:
         with:
           name: v11-4-causal-candidate-audit
           path: audit_seed
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37640107502
 
@@ -57,7 +57,7 @@ jobs:
         with:
           name: v10-4-pit-archive-fast
           path: pit_seed
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37164416825
 
