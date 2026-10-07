@@ -232,8 +232,27 @@ def margin(v,rev):
     if v is None or rev is None or abs(rev)<1e-12:return None
     return v/rev
 
+def _sum_metric(q,start,end,key):
+    vals=[]
+    for z in q[start:end]:
+        v=z["facts"].get(key)
+        if v is None:
+            return None
+        vals.append(v)
+    return sum(vals) if vals else None
+
+def _block_growth(q,a0,a1,b0,b1,key,profit=False):
+    a=_sum_metric(q,a0,a1,key)
+    b=_sum_metric(q,b0,b1,key)
+    return profit_growth(a,b) if profit else pct(a,b)
+
+def _block_margin(q,start,end,num_key):
+    n=_sum_metric(q,start,end,num_key)
+    r=_sum_metric(q,start,end,"revenue")
+    return margin(n,r)
+
 def compute_metrics(q):
-    # q newest first
+    # q newest first. V11.4 uses up to 12 quarters (~3 years) as context.
     out={}
     if not q:return out
     latest=q[0]
@@ -242,6 +261,7 @@ def compute_metrics(q):
         out[f"latest_{k}"]=latest["facts"].get(k)
     out["latest_ebitda_margin"]=margin(latest["facts"].get("ebitda_proxy"),latest["facts"].get("revenue"))
     out["latest_pat_margin"]=margin(latest["facts"].get("pat"),latest["facts"].get("revenue"))
+
     if len(q)>=2:
         prev=q[1]
         out["revenue_qoq"]=pct(latest["facts"].get("revenue"),prev["facts"].get("revenue"))
@@ -251,6 +271,7 @@ def compute_metrics(q):
         out["ebitda_turnaround_qoq"]=turnaround(latest["facts"].get("ebitda_proxy"),prev["facts"].get("ebitda_proxy"))
         pm=margin(prev["facts"].get("ebitda_proxy"),prev["facts"].get("revenue"))
         out["ebitda_margin_qoq_change"]=(out["latest_ebitda_margin"]-pm) if out["latest_ebitda_margin"] is not None and pm is not None else None
+
     if len(q)>=5:
         py=q[4]
         out["revenue_yoy"]=pct(latest["facts"].get("revenue"),py["facts"].get("revenue"))
@@ -260,6 +281,58 @@ def compute_metrics(q):
         out["ebitda_turnaround_yoy"]=turnaround(latest["facts"].get("ebitda_proxy"),py["facts"].get("ebitda_proxy"))
         pym=margin(py["facts"].get("ebitda_proxy"),py["facts"].get("revenue"))
         out["ebitda_margin_yoy_change"]=(out["latest_ebitda_margin"]-pym) if out["latest_ebitda_margin"] is not None and pym is not None else None
+
+    # Latest two quarters vs same two quarters last year: highest short-horizon relevance.
+    if len(q)>=6:
+        out["recent2_revenue_yoy"]=_block_growth(q,0,2,4,6,"revenue")
+        out["recent2_ebitda_yoy"]=_block_growth(q,0,2,4,6,"ebitda_proxy",profit=True)
+        out["recent2_pat_yoy"]=_block_growth(q,0,2,4,6,"pat",profit=True)
+        a=_sum_metric(q,0,2,"pat"); b=_sum_metric(q,4,6,"pat")
+        out["recent2_pat_turnaround"]=turnaround(a,b)
+        a=_sum_metric(q,0,2,"ebitda_proxy"); b=_sum_metric(q,4,6,"ebitda_proxy")
+        out["recent2_ebitda_turnaround"]=turnaround(a,b)
+        m0=_block_margin(q,0,2,"ebitda_proxy"); m1=_block_margin(q,4,6,"ebitda_proxy")
+        out["recent2_ebitda_margin_yoy_change"]=(m0-m1) if m0 is not None and m1 is not None else None
+
+    # Previous two quarters vs their year-ago comparables: tells whether acceleration was already forming.
+    if len(q)>=8:
+        out["prev2_revenue_yoy"]=_block_growth(q,2,4,6,8,"revenue")
+        out["prev2_ebitda_yoy"]=_block_growth(q,2,4,6,8,"ebitda_proxy",profit=True)
+        out["prev2_pat_yoy"]=_block_growth(q,2,4,6,8,"pat",profit=True)
+        m0=_block_margin(q,2,4,"ebitda_proxy"); m1=_block_margin(q,6,8,"ebitda_proxy")
+        out["prev2_ebitda_margin_yoy_change"]=(m0-m1) if m0 is not None and m1 is not None else None
+
+    # Three annual blocks from 12 quarters. This is context, not a long-history momentum signal.
+    if len(q)>=8:
+        out["latest_ttm_revenue"]=_sum_metric(q,0,4,"revenue")
+        out["previous_ttm_revenue"]=_sum_metric(q,4,8,"revenue")
+        out["latest_ttm_ebitda"]=_sum_metric(q,0,4,"ebitda_proxy")
+        out["previous_ttm_ebitda"]=_sum_metric(q,4,8,"ebitda_proxy")
+        out["latest_ttm_pat"]=_sum_metric(q,0,4,"pat")
+        out["previous_ttm_pat"]=_sum_metric(q,4,8,"pat")
+        out["ttm_revenue_growth"]=pct(out["latest_ttm_revenue"],out["previous_ttm_revenue"])
+        out["ttm_ebitda_growth"]=profit_growth(out["latest_ttm_ebitda"],out["previous_ttm_ebitda"])
+        out["ttm_pat_growth"]=profit_growth(out["latest_ttm_pat"],out["previous_ttm_pat"])
+        out["ttm_pat_turnaround"]=turnaround(out["latest_ttm_pat"],out["previous_ttm_pat"])
+        out["ttm_ebitda_margin"] = margin(out["latest_ttm_ebitda"],out["latest_ttm_revenue"])
+        prev_m=margin(out["previous_ttm_ebitda"],out["previous_ttm_revenue"])
+        out["ttm_ebitda_margin_change"]=(out["ttm_ebitda_margin"]-prev_m) if out["ttm_ebitda_margin"] is not None and prev_m is not None else None
+
+    if len(q)>=12:
+        out["third_ttm_revenue"]=_sum_metric(q,8,12,"revenue")
+        out["third_ttm_ebitda"]=_sum_metric(q,8,12,"ebitda_proxy")
+        out["third_ttm_pat"]=_sum_metric(q,8,12,"pat")
+        out["previous_ttm_revenue_growth"]=pct(out.get("previous_ttm_revenue"),out["third_ttm_revenue"])
+        out["previous_ttm_ebitda_growth"]=profit_growth(out.get("previous_ttm_ebitda"),out["third_ttm_ebitda"])
+        out["previous_ttm_pat_growth"]=profit_growth(out.get("previous_ttm_pat"),out["third_ttm_pat"])
+        out["revenue_growth_acceleration_3y"]=(
+            out["ttm_revenue_growth"]-out["previous_ttm_revenue_growth"]
+            if out.get("ttm_revenue_growth") is not None and out.get("previous_ttm_revenue_growth") is not None else None
+        )
+        prev_m=margin(out.get("previous_ttm_ebitda"),out.get("previous_ttm_revenue"))
+        third_m=margin(out["third_ttm_ebitda"],out["third_ttm_revenue"])
+        out["previous_ttm_ebitda_margin_change"]=(prev_m-third_m) if prev_m is not None and third_m is not None else None
+
     return out
 
 def main():
@@ -279,7 +352,7 @@ def main():
             filings=fetch_rows(client,sym)
             mode,chosen=choose_filings(filings)
             qs=[]
-            for x in chosen[:8]:
+            for x in chosen[:12]:
                 raw=x["raw"]
                 facts=extract_xbrl(client,clean(raw.get("xbrl")),x["qe"])
                 if not facts or facts.get("_error"):
@@ -302,6 +375,8 @@ def main():
         "symbols_requested":len(symbols),
         "symbols_extracted":len(df),
         "symbols_with_5q":int((pd.to_numeric(df.get("quarters_extracted"),errors="coerce")>=5).sum()) if len(df) else 0,
+        "symbols_with_8q":int((pd.to_numeric(df.get("quarters_extracted"),errors="coerce")>=8).sum()) if len(df) else 0,
+        "symbols_with_12q":int((pd.to_numeric(df.get("quarters_extracted"),errors="coerce")>=12).sum()) if len(df) else 0,
         "errors":len(errors),
         "coverage":float(len(df)/len(symbols)) if symbols else 0,
         "columns":list(df.columns),
