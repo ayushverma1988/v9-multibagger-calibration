@@ -30,6 +30,7 @@ def main():
     ap.add_argument("--evidence",required=True)
     ap.add_argument("--financials",required=True)
     ap.add_argument("--market",required=True)
+    ap.add_argument("--external-demand",default="")
     ap.add_argument("--output",required=True)
     args=ap.parse_args()
 
@@ -86,6 +87,8 @@ def main():
             recency=0.0
         fresh_core=max(0.75 if new_type_count>0 else 0.0,min(stage_upgrade/0.30,1.0),0.65 if repeat_material else 0.0)
         fresh_generation_score=float(np.clip(recency*fresh_core,0,1))
+        theme_source=prim if len(prim) else g
+        all_themes=sorted({t for v in theme_source.get("themes",pd.Series(dtype=object)) for t in jlist(v)})
         strongest=(prim.sort_values(["linked_evidence_score","published_ts"],ascending=[False,False]).iloc[0] if len(prim) else g.iloc[0])
         e_rows.append({
             "symbol":sym,
@@ -101,6 +104,7 @@ def main():
             "fresh_catalyst_generation_score":fresh_generation_score,
             "new_catalyst_type_count":int(new_type_count),
             "primary_stage_upgrade":float(stage_upgrade),
+            "all_evidence_themes":json.dumps(all_themes),
             "strongest_event_title":str(strongest.get("title",""))[:500],
             "strongest_event_url":str(strongest.get("url","")),
             "strongest_event_date":str(strongest.get("published_ts","")),
@@ -111,6 +115,31 @@ def main():
     ea=pd.DataFrame(e_rows)
 
     x=ci.merge(fin,on="symbol",how="left").merge(ea,on="symbol",how="left").merge(mkt,on="symbol",how="left",suffixes=("","_mkt"))
+
+    demand_map={}
+    external_demand_loaded=False
+    if args.external_demand:
+        p=Path(args.external_demand)
+        if p.exists():
+            d=pd.read_csv(p)
+            if {"theme","theme_demand_score"}.issubset(d.columns):
+                demand_map=dict(zip(
+                    d["theme"].astype(str),
+                    pd.to_numeric(d["theme_demand_score"],errors="coerce").fillna(0).clip(0,1)
+                ))
+                external_demand_loaded=True
+
+    def _max_theme_demand(v):
+        ts=jlist(v)
+        return float(max([demand_map.get(t,0.0) for t in ts] or [0.0]))
+
+    if external_demand_loaded:
+        x["external_theme_demand_score"]=x["all_evidence_themes"].map(_max_theme_demand)
+        x["external_demand_source"]="GDELT_PLUS_GOOGLE_NEWS"
+    else:
+        x["external_theme_demand_score"]=np.nan
+        x["external_demand_source"]="LEGACY_PROXY_ONLY"
+
     # Support current NSE Integrated Filing XBRL financials.
     # Up to 12 quarters (~3 years) provide context, but recent quarters dominate.
     if "latest_revenue" in x.columns:
@@ -171,6 +200,7 @@ def main():
         x["financial_score_raw"]=scores
         qn=pd.to_numeric(x.get("quarters_extracted"),errors="coerce").fillna(0)
         x["financial_3y_context_coverage"]=(qn/12.0).clip(0,1)
+        x["financial_context_confidence"]=(0.55+0.45*x["financial_3y_context_coverage"]).clip(0,1)
         qe=pd.to_datetime(x.get("latest_qe"),errors="coerce")
         stale=(pd.Timestamp.now().normalize()-qe).dt.days
         x["financial_stale_days"]=stale
@@ -192,22 +222,40 @@ def main():
         "accumulation_score","ownership_accumulation_score","technical_confirmation_score",
         "priced_in_penalty","risk_score","p100_anchor","v10_percentile",
         "ret_60","ret_120","ret_252","fresh_catalyst_generation_score","new_catalyst_type_count",
-        "primary_stage_upgrade","financial_3y_context_coverage"
+        "primary_stage_upgrade","financial_3y_context_coverage","financial_context_confidence","external_theme_demand_score"
     ]:
         if c not in x: x[c]=np.nan
         x[c]=pd.to_numeric(x[c],errors="coerce")
 
-    # Magnitude: actual capacity expansion and catalyst money normalized to current sales.
-    cap_mag=np.clip(x["max_capacity_pct"].fillna(0)/100.0,0,1.5)/1.5
+    # Numeric catalyst integrity: reject contextless implausible extraction rather than
+    # letting extreme OCR/regex numbers become a perfect magnitude score.
+    cap=x["max_capacity_pct"]
+    x["capacity_numeric_suspect"]=(cap.notna()&((cap<=0)|(cap>500)))
+    clean_cap=cap.where(~x["capacity_numeric_suspect"])
+    cap_mag=np.clip(clean_cap.fillna(0)/100.0,0,1.5)/1.5
+
     value_ratio=x["max_money_crore"]/x["annualized_sales_crore"].replace(0,np.nan)
-    value_mag=np.clip(value_ratio.fillna(0)/1.0,0,1)
+    x["money_numeric_suspect"]=value_ratio.notna()&(value_ratio>20)
+    # A very large order can be real, but only accept >20x sales when order-stage
+    # evidence is independently strong and multiple primary filings exist.
+    allow_large=(x["order_visibility_score"].fillna(0)>=0.85)&(x["primary_event_count"].fillna(0)>=2)
+    clean_value_ratio=value_ratio.where((~x["money_numeric_suspect"])|allow_large)
+    value_mag=np.clip(clean_value_ratio.fillna(0),0,1)
+    x["numeric_integrity_ok"]=~(x["capacity_numeric_suspect"]&x["money_numeric_suspect"]&(~allow_large))
     x["catalyst_magnitude_score"]=np.maximum(cap_mag,value_mag)
 
-    # Demand linkage: external demand signal dominates. Cross-company breadth is already capped upstream.
-    x["product_demand_linkage_score"]=x["max_theme_demand_signal"].fillna(0).clip(0,1)
+    # Demand linkage: use the independent GDELT + Google News demand layer when present.
+    # The old cross-company breadth proxy is retained only for diagnostics, not promotion.
+    if external_demand_loaded:
+        x["product_demand_linkage_score"]=x["external_theme_demand_score"].fillna(0).clip(0,1)
+    else:
+        x["product_demand_linkage_score"]=x["max_theme_demand_signal"].fillna(0).clip(0,0.25)
 
     x["stage_reality_score"]=x[["max_stage_weight","commissioning_score","order_visibility_score"]].max(axis=1).fillna(0).clip(0,1)
-    x["earnings_inflection_score"]=x["financial_score_raw"].fillna(0).clip(0,1)
+    x["earnings_inflection_score"]=(
+        x["financial_score_raw"].fillna(0).clip(0,1)
+        * x["financial_context_confidence"].fillna(0.55).clip(0.55,1)
+    ).clip(0,1)
     x["order_probability_score"]=(
         0.70*x["order_visibility_score"].fillna(0).clip(0,1)
         +0.15*x["product_approval_score"].fillna(0).clip(0,1)
@@ -219,8 +267,9 @@ def main():
         +0.20*x["ownership_accumulation_score"].fillna(0)
     ).clip(0,1)
     x["execution_quality_score"]=(
-        0.45*x["stage_reality_score"]
-        +0.30*x["financial_freshness"].fillna(0)
+        0.35*x["stage_reality_score"]
+        +0.20*x["financial_freshness"].fillna(0)
+        +0.20*x["financial_3y_context_coverage"].fillna(0)
         +0.25*(x["primary_event_count"].fillna(0).clip(0,3)/3.0)
     ).clip(0,1)
 
@@ -280,10 +329,17 @@ def main():
         | ((x["catalyst_magnitude_score"]>=0.45)&(x["earnings_inflection_score"]>=0.45))
         | ((x["product_approval_score"]>=0.55)&(x["product_demand_linkage_score"]>=0.35))
     )
+    demand_or_direct=(
+        (x["product_demand_linkage_score"]>=0.15)
+        | (x["order_probability_score"]>=0.75)
+        | (x["stage_reality_score"]>=0.85)
+    )
     x["v11_4_base_eligible"]=(
         x["primary_confirmed"].fillna(False).astype(bool)
         & (x["primary_event_count"].fillna(0)>=1)
         & causal
+        & demand_or_direct
+        & x["numeric_integrity_ok"].fillna(True)
     )
     x["pre_obvious_eligible"]=(
         x["v11_4_base_eligible"]
@@ -293,6 +349,7 @@ def main():
     x["second_leg_eligible"]=(
         x["v11_4_base_eligible"]
         & x["material_prior_runup"]
+        & (x["primary_event_count"].fillna(0)>=2)
         & (x["fresh_catalyst_generation_score"].fillna(0)>=0.45)
         & (x["remaining_business_upside_score"]>=0.55)
         & (x["same_catalyst_priced_penalty"]<=0.70)
@@ -308,10 +365,13 @@ def main():
         np.where(x["pre_obvious_eligible"],x["pre_obvious_score"],x["v11_4_score_raw"])
     )
 
+    # High-confidence grades require real multi-year financial context.
+    # Limited-history companies remain visible, but cannot become Grade A merely
+    # because a catalyst/news score is high.
     x["audit_grade"]=np.select(
         [
-            x["v11_4_eligible"]&(x["sleeve_score"]>=0.68),
-            x["v11_4_eligible"]&(x["sleeve_score"]>=0.58),
+            x["v11_4_eligible"]&(x["sleeve_score"]>=0.68)&(x["financial_3y_context_coverage"]>=0.83),
+            x["v11_4_eligible"]&(x["sleeve_score"]>=0.58)&(x["financial_3y_context_coverage"]>=0.67),
             x["v11_4_eligible"],
         ],
         ["A","B","C"],
@@ -339,6 +399,10 @@ def main():
         "second_leg_count":int(eligible["opportunity_sleeve"].eq("SECOND_LEG_REACCELERATION").sum()) if len(eligible) else 0,
         "overextended_count":int(x["opportunity_sleeve"].eq("OVEREXTENDED_OR_ALREADY_PRICED").sum()),
         "financial_coverage_pct":float(x["financial_available"].fillna(False).mean()) if "financial_available" in x else 0.0,
+        "financial_8q_plus_pct":float((x["financial_3y_context_coverage"].fillna(0)>=0.67).mean()),
+        "financial_10q_plus_pct":float((x["financial_3y_context_coverage"].fillna(0)>=0.83).mean()),
+        "external_demand_loaded":bool(external_demand_loaded),
+        "numeric_integrity_failures":int((~x["numeric_integrity_ok"].fillna(True)).sum()),
         "top20":eligible.head(20)[[
             c for c in [
                 "symbol","audit_rank","audit_grade","opportunity_sleeve","sleeve_score","v11_4_score_raw","second_leg_score",
