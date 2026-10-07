@@ -97,10 +97,15 @@ jobs:
 
       - name: Collect dual-source plus direct official theme-demand evidence
         run: |
+          PRIOR=""
+          if [ -f published_v11_4_external_demand/external_demand_evidence.parquet ]; then
+            PRIOR="--prior-evidence published_v11_4_external_demand/external_demand_evidence.parquet"
+          fi
           python src/v11_4_external_demand.py \
             --queries-config config/v11_4_discovery_queries.json \
             --source-config config/v11_4_external_demand_sources.json \
-            --output outputs_v11_4_primary/external_demand_evidence.parquet
+            --output outputs_v11_4_primary/external_demand_evidence.parquet \
+            $PRIOR
 
       - name: Merge primary and secondary catalyst intelligence
         run: |
@@ -116,7 +121,7 @@ jobs:
           print(json.dumps({"nse":a,"demand":d,"merged":m},indent=2))
           if not d.get("required_sources_ok",False):
               raise SystemExit("GDELT and Google News health gate failed")
-          if d.get("themes_with_official_evidence",0) < 3:
+          if d.get("themes_with_direct_official_evidence",0) < 3:
               raise SystemExit("Insufficient direct official demand coverage")
           if a.get("meaningful_rows",0) < 20:
               raise SystemExit("Insufficient meaningful NSE primary catalyst rows")
