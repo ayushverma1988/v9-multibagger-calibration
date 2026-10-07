@@ -242,6 +242,33 @@ def main():
         -0.05*np.clip(x["negative_event_count"].fillna(0),0,2)
     )
 
+    # Two-sleeve architecture:
+    # Pre-Obvious = business change before a material rerating.
+    # Second-Leg = prior 50%+ rerating is allowed only with a fresh catalyst generation.
+    x["max_prior_runup_252"]=x[["ret_60","ret_120","ret_252"]].max(axis=1).fillna(0)
+    x["material_prior_runup"]=x["max_prior_runup_252"]>=0.50
+    x["remaining_business_upside_score"]=(
+        0.30*x["catalyst_magnitude_score"]
+        +0.25*x["earnings_inflection_score"]
+        +0.20*x["order_probability_score"]
+        +0.10*x["product_demand_linkage_score"]
+        +0.10*x["execution_quality_score"]
+        +0.05*x["promoter_accumulation_score"]
+    ).clip(0,1)
+    x["same_catalyst_priced_penalty"]=(
+        x["already_priced_penalty_used"]*(1.0-0.65*x["fresh_catalyst_generation_score"].fillna(0).clip(0,1))
+    ).clip(0,1)
+    x["second_leg_score"]=(
+        0.70*x["catalyst_intelligence_score"]
+        +0.10*x["technical_confirmation_used"]
+        +0.10*x["remaining_business_upside_score"]
+        +0.10*x["fresh_catalyst_generation_score"].fillna(0).clip(0,1)
+        -0.12*x["same_catalyst_priced_penalty"]
+        -0.08*x["risk_score"].fillna(0).clip(0,1)
+        -0.05*np.clip(x["negative_event_count"].fillna(0),0,2)
+    )
+    x["pre_obvious_score"]=x["v11_4_score_raw"]
+
     # Eligibility requires a real primary catalyst and at least one causal mechanism.
     causal=(
         (x["stage_reality_score"]>=0.55)
@@ -249,30 +276,54 @@ def main():
         | ((x["catalyst_magnitude_score"]>=0.45)&(x["earnings_inflection_score"]>=0.45))
         | ((x["product_approval_score"]>=0.55)&(x["product_demand_linkage_score"]>=0.35))
     )
-    x["v11_4_eligible"]=(
+    x["v11_4_base_eligible"]=(
         x["primary_confirmed"].fillna(False).astype(bool)
         & (x["primary_event_count"].fillna(0)>=1)
         & causal
+    )
+    x["pre_obvious_eligible"]=(
+        x["v11_4_base_eligible"]
+        & (~x["material_prior_runup"])
         & (x["already_priced_penalty_used"]<=0.70)
+    )
+    x["second_leg_eligible"]=(
+        x["v11_4_base_eligible"]
+        & x["material_prior_runup"]
+        & (x["fresh_catalyst_generation_score"].fillna(0)>=0.45)
+        & (x["remaining_business_upside_score"]>=0.55)
+        & (x["same_catalyst_priced_penalty"]<=0.70)
+    )
+    x["opportunity_sleeve"]=np.select(
+        [x["pre_obvious_eligible"],x["second_leg_eligible"],x["material_prior_runup"]],
+        ["PRE_OBVIOUS_DISCOVERY","SECOND_LEG_REACCELERATION","OVEREXTENDED_OR_ALREADY_PRICED"],
+        default="RESEARCH_OTHER"
+    )
+    x["v11_4_eligible"]=x["pre_obvious_eligible"]|x["second_leg_eligible"]
+    x["sleeve_score"]=np.where(
+        x["second_leg_eligible"],x["second_leg_score"],
+        np.where(x["pre_obvious_eligible"],x["pre_obvious_score"],x["v11_4_score_raw"])
     )
 
     x["audit_grade"]=np.select(
         [
-            x["v11_4_eligible"]&(x["v11_4_score_raw"]>=0.68),
-            x["v11_4_eligible"]&(x["v11_4_score_raw"]>=0.58),
+            x["v11_4_eligible"]&(x["sleeve_score"]>=0.68),
+            x["v11_4_eligible"]&(x["sleeve_score"]>=0.58),
             x["v11_4_eligible"],
         ],
         ["A","B","C"],
         default="REJECT"
     )
 
-    eligible=x[x["v11_4_eligible"]].sort_values("v11_4_score_raw",ascending=False).copy()
+    eligible=x[x["v11_4_eligible"]].sort_values("sleeve_score",ascending=False).copy()
     eligible["audit_rank"]=np.arange(1,len(eligible)+1)
 
     out=Path(args.output); out.mkdir(parents=True,exist_ok=True)
     x.sort_values("v11_4_score_raw",ascending=False).to_csv(out/"candidate_audit_all.csv",index=False)
     eligible.to_csv(out/"candidate_audit_eligible.csv",index=False)
     eligible.head(20).to_csv(out/"candidate_audit_top20.csv",index=False)
+    eligible[eligible["opportunity_sleeve"].eq("PRE_OBVIOUS_DISCOVERY")].to_csv(out/"pre_obvious_discovery.csv",index=False)
+    eligible[eligible["opportunity_sleeve"].eq("SECOND_LEG_REACCELERATION")].to_csv(out/"second_leg_reacceleration.csv",index=False)
+    x[x["opportunity_sleeve"].eq("OVEREXTENDED_OR_ALREADY_PRICED")].sort_values("v11_4_score_raw",ascending=False).to_csv(out/"overextended_already_priced.csv",index=False)
 
     summary={
         "companies_audited":int(len(x)),
@@ -280,10 +331,15 @@ def main():
         "grade_A":int((eligible["audit_grade"]=="A").sum()) if len(eligible) else 0,
         "grade_B":int((eligible["audit_grade"]=="B").sum()) if len(eligible) else 0,
         "grade_C":int((eligible["audit_grade"]=="C").sum()) if len(eligible) else 0,
+        "pre_obvious_count":int(eligible["opportunity_sleeve"].eq("PRE_OBVIOUS_DISCOVERY").sum()) if len(eligible) else 0,
+        "second_leg_count":int(eligible["opportunity_sleeve"].eq("SECOND_LEG_REACCELERATION").sum()) if len(eligible) else 0,
+        "overextended_count":int(x["opportunity_sleeve"].eq("OVEREXTENDED_OR_ALREADY_PRICED").sum()),
         "financial_coverage_pct":float(x["financial_available"].fillna(False).mean()) if "financial_available" in x else 0.0,
         "top20":eligible.head(20)[[
             c for c in [
-                "symbol","audit_rank","audit_grade","v11_4_score_raw","catalyst_intelligence_score",
+                "symbol","audit_rank","audit_grade","opportunity_sleeve","sleeve_score","v11_4_score_raw","second_leg_score",
+                "fresh_catalyst_generation_score","remaining_business_upside_score","max_prior_runup_252",
+                "catalyst_intelligence_score",
                 "stage_reality_score","catalyst_magnitude_score","product_demand_linkage_score",
                 "earnings_inflection_score","order_probability_score","promoter_accumulation_score",
                 "technical_confirmation_used","already_priced_penalty_used","strongest_event_title"
