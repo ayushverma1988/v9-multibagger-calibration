@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install pandas pyarrow requests
+      - run: pip install pandas pyarrow requests feedparser
 
       - name: Compile external demand collector
         run: python -m py_compile src/v11_4_external_demand.py
