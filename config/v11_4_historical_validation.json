@@ -1,0 +1,56 @@
+{
+  "model_name": "V11.4 Point-in-Time Historical Validation",
+  "frozen_before_rebuilt_v11_4_results": true,
+  "objective": "Validate whether the frozen V11.4 causal discovery architecture identifies future 2x outcomes earlier than V10.2 without future leakage.",
+  "horizon_weights": {
+    "y6": 0.7,
+    "y12": 0.25,
+    "y24": 0.05
+  },
+  "sleeves": {
+    "pre_obvious_discovery": {
+      "max_prior_runup_exclusive": 0.12
+    },
+    "second_leg_reacceleration": {
+      "min_prior_runup_inclusive": 0.12,
+      "max_prior_runup_inclusive": 1
+    },
+    "over_100pct_extended_review": {
+      "min_prior_runup_exclusive": 1,
+      "production_gate": false
+    }
+  },
+  "evaluation": {
+    "selection": "do_not_force_k",
+    "control_matching": "match V10.2 control count to V11.4 selected count within each fold; sleeve diagnostics also use matched price-state controls where feasible",
+    "targets": [
+      "y6",
+      "y12",
+      "y24"
+    ],
+    "primary_target": "y6",
+    "drawdown_target": "dd30_6m",
+    "point_in_time_rule": "Every filing, event, source document, ownership transaction, demand signal and catalyst state must have an availability timestamp <= fold timestamp.",
+    "no_future_stage_rule": true,
+    "no_current_snapshot_backfill_rule": true
+  },
+  "acceptance": {
+    "minimum_evaluated_folds": 12,
+    "y6_precision_ratio_min": 1.1,
+    "y6_lift_ratio_min": 1.05,
+    "y12_precision_ratio_min": 0.95,
+    "y24_precision_ratio_min": 0.8,
+    "weighted_precision_ratio_min": 1.05,
+    "weighted_lift_ratio_min": 1,
+    "dd30_delta_max": 0.02,
+    "pre_obvious_y6_precision_ratio_min": 1.05,
+    "second_leg_y6_precision_ratio_min": 1,
+    "point_in_time_violations_max": 0
+  },
+  "promotion_policy": {
+    "v10_2_remains_production_control": true,
+    "v11_4_first_stage": "shadow/prospective only",
+    "no_promotion_from_current_board_alone": true
+  },
+  "freeze_note": "Thresholds and 70/25/5 horizon weights are frozen before the rebuilt typed-magnitude/official-demand V11.4 results and before the final historical backtest."
+}
