@@ -24,15 +24,44 @@
     "livemint.com"
   ],
   "demand_terms": [
-    "procurement","tender","award","order","capex","investment","scheme","PLI",
-    "production linked incentive","approved","sanctioned","project","capacity",
-    "manufacturing","commissioning","rollout","deployment"
+    "procurement",
+    "tender",
+    "award",
+    "order",
+    "capex",
+    "investment",
+    "scheme",
+    "PLI",
+    "production linked incentive",
+    "approved",
+    "sanctioned",
+    "project",
+    "capacity",
+    "manufacturing",
+    "commissioning",
+    "rollout",
+    "deployment"
   ],
   "event_weights": {
-    "procurement_or_award": 1.00,
+    "procurement_or_award": 1,
     "capex_or_project": 0.85,
-    "policy_or_pli": 0.70,
-    "deployment_or_commissioning": 0.80,
+    "policy_or_pli": 0.7,
+    "deployment_or_commissioning": 0.8,
     "general_demand": 0.45
+  },
+  "required_discovery_sources": {
+    "gdelt": true,
+    "google_news": true
+  },
+  "source_policy": {
+    "gdelt_access_preference": [
+      "raw_gal_gkg_mentions",
+      "bigquery_for_history",
+      "doc_api_only_if_available"
+    ],
+    "google_news_access": "rss_search_discovery",
+    "promotion_rule": "A high-confidence demand/catalyst signal must resolve to an original article, company filing, government/ministry page, tender/procurement page, rating rationale, regulator, or other auditable underlying source.",
+    "aggregator_rule": "GDELT and Google News are discovery/coverage layers. Neither aggregator title alone can be treated as primary evidence.",
+    "degraded_run_rule": "If either required discovery source is unavailable, mark the run degraded and do not promote new Grade A/production candidates until the missing source is recovered."
   }
 }
