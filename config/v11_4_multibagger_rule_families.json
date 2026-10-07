@@ -21,7 +21,11 @@
     },
     "overlap_bonus_applies_inside_overlay_only": true,
     "pure_rule_match_cannot_create_v11_4_eligibility": true,
-    "missing_data_policy": "UNKNOWN_NOT_FAIL; exact family full_pass requires all hard-rule inputs available; partial_score is coverage-aware and reported separately."
+    "missing_data_policy": "UNKNOWN_NOT_FAIL; exact family full_pass requires all hard-rule inputs available; partial_score is coverage-aware and reported separately.",
+    "family_composite_weight_within_overlay": 0.9,
+    "common_quality_weight_within_overlay": 0.1,
+    "additional_chart_trigger_role": "entry timing / confirmation diagnostics only until PIT backtest; do not double-count against existing technical confirmation",
+    "promotion_policy": "Do not promote this overlay to production unless historical PIT 70/25/5 validation improves 6m precision/lift without unacceptable DD/stability deterioration."
   },
   "family_1_quality_compounder": {
     "label": "Quality Compounder + Balance-Sheet Strength",
