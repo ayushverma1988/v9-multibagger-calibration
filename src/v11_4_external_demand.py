@@ -271,6 +271,7 @@ def main():
     ap.add_argument("--queries-config",required=True)
     ap.add_argument("--source-config",required=True)
     ap.add_argument("--output",required=True)
+    ap.add_argument("--prior-evidence",default="")
     args=ap.parse_args()
 
     qcfg=json.load(open(args.queries_config))
@@ -487,6 +488,35 @@ def main():
                 time.sleep(.18)
     source_items["google_official"]=google_official_count
 
+    # Rolling direct-official evidence archive.
+    # Government/tender pages are transient, so valid direct official evidence
+    # from earlier successful runs remains usable for the configured lookback
+    # window. Only direct official rows are carried forward; aggregator rows
+    # are always rebuilt live.
+    prior_rows=0
+    carried_rows=0
+    if args.prior_evidence:
+        pp=Path(args.prior_evidence)
+        if pp.exists():
+            try:
+                old=pd.read_parquet(pp)
+                prior_rows=int(len(old))
+                old["published_ts"]=pd.to_datetime(old.get("published_ts"),utc=True,errors="coerce")
+                cutoff_archive=pd.Timestamp.now(tz="UTC")-pd.Timedelta(days=int(scfg.get("lookback_days",120)))
+                direct_sources={"pib_direct","cppp_direct","google_official","official_html"}
+                keep=old[
+                    old.get("source_class",pd.Series("",index=old.index)).astype(str).eq("official")
+                    & old.get("discovery_source",pd.Series("",index=old.index)).astype(str).isin(direct_sources)
+                    & old["published_ts"].notna()
+                    & (old["published_ts"]>=cutoff_archive)
+                ].copy()
+                if len(keep):
+                    keep["cache_carried_forward"]=True
+                    rows.extend(keep.to_dict("records"))
+                    carried_rows=int(len(keep))
+            except Exception as e:
+                errors.append({"source":"prior_official_cache","error":repr(e)})
+
     df=pd.DataFrame(rows)
     out=Path(args.output); out.parent.mkdir(parents=True,exist_ok=True)
     cols=[
@@ -494,13 +524,21 @@ def main():
         "resolved_underlying","event_type","trust","event_weight","freshness","evidence_weight"
     ]
     if not len(df):
-        df=pd.DataFrame(columns=cols)
+        df=pd.DataFrame(columns=cols+["cache_carried_forward"])
     else:
-        # Collapse duplicate stories across aggregators. A duplicate does not become two catalysts.
+        if "cache_carried_forward" not in df.columns:
+            df["cache_carried_forward"]=False
+        df["cache_carried_forward"]=df["cache_carried_forward"].fillna(False).astype(bool)
+        df["published_ts"]=pd.to_datetime(df["published_ts"],utc=True,errors="coerce")
+        # Recompute time decay so cached official evidence ages naturally.
+        age_days=(pd.Timestamp.now(tz="UTC")-df["published_ts"]).dt.total_seconds().div(86400).clip(lower=0)
+        df["freshness"]=age_days.map(lambda z: math.exp(-float(z)/45.0) if pd.notna(z) else 0.0)
+        df["evidence_weight"]=pd.to_numeric(df["trust"],errors="coerce").fillna(0)*pd.to_numeric(df["event_weight"],errors="coerce").fillna(0)*df["freshness"]
+        # Collapse duplicate stories across live/cached sources. A duplicate does not become two catalysts.
         df["title_norm"]=df["title"].map(norm_title)
-        df["day"]=pd.to_datetime(df["published_ts"],utc=True,errors="coerce").dt.date.astype(str)
-        df=df.sort_values("evidence_weight",ascending=False)
-        df=df.drop_duplicates(["theme","domain","title_norm","day"])
+        df["day"]=df["published_ts"].dt.date.astype(str)
+        df=df.sort_values(["cache_carried_forward","evidence_weight"],ascending=[True,False])
+        df=df.drop_duplicates(["theme","domain","title_norm","day"],keep="first")
         df=df.drop(columns=["title_norm","day"]).sort_values(["theme","published_ts"],ascending=[True,False])
     df.to_parquet(out,index=False)
 
@@ -552,6 +590,7 @@ def main():
         "required_sources":reqs,
         "source_health":source_health,
         "source_items":source_items,
+        "rolling_official_cache":{"prior_rows":prior_rows,"carried_direct_official_rows":carried_rows},
         "required_sources_ok":required_ok,
         "rows":int(len(df)),
         "themes_with_official_evidence":int((sdf["official_rows"]>0).sum()),
@@ -560,7 +599,7 @@ def main():
         "themes_with_cross_source_corroboration":int(((sdf["gdelt_rows"]>0)&(sdf["google_news_rows"]>0)).sum()),
         "top_themes":sdf.head(12).to_dict("records"),
         "errors":errors,
-        "note":"GDELT and Google News are mandatory discovery layers. Aggregator evidence alone cannot create stock eligibility."
+        "note":"GDELT and Google News are mandatory live discovery layers. Direct official evidence is maintained as a rolling lookback archive so transient government pages do not create random pass/fail behavior. Aggregator evidence alone cannot create stock eligibility."
     }
     json.dump(summary,open(out.parent/"external_demand_summary.json","w"),indent=2,default=str)
     print(json.dumps(summary,indent=2,default=str))
