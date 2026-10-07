@@ -1,11 +1,15 @@
 {
   "model_name": "V11.4 Short-Term Catalyst Intelligence",
   "design_date": "2026-10-06",
-  "objective": "discover under-recognized transformation stories capable of 2x primarily within 6 months, with 12 months as secondary confirmation and 24 months only a minimal fallback horizon",
-  "horizon_weights": {"y6": 0.70, "y12": 0.25, "y24": 0.05},
+  "objective": "discover under-recognized transformation stories before the obvious bull run while separately retaining already-rerated companies that have a credible fresh catalyst generation capable of supporting a second major leg",
+  "horizon_weights": {
+    "y6": 0.7,
+    "y12": 0.25,
+    "y24": 0.05
+  },
   "final_layers": {
-    "catalyst_intelligence": 0.80,
-    "technical_confirmation_v10_2": 0.20
+    "catalyst_intelligence": 0.8,
+    "technical_confirmation_v10_2": 0.2
   },
   "catalyst_families": {
     "catalyst_stage_and_reality": 0.22,
@@ -13,27 +17,64 @@
     "product_demand_linkage": 0.18,
     "earnings_inflection": 0.14,
     "order_probability_and_visibility": 0.12,
-    "promoter_and_accumulation": 0.10,
+    "promoter_and_accumulation": 0.1,
     "funding_and_execution_quality": 0.06
   },
   "rules": {
     "pure_momentum_cannot_qualify": true,
     "primary_source_required_for_high_confidence": true,
     "rumour_only_max_confidence": 0.25,
-    "mou_nonbinding_penalty": 0.50,
+    "mou_nonbinding_penalty": 0.5,
     "already_priced_in_penalty_enabled": true,
-    "technical_confirmation_max_share": 0.20,
+    "technical_confirmation_max_share": 0.2,
     "main_k_max": 10,
-    "do_not_force_k": true
+    "do_not_force_k": true,
+    "catalyst_generation_tracking_enabled": true,
+    "prior_50_100pct_runup_not_auto_reject": true,
+    "separate_pre_obvious_and_second_leg_outputs": true
   },
   "stage_weights": {
     "rumour_or_unsourced": 0.05,
-    "management_intent": 0.20,
-    "board_approved_or_funded": 0.40,
+    "management_intent": 0.2,
+    "board_approved_or_funded": 0.4,
     "under_construction_or_vendor_approved": 0.55,
-    "trial_production_or_l1_bidder": 0.70,
+    "trial_production_or_l1_bidder": 0.7,
     "commissioned_or_loa": 0.85,
-    "commercial_production_or_purchase_order": 1.00,
-    "utilisation_ramp_or_repeat_order": 1.10
+    "commercial_production_or_purchase_order": 1,
+    "utilisation_ramp_or_repeat_order": 1.1
+  },
+  "financial_context": {
+    "primary_history_quarters": 12,
+    "principle": "use approximately three years of financial history as context, with recent quarters dominating short-horizon inference",
+    "temporal_weights": {
+      "latest_2_quarters": 0.4,
+      "previous_2_quarters": 0.25,
+      "latest_ttm_vs_previous_ttm": 0.2,
+      "previous_ttm_vs_third_ttm": 0.15
+    },
+    "long_history_role": "older than three years is diagnostic only and must not drive the 6-month stock score"
+  },
+  "sleeves": {
+    "pre_obvious_discovery": {
+      "description": "business inflection before the market has fully rerated it",
+      "prior_runup_threshold_any_of": {
+        "ret_60": 0.5,
+        "ret_120": 0.5,
+        "ret_252": 0.5
+      },
+      "already_priced_penalty_applies": true
+    },
+    "second_leg_reacceleration": {
+      "description": "stock has already rerated materially but a fresh catalyst generation and remaining business upside can support another major leg",
+      "prior_runup_threshold_any_of": {
+        "ret_60": 0.5,
+        "ret_120": 0.5,
+        "ret_252": 0.5
+      },
+      "fresh_catalyst_generation_min": 0.45,
+      "remaining_business_upside_min": 0.55,
+      "same_catalyst_priced_in_reset_factor": 0.65,
+      "principle": "a previous 50-100% rise is not an automatic rejection; only the portion attributable to the same already-known catalyst remains penalized"
+    }
   }
 }
