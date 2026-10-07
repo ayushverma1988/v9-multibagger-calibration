@@ -57,7 +57,7 @@ def main():
         product=g[g["catalyst_types"].map(lambda x:bool(set(jlist(x))&{"product","approval"}))]
         capacity=g[g["catalyst_types"].map(lambda x:"capacity" in jlist(x))]
         neg=g[g["negative_flag"].fillna(False)]
-        strongest=g.iloc[0]
+        strongest=(prim.sort_values(["linked_evidence_score","published_ts"],ascending=[False,False]).iloc[0] if len(prim) else g.iloc[0])
         e_rows.append({
             "symbol":sym,
             "primary_event_count":int(len(prim)),
@@ -77,6 +77,47 @@ def main():
     ea=pd.DataFrame(e_rows)
 
     x=ci.merge(fin,on="symbol",how="left").merge(ea,on="symbol",how="left").merge(mkt,on="symbol",how="left",suffixes=("","_mkt"))
+    # Support current NSE Integrated Filing XBRL financials.
+    if "latest_revenue" in x.columns:
+        def _sg(v,span):
+            try:
+                if pd.isna(v): return np.nan
+                return float(np.clip(float(v)/span,-1,1))
+            except Exception:
+                return np.nan
+        comps=[]
+        for _,r in x.iterrows():
+            vals=[]
+            weights=[]
+            for val,w,span in [
+                (r.get("revenue_yoy"),0.22,0.50),
+                (r.get("ebitda_yoy"),0.22,0.75),
+                (r.get("pat_yoy"),0.12,1.00),
+                (r.get("ebitda_margin_qoq_change"),0.13,0.08),
+                (r.get("ebitda_margin_yoy_change"),0.08,0.12),
+                (r.get("revenue_qoq"),0.08,0.25),
+            ]:
+                z=_sg(val,span)
+                if pd.notna(z):
+                    vals.append(w*z); weights.append(w)
+            try:
+                pt=max(float(r.get("pat_turnaround_yoy") or 0),float(r.get("pat_turnaround_qoq") or 0))
+            except Exception: pt=0
+            try:
+                et=max(float(r.get("ebitda_turnaround_yoy") or 0),float(r.get("ebitda_turnaround_qoq") or 0))
+            except Exception: et=0
+            vals += [0.08*np.clip(pt,0,1),0.07*np.clip(et,0,1)]
+            weights += [0.08,0.07]
+            raw=(sum(vals)/sum(weights)) if weights else 0
+            comps.append(float(np.clip(0.5+0.5*raw,0,1)))
+        x["financial_score_raw"]=comps
+        qe=pd.to_datetime(x.get("latest_qe"),errors="coerce")
+        stale=(pd.Timestamp.now().normalize()-qe).dt.days
+        x["financial_stale_days"]=stale
+        x["financial_freshness"]=np.exp(-stale.clip(lower=0)/240.0)
+        x["financial_available"]=qe.notna()
+        # Integrated XBRL facts are INR. Convert annualized revenue to crore.
+        x["annualized_sales_crore"]=pd.to_numeric(x.get("latest_revenue"),errors="coerce")*4.0/1e7
 
     for c in [
         "max_stage_weight","max_linked_evidence_score","max_theme_demand_signal","max_capacity_pct",
