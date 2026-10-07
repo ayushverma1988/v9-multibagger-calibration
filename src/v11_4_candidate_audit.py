@@ -296,10 +296,14 @@ def main():
     )
 
     # Two-sleeve architecture:
-    # Pre-Obvious = business change before a material rerating.
-    # Second-Leg = prior 50%+ rerating is allowed only with a fresh catalyst generation.
+    # Pre-Obvious = business change before a material rerating (<12% prior move).
+    # Second-Leg = a meaningful 12-100% prior rerating is allowed only with a
+    # fresh catalyst generation and remaining business upside.
     x["max_prior_runup_252"]=x[["ret_60","ret_120","ret_252"]].max(axis=1).fillna(0)
-    x["material_prior_runup"]=x["max_prior_runup_252"]>=0.50
+    x["pre_obvious_price_state"]=x["max_prior_runup_252"]<0.12
+    x["second_leg_price_state"]=(x["max_prior_runup_252"]>=0.12)&(x["max_prior_runup_252"]<=1.00)
+    x["over_100pct_price_state"]=x["max_prior_runup_252"]>1.00
+    x["material_prior_runup"]=x["max_prior_runup_252"]>=0.12
     x["remaining_business_upside_score"]=(
         0.30*x["catalyst_magnitude_score"]
         +0.25*x["earnings_inflection_score"]
@@ -343,20 +347,30 @@ def main():
     )
     x["pre_obvious_eligible"]=(
         x["v11_4_base_eligible"]
-        & (~x["material_prior_runup"])
+        & x["pre_obvious_price_state"]
         & (x["already_priced_penalty_used"]<=0.70)
     )
     x["second_leg_eligible"]=(
         x["v11_4_base_eligible"]
-        & x["material_prior_runup"]
+        & x["second_leg_price_state"]
         & (x["primary_event_count"].fillna(0)>=2)
         & (x["fresh_catalyst_generation_score"].fillna(0)>=0.45)
         & (x["remaining_business_upside_score"]>=0.55)
         & (x["same_catalyst_priced_penalty"]<=0.70)
     )
     x["opportunity_sleeve"]=np.select(
-        [x["pre_obvious_eligible"],x["second_leg_eligible"],x["material_prior_runup"]],
-        ["PRE_OBVIOUS_DISCOVERY","SECOND_LEG_REACCELERATION","OVEREXTENDED_OR_ALREADY_PRICED"],
+        [
+            x["pre_obvious_eligible"],
+            x["second_leg_eligible"],
+            x["over_100pct_price_state"],
+            x["second_leg_price_state"],
+        ],
+        [
+            "PRE_OBVIOUS_DISCOVERY",
+            "SECOND_LEG_REACCELERATION",
+            "OVER_100PCT_EXTENDED_REVIEW",
+            "12_100PCT_MOVE_BUT_CAUSAL_GATES_FAILED",
+        ],
         default="RESEARCH_OTHER"
     )
     x["v11_4_eligible"]=x["pre_obvious_eligible"]|x["second_leg_eligible"]
@@ -387,7 +401,8 @@ def main():
     eligible.head(20).to_csv(out/"candidate_audit_top20.csv",index=False)
     eligible[eligible["opportunity_sleeve"].eq("PRE_OBVIOUS_DISCOVERY")].to_csv(out/"pre_obvious_discovery.csv",index=False)
     eligible[eligible["opportunity_sleeve"].eq("SECOND_LEG_REACCELERATION")].to_csv(out/"second_leg_reacceleration.csv",index=False)
-    x[x["opportunity_sleeve"].eq("OVEREXTENDED_OR_ALREADY_PRICED")].sort_values("v11_4_score_raw",ascending=False).to_csv(out/"overextended_already_priced.csv",index=False)
+    x[x["opportunity_sleeve"].eq("OVER_100PCT_EXTENDED_REVIEW")].sort_values("v11_4_score_raw",ascending=False).to_csv(out/"over_100pct_extended_review.csv",index=False)
+    x[x["opportunity_sleeve"].eq("12_100PCT_MOVE_BUT_CAUSAL_GATES_FAILED")].sort_values("v11_4_score_raw",ascending=False).to_csv(out/"moved_12_100_but_failed_gates.csv",index=False)
 
     summary={
         "companies_audited":int(len(x)),
@@ -397,7 +412,8 @@ def main():
         "grade_C":int((eligible["audit_grade"]=="C").sum()) if len(eligible) else 0,
         "pre_obvious_count":int(eligible["opportunity_sleeve"].eq("PRE_OBVIOUS_DISCOVERY").sum()) if len(eligible) else 0,
         "second_leg_count":int(eligible["opportunity_sleeve"].eq("SECOND_LEG_REACCELERATION").sum()) if len(eligible) else 0,
-        "overextended_count":int(x["opportunity_sleeve"].eq("OVEREXTENDED_OR_ALREADY_PRICED").sum()),
+        "over_100pct_extended_count":int(x["opportunity_sleeve"].eq("OVER_100PCT_EXTENDED_REVIEW").sum()),
+        "moved_12_100_but_failed_gates_count":int(x["opportunity_sleeve"].eq("12_100PCT_MOVE_BUT_CAUSAL_GATES_FAILED").sum()),
         "financial_coverage_pct":float(x["financial_available"].fillna(False).mean()) if "financial_available" in x else 0.0,
         "financial_8q_plus_pct":float((x["financial_3y_context_coverage"].fillna(0)>=0.67).mean()),
         "financial_10q_plus_pct":float((x["financial_3y_context_coverage"].fillna(0)>=0.83).mean()),
