@@ -1,4 +1,4 @@
-# V11.4 entity-resolution rev8
+# V11.4 typed-magnitude-and-official-demand rev9
 # V11.4 source integration rev6
 # V11.4 final source semantics rev5
 name: V11.4 Primary Catalyst Evidence
@@ -39,7 +39,7 @@ jobs:
 
       - name: Compile V11.4 evidence code
         run: |
-          python -m py_compile             src/v10_refresh_events.py             src/v11_4_collect_public_evidence.py             src/v11_4_catalyst_graph.py             src/v11_4_nse_primary_evidence.py             src/v11_4_policy_demand.py             src/v11_4_merge_evidence.py
+          python -m py_compile             src/v10_refresh_events.py             src/v11_4_collect_public_evidence.py             src/v11_4_catalyst_graph.py             src/v11_4_nse_primary_evidence.py             src/v11_4_deep_primary_candidates.py             src/v11_4_external_demand.py             src/v11_4_merge_evidence.py
 
       - name: Download canonical point-in-time event archive
         uses: actions/download-artifact@v4
@@ -94,9 +94,12 @@ jobs:
           print({"direct":len(a),"deep":len(b),"combined":len(z),"companies":z["symbol"].nunique() if len(z) else 0})
           PY
 
-      - name: Collect primary PIB theme-demand evidence
+      - name: Collect dual-source plus direct official theme-demand evidence
         run: |
-          python src/v11_4_policy_demand.py             --queries-config config/v11_4_discovery_queries.json             --output outputs_v11_4_primary/pib_theme_evidence.parquet             --lookback-days 90
+          python src/v11_4_external_demand.py \
+            --queries-config config/v11_4_discovery_queries.json \
+            --source-config config/v11_4_external_demand_sources.json \
+            --output outputs_v11_4_primary/external_demand_evidence.parquet
 
       - name: Merge primary and secondary catalyst intelligence
         run: |
@@ -107,8 +110,13 @@ jobs:
           python - <<'PY'
           import json
           a=json.load(open("outputs_v11_4_primary/nse_primary_summary.json"))
+          d=json.load(open("outputs_v11_4_primary/external_demand_summary.json"))
           m=json.load(open("outputs_v11_4_primary/merged_catalyst_summary.json"))
-          print(json.dumps({"nse":a,"merged":m},indent=2))
+          print(json.dumps({"nse":a,"demand":d,"merged":m},indent=2))
+          if not d.get("required_sources_ok",False):
+              raise SystemExit("GDELT and Google News health gate failed")
+          if d.get("themes_with_official_evidence",0) < 3:
+              raise SystemExit("Insufficient direct official demand coverage")
           if a.get("meaningful_rows",0) < 20:
               raise SystemExit("Insufficient meaningful NSE primary catalyst rows")
           if m.get("primary_rows",0) < 20:
@@ -129,7 +137,8 @@ jobs:
           set -euo pipefail
           mkdir -p published_v11_4_evidence
           cp outputs_v11_4_primary/nse_primary_summary.json published_v11_4_evidence/
-          cp outputs_v11_4_primary/policy_demand_summary.json published_v11_4_evidence/
+          cp outputs_v11_4_primary/external_demand_summary.json published_v11_4_evidence/
+          cp outputs_v11_4_primary/theme_demand_scores.csv published_v11_4_evidence/
           cp outputs_v11_4_primary/merged_catalyst_summary.json published_v11_4_evidence/
           cp outputs_v11_4_primary/company_catalyst_intelligence.csv published_v11_4_evidence/
           git config user.name "github-actions[bot]"
