@@ -1,0 +1,239 @@
+{
+  "version": "V11.4-MB-Rules-1.0",
+  "objective": "Complement catalyst-first V11.4 with three user-proven multibagger screening families without allowing static fundamentals or technicals to create eligibility by themselves.",
+  "frozen_before_historical_backtest": true,
+  "horizon_weights": {
+    "y6": 0.7,
+    "y12": 0.25,
+    "y24": 0.05
+  },
+  "integration": {
+    "base_v11_4_weight": 0.85,
+    "multibagger_rule_overlay_weight": 0.15,
+    "family_weights": {
+      "quality_compounder": 0.45,
+      "recovery_value_setup": 0.15,
+      "earnings_acceleration": 0.4
+    },
+    "overlap_bonus": {
+      "two_families": 0.1,
+      "three_families": 0.2
+    },
+    "overlap_bonus_applies_inside_overlay_only": true,
+    "pure_rule_match_cannot_create_v11_4_eligibility": true,
+    "missing_data_policy": "UNKNOWN_NOT_FAIL; exact family full_pass requires all hard-rule inputs available; partial_score is coverage-aware and reported separately."
+  },
+  "family_1_quality_compounder": {
+    "label": "Quality Compounder + Balance-Sheet Strength",
+    "hard_rules": [
+      [
+        "sales_growth_5y",
+        ">",
+        0.1
+      ],
+      [
+        "sales_growth_3y",
+        ">",
+        0.12
+      ],
+      [
+        "opm_current",
+        ">",
+        0.12
+      ],
+      [
+        "opm_5y_avg",
+        ">",
+        0.1
+      ],
+      [
+        "profit_growth_5y",
+        ">",
+        0.13
+      ],
+      [
+        "profit_growth_7y",
+        ">",
+        0.1
+      ],
+      [
+        "roce_7y_avg",
+        ">",
+        0.12
+      ],
+      [
+        "roce_3y_avg",
+        ">",
+        0.15
+      ],
+      [
+        "roe_3y_avg",
+        ">",
+        0.15
+      ],
+      [
+        "roe_5y_avg",
+        ">",
+        0.12
+      ],
+      [
+        "debt_to_equity",
+        "<",
+        1
+      ],
+      [
+        "interest_coverage",
+        ">",
+        3
+      ],
+      [
+        "up_from_52w_low",
+        ">",
+        0.3
+      ],
+      [
+        "down_from_52w_high",
+        "<",
+        0.25
+      ],
+      [
+        "promoter_holding",
+        ">",
+        0.3
+      ],
+      [
+        "pledged_pct",
+        "<",
+        0.05
+      ],
+      [
+        "cfo_to_pat_last_year",
+        ">",
+        0.7
+      ],
+      [
+        "market_cap_crore",
+        ">",
+        200
+      ],
+      [
+        "sales_to_capital_employed",
+        ">",
+        1
+      ],
+      [
+        "roe_current",
+        ">",
+        0.1
+      ]
+    ]
+  },
+  "family_2_recovery_value_setup": {
+    "label": "Early Recovery / Value + Technical Setup",
+    "hard_rules": [
+      [
+        "price_gt_dma50_prev",
+        "==",
+        true
+      ],
+      [
+        "price_lt_dma200_prev",
+        "==",
+        true
+      ],
+      [
+        "pe_lt_industry_pe",
+        "==",
+        true
+      ],
+      [
+        "is_sme",
+        "==",
+        false
+      ]
+    ],
+    "interpretation": "Early recovery state; do not confuse with mature trend confirmation."
+  },
+  "family_3_earnings_acceleration": {
+    "label": "Quarterly Earnings Acceleration",
+    "hard_rules": [
+      [
+        "sales_latest_ge_yoy_quarter",
+        "==",
+        true
+      ],
+      [
+        "sales_latest_ge_2q_back",
+        "==",
+        true
+      ],
+      [
+        "debt_to_equity",
+        "<",
+        1
+      ],
+      [
+        "yoy_quarterly_profit_growth",
+        ">",
+        1
+      ],
+      [
+        "pat_latest_gt_preceding",
+        "==",
+        true
+      ],
+      [
+        "pat_preceding_gt_2q_back",
+        "==",
+        true
+      ],
+      [
+        "market_cap_crore",
+        "<",
+        100000
+      ],
+      [
+        "peg_ratio",
+        "<",
+        2
+      ]
+    ]
+  },
+  "common_quality_overlays": {
+    "promoter_holding": {
+      "minimum_preferred": 0.5,
+      "baseline_floor": 0.3,
+      "policy": ">=50% is a positive bonus, not a universal hard rejection; professionally managed companies can qualify with lower promoter ownership."
+    },
+    "positive_operating_cashflow": true,
+    "receivables": {
+      "user_rule": "receivables < 10% of profit",
+      "model_policy": "retain as strict bonus when calculable, but also compute receivables/revenue and DSO because receivables/profit is unstable when margins change."
+    },
+    "trend_confirmation": {
+      "price_above_dma50": true,
+      "price_above_dma200": true,
+      "role": "confirmation/trigger, separate from Family 2 recovery setup"
+    },
+    "reserves_gt_borrowings": true,
+    "fixed_assets_yoy_growth": {
+      "preferred": true,
+      "sector_aware": true,
+      "note": "positive for capex/manufacturing stories; not a hard rule for asset-light businesses."
+    }
+  },
+  "additional_early_triggers": {
+    "dma50_slope_positive": true,
+    "dma200_flattening_or_positive": true,
+    "price_reclaim_200dma_with_volume": true,
+    "relative_strength_vs_nifty_and_sector_improving": true,
+    "volume_accumulation_without_vertical_price_run": true,
+    "base_compression_then_breakout": true,
+    "margin_expansion_with_revenue_acceleration": true,
+    "working_capital_normalization": true,
+    "promoter_open_market_buying": true,
+    "order_book_to_sales_acceleration": true,
+    "capex_stage_upgrade": true,
+    "customer_or_vendor_qualification": true
+  }
+}
