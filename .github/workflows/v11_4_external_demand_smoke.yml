@@ -35,7 +35,15 @@ jobs:
 
       - name: Collect external theme demand
         run: |
-          python src/v11_4_external_demand.py             --queries-config config/v11_4_discovery_queries.json             --source-config config/v11_4_external_demand_sources.json             --output outputs_v11_4_demand/external_demand_evidence.parquet
+          PRIOR=""
+          if [ -f published_v11_4_external_demand/external_demand_evidence.parquet ]; then
+            PRIOR="--prior-evidence published_v11_4_external_demand/external_demand_evidence.parquet"
+          fi
+          python src/v11_4_external_demand.py \
+            --queries-config config/v11_4_discovery_queries.json \
+            --source-config config/v11_4_external_demand_sources.json \
+            --output outputs_v11_4_demand/external_demand_evidence.parquet \
+            $PRIOR
 
       - name: Gate demand coverage
         run: |
@@ -47,6 +55,8 @@ jobs:
               raise SystemExit("GDELT and Google News must both be healthy")
           if s.get("themes_with_any_evidence",0) < 3:
               raise SystemExit("Too few themes with demand evidence")
+          if s.get("themes_with_direct_official_evidence",0) < 3:
+              raise SystemExit("Direct official demand coverage below frozen minimum")
           PY
 
       - uses: actions/upload-artifact@v4
@@ -54,3 +64,19 @@ jobs:
           name: v11-4-external-demand-smoke
           path: outputs_v11_4_demand/
           retention-days: 30
+
+      - name: Publish rolling external demand archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_external_demand
+          cp outputs_v11_4_demand/external_demand_evidence.parquet published_v11_4_external_demand/
+          cp outputs_v11_4_demand/theme_demand_scores.csv published_v11_4_external_demand/
+          cp outputs_v11_4_demand/external_demand_summary.json published_v11_4_external_demand/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_external_demand
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish rolling V11.4 external demand archive [skip ci]"
+          git pull --rebase origin v10-fresh-current
+          git push origin HEAD:v10-fresh-current
