@@ -69,14 +69,17 @@ jobs:
           QFIN=$(find audit_seed -type f \( -name 'financial_inflection.csv' -o -name 'financials_3y.csv' \) | head -n 1)
           SH=$(find pit_seed -type f -name 'shareholding_master.parquet' | head -n 1)
           INS=$(find pit_seed -type f -name 'insider_trades.parquet' | head -n 1)
+          FINMETA=$(find pit_seed -type f -name 'financial_results_metadata.parquet' | head -n 1)
           test -n "$BASE"
           test -n "$QFIN"
           test -n "$SH"
           test -n "$INS"
+          test -n "$FINMETA"
           echo "BASE_AUDIT=$BASE" >> "$GITHUB_ENV"
           echo "QFIN=$QFIN" >> "$GITHUB_ENV"
           echo "SHAREHOLDING=$SH" >> "$GITHUB_ENV"
           echo "INSIDER=$INS" >> "$GITHUB_ENV"
+          echo "FINMETA=$FINMETA" >> "$GITHUB_ENV"
 
       - name: Build official annual 5-7 year fundamentals
         run: |
