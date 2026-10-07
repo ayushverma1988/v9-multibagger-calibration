@@ -1,0 +1,179 @@
+{
+  "required_sources": {
+    "gdelt": true,
+    "google_news": true
+  },
+  "source_health": {
+    "gdelt": true,
+    "google_news": true
+  },
+  "source_items": {
+    "gdelt": 1979,
+    "google_news": 720
+  },
+  "required_sources_ok": true,
+  "rows": 694,
+  "themes_with_official_evidence": 1,
+  "themes_with_any_evidence": 12,
+  "themes_with_cross_source_corroboration": 7,
+  "top_themes": [
+    {
+      "theme": "power_td",
+      "official_rows": 0,
+      "secondary_rows": 7,
+      "gdelt_rows": 1,
+      "google_news_rows": 58,
+      "distinct_domains": 42,
+      "official_weight": 0.0,
+      "secondary_weight": 1.615227858340518,
+      "other_weight": 5.424531459459426,
+      "theme_demand_score": 0.5132477440400283,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "pharma_specialty",
+      "official_rows": 0,
+      "secondary_rows": 9,
+      "gdelt_rows": 1,
+      "google_news_rows": 58,
+      "distinct_domains": 39,
+      "official_weight": 0.0,
+      "secondary_weight": 1.9393883217352783,
+      "other_weight": 7.200415030905663,
+      "theme_demand_score": 0.5132477440400283,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "data_centres",
+      "official_rows": 0,
+      "secondary_rows": 9,
+      "gdelt_rows": 1,
+      "google_news_rows": 56,
+      "distinct_domains": 42,
+      "official_weight": 0.0,
+      "secondary_weight": 1.4387418397852954,
+      "other_weight": 7.334484549923815,
+      "theme_demand_score": 0.5132477440400283,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "renewables",
+      "official_rows": 0,
+      "secondary_rows": 3,
+      "gdelt_rows": 3,
+      "google_news_rows": 58,
+      "distinct_domains": 42,
+      "official_weight": 0.0,
+      "secondary_weight": 0.7751651778764905,
+      "other_weight": 9.891151916731275,
+      "theme_demand_score": 0.4114339188445192,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "ev_auto",
+      "official_rows": 0,
+      "secondary_rows": 7,
+      "gdelt_rows": 1,
+      "google_news_rows": 51,
+      "distinct_domains": 40,
+      "official_weight": 0.0,
+      "secondary_weight": 0.5524125788417726,
+      "other_weight": 1.9357584965359407,
+      "theme_demand_score": 0.3565847945794296,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "green_hydrogen",
+      "official_rows": 0,
+      "secondary_rows": 4,
+      "gdelt_rows": 0,
+      "google_news_rows": 59,
+      "distinct_domains": 43,
+      "official_weight": 0.0,
+      "secondary_weight": 0.6135719583116783,
+      "other_weight": 8.436343748660077,
+      "theme_demand_score": 0.33330911637116933,
+      "latest": "2026-10-07 09:51:15+00:00"
+    },
+    {
+      "theme": "semiconductor_electronics",
+      "official_rows": 0,
+      "secondary_rows": 7,
+      "gdelt_rows": 0,
+      "google_news_rows": 46,
+      "distinct_domains": 37,
+      "official_weight": 0.0,
+      "secondary_weight": 0.5839067289387897,
+      "other_weight": 2.6951937161383066,
+      "theme_demand_score": 0.325350978558994,
+      "latest": "2026-09-29 11:37:00+00:00"
+    },
+    {
+      "theme": "defence_aerospace",
+      "official_rows": 1,
+      "secondary_rows": 0,
+      "gdelt_rows": 6,
+      "google_news_rows": 60,
+      "distinct_domains": 58,
+      "official_weight": 0.430034803251937,
+      "secondary_weight": 0.0,
+      "other_weight": 21.185903699605507,
+      "theme_demand_score": 0.3243052926541029,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "battery_bess",
+      "official_rows": 0,
+      "secondary_rows": 2,
+      "gdelt_rows": 1,
+      "google_news_rows": 60,
+      "distinct_domains": 37,
+      "official_weight": 0.0,
+      "secondary_weight": 0.2172877219075454,
+      "other_weight": 10.422111489370149,
+      "theme_demand_score": 0.26428693143817183,
+      "latest": "2026-10-07 10:16:00+00:00"
+    },
+    {
+      "theme": "railways",
+      "official_rows": 0,
+      "secondary_rows": 3,
+      "gdelt_rows": 0,
+      "google_news_rows": 60,
+      "distinct_domains": 31,
+      "official_weight": 0.0,
+      "secondary_weight": 0.3489007214563004,
+      "other_weight": 8.164431538620203,
+      "theme_demand_score": 0.2588559614607049,
+      "latest": "2026-10-07 09:37:11+00:00"
+    },
+    {
+      "theme": "water_environment",
+      "official_rows": 0,
+      "secondary_rows": 3,
+      "gdelt_rows": 0,
+      "google_news_rows": 56,
+      "distinct_domains": 44,
+      "official_weight": 0.0,
+      "secondary_weight": 0.1802793268522794,
+      "other_weight": 8.678602117117164,
+      "theme_demand_score": 0.20714246820188686,
+      "latest": "2026-10-06 22:45:40+00:00"
+    },
+    {
+      "theme": "industrial_automation",
+      "official_rows": 0,
+      "secondary_rows": 0,
+      "gdelt_rows": 0,
+      "google_news_rows": 58,
+      "distinct_domains": 48,
+      "official_weight": 0.0,
+      "secondary_weight": 0.0,
+      "other_weight": 5.062100308452397,
+      "theme_demand_score": 0.14785621103378865,
+      "latest": "2026-10-06 22:35:35+00:00"
+    }
+  ],
+  "errors": [],
+  "note": "GDELT and Google News are mandatory discovery layers. Aggregator evidence alone cannot create stock eligibility."
+}
