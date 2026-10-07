@@ -62,7 +62,9 @@ def main():
     allf["theme_primary_breadth"]=[
         max([theme_breadth.get(t,0.0) for t in jlist(v)] or [0.0]) for v in allf["themes"]
     ]
-    # External policy/procurement evidence is the actual demand signal.\n    # Cross-company breadth is only supporting corroboration and is capped in influence.\n    allf["theme_demand_signal"]=(0.75*allf["theme_demand_max"] + 0.25*allf["theme_primary_breadth"]).clip(0,1)
+    # External policy/procurement evidence is the actual demand signal.
+    # Cross-company breadth is only supporting corroboration and is capped in influence.
+    allf["theme_demand_signal"]=(0.75*allf["theme_demand_max"] + 0.25*allf["theme_primary_breadth"]).clip(0,1)
     allf["catalyst_type_count"]=[len(jlist(v)) for v in allf["catalyst_types"]]
     allf["magnitude_proxy"]=(
         np.clip(pd.to_numeric(allf["capacity_pct_max"],errors="coerce").fillna(0)/100.0,0,2)
