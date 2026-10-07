@@ -1,0 +1,33 @@
+{
+  "stage": "V11.4 PIT readiness",
+  "core_archive_ready": true,
+  "capabilities": {
+    "control_labels_present": true,
+    "canonical_event_text_present": true,
+    "financial_catalog_present": true,
+    "insider_history_present": true,
+    "shareholding_history_present": false,
+    "control_label_files": [
+      "readiness/control/outputs_integrity_challenger/oos_predictions.parquet",
+      "readiness/control/outputs_integrity_challenger/snapshot_dataset.parquet"
+    ],
+    "event_files": [
+      "readiness/events/events_all_2016_2026.parquet"
+    ],
+    "financial_catalog_files": [
+      "readiness/pit/financial_results_metadata.parquet",
+      "readiness/pit/insider_trades.parquet",
+      "readiness/pit/shareholding_master.parquet"
+    ],
+    "insider_files": [
+      "readiness/pit/insider_trades.parquet"
+    ],
+    "shareholding_files": []
+  },
+  "gaps": [
+    "Historical GDELT/Google-News/official-demand features are not assumed present; build them point-in-time per fold before final validation.",
+    "Current V11.4 typed magnitude values must not be copied backward; historical order/capex/capacity must be reconstructed only from documents available by each fold.",
+    "Historical financial facts must be filtered by filing/broadcast availability timestamp, not quarter end alone."
+  ],
+  "inventory_count": 43
+}
