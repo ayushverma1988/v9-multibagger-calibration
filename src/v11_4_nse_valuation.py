@@ -98,13 +98,14 @@ def num_series(s):
     return pd.to_numeric(s.astype(str).str.replace(",","",regex=False).str.replace("₹","",regex=False),errors="coerce")
 
 def latest_industry_map(path,asof,all_symbols):
-    if not path:return pd.DataFrame(columns=["symbol","industry"])
+    empty=pd.DataFrame(columns=["symbol","industry_basic"])
+    if not path:return empty
     p=Path(path)
-    if not p.exists():return pd.DataFrame(columns=["symbol","industry"])
+    if not p.exists():return empty
     d=pd.read_parquet(p)
     sym="symbol_norm" if "symbol_norm" in d.columns else "symbol"
     if sym not in d.columns or "industry" not in d.columns:
-        return pd.DataFrame(columns=["symbol","industry"])
+        return empty
     d["symbol"]=d[sym].astype(str).str.upper().str.strip()
     if "broadCastDate" in d.columns:
         d["_ts"]=pd.to_datetime(d["broadCastDate"],utc=True,errors="coerce")
@@ -189,13 +190,21 @@ def main():
     all_pe_symbols=set(pe_all["symbol"]) if len(pe_all) else set()
     industry=latest_industry_map(args.financial_metadata,asof,all_pe_symbols)
     pe_ind=pe_all.merge(industry,on="symbol",how="left")
-    valid=pe_ind[(pe_ind["company_pe"]>0)&pe_ind["industry_basic"].notna()&pe_ind["industry_basic"].astype(str).ne("")]
+    if "industry_basic" not in pe_ind.columns:
+        pe_ind["industry_basic"]=pd.NA
+    valid=pe_ind[
+        (pd.to_numeric(pe_ind["company_pe"],errors="coerce")>0)
+        & pe_ind["industry_basic"].notna()
+        & pe_ind["industry_basic"].astype(str).ne("")
+    ]
     ind_median=(valid.groupby("industry_basic")["company_pe"].median().rename("industry_pe_reference").reset_index()
                 if len(valid) else pd.DataFrame(columns=["industry_basic","industry_pe_reference"]))
 
     rows=pd.DataFrame({"symbol":syms})
     rows=rows.merge(pe_all,on="symbol",how="left")
     rows=rows.merge(industry,on="symbol",how="left")
+    if "industry_basic" not in rows.columns:
+        rows["industry_basic"]=pd.NA
     rows=rows.merge(ind_median,on="industry_basic",how="left")
     rows=rows.merge(mcap_all,on="symbol",how="left")
 
