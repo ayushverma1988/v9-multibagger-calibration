@@ -2,8 +2,8 @@
   "production_model": "V10.2 integrity-corrected V9.4.1",
   "production_rules_frozen": true,
   "data_start": "2003-01-01",
-  "data_end": "2026-10-06",
-  "eligible_current_rows": 1405,
+  "data_end": "2026-10-07",
+  "eligible_current_rows": 1412,
   "selected_rows": 10,
   "selector": {
     "name": "N100_drop0.50_s0.20_c0.05",
@@ -26,7 +26,7 @@
     "mean_capped_lift_100": 3.0425111158282516,
     "mean_dd30_rate": 0.3666666666666667,
     "p100_brier": 0.04047526274677389,
-    "p100_calibration_slope": 0.7639579191055258
+    "p100_calibration_slope": 0.763957919105525
   },
   "frozen_blob_shas_verified": true,
   "anti_overfit": {
