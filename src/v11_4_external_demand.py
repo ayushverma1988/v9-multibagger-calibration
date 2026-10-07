@@ -7,6 +7,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -56,6 +57,65 @@ def parse_rss(content,limit=None):
         if limit and len(out)>=limit:
             break
     return out
+
+
+
+class _TRParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.in_tr=False
+        self.parts=[]
+        self.rows=[]
+    def handle_starttag(self,tag,attrs):
+        if tag.lower()=="tr":
+            self.in_tr=True
+            self.parts=[]
+    def handle_data(self,data):
+        if self.in_tr:
+            s=re.sub(r"\s+"," ",str(data)).strip()
+            if s:self.parts.append(s)
+    def handle_endtag(self,tag):
+        if tag.lower()=="tr" and self.in_tr:
+            txt=" ".join(self.parts).strip()
+            if txt:self.rows.append(txt)
+            self.in_tr=False
+            self.parts=[]
+
+def parse_html_rows(content):
+    try:
+        p=_TRParser()
+        p.feed(content.decode("utf-8","ignore") if isinstance(content,(bytes,bytearray)) else str(content))
+        return p.rows
+    except Exception:
+        return []
+
+def fetch_pib_official(url,max_records=120):
+    r=req(url,timeout=60)
+    return parse_rss(r.content,limit=max_records)
+
+def fetch_cppp_rows(url,max_rows=300):
+    r=req(url,timeout=60)
+    rows=parse_html_rows(r.content)
+    out=[]
+    for txt in rows[:max_rows]:
+        # Skip navigation/boilerplate rows. Active tender rows generally contain a
+        # title/reference and at least one date/time; bid-award rows contain award language.
+        low=txt.lower()
+        if len(txt)<30: continue
+        if not (
+            re.search(r"\b\d{1,2}[-/](?:[A-Za-z]{3}|\d{1,2})[-/]\d{2,4}\b",txt)
+            or re.search(r"\b\d{1,2}-[A-Za-z]{3}-\d{4}\b",txt)
+            or any(k in low for k in ["tender","bid award","procurement","purchase","project","supply","installation","construction"])
+        ):
+            continue
+        out.append(txt[:2500])
+    return out
+
+def google_official_query(theme_words,days,domains):
+    tw=" OR ".join(f'"{w}"' if " " in w else w for w in theme_words[:6])
+    demand='procurement OR tender OR award OR order OR capex OR investment OR commissioning OR "commercial production" OR approval OR PLI OR sanctioned'
+    dw=" OR ".join(f"site:{d}" for d in domains[:12])
+    return f"({tw}) ({demand}) ({dw}) when:{int(days)}d"
 
 def fetch_gdelt_feed(url,max_records=3000):
     r=req(url,timeout=75)
@@ -169,8 +229,8 @@ def main():
     qcfg=json.load(open(args.queries_config))
     scfg=json.load(open(args.source_config))
     rows=[]; errors=[]
-    source_health={"gdelt":False,"google_news":False}
-    source_items={"gdelt":0,"google_news":0}
+    source_health={"gdelt":False,"google_news":False,"pib_direct":False,"cppp_direct":False}
+    source_items={"gdelt":0,"google_news":0,"pib_direct":0,"cppp_direct":0,"google_official":0}
 
     # 1) Mandatory GDELT raw/live article stream. This does not use the throttled DOC API.
     gdelt_url=scfg.get("gdelt",{}).get("live_article_feed","https://data.gdeltproject.org/gdeltv3/gal/feed.rss")
@@ -243,6 +303,86 @@ def main():
     source_items["google_news"]=google_total
     source_health["google_news"]=(google_success>=max(8,len(qcfg["themes"])//2) and google_total>0)
 
+    # 3) Direct official-demand evidence: PIB release feeds.
+    direct_cfg=scfg.get("official_direct",{})
+    pib_count=0
+    for feed_url in direct_cfg.get("pib_rss",[]):
+        try:
+            arts=fetch_pib_official(feed_url)
+        except Exception as e:
+            errors.append({"source":"pib_direct","url":feed_url,"error":repr(e)})
+            continue
+        for item in arts:
+            title=str(item.get("title") or "")
+            url=str(item.get("url") or "")
+            ts=parse_ts(item.get("published"))
+            if pd.isna(ts): continue
+            text=title
+            b=get_body(url)
+            if b:text+=" "+b
+            hits=themes_for(text,qcfg["themes"])
+            if not hits: continue
+            dom=urlparse(url).netloc.lower().replace("www.","") or "pib.gov.in"
+            if not domain_matches(dom,["pib.gov.in"]): dom="pib.gov.in"
+            for theme in hits:
+                add_row(rows,theme,ts,"pib_direct",item,dom,"official",1.0,text,scfg,resolved=True)
+                pib_count+=1
+    source_items["pib_direct"]=pib_count
+    source_health["pib_direct"]=pib_count>0
+
+    # 4) Direct Government of India CPPP/eProcurement public tender listings.
+    cppp_count=0
+    for page_url in direct_cfg.get("cppp_pages",[]):
+        try:
+            tender_rows=fetch_cppp_rows(page_url)
+        except Exception as e:
+            errors.append({"source":"cppp_direct","url":page_url,"error":repr(e)})
+            continue
+        for txt in tender_rows:
+            hits=themes_for(txt,qcfg["themes"])
+            if not hits: continue
+            item={"title":txt[:500],"url":page_url}
+            ts=pd.Timestamp.now(tz="UTC")
+            dom="eprocure.gov.in"
+            for theme in hits:
+                add_row(rows,theme,ts,"cppp_direct",item,dom,"official",1.0,txt,scfg,resolved=True)
+                cppp_count+=1
+    source_items["cppp_direct"]=cppp_count
+    source_health["cppp_direct"]=cppp_count>0
+
+    # 5) Dedicated official-domain discovery via Google News. Results count as
+    # official only when the publisher/source domain is an approved official domain.
+    google_official_count=0
+    if direct_cfg.get("google_news_official_domain_discovery",False):
+        for theme,words in qcfg["themes"].items():
+            q=google_official_query(words,days,scfg.get("official_domains",[]))
+            try:
+                arts=fetch_google_news(google_url,q,min(mx,40))
+            except Exception as e:
+                errors.append({"source":"google_official","theme":theme,"error":repr(e)})
+                continue
+            for item in arts:
+                ts=parse_ts(item.get("published"))
+                if pd.isna(ts): continue
+                d=article_domain(item)
+                resolved_url=resolve_url(str(item.get("url") or ""))
+                rd=urlparse(resolved_url).netloc.lower().replace("www.","")
+                if rd and "news.google." not in rd and rd!="news.google.com":
+                    d=rd
+                    item=dict(item); item["url"]=resolved_url
+                if not domain_matches(d,scfg.get("official_domains",[])):
+                    continue
+                text=str(item.get("title") or "")
+                b=get_body(str(item.get("url") or ""))
+                if b:text+=" "+b
+                hits=themes_for(text,qcfg["themes"])
+                if theme not in hits:
+                    continue
+                add_row(rows,theme,ts,"google_official",item,d,"official",1.0,text,scfg,resolved=True)
+                google_official_count+=1
+            time.sleep(.25)
+    source_items["google_official"]=google_official_count
+
     df=pd.DataFrame(rows)
     out=Path(args.output); out.parent.mkdir(parents=True,exist_ok=True)
     cols=[
@@ -287,6 +427,9 @@ def main():
             "secondary_rows":int((g["source_class"]=="secondary").sum()) if len(g) else 0,
             "gdelt_rows":int((g["discovery_source"]=="gdelt").sum()) if len(g) else 0,
             "google_news_rows":int((g["discovery_source"]=="google_news").sum()) if len(g) else 0,
+            "pib_direct_rows":int((g["discovery_source"]=="pib_direct").sum()) if len(g) else 0,
+            "cppp_direct_rows":int((g["discovery_source"]=="cppp_direct").sum()) if len(g) else 0,
+            "google_official_rows":int((g["discovery_source"]=="google_official").sum()) if len(g) else 0,
             "distinct_domains":distinct_domains,
             "official_weight":offw,
             "secondary_weight":secw,
@@ -307,6 +450,7 @@ def main():
         "required_sources_ok":required_ok,
         "rows":int(len(df)),
         "themes_with_official_evidence":int((sdf["official_rows"]>0).sum()),
+        "themes_with_direct_official_evidence":int(((sdf.get("pib_direct_rows",0)>0)|(sdf.get("cppp_direct_rows",0)>0)|(sdf.get("google_official_rows",0)>0)).sum()),
         "themes_with_any_evidence":int((sdf["distinct_domains"]>0).sum()),
         "themes_with_cross_source_corroboration":int(((sdf["gdelt_rows"]>0)&(sdf["google_news_rows"]>0)).sum()),
         "top_themes":sdf.head(12).to_dict("records"),
@@ -320,6 +464,9 @@ def main():
         raise SystemExit("Required discovery source health failed")
     if summary["themes_with_any_evidence"]<3:
         raise SystemExit("External demand coverage too sparse")
+    min_official=int(direct_cfg.get("minimum_themes_with_official_evidence",3))
+    if summary["themes_with_official_evidence"]<min_official:
+        raise SystemExit(f"Direct/official demand coverage too sparse: {summary['themes_with_official_evidence']} < {min_official}")
 
 if __name__=="__main__":
     main()
