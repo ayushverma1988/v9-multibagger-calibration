@@ -43,6 +43,8 @@ jobs:
           import json
           s=json.load(open("outputs_v11_4_demand/external_demand_summary.json"))
           print(json.dumps(s,indent=2))
+          if not s.get("required_sources_ok",False):
+              raise SystemExit("GDELT and Google News must both be healthy")
           if s.get("themes_with_any_evidence",0) < 3:
               raise SystemExit("Too few themes with demand evidence")
           PY
