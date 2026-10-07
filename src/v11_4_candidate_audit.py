@@ -48,8 +48,12 @@ def main():
     ev["published_ts"]=pd.to_datetime(ev["published_ts"],utc=True,errors="coerce")
     ev["stage_weight"]=pd.to_numeric(ev["stage_weight"],errors="coerce").fillna(0)
     ev["source_tier"]=pd.to_numeric(ev["source_tier"],errors="coerce")
-    ev["money_crore_max"]=pd.to_numeric(ev["money_crore_max"],errors="coerce")
-    ev["capacity_pct_max"]=pd.to_numeric(ev["capacity_pct_max"],errors="coerce")
+    for col in [
+        "money_crore_max","order_value_crore","capex_value_crore","revenue_guidance_crore",
+        "money_confidence","capacity_pct_max","capacity_confidence"
+    ]:
+        if col not in ev.columns: ev[col]=np.nan
+        ev[col]=pd.to_numeric(ev[col],errors="coerce")
     for sym,g in ev.groupby(ev["symbol"].astype(str).str.upper().str.strip()):
         g=g.sort_values(["linked_evidence_score","published_ts"],ascending=[False,False])
         prim=g[g["source_tier"].eq(1)]
@@ -58,6 +62,28 @@ def main():
         product=g[g["catalyst_types"].map(lambda x:bool(set(jlist(x))&{"product","approval"}))]
         capacity=g[g["catalyst_types"].map(lambda x:"capacity" in jlist(x))]
         neg=g[g["negative_flag"].fillna(False)]
+
+        # Magnitude must come from typed, locally-auditable evidence.
+        # Prefer Tier-1 rows; use secondary only when no primary typed value exists.
+        def _best_typed(col,conf_col,preferred):
+            def pick(df):
+                if not len(df) or col not in df.columns:return (np.nan,0.0,"","")
+                z=df.copy()
+                z["_v"]=pd.to_numeric(z[col],errors="coerce")
+                z["_c"]=pd.to_numeric(z.get(conf_col),errors="coerce").fillna(0)
+                z=z[z["_v"].notna()&(z["_v"]>0)&(z["_c"]>=0.50)]
+                if not len(z):return (np.nan,0.0,"","")
+                z["_q"]=z["_c"]*np.log1p(z["_v"])
+                rr=z.sort_values(["_q","published_ts"],ascending=[False,False]).iloc[0]
+                snippet=str(rr.get("money_context_snippet","") or rr.get("capacity_context_snippet","") or "")
+                return (float(rr["_v"]),float(rr["_c"]),snippet[:900],str(rr.get("url","")))
+            a=pick(preferred)
+            return a if pd.notna(a[0]) else pick(g)
+
+        order_val,order_conf,order_snip,order_url=_best_typed("order_value_crore","money_confidence",prim)
+        capex_val,capex_conf,capex_snip,capex_url=_best_typed("capex_value_crore","money_confidence",prim)
+        cap_val,cap_conf,cap_snip,cap_url=_best_typed("capacity_pct_max","capacity_confidence",prim)
+
         prim_chron=prim.sort_values("published_ts").copy()
         latest_primary_ts=prim_chron["published_ts"].max() if len(prim_chron) else pd.NaT
         first_primary_ts=prim_chron["published_ts"].min() if len(prim_chron) else pd.NaT
@@ -98,6 +124,18 @@ def main():
             "commissioning_score":float(commission["stage_weight"].max()) if len(commission) else 0.0,
             "product_approval_score":float(product["stage_weight"].max()) if len(product) else 0.0,
             "capacity_stage_score":float(capacity["stage_weight"].max()) if len(capacity) else 0.0,
+            "typed_order_value_crore":order_val,
+            "typed_order_confidence":order_conf,
+            "typed_order_snippet":order_snip,
+            "typed_order_url":order_url,
+            "typed_capex_value_crore":capex_val,
+            "typed_capex_confidence":capex_conf,
+            "typed_capex_snippet":capex_snip,
+            "typed_capex_url":capex_url,
+            "typed_capacity_pct":cap_val,
+            "typed_capacity_confidence":cap_conf,
+            "typed_capacity_snippet":cap_snip,
+            "typed_capacity_url":cap_url,
             "negative_event_count":int(len(neg)),
             "first_primary_event_date":str(first_primary_ts) if pd.notna(first_primary_ts) else "",
             "latest_primary_event_date":str(latest_primary_ts) if pd.notna(latest_primary_ts) else "",
@@ -222,27 +260,77 @@ def main():
         "accumulation_score","ownership_accumulation_score","technical_confirmation_score",
         "priced_in_penalty","risk_score","p100_anchor","v10_percentile",
         "ret_60","ret_120","ret_252","fresh_catalyst_generation_score","new_catalyst_type_count",
-        "primary_stage_upgrade","financial_3y_context_coverage","financial_context_confidence","external_theme_demand_score"
+        "primary_stage_upgrade","financial_3y_context_coverage","financial_context_confidence","external_theme_demand_score",
+        "typed_order_value_crore","typed_order_confidence","typed_capex_value_crore","typed_capex_confidence",
+        "typed_capacity_pct","typed_capacity_confidence"
     ]:
         if c not in x: x[c]=np.nan
         x[c]=pd.to_numeric(x[c],errors="coerce")
 
-    # Numeric catalyst integrity: reject contextless implausible extraction rather than
-    # letting extreme OCR/regex numbers become a perfect magnitude score.
-    cap=x["max_capacity_pct"]
-    x["capacity_numeric_suspect"]=(cap.notna()&((cap<=0)|(cap>500)))
-    clean_cap=cap.where(~x["capacity_numeric_suspect"])
-    cap_mag=np.clip(clean_cap.fillna(0)/100.0,0,1.5)/1.5
+    # Typed catalyst magnitude. Orders, capex and capacity are not interchangeable.
+    sales=x["annualized_sales_crore"].replace(0,np.nan)
 
-    value_ratio=x["max_money_crore"]/x["annualized_sales_crore"].replace(0,np.nan)
-    x["money_numeric_suspect"]=value_ratio.notna()&(value_ratio>20)
-    # A very large order can be real, but only accept >20x sales when order-stage
-    # evidence is independently strong and multiple primary filings exist.
-    allow_large=(x["order_visibility_score"].fillna(0)>=0.85)&(x["primary_event_count"].fillna(0)>=2)
-    clean_value_ratio=value_ratio.where((~x["money_numeric_suspect"])|allow_large)
-    value_mag=np.clip(clean_value_ratio.fillna(0),0,1)
-    x["numeric_integrity_ok"]=~(x["capacity_numeric_suspect"]&x["money_numeric_suspect"]&(~allow_large))
-    x["catalyst_magnitude_score"]=np.maximum(cap_mag,value_mag)
+    cap=x["typed_capacity_pct"]
+    x["capacity_numeric_suspect"]=cap.notna()&((cap<=0)|(cap>500))
+    clean_cap=cap.where(~x["capacity_numeric_suspect"])
+    cap_mag=(
+        np.clip(clean_cap.fillna(0)/150.0,0,1)
+        * x["typed_capacity_confidence"].fillna(0).clip(0,1)
+        * (0.65+0.35*x["capacity_stage_score"].fillna(0).clip(0,1))
+    )
+
+    order_ratio=x["typed_order_value_crore"]/sales
+    x["order_numeric_suspect"]=order_ratio.notna()&(order_ratio>20)
+    allow_large_order=(
+        (x["order_visibility_score"].fillna(0)>=0.85)
+        &(x["primary_event_count"].fillna(0)>=2)
+        &(x["typed_order_confidence"].fillna(0)>=0.90)
+    )
+    clean_order_ratio=order_ratio.where((~x["order_numeric_suspect"])|allow_large_order)
+    order_mag=(
+        np.clip(clean_order_ratio.fillna(0),0,1)
+        * x["typed_order_confidence"].fillna(0).clip(0,1)
+        * (0.60+0.40*x["order_visibility_score"].fillna(0).clip(0,1))
+    )
+
+    capex_ratio=x["typed_capex_value_crore"]/sales
+    x["capex_numeric_suspect"]=capex_ratio.notna()&(capex_ratio>10)
+    clean_capex_ratio=capex_ratio.where(~x["capex_numeric_suspect"])
+    # Capex is a precursor, not booked revenue. Even a very large capex plan is
+    # discounted until execution-stage evidence confirms it is becoming real.
+    capex_mag=(
+        np.clip(clean_capex_ratio.fillna(0)/0.50,0,1)
+        * x["typed_capex_confidence"].fillna(0).clip(0,1)
+        * (0.45+0.55*x["capacity_stage_score"].fillna(0).clip(0,1))
+        * 0.85
+    )
+
+    typed_any=(
+        x["typed_order_value_crore"].notna()
+        |x["typed_capex_value_crore"].notna()
+        |x["typed_capacity_pct"].notna()
+    )
+    # Legacy generic money is diagnostic only after the typed parser is deployed.
+    generic_ratio=x["max_money_crore"]/sales
+    generic_fallback=np.where(
+        ~typed_any,
+        0.25*np.clip(generic_ratio.fillna(0),0,1),
+        0.0
+    )
+    x["magnitude_evidence_quality"]=x[[
+        "typed_order_confidence","typed_capex_confidence","typed_capacity_confidence"
+    ]].max(axis=1).fillna(0)
+    x["numeric_integrity_ok"]=~(
+        x["capacity_numeric_suspect"]
+        |(x["order_numeric_suspect"]&(~allow_large_order))
+        |x["capex_numeric_suspect"]
+    )
+    x["catalyst_magnitude_score"]=np.maximum.reduce([
+        cap_mag.to_numpy(float),
+        order_mag.to_numpy(float),
+        capex_mag.to_numpy(float),
+        np.asarray(generic_fallback,dtype=float),
+    ])
 
     # Demand linkage: use the independent GDELT + Google News demand layer when present.
     # The old cross-company breadth proxy is retained only for diagnostics, not promotion.
@@ -330,7 +418,11 @@ def main():
     causal=(
         (x["stage_reality_score"]>=0.55)
         | (x["order_probability_score"]>=0.55)
-        | ((x["catalyst_magnitude_score"]>=0.45)&(x["earnings_inflection_score"]>=0.45))
+        | (
+            (x["catalyst_magnitude_score"]>=0.45)
+            &(x["magnitude_evidence_quality"]>=0.60)
+            &(x["earnings_inflection_score"]>=0.45)
+          )
         | ((x["product_approval_score"]>=0.55)&(x["product_demand_linkage_score"]>=0.35))
     )
     demand_or_direct=(
@@ -419,12 +511,13 @@ def main():
         "financial_10q_plus_pct":float((x["financial_3y_context_coverage"].fillna(0)>=0.83).mean()),
         "external_demand_loaded":bool(external_demand_loaded),
         "numeric_integrity_failures":int((~x["numeric_integrity_ok"].fillna(True)).sum()),
+        "typed_magnitude_coverage_pct":float((x["magnitude_evidence_quality"].fillna(0)>=0.60).mean()),
         "top20":eligible.head(20)[[
             c for c in [
                 "symbol","audit_rank","audit_grade","opportunity_sleeve","sleeve_score","v11_4_score_raw","second_leg_score",
                 "fresh_catalyst_generation_score","remaining_business_upside_score","max_prior_runup_252",
                 "catalyst_intelligence_score",
-                "stage_reality_score","catalyst_magnitude_score","product_demand_linkage_score",
+                "stage_reality_score","catalyst_magnitude_score","magnitude_evidence_quality","product_demand_linkage_score",
                 "earnings_inflection_score","order_probability_score","promoter_accumulation_score",
                 "technical_confirmation_used","already_priced_penalty_used","strongest_event_title"
             ] if c in eligible
