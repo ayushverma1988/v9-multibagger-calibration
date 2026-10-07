@@ -14,6 +14,42 @@ import requests
 GDELT="https://api.gdeltproject.org/api/v2/doc/doc"
 UA="Mozilla/5.0 (compatible; V11.4ExternalDemand/1.1)"
 
+
+GOOGLE_NEWS_RSS="https://news.google.com/rss/search"
+
+def fetch_google_rss(q,days,max_records):
+    import xml.etree.ElementTree as ET
+    params={"q":q,"hl":"en-IN","gl":"IN","ceid":"IN:en"}
+    r=requests.get(GOOGLE_NEWS_RSS,params=params,headers={"User-Agent":UA},timeout=60)
+    r.raise_for_status()
+    root=ET.fromstring(r.content)
+    out=[]
+    for item in root.findall(".//item")[:int(max_records)]:
+        title=item.findtext("title") or ""
+        link=item.findtext("link") or ""
+        pub=item.findtext("pubDate") or ""
+        source=item.find("source")
+        source_name=(source.text or "") if source is not None else ""
+        source_url=(source.attrib.get("url","") if source is not None else "")
+        out.append({
+            "title":title,"url":link,"seendate":pub,
+            "domain":urlparse(source_url).netloc or source_name
+        })
+    return out
+
+def resolve_original_url(url):
+    if not url: return url
+    try:
+        r=requests.get(url,headers={"User-Agent":UA},timeout=20,allow_redirects=True)
+        return r.url or url
+    except Exception:
+        return url
+
+def rss_domain_query(domains):
+    dw=" OR ".join(f"site:{d}" for d in domains)
+    demand='procurement OR tender OR investment OR capex OR project OR PLI OR deployment OR commissioning OR "commercial production"'
+    return f"({demand}) ({dw})"
+
 EVENTS=[
     ("procurement_or_award",1.00,re.compile(r"\b(procurement|tender|bid|award|purchase order|work order|contract awarded|l1 bidder|lowest bidder)\b",re.I)),
     ("deployment_or_commissioning",0.80,re.compile(r"\b(deployment|rollout|commissioned|commissioning|commercial production|operations commenced)\b",re.I)),
@@ -111,16 +147,24 @@ def main():
     seen_urls=set()
     for bi,(source_class,domains,trust) in enumerate(batches,1):
         q=domain_query(domains)
+        discovery_source="gdelt"
         try:
             arts=fetch(q,days,mx)
         except Exception as e:
-            errors.append({"batch":bi,"source_class":source_class,"domains":domains,"error":repr(e)})
-            continue
+            errors.append({"batch":bi,"source_class":source_class,"domains":domains,"source":"gdelt","error":repr(e)})
+            discovery_source="google_news_rss"
+            try:
+                arts=fetch_google_rss(rss_domain_query(domains),days,mx)
+            except Exception as e2:
+                errors.append({"batch":bi,"source_class":source_class,"domains":domains,"source":"google_news_rss","error":repr(e2)})
+                arts=[]
 
         for a in arts:
             url=str(a.get("url") or "")
             if not url:
                 continue
+            if discovery_source=="google_news_rss":
+                url=resolve_original_url(url)
             domain=str(a.get("domain") or urlparse(url).netloc).lower().replace("www.","")
             title=str(a.get("title") or "")
             dt=pd.to_datetime(a.get("seendate") or a.get("date"),utc=True,errors="coerce")
@@ -140,6 +184,7 @@ def main():
             for theme in hits:
                 rows.append({
                     "theme":theme,"published_ts":dt,"source_class":source_class,
+                    "discovery_source":discovery_source,
                     "domain":domain,"title":title,"url":url,"event_type":et,
                     "trust":trust,"event_weight":ew,"freshness":freshness,
                     "evidence_weight":evidence
@@ -155,7 +200,7 @@ def main():
         df=df.drop_duplicates(["theme","url"]).sort_values(["theme","published_ts"],ascending=[True,False])
     else:
         df=pd.DataFrame(columns=[
-            "theme","published_ts","source_class","domain","title","url","event_type",
+            "theme","published_ts","source_class","discovery_source","domain","title","url","event_type",
             "trust","event_weight","freshness","evidence_weight"
         ])
     df.to_parquet(out,index=False)
