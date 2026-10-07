@@ -91,7 +91,7 @@ jobs:
               raise SystemExit("Both GDELT and Google News are mandatory")
           if s.get("themes_with_any_evidence",0) < 3:
               raise SystemExit("External demand coverage too sparse")
-          if s.get("themes_with_official_evidence",0) < 3:
+          if s.get("themes_with_direct_official_evidence",0) < 3:
               raise SystemExit("Insufficient direct official demand coverage")
           PY
 
@@ -163,5 +163,13 @@ jobs:
           git add published_v11_4_two_sleeve
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Publish V11.4 two-sleeve validation [skip ci]"
-          git pull --rebase origin v10-fresh-current
-          git push origin HEAD:v10-fresh-current
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin v10-fresh-current || true
+            if git push origin HEAD:v10-fresh-current; then
+              exit 0
+            fi
+            echo "Publish push failed on attempt $attempt; retrying..."
+            sleep $((attempt*8))
+          done
+          echo "Publish push failed after 4 attempts"
+          exit 1
