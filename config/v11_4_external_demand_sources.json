@@ -185,6 +185,65 @@
         "domain": "powermin.gov.in",
         "url": "https://www.powermin.gov.in/documents/reports/new-notices-orders-cDO4QjMtQWa?pageTitle=Current-Notices%2FOrders"
       }
-    ]
+    ],
+    "theme_official_domains": {
+      "battery_bess": [
+        "pib.gov.in",
+        "mnre.gov.in",
+        "powermin.gov.in"
+      ],
+      "ev_auto": [
+        "pib.gov.in",
+        "heavyindustries.gov.in",
+        "morth.nic.in"
+      ],
+      "semiconductor_electronics": [
+        "pib.gov.in",
+        "meity.gov.in"
+      ],
+      "defence_aerospace": [
+        "pib.gov.in",
+        "mod.gov.in",
+        "ddpmod.gov.in"
+      ],
+      "railways": [
+        "pib.gov.in",
+        "indianrailways.gov.in",
+        "railmin.gov.in"
+      ],
+      "renewables": [
+        "pib.gov.in",
+        "mnre.gov.in",
+        "powermin.gov.in"
+      ],
+      "power_td": [
+        "pib.gov.in",
+        "powermin.gov.in",
+        "powergrid.in"
+      ],
+      "data_centres": [
+        "pib.gov.in",
+        "meity.gov.in",
+        "powermin.gov.in"
+      ],
+      "green_hydrogen": [
+        "pib.gov.in",
+        "mnre.gov.in"
+      ],
+      "industrial_automation": [
+        "pib.gov.in",
+        "heavyindustries.gov.in",
+        "meity.gov.in"
+      ],
+      "water_environment": [
+        "pib.gov.in",
+        "jalshakti-dowr.gov.in"
+      ],
+      "pharma_specialty": [
+        "pib.gov.in",
+        "pharmaceuticals.gov.in",
+        "cdsco.gov.in"
+      ]
+    }
   }
 }
