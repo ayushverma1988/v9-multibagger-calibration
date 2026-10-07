@@ -42,6 +42,16 @@ jobs:
         run: |
           python -m py_compile             src/v10_refresh_events.py             src/v11_4_collect_public_evidence.py             src/v11_4_catalyst_graph.py             src/v11_4_nse_primary_evidence.py             src/v11_4_deep_primary_candidates.py             src/v11_4_external_demand.py             src/v11_4_merge_evidence.py
 
+      - name: Bootstrap official-demand archive from last verified run
+        if: ${{ hashFiles('published_v11_4_external_demand/external_demand_evidence.parquet') == '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-external-demand-smoke
+          path: seed_v11_4_demand
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37624914649
+
       - name: Download canonical point-in-time event archive
         uses: actions/download-artifact@v4
         with:
@@ -100,6 +110,8 @@ jobs:
           PRIOR=""
           if [ -f published_v11_4_external_demand/external_demand_evidence.parquet ]; then
             PRIOR="--prior-evidence published_v11_4_external_demand/external_demand_evidence.parquet"
+          elif [ -f seed_v11_4_demand/external_demand_evidence.parquet ]; then
+            PRIOR="--prior-evidence seed_v11_4_demand/external_demand_evidence.parquet"
           fi
           python src/v11_4_external_demand.py \
             --queries-config config/v11_4_discovery_queries.json \
