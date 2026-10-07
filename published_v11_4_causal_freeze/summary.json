@@ -1,0 +1,26 @@
+{
+  "stage": "V11.4 causal-chain QA freeze",
+  "frozen_before_external_demand_result": true,
+  "horizon_weights": {
+    "6m": 0.7,
+    "12m": 0.25,
+    "24m": 0.05
+  },
+  "purpose": "Prevent a candidate from qualifying on momentum, generic themes, or company announcements alone.",
+  "chain_requirements": {
+    "primary_company_evidence_min": 2,
+    "external_theme_demand_min": 0.2,
+    "catalyst_stage_min": 0.55,
+    "priced_in_penalty_max": 0.5,
+    "impact_gate": "financial_inflection >= 0.45 OR quantified catalyst magnitude >= 0.45",
+    "causal_mechanism_gate": "order_probability >= 0.55 OR commissioning/capacity/product-approval evidence at stage >= 0.55",
+    "technical_confirmation_role": "confirmation only; it cannot make an otherwise failed chain pass"
+  },
+  "grade_logic": {
+    "A": "all causal-chain gates pass, primary evidence >=2, and at least two impact/conviction confirmations among financial inflection, catalyst magnitude, order probability, promoter/accumulation",
+    "B": "all causal-chain gates pass with at least one impact/conviction confirmation",
+    "C": "research only; incomplete external-demand or impact chain",
+    "REJECT": "fails primary evidence, causal mechanism, or priced-in gate"
+  },
+  "note": "Thresholds frozen before the new external-demand collector result is inspected. Historical validation is still required before production use."
+}
