@@ -60,8 +60,21 @@
       "doc_api_only_if_available"
     ],
     "google_news_access": "rss_search_discovery",
-    "promotion_rule": "A high-confidence demand/catalyst signal must resolve to an original article, company filing, government/ministry page, tender/procurement page, rating rationale, regulator, or other auditable underlying source.",
+    "promotion_rule": "Discovery-source headlines never create high-confidence eligibility by themselves. High-confidence qualification requires auditable company/government/tender/rating/regulator evidence or resolved underlying-source corroboration.",
     "aggregator_rule": "GDELT and Google News are discovery/coverage layers. Neither aggregator title alone can be treated as primary evidence.",
-    "degraded_run_rule": "If either required discovery source is unavailable, mark the run degraded and do not promote new Grade A/production candidates until the missing source is recovered."
+    "degraded_run_rule": "If GDELT or Google News health fails, the source stage fails rather than silently substituting one for the other.",
+    "duplicate_rule": "Duplicate stories across aggregators are collapsed; cross-source agreement is corroboration, not multiple independent catalysts."
+  },
+  "gdelt": {
+    "live_article_feed": "https://data.gdeltproject.org/gdeltv3/gal/feed.rss",
+    "role": "mandatory realtime/global discovery stream",
+    "doc_api_role": "disabled for production gating because anonymous DOC API throttling is not reliable",
+    "historical_role": "raw GAL/GKG archive or BigQuery for point-in-time backtests"
+  },
+  "google_news": {
+    "rss_search": "https://news.google.com/rss/search",
+    "lookback_days": 120,
+    "role": "mandatory broad recent-news discovery",
+    "max_results_per_theme": 60
   }
 }
