@@ -106,7 +106,8 @@ jobs:
           for p in [
               "pre_obvious_discovery.csv",
               "second_leg_reacceleration.csv",
-              "overextended_already_priced.csv",
+              "over_100pct_extended_review.csv",
+              "moved_12_100_but_failed_gates.csv",
           ]:
               df=pd.read_csv("outputs_v11_4_two_sleeve/"+p)
               print(p,len(df))
@@ -137,7 +138,8 @@ jobs:
           cp outputs_v11_4_two_sleeve/theme_demand_scores.csv published_v11_4_two_sleeve/
           cp outputs_v11_4_two_sleeve/pre_obvious_discovery.csv published_v11_4_two_sleeve/
           cp outputs_v11_4_two_sleeve/second_leg_reacceleration.csv published_v11_4_two_sleeve/
-          cp outputs_v11_4_two_sleeve/overextended_already_priced.csv published_v11_4_two_sleeve/
+          cp outputs_v11_4_two_sleeve/over_100pct_extended_review.csv published_v11_4_two_sleeve/
+          cp outputs_v11_4_two_sleeve/moved_12_100_but_failed_gates.csv published_v11_4_two_sleeve/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add published_v11_4_two_sleeve
