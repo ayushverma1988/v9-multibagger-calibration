@@ -112,6 +112,7 @@ def main():
 
     x=ci.merge(fin,on="symbol",how="left").merge(ea,on="symbol",how="left").merge(mkt,on="symbol",how="left",suffixes=("","_mkt"))
     # Support current NSE Integrated Filing XBRL financials.
+    # Up to 12 quarters (~3 years) provide context, but recent quarters dominate.
     if "latest_revenue" in x.columns:
         def _sg(v,span):
             try:
@@ -119,46 +120,75 @@ def main():
                 return float(np.clip(float(v)/span,-1,1))
             except Exception:
                 return np.nan
-        comps=[]
-        for _,r in x.iterrows():
-            vals=[]
-            weights=[]
-            for val,w,span in [
-                (r.get("revenue_yoy"),0.22,0.50),
-                (r.get("ebitda_yoy"),0.22,0.75),
-                (r.get("pat_yoy"),0.12,1.00),
-                (r.get("ebitda_margin_qoq_change"),0.13,0.08),
-                (r.get("ebitda_margin_yoy_change"),0.08,0.12),
-                (r.get("revenue_qoq"),0.08,0.25),
-            ]:
-                z=_sg(val,span)
+        def _group_score(r,spec,turn_cols=()):
+            vals=[]; ws=[]
+            for col,w,span in spec:
+                z=_sg(r.get(col),span)
                 if pd.notna(z):
-                    vals.append(w*z); weights.append(w)
-            try:
-                pt=max(float(r.get("pat_turnaround_yoy") or 0),float(r.get("pat_turnaround_qoq") or 0))
-            except Exception: pt=0
-            try:
-                et=max(float(r.get("ebitda_turnaround_yoy") or 0),float(r.get("ebitda_turnaround_qoq") or 0))
-            except Exception: et=0
-            vals += [0.08*np.clip(pt,0,1),0.07*np.clip(et,0,1)]
-            weights += [0.08,0.07]
-            raw=(sum(vals)/sum(weights)) if weights else 0
-            comps.append(float(np.clip(0.5+0.5*raw,0,1)))
-        x["financial_score_raw"]=comps
+                    vals.append(w*z); ws.append(w)
+            for col,w in turn_cols:
+                try:z=float(np.clip(float(r.get(col) or 0),-1,1))
+                except Exception:z=0.0
+                vals.append(w*z); ws.append(w)
+            if not ws:return np.nan
+            return float(np.clip(0.5+0.5*(sum(vals)/sum(ws)),0,1))
+
+        scores=[]; latest2=[]; previous2=[]; latest_ttm=[]; prior_ttm=[]
+        for _,r in x.iterrows():
+            s1=_group_score(r,[
+                ("recent2_revenue_yoy",0.35,0.50),("recent2_ebitda_yoy",0.30,0.80),
+                ("recent2_pat_yoy",0.15,1.00),("recent2_ebitda_margin_yoy_change",0.20,0.10),
+            ],[("recent2_pat_turnaround",0.10),("recent2_ebitda_turnaround",0.08)])
+            s2=_group_score(r,[
+                ("prev2_revenue_yoy",0.40,0.45),("prev2_ebitda_yoy",0.30,0.75),
+                ("prev2_pat_yoy",0.15,0.90),("prev2_ebitda_margin_yoy_change",0.15,0.10),
+            ])
+            s3=_group_score(r,[
+                ("ttm_revenue_growth",0.40,0.40),("ttm_ebitda_growth",0.30,0.65),
+                ("ttm_pat_growth",0.15,0.80),("ttm_ebitda_margin_change",0.15,0.10),
+            ],[("ttm_pat_turnaround",0.10)])
+            s4=_group_score(r,[
+                ("previous_ttm_revenue_growth",0.45,0.35),("previous_ttm_ebitda_growth",0.30,0.60),
+                ("previous_ttm_pat_growth",0.15,0.75),("previous_ttm_ebitda_margin_change",0.10,0.10),
+            ])
+            groups=[(s1,0.40),(s2,0.25),(s3,0.20),(s4,0.15)]
+            num=sum(s*w for s,w in groups if pd.notna(s))
+            den=sum(w for s,w in groups if pd.notna(s))
+            if den:
+                score=num/den
+            else:
+                raw=_group_score(r,[
+                    ("revenue_yoy",0.35,0.50),("ebitda_yoy",0.30,0.75),
+                    ("pat_yoy",0.15,1.00),("ebitda_margin_yoy_change",0.20,0.12)
+                ],[("pat_turnaround_yoy",0.10),("ebitda_turnaround_yoy",0.08)])
+                score=0.5 if pd.isna(raw) else raw
+            scores.append(float(np.clip(score,0,1)))
+            latest2.append(s1); previous2.append(s2); latest_ttm.append(s3); prior_ttm.append(s4)
+        x["financial_latest2_score"]=latest2
+        x["financial_previous2_score"]=previous2
+        x["financial_latest_ttm_score"]=latest_ttm
+        x["financial_prior_ttm_score"]=prior_ttm
+        x["financial_score_raw"]=scores
+        qn=pd.to_numeric(x.get("quarters_extracted"),errors="coerce").fillna(0)
+        x["financial_3y_context_coverage"]=(qn/12.0).clip(0,1)
         qe=pd.to_datetime(x.get("latest_qe"),errors="coerce")
         stale=(pd.Timestamp.now().normalize()-qe).dt.days
         x["financial_stale_days"]=stale
         x["financial_freshness"]=np.exp(-stale.clip(lower=0)/240.0)
         x["financial_available"]=qe.notna()
-        # Integrated XBRL facts are INR. Convert annualized revenue to crore.
-        x["annualized_sales_crore"]=pd.to_numeric(x.get("latest_revenue"),errors="coerce")*4.0/1e7
+        annual_rev=pd.to_numeric(x.get("latest_ttm_revenue"),errors="coerce")
+        fallback=pd.to_numeric(x.get("latest_revenue"),errors="coerce")*4.0
+        annual_rev=annual_rev.where(annual_rev.notna(),fallback)
+        x["annualized_sales_crore"]=annual_rev/1e7
 
     for c in [
         "max_stage_weight","max_linked_evidence_score","max_theme_demand_signal","max_capacity_pct",
         "max_money_crore","financial_score_raw","annualized_sales_crore","order_visibility_score",
         "commissioning_score","product_approval_score","capacity_stage_score","promoter_conviction_score",
         "accumulation_score","ownership_accumulation_score","technical_confirmation_score",
-        "priced_in_penalty","risk_score","p100_anchor","v10_percentile"
+        "priced_in_penalty","risk_score","p100_anchor","v10_percentile",
+        "ret_60","ret_120","ret_252","fresh_catalyst_generation_score","new_catalyst_type_count",
+        "primary_stage_upgrade","financial_3y_context_coverage"
     ]:
         if c not in x: x[c]=np.nan
         x[c]=pd.to_numeric(x[c],errors="coerce")
