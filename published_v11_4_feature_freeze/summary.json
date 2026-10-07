@@ -35,8 +35,10 @@
     "rationale": "global/industry conditions change; older history is diagnostic only"
   },
   "sleeve_freeze": {
-    "pre_obvious_discovery": "limited prior rerating; seek business change before broad market recognition",
-    "second_leg_reacceleration": "material prior rerating allowed only when a new catalyst generation or clear stage upgrade/repeat-order wave creates fresh business upside",
-    "overextended_already_priced": "material prior rerating without sufficient fresh catalyst generation or remaining business upside"
+    "pre_obvious_max_prior_runup": 0.12,
+    "second_leg_min_prior_runup": 0.12,
+    "second_leg_max_prior_runup": 1,
+    "over_100pct_role": "extended review only",
+    "rationale": "A 50% threshold starts too late for the intended early-discovery objective. A 12% boundary separates relatively unrerated candidates from stocks already beginning a meaningful move, while retaining 12-100% movers in a dedicated second-leg sleeve."
   }
 }
