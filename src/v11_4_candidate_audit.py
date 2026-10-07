@@ -176,8 +176,12 @@ def main():
         x["financial_stale_days"]=stale
         x["financial_freshness"]=np.exp(-stale.clip(lower=0)/240.0)
         x["financial_available"]=qe.notna()
-        annual_rev=pd.to_numeric(x.get("latest_ttm_revenue"),errors="coerce")
-        fallback=pd.to_numeric(x.get("latest_revenue"),errors="coerce")*4.0
+        annual_rev=(pd.to_numeric(x["latest_ttm_revenue"],errors="coerce")
+                    if "latest_ttm_revenue" in x.columns
+                    else pd.Series(np.nan,index=x.index,dtype=float))
+        fallback=(pd.to_numeric(x["latest_revenue"],errors="coerce")*4.0
+                  if "latest_revenue" in x.columns
+                  else pd.Series(np.nan,index=x.index,dtype=float))
         annual_rev=annual_rev.where(annual_rev.notna(),fallback)
         x["annualized_sales_crore"]=annual_rev/1e7
 
