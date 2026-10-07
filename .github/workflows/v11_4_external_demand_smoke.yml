@@ -8,6 +8,7 @@ on:
       - '.github/workflows/v11_4_external_demand_smoke.yml'
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -33,11 +34,23 @@ jobs:
       - name: Compile external demand collector
         run: python -m py_compile src/v11_4_external_demand.py
 
+      - name: Bootstrap official-demand archive from last verified run
+        if: ${{ hashFiles('published_v11_4_external_demand/external_demand_evidence.parquet') == '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-external-demand-smoke
+          path: seed_v11_4_demand
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37624914649
+
       - name: Collect external theme demand
         run: |
           PRIOR=""
           if [ -f published_v11_4_external_demand/external_demand_evidence.parquet ]; then
             PRIOR="--prior-evidence published_v11_4_external_demand/external_demand_evidence.parquet"
+          elif [ -f seed_v11_4_demand/external_demand_evidence.parquet ]; then
+            PRIOR="--prior-evidence seed_v11_4_demand/external_demand_evidence.parquet"
           fi
           python src/v11_4_external_demand.py \
             --queries-config config/v11_4_discovery_queries.json \
