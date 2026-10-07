@@ -85,8 +85,8 @@ jobs:
           print(json.dumps({"financial":f,"demand":d,"audit":a},indent=2))
           if not d.get("required_sources_ok",False):
               raise SystemExit("GDELT/Google News source health failed")
-          if d.get("themes_with_official_evidence",0) < 3:
-              raise SystemExit("Insufficient official demand coverage")
+          if d.get("themes_with_direct_official_evidence",0) < 3:
+              raise SystemExit("Insufficient direct official demand coverage")
           if not a.get("external_demand_loaded",False):
               raise SystemExit("External demand was not loaded into audit")
           if f.get("symbols_extracted",0) < 80:
@@ -125,5 +125,13 @@ jobs:
           git add published_v11_4_audit
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Publish V11.4 causal candidate audit [skip ci]"
-          git pull --rebase origin v10-fresh-current
-          git push origin HEAD:v10-fresh-current
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin v10-fresh-current || true
+            if git push origin HEAD:v10-fresh-current; then
+              exit 0
+            fi
+            echo "Publish push failed on attempt $attempt; retrying..."
+            sleep $((attempt*8))
+          done
+          echo "Publish push failed after 4 attempts"
+          exit 1
