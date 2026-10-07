@@ -104,6 +104,31 @@ def match_company(text,master):
     return hits[0][:3]
 
 
+def match_company_secondary(title, body, master):
+    """Conservative secondary-news entity resolution.
+
+    A company must appear in the headline or the opening article text.
+    Mentions buried later in a page can come from widgets/related stories and
+    are not accepted as evidence for that company.
+    """
+    title=str(title or "")
+    body=str(body or "")
+    m=match_company(title,master)
+    if m:
+        return m
+    lead=body[:3000]
+    m=match_company(lead,master)
+    if not m:
+        return None
+    # Require the matched legal-name core to occur close to the article start.
+    symbol,company,isin=m
+    key=norm_name(company)
+    lead_norm=" "+norm_name(lead)+" "
+    if f" {key} " not in lead_norm:
+        return None
+    return m
+
+
 def _keyword_hit(text,term):
     term=str(term or "").strip().lower()
     if not term:
@@ -339,7 +364,7 @@ def main():
         url=str(getattr(r,"url","") or "")
         body=fetch_text(url) if args.fetch_pages else ""
         text=(title+" "+body).strip()
-        m=match_company(text,master)
+        m=match_company_secondary(title,body,master)
         if not m:
             continue
         symbol,company,isin=m
