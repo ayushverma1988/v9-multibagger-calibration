@@ -14,6 +14,7 @@ import pandas as pd
 import requests
 
 API="https://www.nseindia.com/api/integrated-filing-results"
+LEGACY_API="https://www.nseindia.com/api/corporates-financial-results"
 HOME="https://www.nseindia.com/"
 REFERER="https://www.nseindia.com/companies-listing/corporate-integrated-filing"
 TYPE="Integrated Filing- Financials"
@@ -110,7 +111,7 @@ class Client:
                 last=e; time.sleep(min(8,1.5*(i+1)))
         raise RuntimeError(f"GET failed {url}: {last!r}")
 
-def fetch_rows(client,symbol,max_pages=3,size=20):
+def fetch_integrated_rows(client,symbol,max_pages=3,size=20):
     rows=[]
     total=None
     for page in range(1,max_pages+1):
@@ -124,6 +125,52 @@ def fetch_rows(client,symbol,max_pages=3,size=20):
         if total is not None and len(rows)>=total:break
         if len(batch)<size:break
     return rows
+
+def fetch_legacy_rows(client,symbol):
+    # Historical quarterly filings before/around the Integrated Filing migration.
+    # NSE returns the symbol's filing catalog with point-in-time broadcast dates
+    # and direct XBRL links.
+    r=client.get(LEGACY_API,params={
+        "index":"equities","symbol":symbol,"period":"Quarterly"
+    })
+    j=r.json()
+    return [x for x in j if isinstance(x,dict)] if isinstance(j,list) else []
+
+def _mode_label(v):
+    s=clean(v).lower().replace("_"," ")
+    if "non-consolidated" in s or "non consolidated" in s or "standalone" in s:
+        return "standalone"
+    if "consolidated" in s:
+        return "consolidated"
+    return "unknown"
+
+def normalize_filings(integrated_rows,legacy_rows):
+    out=[]
+    for r in integrated_rows:
+        qe=parse_date(r.get("qe_Date"))
+        if not qe: continue
+        out.append({
+            "raw":r,
+            "qe":qe,
+            "mode":_mode_label(r.get("consolidated")),
+            "ts":parse_dt(r.get("broadcast_Date") or r.get("creation_Date")),
+            "xbrl":clean(r.get("xbrl")),
+            "broadcast":r.get("broadcast_Date") or r.get("creation_Date"),
+            "source":"integrated",
+        })
+    for r in legacy_rows:
+        qe=parse_date(r.get("toDate"))
+        if not qe: continue
+        out.append({
+            "raw":r,
+            "qe":qe,
+            "mode":_mode_label(r.get("consolidated")),
+            "ts":parse_dt(r.get("broadCastDate") or r.get("filingDate")),
+            "xbrl":clean(r.get("xbrl")),
+            "broadcast":r.get("broadCastDate") or r.get("filingDate"),
+            "source":"legacy",
+        })
+    return out
 
 def context_map(root):
     out={}
@@ -189,24 +236,33 @@ def extract_xbrl(client,url,qe):
     except Exception as e:
         return {"_error":repr(e)}
 
-def choose_filings(rows):
-    parsed=[]
-    for r in rows:
-        qe=parse_date(r.get("qe_Date"))
-        if not qe:continue
-        typ=clean(r.get("consolidated")).lower()
-        parsed.append({
-            "raw":r,"qe":qe,"consolidated":typ,
-            "ts":parse_dt(r.get("creation_Date") or r.get("broadcast_Date")),
-        })
-    # Prefer consolidated if the company has enough consolidated history;
-    # otherwise use standalone. Never mix within the same quarter.
-    cons=[x for x in parsed if "consolidated" in x["consolidated"] and "standalone" not in x["consolidated"]]
-    mode="consolidated" if len({x["qe"] for x in cons})>=3 else "standalone"
-    pool=cons if mode=="consolidated" else [x for x in parsed if "standalone" in x["consolidated"]]
+def choose_filings(integrated_rows,legacy_rows):
+    parsed=normalize_filings(integrated_rows,legacy_rows)
+
+    # Use one accounting basis across the time series. Prefer the mode with the
+    # broadest quarterly coverage; break close ties in favour of consolidated.
+    cons=[x for x in parsed if x["mode"]=="consolidated"]
+    stand=[x for x in parsed if x["mode"]=="standalone"]
+    nc=len({x["qe"] for x in cons})
+    ns=len({x["qe"] for x in stand})
+    mode="consolidated" if nc>=max(4,ns-1) else "standalone"
+    pool=cons if mode=="consolidated" else stand
+    if not pool:
+        pool=parsed
+        mode="mixed_unknown"
+
+    # Same quarter can exist in both old and new filing systems. Prefer the
+    # Integrated Filing version when available, then the latest broadcast.
     by={}
     for x in pool:
-        if x["qe"] not in by or x["ts"]>by[x["qe"]]["ts"]:by[x["qe"]]=x
+        cur=by.get(x["qe"])
+        if cur is None:
+            by[x["qe"]]=x
+            continue
+        cur_pref=(1 if cur["source"]=="integrated" else 0,cur["ts"])
+        new_pref=(1 if x["source"]=="integrated" else 0,x["ts"])
+        if new_pref>cur_pref:
+            by[x["qe"]]=x
     return mode,sorted(by.values(),key=lambda z:z["qe"],reverse=True)
 
 def pct(a,b):
@@ -349,19 +405,37 @@ def main():
     rows=[]; details=[]; errors=[]
     for i,sym in enumerate(symbols,1):
         try:
-            filings=fetch_rows(client,sym)
-            mode,chosen=choose_filings(filings)
+            integrated=fetch_integrated_rows(client,sym)
+            legacy=fetch_legacy_rows(client,sym)
+            mode,chosen=choose_filings(integrated,legacy)
             qs=[]
             for x in chosen[:12]:
-                raw=x["raw"]
-                facts=extract_xbrl(client,clean(raw.get("xbrl")),x["qe"])
+                facts=extract_xbrl(client,x["xbrl"],x["qe"])
                 if not facts or facts.get("_error"):
                     continue
-                qs.append({"qe":x["qe"],"facts":facts,"broadcast":raw.get("broadcast_Date"),"xbrl":raw.get("xbrl")})
+                qs.append({
+                    "qe":x["qe"],"facts":facts,"broadcast":x["broadcast"],
+                    "xbrl":x["xbrl"],"source":x["source"]
+                })
             m=compute_metrics(qs)
-            m.update({"symbol":sym,"filing_mode":mode,"quarters_extracted":len(qs),"filings_seen":len(filings)})
+            m.update({
+                "symbol":sym,
+                "filing_mode":mode,
+                "quarters_extracted":len(qs),
+                "integrated_quarters":sum(1 for q in qs if q["source"]=="integrated"),
+                "legacy_quarters":sum(1 for q in qs if q["source"]=="legacy"),
+                "integrated_filings_seen":len(integrated),
+                "legacy_filings_seen":len(legacy),
+                "filings_seen":len(integrated)+len(legacy),
+            })
             rows.append(m)
-            details.append({"symbol":sym,"mode":mode,"quarters":[{"qe":str(q["qe"]),"facts":q["facts"],"broadcast":q["broadcast"],"xbrl":q["xbrl"]} for q in qs]})
+            details.append({
+                "symbol":sym,"mode":mode,
+                "quarters":[
+                    {"qe":str(q["qe"]),"facts":q["facts"],"broadcast":q["broadcast"],"xbrl":q["xbrl"],"source":q["source"]}
+                    for q in qs
+                ]
+            })
         except Exception as e:
             errors.append({"symbol":sym,"error":repr(e)})
         if i%20==0:print("financials",i,"/",len(symbols),"ok",len(rows),"errors",len(errors),flush=True)
@@ -377,6 +451,8 @@ def main():
         "symbols_with_5q":int((pd.to_numeric(df.get("quarters_extracted"),errors="coerce")>=5).sum()) if len(df) else 0,
         "symbols_with_8q":int((pd.to_numeric(df.get("quarters_extracted"),errors="coerce")>=8).sum()) if len(df) else 0,
         "symbols_with_12q":int((pd.to_numeric(df.get("quarters_extracted"),errors="coerce")>=12).sum()) if len(df) else 0,
+        "median_quarters":float(pd.to_numeric(df.get("quarters_extracted"),errors="coerce").median()) if len(df) else 0,
+        "symbols_using_legacy_history":int((pd.to_numeric(df.get("legacy_quarters"),errors="coerce").fillna(0)>0).sum()) if len(df) else 0,
         "errors":len(errors),
         "coverage":float(len(df)/len(symbols)) if symbols else 0,
         "columns":list(df.columns),
