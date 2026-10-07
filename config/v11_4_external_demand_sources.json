@@ -14,7 +14,11 @@
     "meity.gov.in",
     "dot.gov.in",
     "morth.nic.in",
-    "eprocure.gov.in"
+    "eprocure.gov.in",
+    "mohua.gov.in",
+    "jalshakti-dowr.gov.in",
+    "pharmaceuticals.gov.in",
+    "cdsco.gov.in"
   ],
   "secondary_domains": [
     "business-standard.com",
@@ -79,14 +83,82 @@
   },
   "official_direct": {
     "pib_rss": [
+      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1",
       "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
-      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=5"
+      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=5",
+      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=6",
+      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=17",
+      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=20",
+      "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=22"
     ],
     "cppp_pages": [
       "https://eprocure.gov.in/eprocure/app",
       "https://eprocure.gov.in/epublish/app"
     ],
     "google_news_official_domain_discovery": true,
-    "minimum_themes_with_official_evidence": 3
+    "minimum_themes_with_official_evidence": 3,
+    "theme_domains": {
+      "battery_bess": [
+        "pib.gov.in",
+        "powermin.gov.in",
+        "mnre.gov.in",
+        "heavyindustries.gov.in"
+      ],
+      "ev_auto": [
+        "pib.gov.in",
+        "heavyindustries.gov.in",
+        "morth.nic.in",
+        "meity.gov.in"
+      ],
+      "semiconductor_electronics": [
+        "pib.gov.in",
+        "meity.gov.in"
+      ],
+      "defence_aerospace": [
+        "pib.gov.in",
+        "mod.gov.in",
+        "ddpmod.gov.in"
+      ],
+      "railways": [
+        "pib.gov.in",
+        "railmin.gov.in",
+        "indianrailways.gov.in"
+      ],
+      "renewables": [
+        "pib.gov.in",
+        "mnre.gov.in",
+        "powermin.gov.in"
+      ],
+      "power_td": [
+        "pib.gov.in",
+        "powermin.gov.in",
+        "powergrid.in"
+      ],
+      "data_centres": [
+        "pib.gov.in",
+        "meity.gov.in",
+        "dot.gov.in"
+      ],
+      "green_hydrogen": [
+        "pib.gov.in",
+        "mnre.gov.in"
+      ],
+      "industrial_automation": [
+        "pib.gov.in",
+        "heavyindustries.gov.in",
+        "meity.gov.in"
+      ],
+      "water_environment": [
+        "pib.gov.in",
+        "mohua.gov.in",
+        "jalshakti-dowr.gov.in"
+      ],
+      "pharma_specialty": [
+        "pib.gov.in",
+        "pharmaceuticals.gov.in",
+        "cdsco.gov.in"
+      ]
+    },
+    "max_google_official_results_per_domain": 20
   }
 }
