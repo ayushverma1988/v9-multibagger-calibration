@@ -159,6 +159,32 @@
         "cdsco.gov.in"
       ]
     },
-    "max_google_official_results_per_domain": 20
+    "max_google_official_results_per_domain": 20,
+    "official_html_pages": [
+      {
+        "domain": "heavyindustries.gov.in",
+        "url": "https://heavyindustries.gov.in/en/press-releases"
+      },
+      {
+        "domain": "heavyindustries.gov.in",
+        "url": "https://heavyindustries.gov.in/en/whats-new"
+      },
+      {
+        "domain": "mnre.gov.in",
+        "url": "https://mnre.gov.in/en/notice-category/current-notices/"
+      },
+      {
+        "domain": "mnre.gov.in",
+        "url": "https://mnre.gov.in/en/documents/"
+      },
+      {
+        "domain": "powermin.gov.in",
+        "url": "https://www.powermin.gov.in/whats-new"
+      },
+      {
+        "domain": "powermin.gov.in",
+        "url": "https://www.powermin.gov.in/documents/reports/new-notices-orders-cDO4QjMtQWa?pageTitle=Current-Notices%2FOrders"
+      }
+    ]
   }
 }
