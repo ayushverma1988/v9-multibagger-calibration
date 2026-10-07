@@ -35,7 +35,7 @@ jobs:
 
       - name: Compile V11.4 audit code
         run: |
-          python -m py_compile             src/v11_4_financial_inflection.py             src/v11_4_candidate_audit.py
+          python -m py_compile             src/v11_4_integrated_financials.py             src/v11_4_candidate_audit.py
 
       - name: Download corrected catalyst evidence
         uses: actions/download-artifact@v4
@@ -58,9 +58,13 @@ jobs:
           fi
           echo "V11_4_EVIDENCE=$EVID" >> "$GITHUB_ENV"
 
-      - name: Build structured financial inflection features
+      - name: Build current integrated-XBRL financial features
         run: |
-          python src/v11_4_financial_inflection.py             --companies published_v11_4_evidence/company_catalyst_intelligence.csv             --output outputs_v11_4_audit/financial_inflection.csv             --max-symbols 220             --sleep 0.45
+          python src/v11_4_integrated_financials.py \
+            --symbols-file published_v11_4_evidence/company_catalyst_intelligence.csv \
+            --symbol-column symbol \
+            --output outputs_v11_4_audit/financial_inflection.csv \
+            --max-symbols 220
 
       - name: Run causal candidate audit
         run: |
@@ -70,11 +74,13 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          f=json.load(open("outputs_v11_4_audit/financial_inflection_summary.json"))
+          f=json.load(open("outputs_v11_4_audit/financial_summary.json"))
           a=json.load(open("outputs_v11_4_audit/candidate_audit_summary.json"))
           print(json.dumps({"financial":f,"audit":a},indent=2))
-          if f.get("financial_available",0) < 40:
-              raise SystemExit("Financial coverage too low")
+          if f.get("symbols_extracted",0) < 80:
+              raise SystemExit("Integrated financial coverage too low")
+          if f.get("symbols_with_5q",0) < 60:
+              raise SystemExit("Insufficient 5-quarter financial history")
           if a.get("eligible",0) < 3:
               raise SystemExit("Too few causal candidates; do not rank")
           PY
@@ -92,7 +98,7 @@ jobs:
           mkdir -p published_v11_4_audit
           cp outputs_v11_4_audit/candidate_audit_summary.json published_v11_4_audit/
           cp outputs_v11_4_audit/candidate_audit_top20.csv published_v11_4_audit/
-          cp outputs_v11_4_audit/financial_inflection_summary.json published_v11_4_audit/
+          cp outputs_v11_4_audit/financial_summary.json published_v11_4_audit/integrated_financial_summary.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add published_v11_4_audit
