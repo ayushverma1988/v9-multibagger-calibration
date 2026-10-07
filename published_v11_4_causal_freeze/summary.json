@@ -6,7 +6,7 @@
     "12m": 0.25,
     "24m": 0.05
   },
-  "purpose": "Prevent a candidate from qualifying on momentum, generic themes, or company announcements alone.",
+  "purpose": "Prevent momentum-only qualification while separately validating pre-obvious and second-leg/re-acceleration opportunities.",
   "chain_requirements": {
     "primary_company_evidence_min": 2,
     "external_theme_demand_min": 0.2,
@@ -22,5 +22,29 @@
     "C": "research only; incomplete external-demand or impact chain",
     "REJECT": "fails primary evidence, causal mechanism, or priced-in gate"
   },
-  "note": "Thresholds frozen before the new external-demand collector result is inspected. Historical validation is still required before production use."
+  "note": "Thresholds and sleeve rules frozen before historical V11.4 validation. Second-leg logic does not excuse a price run unless a fresh catalyst generation and remaining business upside are present.",
+  "sleeve_requirements": {
+    "pre_obvious_discovery": {
+      "material_prior_runup": false,
+      "priced_in_penalty_max": 0.5,
+      "note": "seek business inflection before broad rerating"
+    },
+    "second_leg_reacceleration": {
+      "material_prior_runup": true,
+      "fresh_catalyst_generation_min": 0.45,
+      "remaining_business_upside_min": 0.55,
+      "same_catalyst_priced_penalty_max": 0.5,
+      "note": "prior 50-100%+ run is allowed only when new primary evidence creates a fresh business leg"
+    }
+  },
+  "financial_context": {
+    "quarters": 12,
+    "temporal_weights": {
+      "latest_2q": 0.4,
+      "previous_2q": 0.25,
+      "latest_ttm": 0.2,
+      "prior_ttm_vs_third_ttm": 0.15
+    },
+    "role": "validate business direction and acceleration without requiring the catalyst to have already appeared fully in reported earnings"
+  }
 }
