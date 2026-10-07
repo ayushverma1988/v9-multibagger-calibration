@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import requests
+import feedparser
 
 UA="Mozilla/5.0 (compatible; V11.4ExternalDemand/1.2)"
 
@@ -89,9 +90,55 @@ def parse_html_rows(content):
     except Exception:
         return []
 
-def fetch_pib_official(url,max_records=120):
+def fetch_pib_official(url,max_records=250):
     r=req(url,timeout=60)
-    return parse_rss(r.content,limit=max_records)
+    parsed=feedparser.parse(r.content)
+    out=[]
+    for e in parsed.entries[:int(max_records)]:
+        title=str(e.get("title") or "").strip()
+        link=str(e.get("link") or "").strip()
+        pub=str(e.get("published") or e.get("updated") or "").strip()
+        out.append({
+            "title":title,
+            "url":link,
+            "published":pub,
+            "source_name":"Press Information Bureau",
+            "source_url":"https://pib.gov.in"
+        })
+    return out
+
+def parse_row_date(text):
+    s=str(text or "")
+    pats=[
+        r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{4})\b",
+        r"\b(\d{1,2}-[A-Za-z]{3}-\d{4})\b",
+        r"\b(\d{1,2}[/-][A-Za-z]{3}[/-]\d{4})\b",
+        r"\b(\d{1,2}[.]\d{1,2}[.]\d{4})\b",
+    ]
+    for p in pats:
+        m=re.search(p,s)
+        if not m: continue
+        v=m.group(1)
+        for dayfirst in (True,False):
+            try:
+                return pd.to_datetime(v,dayfirst=dayfirst,utc=True,errors="raise")
+            except Exception:
+                pass
+    return pd.NaT
+
+def fetch_official_html_rows(url,max_rows=500):
+    r=req(url,timeout=60)
+    rows=parse_html_rows(r.content)
+    if not rows:
+        # Some ministry pages use cards/lists rather than tables. Fall back to
+        # the rendered page text split into bounded chunks around date patterns.
+        html=r.content.decode("utf-8","ignore")
+        txt=re.sub(r"(?is)<script.*?>.*?</script>"," ",html)
+        txt=re.sub(r"(?is)<style.*?>.*?</style>"," ",txt)
+        txt=re.sub(r"(?s)<[^>]+>"," ",txt)
+        txt=re.sub(r"\s+"," ",txt)
+        rows=re.split(r"(?=\b\d{1,2}[/-](?:\d{1,2}|[A-Za-z]{3})[/-]\d{4}\b)",txt)
+    return [re.sub(r"\s+"," ",x).strip()[:4000] for x in rows[:max_rows] if len(str(x).strip())>=20]
 
 def fetch_cppp_rows(url,max_rows=300):
     r=req(url,timeout=60)
@@ -229,8 +276,8 @@ def main():
     qcfg=json.load(open(args.queries_config))
     scfg=json.load(open(args.source_config))
     rows=[]; errors=[]
-    source_health={"gdelt":False,"google_news":False,"pib_direct":False,"cppp_direct":False}
-    source_items={"gdelt":0,"google_news":0,"pib_direct":0,"cppp_direct":0,"google_official":0}
+    source_health={"gdelt":False,"google_news":False,"pib_direct":False,"cppp_direct":False,"official_html":False}
+    source_items={"gdelt":0,"google_news":0,"pib_direct":0,"cppp_direct":0,"google_official":0,"official_html":0}
 
     # 1) Mandatory GDELT raw/live article stream. This does not use the throttled DOC API.
     gdelt_url=scfg.get("gdelt",{}).get("live_article_feed","https://data.gdeltproject.org/gdeltv3/gal/feed.rss")
@@ -306,9 +353,13 @@ def main():
     # 3) Direct official-demand evidence: PIB release feeds.
     direct_cfg=scfg.get("official_direct",{})
     pib_count=0
+    pib_entries=0
+    pib_fetch_ok=0
     for feed_url in direct_cfg.get("pib_rss",[]):
         try:
             arts=fetch_pib_official(feed_url)
+            pib_fetch_ok+=1
+            pib_entries+=len(arts)
         except Exception as e:
             errors.append({"source":"pib_direct","url":feed_url,"error":repr(e)})
             continue
@@ -328,7 +379,8 @@ def main():
                 add_row(rows,theme,ts,"pib_direct",item,dom,"official",1.0,text,scfg,resolved=True)
                 pib_count+=1
     source_items["pib_direct"]=pib_count
-    source_health["pib_direct"]=pib_count>0
+    source_items["pib_feed_entries"]=pib_entries
+    source_health["pib_direct"]=pib_fetch_ok>0 and pib_entries>0
 
     # 4) Direct Government of India CPPP/eProcurement public tender listings.
     cppp_count=0
@@ -350,7 +402,39 @@ def main():
     source_items["cppp_direct"]=cppp_count
     source_health["cppp_direct"]=cppp_count>0
 
-    # 5) Dedicated official-domain discovery via Google News. Query the small
+    # 5) Direct dated ministry/government list pages.
+    official_html_count=0
+    official_html_pages_ok=0
+    cutoff=pd.Timestamp.now(tz="UTC")-pd.Timedelta(days=days)
+    for src in direct_cfg.get("official_html_pages",[]):
+        page_url=str(src.get("url") or "")
+        domain=str(src.get("domain") or urlparse(page_url).netloc).lower().replace("www.","")
+        try:
+            page_rows=fetch_official_html_rows(page_url)
+            official_html_pages_ok+=1
+        except Exception as e:
+            errors.append({"source":"official_html","url":page_url,"error":repr(e)})
+            continue
+        for txt in page_rows:
+            ts=parse_row_date(txt)
+            if pd.isna(ts) or ts<cutoff:
+                continue
+            hits=themes_for(txt,qcfg["themes"])
+            if not hits:
+                continue
+            # Require a demand/catalyst term as well as a theme word so generic
+            # ministry navigation text cannot qualify.
+            et,ew=event_type(txt)
+            if et=="general_demand":
+                continue
+            item={"title":txt[:500],"url":page_url}
+            for theme in hits:
+                add_row(rows,theme,ts,"official_html",item,domain,"official",1.0,txt,scfg,resolved=True)
+                official_html_count+=1
+    source_items["official_html"]=official_html_count
+    source_health["official_html"]=official_html_pages_ok>0
+
+    # 6) Dedicated official-domain discovery via Google News. Query the small
     # ministry/domain set relevant to each theme separately. Large OR-ed site:
     # expressions produced very poor recall and hid genuine PIB/ministry releases.
     google_official_count=0
@@ -450,6 +534,7 @@ def main():
             "pib_direct_rows":int((g["discovery_source"]=="pib_direct").sum()) if len(g) else 0,
             "cppp_direct_rows":int((g["discovery_source"]=="cppp_direct").sum()) if len(g) else 0,
             "google_official_rows":int((g["discovery_source"]=="google_official").sum()) if len(g) else 0,
+            "official_html_rows":int((g["discovery_source"]=="official_html").sum()) if len(g) else 0,
             "distinct_domains":distinct_domains,
             "official_weight":offw,
             "secondary_weight":secw,
@@ -470,7 +555,7 @@ def main():
         "required_sources_ok":required_ok,
         "rows":int(len(df)),
         "themes_with_official_evidence":int((sdf["official_rows"]>0).sum()),
-        "themes_with_direct_official_evidence":int(((sdf.get("pib_direct_rows",0)>0)|(sdf.get("cppp_direct_rows",0)>0)|(sdf.get("google_official_rows",0)>0)).sum()),
+        "themes_with_direct_official_evidence":int(((sdf.get("pib_direct_rows",0)>0)|(sdf.get("cppp_direct_rows",0)>0)|(sdf.get("google_official_rows",0)>0)|(sdf.get("official_html_rows",0)>0)).sum()),
         "themes_with_any_evidence":int((sdf["distinct_domains"]>0).sum()),
         "themes_with_cross_source_corroboration":int(((sdf["gdelt_rows"]>0)&(sdf["google_news_rows"]>0)).sum()),
         "top_themes":sdf.head(12).to_dict("records"),
@@ -485,8 +570,11 @@ def main():
     if summary["themes_with_any_evidence"]<3:
         raise SystemExit("External demand coverage too sparse")
     min_official=int(direct_cfg.get("minimum_themes_with_official_evidence",3))
-    if summary["themes_with_official_evidence"]<min_official:
-        raise SystemExit(f"Direct/official demand coverage too sparse: {summary['themes_with_official_evidence']} < {min_official}")
+    if summary["themes_with_direct_official_evidence"]<min_official:
+        raise SystemExit(
+            f"Direct official demand coverage too sparse: "
+            f"{summary['themes_with_direct_official_evidence']} < {min_official}"
+        )
 
 if __name__=="__main__":
     main()
