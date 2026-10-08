@@ -1,0 +1,52 @@
+name: V11.4 NSE Historical Financial Numeric Quality Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_financial_numeric_quality_audit.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3'
+      - run: python -m py_compile src/v11_4_financial_numeric_quality_audit.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-historical-annual-xbrl-numerics
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37745025350
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-integrated-2025-numeric-XBRL-pilot
+          path: integrated_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37745987823
+      - name: Inspect financial numeric concept availability
+        shell: bash
+        run: |
+          ANNUAL=$(find annual_seed -name annual_XBRL_PIT_fact_candidates.csv -print -quit)
+          NEW=$(find integrated_seed -name integrated_XBRL_2025_numeric_candidates.csv -print -quit)
+          test -n "$ANNUAL" && test -n "$NEW"
+          python src/v11_4_financial_numeric_quality_audit.py \
+            --annual "$ANNUAL" --integrated "$NEW" \
+            --output outputs_v11_4_financial_numeric_qa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-financial-numeric-fact-qa
+          path: outputs_v11_4_financial_numeric_qa/
+          retention-days: 60
+          if-no-files-found: warn
