@@ -32,7 +32,8 @@ def main():
     quarter["pub"]=pd.to_datetime(quarter["available_at_utc"],utc=True)
     quarter["mode_priority"]=quarter["consolidated"].astype(str).str.lower().eq("consolidated").astype(int)
     quarter=quarter.sort_values(["symbol","mode_priority","pub"],ascending=[True,False,True])
-    quarter=quarter.drop_duplicates(["symbol"],keep="first")
+    # Keep both sources; never mix standalone/consolidated annual values.
+    quarter=quarter.drop_duplicates(["symbol","consolidated"],keep="first")
     new=pd.DataFrame({
         "symbol":quarter["symbol"].astype(str).str.upper().str.strip(),
         "fy_end":"2025-03-31",
@@ -49,6 +50,8 @@ def main():
     summary={
         "source_old_annual_index_rows":len(old),
         "FY2025_integrated_non_bank_Q4_candidates":len(new),
+        "FY2025_unique_company_symbols":int(new["symbol"].nunique()),
+        "FY2025_distinct_reporting_mode_rows":len(new),
         "index_rows_combined":len(comb),
         "old_consolidated_labels":old["consolidated"].astype(str).value_counts().head(7).to_dict(),
         "integrated_consolidated_labels":new["consolidated"].astype(str).value_counts().head(7).to_dict(),
