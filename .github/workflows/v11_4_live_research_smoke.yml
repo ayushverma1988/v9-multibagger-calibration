@@ -1,5 +1,5 @@
 name: V11.4 Verify Current NSE Market and Freeze Forward Predictions
-# Re-run with exact NSE ISO-vs-Indian trade-date parser and explicit missing-date diagnostics.
+# Quarantine unverifiable split/bonus symbols; never substitute unverified price-adjustment factors.
 on:
   workflow_dispatch:
   push:
