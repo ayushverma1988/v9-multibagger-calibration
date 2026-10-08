@@ -53,6 +53,16 @@ def family_eval(row,rules):
         ],default=str)
     }
 
+def num_col(df,name):
+    if name in df.columns:
+        return pd.to_numeric(df[name],errors="coerce")
+    return pd.Series(np.nan,index=df.index,dtype=float,name=name)
+
+def bool_col(df,name):
+    if name in df.columns:
+        return df[name].astype("boolean")
+    return pd.Series(pd.NA,index=df.index,dtype="boolean",name=name)
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--config",required=True)
@@ -88,26 +98,32 @@ def main():
         x=x.merge(d,on="symbol",how="left")
 
     # Exact/derived fields for Rule 3 and common overlays.
-    x["sales_latest_ge_yoy_quarter"]=pd.to_numeric(x.get("revenue_yoy"),errors="coerce").ge(0)
-    x.loc[pd.to_numeric(x.get("revenue_yoy"),errors="coerce").isna(),"sales_latest_ge_yoy_quarter"]=pd.NA
-    x["sales_latest_ge_2q_back"]=pd.to_numeric(x.get("revenue_vs_2q_back"),errors="coerce").ge(0)
-    x.loc[pd.to_numeric(x.get("revenue_vs_2q_back"),errors="coerce").isna(),"sales_latest_ge_2q_back"]=pd.NA
-    x["yoy_quarterly_profit_growth"]=pd.to_numeric(x.get("pat_yoy"),errors="coerce")
+    # Missing optional inputs must stay UNKNOWN; never allow a scalar NaN to
+    # crash the whole evaluation or to become an implicit pass/fail.
+    rev_yoy=num_col(x,"revenue_yoy")
+    rev_2q=num_col(x,"revenue_vs_2q_back")
+    pat_yoy=num_col(x,"pat_yoy")
 
-    for c in ["pat_latest_gt_preceding","pat_preceding_gt_2q_back"]:
-        if c not in x:x[c]=pd.NA
+    x["sales_latest_ge_yoy_quarter"]=rev_yoy.ge(0).astype("boolean")
+    x.loc[rev_yoy.isna(),"sales_latest_ge_yoy_quarter"]=pd.NA
+    x["sales_latest_ge_2q_back"]=rev_2q.ge(0).astype("boolean")
+    x.loc[rev_2q.isna(),"sales_latest_ge_2q_back"]=pd.NA
+    x["yoy_quarterly_profit_growth"]=pat_yoy
+
+    for bc in ["pat_latest_gt_preceding","pat_preceding_gt_2q_back"]:
+        x[bc]=bool_col(x,bc)
 
     # Screener PEG is a growth-adjusted valuation. Use 5y PAT CAGR where available,
     # then 3y PAT CAGR. Keep it explicitly named a proxy.
-    pg5=pd.to_numeric(x.get("profit_growth_5y"),errors="coerce")
-    pg3=pd.to_numeric(x.get("profit_growth_3y"),errors="coerce")
+    pg5=num_col(x,"profit_growth_5y")
+    pg3=num_col(x,"profit_growth_3y")
     growth=pg5.where(pg5>0,pg3.where(pg3>0))
-    pe=pd.to_numeric(x.get("company_pe"),errors="coerce")
+    pe=num_col(x,"company_pe")
     x["peg_ratio_proxy"]=pe/(growth*100.0)
     x["peg_ratio"]=x["peg_ratio_proxy"]
 
     # Pledge is usable as a hard rule only when XBRL confidence is adequate.
-    pc=pd.to_numeric(x.get("pledged_pct_confidence"),errors="coerce")
+    pc=num_col(x,"pledged_pct_confidence")
     if "pledged_pct" in x:
         x.loc[pc.lt(0.70)|pc.isna(),"pledged_pct"]=np.nan
 
@@ -133,15 +149,15 @@ def main():
     # User's common checkpoints. These are explicit diagnostics and a small
     # confidence component; sector-sensitive fixed assets are not a universal hard fail.
     common_tests=pd.DataFrame(index=x.index)
-    ph=pd.to_numeric(x.get("promoter_holding"),errors="coerce")
+    ph=num_col(x,"promoter_holding")
     common_tests["promoter_50"]=ph.ge(0.50).where(ph.notna())
-    cfo=pd.to_numeric(x.get("cfo_to_pat_last_year"),errors="coerce")
+    cfo=num_col(x,"cfo_to_pat_last_year")
     common_tests["positive_cfo"]=cfo.gt(0).where(cfo.notna())
-    rap=pd.to_numeric(x.get("receivables_to_pat"),errors="coerce")
+    rap=num_col(x,"receivables_to_pat")
     common_tests["receivable_strict"]=rap.lt(0.10).where(rap.notna())
-    common_tests["above_both_dma"]=x.get("price_above_both_dma",pd.Series(pd.NA,index=x.index)).astype("boolean")
-    common_tests["reserves_gt_borrowings"]=x.get("reserves_gt_borrowings",pd.Series(pd.NA,index=x.index)).astype("boolean")
-    fag=pd.to_numeric(x.get("fixed_assets_yoy_growth"),errors="coerce")
+    common_tests["above_both_dma"]=bool_col(x,"price_above_both_dma")
+    common_tests["reserves_gt_borrowings"]=bool_col(x,"reserves_gt_borrowings")
+    fag=num_col(x,"fixed_assets_yoy_growth")
     common_tests["fixed_assets_growing"]=fag.gt(0).where(fag.notna())
 
     cpass=common_tests.eq(True).sum(axis=1)
@@ -167,17 +183,20 @@ def main():
 
     bw=float(cfg["integration"]["base_v11_4_weight"])
     ow=float(cfg["integration"]["multibagger_rule_overlay_weight"])
-    base=pd.to_numeric(x.get("sleeve_score",x.get("v11_4_score_raw")),errors="coerce").fillna(0)
+    base=num_col(x,"sleeve_score")
+    if base.isna().all():
+        base=num_col(x,"v11_4_score_raw")
+    base=base.fillna(0)
     x["v11_4_mb_challenger_score"]=(bw*base+ow*x["multibagger_rule_overlay_score"]).clip(0,1)
     x["v11_4_mb_challenger_rank"]=x["v11_4_mb_challenger_score"].rank(ascending=False,method="first").astype(int)
 
     # Chart-trigger diagnostics useful for entry timing, not causal eligibility.
     x["chart_trigger_ready"]=(
-        x.get("price_gt_dma50_prev",False).fillna(False).astype(bool)
-        & x.get("dma50_slope_positive",False).fillna(False).astype(bool)
+        bool_col(x,"price_gt_dma50_prev").fillna(False).astype(bool)
+        & bool_col(x,"dma50_slope_positive").fillna(False).astype(bool)
         & (
-            x.get("price_gt_dma200_prev",False).fillna(False).astype(bool)
-            | x.get("price_lt_dma200_prev",False).fillna(False).astype(bool)
+            bool_col(x,"price_gt_dma200_prev").fillna(False).astype(bool)
+            | bool_col(x,"price_lt_dma200_prev").fillna(False).astype(bool)
         )
     )
 
