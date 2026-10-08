@@ -1,0 +1,17 @@
+{
+  "folds": 18,
+  "reconstructable_folds": 8,
+  "minimum_required_folds": 12,
+  "all_pit_violations": 0,
+  "median_event_symbol_coverage": 0.9948107272927933,
+  "median_primary_event_symbol_coverage": 0.9948107272927933,
+  "median_financial_symbol_coverage": 0.9869277534821406,
+  "median_shareholding_coverage": 0.0,
+  "median_symbols_12q_plus": 908.5,
+  "median_symbols_5y_plus": 0.0,
+  "median_symbols_7y_plus": 0.0,
+  "historical_external_demand_status": "SEPARATE_ADAPTER_REQUIRED",
+  "historical_external_demand_note": "Company/event/financial/ownership PIT reconstruction is audited here. Exact historical GDELT+Google News demand reconstruction must pass separately before final V11.4 promotion.",
+  "ready_for_company_level_pit_rebuild": false,
+  "ready_for_final_v11_4_backtest": false
+}
