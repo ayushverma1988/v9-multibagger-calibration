@@ -1,11 +1,6 @@
 name: V11.4 Integrated Financials 2025 Source Pilot
 on:
   workflow_dispatch:
-  push:
-    branches: [v11-4-ownership-backfill-probe]
-    paths:
-      - 'src/v11_4_integrated_2025_source_pilot.py'
-      - '.github/workflows/v11_4_integrated_2025_source_pilot.yml'
 permissions:
   actions: read
   contents: read
