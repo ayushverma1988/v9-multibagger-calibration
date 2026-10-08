@@ -23,6 +23,8 @@ def main():
     p.add_argument("--snapshot",required=True)
     p.add_argument("--qa",required=True)
     p.add_argument("--max-companies",type=int,default=96)
+    p.add_argument("--shard-index",type=int,default=0)
+    p.add_argument("--shard-count",type=int,default=1)
     p.add_argument("--output",required=True)
     a=p.parse_args();out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
     qa=json.loads(Path(a.qa).read_text())
@@ -56,7 +58,9 @@ def main():
     keys=set(older)&set(newer)
     companies={x[0] for x in keys}
     chosen=[]
-    for symbol in sorted(companies,key=lambda z:hashlib.sha256(z.encode()).hexdigest())[:a.max_companies]:
+    if a.shard_count<1 or not 0<=a.shard_index<a.shard_count:raise SystemExit("Invalid 2025 numeric shard")
+    selected_symbols=sorted(companies,key=lambda z:hashlib.sha256(z.encode()).hexdigest())[a.shard_index::a.shard_count][:a.max_companies]
+    for symbol in selected_symbols:
         mode="consolidated" if (symbol,"consolidated") in keys else "standalone"
         chosen.append((symbol,mode))
     client=Client();facts=[];errors=[];fully_verified=0
@@ -91,6 +95,8 @@ def main():
         "original_historical_universe":len(syms),
         "eligible_companies_with_2024_legacy_and_2025_integrated_same_mode":len(companies),
         "sampled_companies":len(chosen),"paired_revenue_PAT_docs":fully_verified*2,
+        "shard_index":a.shard_index,"shard_count":a.shard_count,
+        "requested_symbols":[s for s,_ in chosen],
         "fully_verified_2024_2025_pairs":fully_verified,
         "attempted_docs":len(facts)+len(errors),"download_errors":len(errors),
         "mode_mixing":False,"asof_close":cutoff.isoformat(),
@@ -98,6 +104,6 @@ def main():
     }
     (out/"FY2025_annual_PIT_pairing_summary.json").write_text(json.dumps(summary,indent=2))
     print(json.dumps(summary,indent=2),flush=True)
-    if fully_verified<max(16,a.max_companies//3):
+    if fully_verified<max(16,len(chosen)//3):
         raise SystemExit("Paired verified FY2024 vs FY2025 annual source financials insufficient")
 if __name__=="__main__":main()
