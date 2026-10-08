@@ -1,0 +1,110 @@
+name: V11.4 Combined Historical PIT Coverage Rehearsal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - '.github/workflows/v11_4_combined_pit_rehearsal.yml'
+      - 'src/v11_4_nse_combined_pit_rehearsal.py'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  stage-and-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install evaluation dependencies
+        run: python -m pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'numpy>=2,<3'
+      - name: Compile staging code
+        run: python -m py_compile src/v11_4_nse_combined_pit_rehearsal.py
+      - name: Download NSE filing-derived ownership candidates and independent sample QA
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-open-nse-ownership-backfill-pilot
+          path: ownership_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37723651369
+      - name: Download official financial and ownership PIT archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: official_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+      - name: Download canonical historical events
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - name: Download integrity-clean historical snapshots
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Obtain frozen original 18-fold historical audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_historical_pit_readiness.py > frozen_historical_pit_readiness.py
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > fold_dates.csv
+          python -m py_compile frozen_historical_pit_readiness.py
+      - name: Stage official and older community NSE ownership (rehearsal only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          OFFICIAL=$(find official_seed -name shareholding_master.parquet -print -quit)
+          CANDIDATE=$(find ownership_seed -name ownership_historical_pit_candidates.parquet -print -quit)
+          VERIFY=$(find ownership_seed -name xbrl_verification_summary.json -print -quit)
+          test -n "$OFFICIAL" && test -n "$CANDIDATE" && test -n "$VERIFY"
+          python src/v11_4_nse_combined_pit_rehearsal.py \
+            --official "$OFFICIAL" --candidate "$CANDIDATE" \
+            --verification-summary "$VERIFY" \
+            --output outputs_v11_4_combined_pit_rehearsal
+      - name: Run frozen PIT fold audit on staged ownership
+        id: fold_audit
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVENTS=$(find events_seed -name events_all_2016_2026.parquet -print -quit)
+          FIN=$(find official_seed -name financial_results_metadata.parquet -print -quit)
+          INS=$(find official_seed -name insider_trades.parquet -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$EVENTS" && test -n "$FIN" && test -n "$INS" && test -n "$SNAP"
+          python frozen_historical_pit_readiness.py \
+            --events "$EVENTS" --financial-metadata "$FIN" \
+            --shareholding outputs_v11_4_combined_pit_rehearsal/ownership_merged_REHEARSAL_ONLY.parquet \
+            --insider "$INS" --snapshot "$SNAP" --folds fold_dates.csv \
+            --output outputs_v11_4_combined_pit_rehearsal
+      - name: Upload isolated backtest readiness diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-combined-pit-readiness-REHEARSAL-ONLY
+          path: outputs_v11_4_combined_pit_rehearsal/
+          if-no-files-found: warn
+          retention-days: 60
+      - name: Enforce original PIT coverage threshold
+        if: always()
+        run: |
+          if [[ "${{ steps.fold_audit.outcome }}" != "success" ]]; then
+            echo "::error::Combined historical PIT coverage rehearsal did not meet frozen 12-of-18 gate."
+            exit 1
+          fi
