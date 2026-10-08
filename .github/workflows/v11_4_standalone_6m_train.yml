@@ -36,7 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
-      - name: Rerun standalone V11.4 with provably monotone Platt-or-EB calibration and original acceptance gates
+      - name: Verify standalone V11.4 5-estimator monotone committee against 12 independent stability perturbations and unchanged acceptance gates
         shell: bash
         run: |
           set -euo pipefail
