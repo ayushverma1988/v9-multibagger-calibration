@@ -48,7 +48,7 @@ jobs:
             --output four_family_coverage
       - name: Score unmodified frozen standalone V11.4 and seal first-seen private six-month observations
         env:
-          HF_ARCHIVE_TOKEN: HF_${{ secrets.GITHUB_TOKEN }}
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
