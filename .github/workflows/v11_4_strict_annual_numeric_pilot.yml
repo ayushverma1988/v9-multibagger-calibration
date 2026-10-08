@@ -23,7 +23,7 @@ jobs:
           git fetch origin v10-fresh-current --depth 1
           git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
           python -m py_compile src/v11_4_longterm_fundamentals.py src/v11_4_strict_annual_numeric_features.py
-      - name: Run adversarial fiscal-year, unit and market-close tests
+      - name: Run six adversarial fiscal-year, NSE FourD, unit and market-close tests
         run: PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
       - uses: actions/download-artifact@v4
         with:
