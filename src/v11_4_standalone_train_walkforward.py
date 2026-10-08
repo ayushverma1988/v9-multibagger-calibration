@@ -96,7 +96,7 @@ def calibration_mode(calibration_y):
             and int((yy==0).sum())>=MIN_CALIBRATION_POSITIVES
             else "sparse_empirical_bayes_intercept")
 
-def calibrate_logit(raw,calibration_values,calibration_y,training_y=None):
+def calibrate_logit(raw,calibration_values,calibration_y,training_y=None,return_mode=False):
     # An already-matured calibration fold is disjoint from train and test.
     # Where it contains fewer than 12 successes, avoid fitting unreliable
     # Platt slope/intercept parameters. Shrink its empirical event rate
@@ -109,7 +109,13 @@ def calibrate_logit(raw,calibration_values,calibration_y,training_y=None):
         lr=LogisticRegression(C=CALIBRATION_C,solver="lbfgs",
                               class_weight=None,max_iter=400,random_state=31)
         lr.fit(np.log(q/(1-q)).reshape(-1,1),y)
-        return lr.predict_proba(np.log(t/(1-t)).reshape(-1,1))[:,1]
+        if float(lr.coef_[0][0])>0:
+            pred=lr.predict_proba(np.log(t/(1-t)).reshape(-1,1))[:,1]
+            return (pred,"platt_positive_slope") if return_mode else pred
+        # Unconstrained Platt can fit a NEGATIVE slope in some historical
+        # market regimes, mathematically reversing the raw stock ranking.
+        # This is invalid for our monotone recalibration design. Use the
+        # conservatively shrunk intercept-only method instead.
     if training_y is None:
         raise ValueError("Sparse calibration requires independently matured earlier training labels")
     earlier=np.asarray(training_y,dtype=int)
@@ -126,18 +132,22 @@ def calibrate_logit(raw,calibration_values,calibration_y,training_y=None):
         if float(corrected.mean())<goal:lo=middle
         else:hi=middle
     pred=np.log(t/(1-t))+(lo+hi)/2
-    return 1/(1+np.exp(-np.clip(pred,-35,35)))
+    output=1/(1+np.exp(-np.clip(pred,-35,35)))
+    method=("monotone_EB_after_negative_Platt_slope"
+            if calibration_mode(y)=="platt" else "sparse_empirical_bayes_intercept")
+    return (output,method) if return_mode else output
 
 def top10_similarity(a,b):
     aa=set(a);bb=set(b)
     return len(aa&bb)/len(aa|bb) if aa or bb else 1.0
 
-def train_once(train,cal,test):
+def train_once(train,cal,test,return_mode=False):
     model=make_model()
     model.fit(train[list(MODEL_FEATURES)],train["y6"].astype(int))
     calpred=model.predict_proba(cal[list(MODEL_FEATURES)])[:,1]
     testpred=model.predict_proba(test[list(MODEL_FEATURES)])[:,1]
-    return calibrate_logit(testpred,calpred,cal["y6"],train["y6"])
+    return calibrate_logit(
+        testpred,calpred,cal["y6"],train["y6"],return_mode=return_mode)
 
 def perturbation_training(train,seed,retention=STABILITY_RETENTION):
     # Preserve each original fold and both classes. Randomly retain 95% of
@@ -212,7 +222,7 @@ def main():
         if pd.to_datetime(cal["y6_mature_date"],utc=True,errors="coerce").max()>=fold_close(td):
             raise SystemExit("Calibration outcome matured AFTER selection cutoff")
         cal_values=cal["y6"].astype(int).to_numpy()
-        pvalues=train_once(base,cal,current)
+        pvalues,actual_calibration_method=train_once(base,cal,current,return_mode=True)
         current["v11_4_p2x_calibrated"]=pvalues
         chosen=current.sort_values(
             ["v11_4_p2x_calibrated","symbol"],ascending=[False,True]).head(TOP_K)
@@ -235,7 +245,7 @@ def main():
             "calibration_fold":str(pd.Timestamp(cal_fold).date()),
             "calibration_rows":len(cal),
             "calibration_winners":int(cal["y6"].sum()),
-            "calibration_method":calibration_mode(cal["y6"]),
+            "calibration_method":actual_calibration_method,
             "candidates":len(current),"selected":len(chosen),
             "outcome_matured_eligible":len(assessed),
             "matured_selections":len(chosen_good),
@@ -291,6 +301,10 @@ def main():
         "sparse_calibration_prior_strength":SPARSE_CAL_PRIOR_STRENGTH,
         "sparse_calibration_does_not_override_12fold_or_jaccard_gates":True,
         "sparse_calibration_is_exploratory":True,
+        "platt_negative_slope_ranking_inversion_forbidden":True,
+        "folds_using_monotone_negative_slope_fallback":int(
+            tested.get("calibration_method",pd.Series(dtype=str))
+            .eq("monotone_EB_after_negative_Platt_slope").sum()),
         "fixed_C":REGULARIZATION_C,
         "previous_matured_label_only":True,
         "training_or_calibration_current_or_future_labels":False,
