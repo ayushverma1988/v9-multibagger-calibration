@@ -30,6 +30,26 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37747467876
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-strict-annual-PIT-5y7y-numeric-candidates
+          path: numeric_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37752692605
+      - name: Show historic revenue and profit facts by fiscal year
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          x=pd.read_csv("numeric_seed/annual_exact_context_PIT_numeric_candidates.csv")
+          x["fy_year"]=x["fy_end"].str[:4]
+          print(x.groupby("fy_year").agg(
+            files=("symbol","size"),
+            revenue_nonnull=("revenue","count"),
+            pat_nonnull=("pat","count"),
+            companies=("symbol","nunique")
+          ).to_string())
+          PY
       - name: Compare actual annual XBRL contexts, date spans and monetary units
         shell: bash
         run: |
