@@ -47,10 +47,6 @@ MIN_CALIBRATION_POSITIVES=12
 MIN_RESEARCH_TEST_FOLDS=12
 # Larger, independently held-out stability perturbation set.
 STABILITY_SEEDS=(17,29,41,53,67,83,97,109,127,139,157,173)
-# The ensemble uses disjoint FIXED subsample seeds; none coincide with
-# stability evaluation seeds, and neither is optimized on future doubles.
-ENSEMBLE_SEEDS=(101,211,307,419)
-ENSEMBLE_RETENTION=0.90
 # Sparse historical winner regimes use a conservative shrinkage estimator
 # instead of fitting unstable Platt coefficients from 0-7 observations.
 SPARSE_CAL_PRIOR_STRENGTH=200.0
@@ -147,21 +143,15 @@ def top10_similarity(a,b):
     return len(aa&bb)/len(aa|bb) if aa or bb else 1.0
 
 def train_once(train,cal,test,return_mode=False):
-    # Stable full-history reference plus four fully prior-matured, per-fold
-    # stratified 90% subsets. Committee averaging precedes MONOTONE
-    # calibration so the calibration curve cannot reverse the ranking.
-    cal_members=[];test_members=[]
-    for seed in (None,*ENSEMBLE_SEEDS):
-        cohort=train if seed is None else perturbation_training(
-            train,seed,retention=ENSEMBLE_RETENTION)
-        model=make_model()
-        model.fit(cohort[list(MODEL_FEATURES)],cohort["y6"].astype(int))
-        cal_members.append(model.predict_proba(cal[list(MODEL_FEATURES)])[:,1])
-        test_members.append(model.predict_proba(test[list(MODEL_FEATURES)])[:,1])
-    calibrated_input=np.mean(np.stack(cal_members),axis=0)
-    test_input=np.mean(np.stack(test_members),axis=0)
+    # One fully matured, strongly regularized model. Previously tested
+    # bagging committees did not improve genuine twelve-seed stability;
+    # the confirmed negative-Platt slope bug fix remains active.
+    model=make_model()
+    model.fit(train[list(MODEL_FEATURES)],train["y6"].astype(int))
+    calpred=model.predict_proba(cal[list(MODEL_FEATURES)])[:,1]
+    testpred=model.predict_proba(test[list(MODEL_FEATURES)])[:,1]
     return calibrate_logit(
-        test_input,calibrated_input,cal["y6"],train["y6"],return_mode=return_mode)
+        testpred,calpred,cal["y6"],train["y6"],return_mode=return_mode)
 
 def perturbation_training(train,seed,retention=STABILITY_RETENTION):
     # Preserve each original fold and both classes. Randomly retain 95% of
@@ -311,11 +301,10 @@ def main():
         "training_feature_count":len(MODEL_FEATURES),
         "finance_numeric_folds_verified":int(fy_coverage),
         "finance_numeric_features_deliberately_dormant_until_12_folds":True,
-        "training_algorithm":"Fixed full+4 bagged L2 logistic committee, monotonic Platt or empirical-Bayes calibration on prior-matured fold",
-        "ensemble_member_count":1+len(ENSEMBLE_SEEDS),
-        "ensemble_training_retention":ENSEMBLE_RETENTION,
+        "training_algorithm":"Standalone L2 logistic with strictly monotonic prior-fold Platt/empirical-Bayes calibration",
         "stability_seeds":list(STABILITY_SEEDS),
-        "stability_seeds_disjoint_from_ensemble_seeds":not bool(set(STABILITY_SEEDS)&set(ENSEMBLE_SEEDS)),
+        "stability_perturbations_per_fold":len(STABILITY_SEEDS),
+        "rejected_exploratory_bagging_committees":True,
         "development_history_includes_prior_exploratory_runs":True,
         "sparse_calibration_prior_strength":SPARSE_CAL_PRIOR_STRENGTH,
         "sparse_calibration_does_not_override_12fold_or_jaccard_gates":True,
