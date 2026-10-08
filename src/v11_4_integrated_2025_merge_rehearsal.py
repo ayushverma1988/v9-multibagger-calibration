@@ -36,6 +36,18 @@ def main():
         "origin":"nse_integrated_filing_financial",
     })
     old=old.copy();old["origin"]="official_quarterly_archive"
+    # Normalize both filing generations to one minimal, typed PIT schema.
+    # Do not try to serialize every legacy object-valued API field.
+    columns=["symbol","symbol_norm","toDate","fromDate","broadCastDate",
+             "filingDate","period","consolidated","xbrl","origin","integrated_seq_id"]
+    old=old.reindex(columns=columns)
+    integrated=integrated.reindex(columns=columns)
+    for col in ("toDate","fromDate","broadCastDate","filingDate"):
+        old[col]=pd.to_datetime(old[col],errors="coerce",utc=True)
+        integrated[col]=pd.to_datetime(integrated[col],errors="coerce",utc=True)
+    for col in ("symbol","symbol_norm","period","consolidated","xbrl","origin","integrated_seq_id"):
+        old[col]=old[col].astype("string")
+        integrated[col]=integrated[col].astype("string")
     merged=pd.concat([old,integrated],ignore_index=True,sort=False)
     merged.to_parquet(out/"combined_financial_index_REHEARSAL_ONLY.parquet",index=False)
     sn=pd.read_parquet(a.snapshot,columns=["date","symbol"])
