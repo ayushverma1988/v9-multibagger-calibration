@@ -36,6 +36,11 @@ def main():
       "dims":dims.get(ref),"unit_ref":e.get("unitRef"),
       "unit_measures":units.get(e.get("unitRef",""),[])})
   exact=[r for r in candidate if r["end"]==str(target)]
+  raw_contexts=[{"tag":local(e.tag),"id":e.get("id"),
+                  "child_tags":[local(c.tag) for c in e.iter()][:12]}
+                 for e in root.iter() if local(e.tag)=="context"]
+  print("CONTEXT_INDEX",row["symbol"],str(target),len(raw_contexts),
+        "sample",json.dumps(raw_contexts[:3]),"available_ref_ids",json.dumps(list(ctx)[:8]),flush=True)
   report={"symbol":row["symbol"],"fy_end":str(target),"source_url":row["xbrl_url"],
           "total_matching_tag_facts":len(candidate),
           "exact_period_end_matches":len(exact),
