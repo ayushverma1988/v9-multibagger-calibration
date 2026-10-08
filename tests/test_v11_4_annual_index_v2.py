@@ -28,6 +28,11 @@ class AnnualIndexTests(unittest.TestCase):
         self.assertEqual(canonical_mode("Non-Consolidated"),"standalone")
         self.assertEqual(canonical_mode("Standalone"),"standalone")
         self.assertEqual(canonical_mode("Consolidated"),"consolidated")
+    def test_old_and_new_source_date_formats(self):
+        a=pd.Series(["2020-05-27T08:50:00+00:00","2025-05-29 08:50:00+00:00"])
+        parsed=pd.to_datetime(a,utc=True,format="mixed",errors="coerce")
+        self.assertEqual(int(parsed.notna().sum()),2)
+
     def test_close(self):
         self.assertEqual(self.cut.isoformat(),"2025-12-31T10:00:00+00:00")
 if __name__=="__main__":unittest.main(verbosity=2)
