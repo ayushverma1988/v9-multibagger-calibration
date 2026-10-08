@@ -1,0 +1,50 @@
+name: V11.4 Reconcile Full 2024-2025 Annual Financial Shards
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths: [.github/workflows/v11_4_reconcile_full_financial_shards.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Syntax check strict source/provenance reconciler
+        run: python -m py_compile src/v11_4_merge_full_financial_numeric_shards.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-full-annual-numeric-*-shard-*
+          path: all_verified_financial_shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37762575022
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Verify all 8 shards and complete annual numeric research feature matrix
+        shell: bash
+        run: |
+          SNAP=$(find original_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$SNAP"
+          python src/v11_4_merge_full_financial_numeric_shards.py \
+            --artifacts all_verified_financial_shards --snapshot "$SNAP" \
+            --expected-shards 4 --output outputs_v11_4_full_financials
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-complete-twofold-NSE-annual-PIT-research-matrix
+          path: outputs_v11_4_full_financials/
+          retention-days: 90
+          if-no-files-found: warn
