@@ -1,0 +1,78 @@
+name: V11.4 Full 2025 Historical Integrated Financial Index
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2025_full_integrated_index.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  gather:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0, 1, 2, 3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
+      - name: Validate shard collector
+        run: python -m py_compile src/v11_4_integrated_2025_source_pilot.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Collect historical NSE integrated financial filings with publish times
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$SNAP"
+          python src/v11_4_integrated_2025_source_pilot.py \
+            --snapshot "$SNAP" --max-symbols 2000 \
+            --shard-index ${{ matrix.shard }} --shard-count 4 \
+            --output outputs_full_shard_${{ matrix.shard }}
+      - name: Retain shard provenance and diagnostics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-integrated-full-2025-shard-${{ matrix.shard }}
+          path: outputs_full_shard_${{ matrix.shard }}/
+          retention-days: 60
+          if-no-files-found: warn
+  reconcile:
+    needs: gather
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_integrated_2025_collate_shards.py
+      - name: Download all shard artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-integrated-full-2025-shard-*
+          path: all_2025_source_shards/
+      - name: Verify complete disjoint universe and historical PIT coverage
+        run: python src/v11_4_integrated_2025_collate_shards.py --artifacts all_2025_source_shards --expected-shards 4 --out outputs_v11_4_full_integrated
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2025-marketwide-integrated-PIT-index
+          path: outputs_v11_4_full_integrated/
+          retention-days: 60
+          if-no-files-found: warn
