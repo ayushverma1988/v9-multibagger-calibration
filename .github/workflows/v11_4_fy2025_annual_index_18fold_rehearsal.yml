@@ -51,7 +51,7 @@ jobs:
         run: |
           git fetch origin v10-fresh-current --depth 1
           git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
-      - name: Inspect reporting modes while merging legacy annual and integrated FY2025 indexes
+      - name: Test separate standalone and consolidated FY2025 annual index continuity
         shell: bash
         run: |
           set -euo pipefail
