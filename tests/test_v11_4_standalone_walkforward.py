@@ -4,7 +4,7 @@ import numpy as np
 from v11_4_standalone_train_walkforward import (
     fold_close,keep_train,eligible_asof,top10_similarity,
     safe_featureize,CATALYST_PREFIXES,PRICE_MIN,PRICE_MAX,
-    MODEL_FEATURES,train_once,calibrate_logit,calibration_mode,MIN_CALIBRATION_POSITIVES,ENSEMBLE_SEEDS,STABILITY_SEEDS
+    MODEL_FEATURES,train_once,calibrate_logit,calibration_mode,MIN_CALIBRATION_POSITIVES,STABILITY_SEEDS
 )
 
 class StandaloneV114Tests(unittest.TestCase):
@@ -50,9 +50,8 @@ class StandaloneV114Tests(unittest.TestCase):
         self.assertTrue(np.all((p1>0)&(p1<1)))
         np.testing.assert_array_equal(p1,p2)
         self.assertEqual(MIN_CALIBRATION_POSITIVES,12)
-        self.assertEqual(len(ENSEMBLE_SEEDS),4)
         self.assertGreaterEqual(len(STABILITY_SEEDS),12)
-        self.assertFalse(set(ENSEMBLE_SEEDS)&set(STABILITY_SEEDS))
+        self.assertEqual(len(STABILITY_SEEDS),len(set(STABILITY_SEEDS)))
 
     def test_zero_winner_calibration_is_shrunk_not_zeroed(self):
         prior=np.array([0]*1900+[1]*100)
