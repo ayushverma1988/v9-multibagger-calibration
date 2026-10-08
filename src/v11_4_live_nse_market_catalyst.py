@@ -211,6 +211,23 @@ def market_history(official,target):
                  "historical_rows":len(history),
                  "sufficient_recent_historical_market_days":int((daily>=MIN_NSE_ROWS).sum())}
 
+def rsi_wilder_last(prices,period=14):
+ # Standard RSI(14): 14 changes SMA seed; Wilder recursive smoothing
+ # thereafter. No future bars, and flat prices score neutral 50.
+ x=pd.to_numeric(pd.Series(prices),errors="coerce")
+ if len(x)<period+1 or x.isna().any() or (x<=0).any():return float("nan")
+ d=x.diff().iloc[1:]
+ gains=d.clip(lower=0).to_numpy(float)
+ losses=(-d.clip(upper=0)).to_numpy(float)
+ g=float(gains[:period].mean());l=float(losses[:period].mean())
+ for i in range(period,len(gains)):
+  g=(g*(period-1)+gains[i])/period
+  l=(l*(period-1)+losses[i])/period
+ if l<=1e-14:
+  return 100. if g>1e-14 else 50.
+ rs=g/l
+ return float(100-100/(1+rs))
+
 def market_features(history,target):
  out=[]
  for symbol,g in history.groupby("symbol",sort=False):
@@ -239,9 +256,17 @@ def market_features(history,target):
     "vol_accel":float(vz.iloc[-1]),"turnover_accel":float(tz.iloc[-1]),
     "off_high_252":float((x/hi252-1).iloc[-1]),
     "above_low_252":float((x/lo252-1).iloc[-1]),
+    "dma50_prev":float(x.shift(1).rolling(50,min_periods=40).mean().iloc[-1]),
+    "dma200_prev":float(x.shift(1).rolling(200,min_periods=160).mean().iloc[-1]),
+    "rsi14_wilder":rsi_wilder_last(x),
     "trend_consistency_60":float((ret>0).rolling(60,min_periods=40).mean().iloc[-1]),
     "volatility_60":float((ret.rolling(60,min_periods=40).std()*np.sqrt(252)).iloc[-1])
   }
+  d["price_gt_dma50_prev"]=bool(d["adj_close"]>d["dma50_prev"]) if "adj_close" in d else bool(x.iloc[-1]>d["dma50_prev"])
+  d["price_lt_dma200_prev"]=bool(x.iloc[-1]<d["dma200_prev"])
+  d["up_from_52w_low"]=float((x/lo252-1).iloc[-1])
+  d["down_from_52w_high"]=float((1-x/hi252).iloc[-1])
+  d["rsi14_gt80"]=bool(d["rsi14_wilder"]>80)
   d["integrity_feature_clean"]=bool(np.isfinite([d[k] for k in PRICE_COLUMNS]).all() and
                     20<=d["close"]<=2000 and np.isfinite(d["avg_turnover_63"]) and
                     d["avg_turnover_63"]>0)
