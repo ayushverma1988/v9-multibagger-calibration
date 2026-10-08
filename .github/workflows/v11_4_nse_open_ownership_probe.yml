@@ -1,0 +1,59 @@
+name: V11.4 Independent NSE Ownership Backfill Pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_nse_open_ownership_probe.yml
+      - src/v11_4_nse_open_ownership_probe.py
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check-historical-ownership-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install data readers
+        run: python -m pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Compile independent probe
+        run: python -m py_compile src/v11_4_nse_open_ownership_probe.py
+      - name: Obtain community NSE-XBRL filing index and derived CSV
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/aditya-jha/nse-historical-membership.git upstream_nse
+          git -C upstream_nse sparse-checkout set shareholding_history/data/parsed shareholding_history/data/filings_index
+          test -s upstream_nse/shareholding_history/data/parsed/_flat.csv
+      - name: Obtain 18 original backtest folds
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > fold_dates.csv
+          test -s fold_dates.csv
+      - name: Download accepted integrity-clean historical snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Audit independently sourced ownership PIT coverage
+        run: python src/v11_4_nse_open_ownership_probe.py
+      - name: Upload evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-open-nse-ownership-backfill-pilot
+          path: outputs_v11_4_nse_ownership_probe/
+          if-no-files-found: warn
+          retention-days: 60
