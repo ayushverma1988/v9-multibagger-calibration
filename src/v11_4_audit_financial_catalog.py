@@ -50,6 +50,11 @@ def main():
         per["qi"]=per["_toDate"].dt.year*4+((per["_toDate"].dt.month-1)//3)
         per=per.drop_duplicates(["_sym","qi"])
         fold_universe=set(snap.loc[snap["date"].eq(f.tz_convert("Asia/Kolkata").normalize().tz_localize(None)),"symbol"])
+        latest_period=quarter[quarter["_sym"].isin(fold_universe)].groupby("_sym")["_toDate"].max()
+        latest_period=latest_period.dropna()
+        fresh_180=int((latest_period>=f-pd.Timedelta(days=180)).sum())
+        fresh_365=int((latest_period>=f-pd.Timedelta(days=365)).sum())
+        latest_in_universe=str(latest_period.max()) if len(latest_period) else None
         cutoff_period=f.year*4+(f.month-1)//3
         consecutive_24=consecutive_32=0
         for symbol, gg in per.groupby("_sym")["qi"]:
@@ -77,6 +82,9 @@ def main():
             "quarter_20_periods":int((qc>=20).sum()),
             "quarter_28_periods":int((qc>=28).sum()),
             "fold_universe_symbols":len(fold_universe),
+            "latest_period_end_in_fold_universe":latest_in_universe,
+            "quarterly_symbols_fresh_period_180d":fresh_180,
+            "quarterly_symbols_fresh_period_365d":fresh_365,
             "fold_contiguous_24_quarters":consecutive_24,
             "fold_contiguous_32_quarters":consecutive_32,
             "fold_contiguous_24_share":round(consecutive_24/max(len(fold_universe),1),4),
