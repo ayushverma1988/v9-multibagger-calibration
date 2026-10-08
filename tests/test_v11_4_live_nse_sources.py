@@ -16,7 +16,7 @@ class NSELiveSourceTests(unittest.TestCase):
   a=pd.DataFrame({
    "TradDt":["08-10-2026"]*510,
    "TckrSymb":[f"X{i}" for i in range(510)],
-   "SctySrs":["EQ"]*510,"ISIN":[f"INE{i:09d}"]*510,
+   "SctySrs":["EQ"]*510,"ISIN":[f"INE{i:09d}" for i in range(510)],
    "OpnPric":[99.]*510,"HghPric":[101.]*510,"LwPric":[98.]*510,
    "ClsPric":[100.]*510,"TtlTradgVol":[10000]*510,"TtlTrfVal":[1000000]*510})
   b=pd.DataFrame({"SYMBOL":a["TckrSymb"],"SERIES":["EQ"]*510,
@@ -71,7 +71,7 @@ class NSELiveSourceTests(unittest.TestCase):
     "close":np.linspace(100,150,len(dates)),
     "adj_close":np.linspace(100,150,len(dates)),
     "volume":[10000.]*len(dates),"turnover":[1e6]*len(dates)})
-  features=market_features(g,day)
+  features=market_features(g,day,min_company_rows=1)
   self.assertEqual(len(features),1)
   self.assertTrue(features["integrity_feature_clean"].iloc[0])
   self.assertTrue(np.isfinite(features[PRICE_COLUMNS].to_numpy(float)).all())
