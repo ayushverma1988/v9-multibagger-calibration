@@ -33,7 +33,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
-      - name: Explain genuine non-COVID worst-fold stability failure
+      - name: Explain genuine non-COVID worst-fold stability failure (fixed merge)
         shell: bash
         run: |
           set -euo pipefail
