@@ -153,7 +153,7 @@ def adjustment_factors(history,actions,target):
  return history
 
 def verified_corporate_actions(paths,year0,target):
- tables=[];audit=[]
+ tables=[];audit=[];quarantined=set()
  for year in range(year0,target.year+1):
   path,digest=hf_source(f"actions/nse_{year}.parquet")
   x=pd.read_parquet(path)
@@ -162,8 +162,10 @@ def verified_corporate_actions(paths,year0,target):
   x["ex_date"]=pd.to_datetime(x["ex_date"],errors="coerce").dt.normalize()
   x["symbol"]=x["symbol"].astype(str).str.upper().str.strip()
   x["type"]=x["type"].astype(str).str.lower()
-  x=x[x["type"].isin(["split","bonus"]) & x["ex_date"].notna() &
-       x["ex_date"].le(pd.Timestamp(target))].copy()
+  x=x[x["type"].isin(["split","bonus"])].copy()
+  # Missing ex-date means we cannot establish PIT adjustment eligibility.
+  quarantined.update(x.loc[x["ex_date"].isna(),"symbol"].tolist())
+  x=x[x["ex_date"].notna() & x["ex_date"].le(pd.Timestamp(target))].copy()
   factors=[]
   for row in x.to_dict("records"):
    fac=np.nan
@@ -177,17 +179,20 @@ def verified_corporate_actions(paths,year0,target):
     except (TypeError,ValueError):pass
    factors.append(fac)
   x["factor"]=factors
-  incomplete=x["factor"].isna().sum()
-  if incomplete:raise ValueError(f"Corporate actions have {incomplete} unverified split or bonus factors year={year}")
-  x=x[x["factor"].between(.001,1.0)].copy()
+  failed=~x["factor"].between(.001,1.0)
+  invalid_symbols=set(x.loc[failed,"symbol"])
+  quarantined.update(invalid_symbols)
+  x=x.loc[~failed].copy()
   if len(x):tables.append(x[["symbol","ex_date","factor"]])
   audit.append({"year":year,"verified_action_source_sha256":digest,
-                "split_bonus_actions":len(x)})
+                "split_bonus_actions":len(x),
+                "quarantined_split_bonus_adjustment_symbols":len(invalid_symbols)})
  actions=pd.concat(tables,ignore_index=True) if tables else pd.DataFrame(
    columns=["symbol","ex_date","factor"])
  if actions.duplicated(["symbol","ex_date","factor"]).any():
   actions=actions.drop_duplicates(["symbol","ex_date","factor"])
- return actions,audit
+ actions=actions[~actions["symbol"].isin(quarantined)].copy()
+ return actions,audit,quarantined
 
 def market_history(official,target):
  # At least 252 sessions of history, with official current-day close. Use
@@ -221,10 +226,14 @@ def market_history(official,target):
  if (daily>=MIN_NSE_ROWS).sum()<10:
   raise ValueError("HF cash-market history too stale/sparse for 20d/60d features")
  action_year0=target.year-2
- acts,action_audit=verified_corporate_actions(None,action_year0,target)
+ acts,action_audit,quarantined=verified_corporate_actions(None,action_year0,target)
+ # A bad historical split factor makes *that security's* historical
+ # momentum/RSI unknowable. Exclude it, never substitute factor=1.
+ history=history[~history["symbol"].isin(quarantined)].copy()
  history=adjustment_factors(history,acts,target)
  return history,{"HF_historical_market_file_SHA256":source_hashes,
                  "corporate_action_source_audit":action_audit,
+                 "quarantined_unverifiable_corporate_action_symbols":sorted(quarantined),
                  "historical_rows":len(history),
                  "sufficient_recent_historical_market_days":int((daily>=MIN_NSE_ROWS).sum())}
 
