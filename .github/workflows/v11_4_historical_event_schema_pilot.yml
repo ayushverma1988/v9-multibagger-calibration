@@ -1,0 +1,38 @@
+name: V11.4 Historical Event Source Schema
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths: [.github/workflows/v11_4_historical_event_schema_pilot.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - name: Inspect fields for historical event reconstruction
+        run: |
+          EVENT=$(find events_seed -name events_all_2016_2026.parquet -print -quit)
+          test -n "$EVENT"
+          python src/v11_4_historical_event_source_schema.py --events "$EVENT" --out outputs_events_schema
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-historical-event-source-schema-only
+          path: outputs_events_schema/
+          retention-days: 30
+          if-no-files-found: warn
