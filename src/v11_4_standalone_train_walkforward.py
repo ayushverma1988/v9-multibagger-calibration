@@ -46,6 +46,10 @@ MIN_BASE_POSITIVES=45
 MIN_CALIBRATION_POSITIVES=12
 MIN_RESEARCH_TEST_FOLDS=12
 STABILITY_SEEDS=(17,41,83)
+# Research v11.4b: fixed bagged logistic members average out idiosyncratic
+# fold-stratum training subsample variation, without tuning to test labels.
+BAGGING_SEEDS=(101,211,307,419)
+BAGGING_RETENTION=0.90
 # Fixed 95% stratified retention per training fold; this measures
 # robustness to plausible omissions in old observations, not re-tuning.
 STABILITY_RETENTION=0.95
@@ -103,18 +107,27 @@ def top10_similarity(a,b):
     return len(aa&bb)/len(aa|bb) if aa or bb else 1.0
 
 def train_once(train,cal,test):
-    model=make_model()
-    model.fit(train[list(MODEL_FEATURES)],train["y6"].astype(int))
-    calpred=model.predict_proba(cal[list(MODEL_FEATURES)])[:,1]
-    testpred=model.predict_proba(test[list(MODEL_FEATURES)])[:,1]
-    return calibrate_logit(testpred,calpred,cal["y6"])
+    # Bagging/ensemble operates exclusively on labels available before td.
+    # A full-data estimator anchors the ensemble while four fixed 90%
+    # stratified perturbations reduce one-fold coefficient instability.
+    cal_preds=[];test_preds=[]
+    for seed in (None,*BAGGING_SEEDS):
+        local=train if seed is None else perturbation_training(
+            train,seed,retention=BAGGING_RETENTION)
+        model=make_model()
+        model.fit(local[list(MODEL_FEATURES)],local["y6"].astype(int))
+        cal_preds.append(model.predict_proba(cal[list(MODEL_FEATURES)])[:,1])
+        test_preds.append(model.predict_proba(test[list(MODEL_FEATURES)])[:,1])
+    cal_raw=np.mean(np.stack(cal_preds,axis=0),axis=0)
+    test_raw=np.mean(np.stack(test_preds,axis=0),axis=0)
+    return calibrate_logit(test_raw,cal_raw,cal["y6"])
 
-def perturbation_training(train,seed):
+def perturbation_training(train,seed,retention=STABILITY_RETENTION):
     # Preserve each original fold and both classes. Randomly retain 95% of
     # rows within each (fold, label) stratum; no new historical observations.
     sample=[]
     for (_, _),group in train.groupby(["date","y6"],sort=True):
-        size=max(1,math.ceil(len(group)*STABILITY_RETENTION))
+        size=max(1,math.ceil(len(group)*retention))
         sample.append(group.sample(n=size,replace=False,random_state=seed))
     return pd.concat(sample,ignore_index=True)
 
@@ -255,7 +268,10 @@ def main():
         "training_feature_count":len(MODEL_FEATURES),
         "finance_numeric_folds_verified":int(fy_coverage),
         "finance_numeric_features_deliberately_dormant_until_12_folds":True,
-        "training_algorithm":"L2 regularized logistic regression with 1 previously matured fold Platt calibration",
+        "training_algorithm":"fixed 5-member bagged L2 logistic regression with 1 previously matured fold Platt calibration",
+        "bagging_member_count":1+len(BAGGING_SEEDS),
+        "bagging_train_retention":BAGGING_RETENTION,
+        "bagging_seeds":list(BAGGING_SEEDS),
         "fixed_C":REGULARIZATION_C,
         "previous_matured_label_only":True,
         "training_or_calibration_current_or_future_labels":False,
