@@ -1,0 +1,55 @@
+name: V11.4 COVID Regime Six-Month Outcome Sensitivity
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_covid_regime_sensitivity.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Test COVID six-month-horizon classification and no gate relaxation
+        run: |
+          python -m py_compile src/v11_4_covid_regime_sensitivity.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_covid_regime_sensitivity.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-standalone-six-month-model-walkforward-and-stability
+          path: original_v11_4_results
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37767869111
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_label_source_only
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Reclassify original V11.4 outcome windows without changing original model
+        shell: bash
+        run: |
+          set -euo pipefail
+          HIST=$(find historical_label_source_only -name snapshot_dataset.parquet -print -quit)
+          FOLD=$(find original_v11_4_results -name standalone_v11_4_pit_walkforward_by_fold.csv -print -quit)
+          STAB=$(find original_v11_4_results -name standalone_v11_4_selector_perturbation_stability.csv -print -quit)
+          test -n "$HIST" && test -n "$FOLD" && test -n "$STAB"
+          python src/v11_4_covid_regime_sensitivity.py \
+            --frozen-outcomes "$HIST" --fold-metrics "$FOLD" \
+            --perturbations "$STAB" --output outputs_v11_4_regime_robustness
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-COVID-regime-full-history-retained-sensitivity
+          path: outputs_v11_4_regime_robustness/
+          retention-days: 90
