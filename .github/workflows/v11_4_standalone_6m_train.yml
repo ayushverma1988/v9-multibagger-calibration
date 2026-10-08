@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
-      - name: Verify eight V11.4 source-only, sparse calibrated and maturity-cutoff tests
+      - name: Verify ten V11.4 maturity, sparse calibration and non-inverting Platt regression tests
         run: |
           python -m py_compile src/v11_4_standalone_train_walkforward.py
           PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_standalone_walkforward.py -v
@@ -36,7 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
-      - name: Test sparse-win empirical-Bayes prior-fold calibration of standalone V11.4; enforce unchanged 12fold and stability gates
+      - name: Rerun standalone V11.4 with provably monotone Platt-or-EB calibration and original acceptance gates
         shell: bash
         run: |
           set -euo pipefail
