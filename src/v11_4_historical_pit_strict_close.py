@@ -99,6 +99,7 @@ def main():
 
         ff=fin[fin["_sym"].isin(syms)&fin["_available"].notna()&(fin["_available"]<=fdu)
                &fin["_to"].notna()&(fin["_available"]>=fin["_to"])].copy()
+        fresh_fin=ff[ff["_to"]>=fdu-pd.Timedelta(days=365)].copy()
         q=ff[ff["_quarter"]].copy()
         a=ff[ff["_annual"]].copy()
 
@@ -137,6 +138,8 @@ def main():
             "primary_event_symbols_180d":primary["symbol"].nunique(),
             "primary_event_symbol_coverage":primary["symbol"].nunique()/n,
             "financial_symbols_any":ff["_sym"].nunique(),
+            "financial_symbols_fresh_365d":fresh_fin["_sym"].nunique(),
+            "financial_fresh_365d_coverage":fresh_fin["_sym"].nunique()/n,
             "financial_symbol_coverage":ff["_sym"].nunique()/n,
             "symbols_5q_plus":int((q_counts>=5).sum()),
             "symbols_8q_plus":int((q_counts>=8).sum()),
@@ -156,6 +159,10 @@ def main():
             and row["shareholding_coverage"]>=0.25
             and row["pit_violations"]==0
         )
+        row["fold_reconstructable_with_fresh_365d_financial"]=bool(
+            row["fold_reconstructable"] and
+            row["financial_fresh_365d_coverage"]>=0.50
+        )
         rows.append(row)
 
     df=pd.DataFrame(rows)
@@ -172,6 +179,9 @@ def main():
         "median_event_symbol_coverage":float(df["event_symbol_coverage"].median()) if len(df) else 0,
         "median_primary_event_symbol_coverage":float(df["primary_event_symbol_coverage"].median()) if len(df) else 0,
         "median_financial_symbol_coverage":float(df["financial_symbol_coverage"].median()) if len(df) else 0,
+        "median_financial_fresh_365d_coverage":float(df["financial_fresh_365d_coverage"].median()) if len(df) else 0,
+        "folds_reconstructable_with_fresh_financials":int(df["fold_reconstructable_with_fresh_365d_financial"].sum()) if len(df) else 0,
+        "freshness_rule":"At least half the fold universe must have a financial reporting period ending within 365 days and published by 15:30 IST",
         "median_shareholding_coverage":float(df["shareholding_coverage"].median()) if len(df) else 0,
         "median_symbols_12q_plus":float(df["symbols_12q_plus"].median()) if len(df) else 0,
         "median_symbols_5y_plus":float(df["symbols_5y_plus"].median()) if len(df) else 0,
