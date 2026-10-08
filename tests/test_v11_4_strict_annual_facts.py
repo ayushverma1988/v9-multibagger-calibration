@@ -30,6 +30,18 @@ class TestStrictAnnualFacts(unittest.TestCase):
         r,_=strict_annual_facts(doc(revenue_period="2023-03-31"),"2024-03-31")
         self.assertIsNone(r["revenue"])
         self.assertIsNone(r["pat"])
+    def test_annual_fourd_ytd_only_when_annual_filing(self):
+        xml=doc().decode().replace('id="fy"', 'id="FourD"').replace(
+            "<xbrli:startDate>2023-04-01</xbrli:startDate>",
+            "<xbrli:startDate>2024-01-01</xbrli:startDate>"
+        ).replace('contextRef="fy"', 'contextRef="FourD"').encode()
+        not_annual,_=strict_annual_facts(xml,"2024-03-31",source_is_annual=False)
+        annual,audit=strict_annual_facts(xml,"2024-03-31",source_is_annual=True)
+        self.assertIsNone(not_annual["revenue"])
+        self.assertEqual(annual["revenue"],2000000.0)
+        self.assertEqual(annual["pat"],110000.0)
+        self.assertEqual(audit["revenue"]["period_interpretation"],"annual_FourD_YTD")
+
     def test_no_dollar_as_rupee(self):
         r,_=strict_annual_facts(doc(currency="USD"),"2024-03-31")
         self.assertIsNone(r["revenue"])
