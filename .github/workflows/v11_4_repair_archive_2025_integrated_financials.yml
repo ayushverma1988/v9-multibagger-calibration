@@ -1,0 +1,61 @@
+name: V11.4 Repair and Archive Complete 2025 Integrated Financial Index
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - '.github/workflows/v11_4_repair_archive_2025_integrated_financials.yml'
+permissions:
+  actions: read
+  contents: read
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - run: python -m py_compile src/v11_4_integrated_2025_targeted_repair.py src/v11_4_archive_financial_source_private_hf.py
+      - name: Recover full-market index from previous four-shard archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2025-marketwide-integrated-PIT-index
+          path: full_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37745892207
+      - name: Retry only the inaccessible 2025 company records
+        shell: bash
+        run: |
+          test -s full_source/integrated_financial_index_2025_REHEARSAL_ONLY.parquet
+          test -s full_source/full_integrated_source_summary.json
+          test -s full_source/symbols_without_preclose_2025_filings.json
+          python src/v11_4_integrated_2025_targeted_repair.py \
+            --seed full_source/integrated_financial_index_2025_REHEARSAL_ONLY.parquet \
+            --summary full_source/full_integrated_source_summary.json \
+            --missing full_source/symbols_without_preclose_2025_filings.json \
+            --output outputs_v11_4_repaired_full_index
+      - name: Archive successful recovery to private Hugging Face storage
+        id: private_archive
+        continue-on-error: true
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v11_4_archive_financial_source_private_hf.py \
+            --source-dir outputs_v11_4_repaired_full_index \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --prefix v11_4/research/integrated_financial_2025/20261008
+      - name: Report archival warning without falsifying source readiness
+        if: steps.private_archive.outcome == 'failure'
+        run: echo "::warning::The repaired NSE index passed local gates, but the private HF archive upload failed. The GitHub artifact retains data temporarily."
+      - name: Retain repaired index and quality evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-repaired-2025-full-integrated-PIT-index
+          path: outputs_v11_4_repaired_full_index/
+          if-no-files-found: warn
+          retention-days: 90
