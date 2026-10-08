@@ -1,0 +1,55 @@
+name: V11.4 Standalone Worst-Fold Jaccard Breakdown
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_worstfold_stability_diagnostic.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3'
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-standalone-six-month-model-walkforward-and-stability
+          path: validated_standalone
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37766824207
+      - name: Print every fold's actual stability p05 and sparse calibration method
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import pandas as pd
+          f=pathlib.Path("validated_standalone")
+          stab=pd.read_csv(f/"standalone_v11_4_selector_perturbation_stability.csv")
+          folds=pd.read_csv(f/"standalone_v11_4_pit_walkforward_by_fold.csv")
+          by=stab.groupby("date")["top10_jaccard"].agg(
+              perturbations="size",mean="mean",min="min",max="max")
+          by["p05"]=stab.groupby("date")["top10_jaccard"].quantile(.05)
+          by=by.sort_values("p05")
+          print("STABILITY_BY_FOLD",by.to_string(),flush=True)
+          cols=["date","status","calibration_method","calibration_winners",
+                "training_folds","six_month_double_precision"]
+          print("CALIBRATION_BY_FOLD",folds[[c for c in cols if c in folds]].to_string(index=False),flush=True)
+          print("FOLDS_FAIL_P05",int((by["p05"]<.60).sum()),flush=True)
+          print("FOLDS_FAIL_MEAN",int((by["mean"]<.80).sum()),flush=True)
+          by.to_csv("worstfold_stability_by_fold.csv")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-standalone-worstfold-stability-diagnostics
+          path: worstfold_stability_by_fold.csv
+          retention-days: 60
+          if-no-files-found: warn
