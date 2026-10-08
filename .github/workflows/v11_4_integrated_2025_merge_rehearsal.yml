@@ -22,11 +22,11 @@ jobs:
       - run: python -m py_compile src/v11_4_integrated_2025_merge_rehearsal.py
       - uses: actions/download-artifact@v4
         with:
-          name: v11-4-integrated-2025-financial-pilot
+          name: v11-4-repaired-2025-full-integrated-PIT-index
           path: integrated_seed
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
-          run-id: 37745445725
+          run-id: 37746681814
       - uses: actions/download-artifact@v4
         with:
           name: v10-4-pit-archive-fast
@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           FIN=$(find old_fin -name financial_results_metadata.parquet -print -quit)
-          INT=$(find integrated_seed -name integrated_filing_index_PIT_CANDIDATES.csv -print -quit)
+          INT=$(find integrated_seed -name integrated_financial_index_2025_REPAIRED_REHEARSAL_ONLY.csv -print -quit)
           SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
           test -n "$FIN" && test -n "$INT" && test -n "$SNAP"
           python src/v11_4_integrated_2025_merge_rehearsal.py \
