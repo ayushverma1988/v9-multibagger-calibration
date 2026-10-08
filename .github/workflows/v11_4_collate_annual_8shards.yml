@@ -1,0 +1,80 @@
+name: V11.4 Reconcile Full Annual Numeric Backfill and 18-Fold Matrix
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_collate_annual_8shards.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: |
+          python -m py_compile src/v11_4_collate_numeric_8shards.py \
+            src/v11_4_short_horizon_2fold_matrix.py src/v11_4_18fold_combined_research_features.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-full-annual-numeric-*
+          path: annual_8shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37762575022
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: frozen_market
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-18fold-catalyst-PIT-research
+          path: catalyst_18fold
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37762862034
+      - name: Validate all eight financial source shards against original PIT universe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python src/v11_4_collate_numeric_8shards.py \
+            --artifacts annual_8shards --expected-shards 4 \
+            --output outputs_v11_4_full_annual_numeric
+      - name: Rebuild complete eligible company-date rows for 2024 and 2025
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAP=$(find frozen_market -name snapshot_dataset.parquet -print -quit)
+          test -n "$SNAP"
+          python src/v11_4_short_horizon_2fold_matrix.py \
+            --snapshot "$SNAP" \
+            --features-2024 outputs_v11_4_full_annual_numeric/verified_FY2024_annual_yoy_PIT_candidates.csv \
+            --features-2025 outputs_v11_4_full_annual_numeric/verified_FY2025_annual_yoy_PIT_candidates.csv \
+            --output outputs_v11_4_full_annual_numeric/large_twofold_matrix
+      - name: Rebuild original V10 market and all historical event feature rows with verified expanded annual numeric data
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAP=$(find frozen_market -name snapshot_dataset.parquet -print -quit)
+          CAT=$(find catalyst_18fold -name canonical_NSE_18fold_catalyst_metadata_PIT_RESEARCH.parquet -print -quit)
+          test -n "$SNAP" && test -n "$CAT"
+          python src/v11_4_18fold_combined_research_features.py \
+            --snapshot "$SNAP" --catalysts "$CAT" \
+            --financials outputs_v11_4_full_annual_numeric/large_twofold_matrix/v11_4_research_2024_2025_annual_yoy_PIT.parquet \
+            --output outputs_v11_4_full_annual_numeric/full_18fold_research_matrix
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: outputs_v11_4_full_annual_numeric/
+          if-no-files-found: warn
+          retention-days: 90
