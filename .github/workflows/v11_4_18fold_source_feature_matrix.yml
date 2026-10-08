@@ -1,0 +1,60 @@
+name: V11.4 18-Fold Frozen Market Catalyst Annual PIT Matrix
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_18fold_source_feature_matrix.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_18fold_combined_research_features.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-18fold-catalyst-PIT-research
+          path: catalyst_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37762862034
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-twofold-frozen-universe-financial-PIT-research-matrix
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37757837088
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: frozen_market
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Join the original 18-fold universe with timestamp-gated catalysts and historical annual facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          CAT=$(find catalyst_seed -name canonical_NSE_18fold_catalyst_metadata_PIT_RESEARCH.parquet -print -quit)
+          FIN=$(find annual_seed -name v11_4_research_2024_2025_annual_yoy_PIT.parquet -print -quit)
+          SNAP=$(find frozen_market -name snapshot_dataset.parquet -print -quit)
+          test -n "$CAT" && test -n "$FIN" && test -n "$SNAP"
+          python src/v11_4_18fold_combined_research_features.py \
+            --snapshot "$SNAP" --catalysts "$CAT" --financials "$FIN" \
+            --output outputs_v11_4_18fold_research_matrix
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-18fold-NSE-catalyst-market-financial-PIT-research-matrix
+          path: outputs_v11_4_18fold_research_matrix/
+          if-no-files-found: warn
+          retention-days: 90
