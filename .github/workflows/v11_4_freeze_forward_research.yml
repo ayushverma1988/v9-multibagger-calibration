@@ -1,0 +1,58 @@
+name: V11.4 Freeze Standalone Prospective Research Candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_freeze_forward_research.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'joblib>=1.4'
+      - name: Validate forward research model feature and data provenance gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_standalone_walkforward.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_forward_freeze_contract.py -v
+          python -m py_compile src/v11_4_forward_research_release.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: original_NSE_exchange_market_PIT
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_integrity_labels_ONLY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Freeze 2026-10-08 research candidate, original chronological matured labels only
+        shell: bash
+        run: |
+          set -euo pipefail
+          FEATURES=$(find original_NSE_exchange_market_PIT -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          HISTORY=$(find historical_integrity_labels_ONLY -name snapshot_dataset.parquet -print -quit)
+          test -n "$FEATURES" && test -n "$HISTORY"
+          python src/v11_4_forward_research_release.py \
+            --features "$FEATURES" --snapshot "$HISTORY" \
+            --asof 2026-10-08 --output outputs_v11_4_future_research_candidate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-frozen-standalone-research-model-20261008-forward-only
+          path: outputs_v11_4_future_research_candidate/
+          retention-days: 90
+          if-no-files-found: warn
