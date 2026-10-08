@@ -52,10 +52,13 @@ def main():
     if not required.issubset(idx):
         raise SystemExit(f"Missing source fields: {required-set(idx)}")
     idx["symbol"]=idx["symbol"].str.upper().str.strip()
-    idx["end"]=pd.to_datetime(idx["fy_end"],errors="coerce",utc=True)
-    idx["available"]=pd.to_datetime(idx["available_at_utc"],errors="coerce",utc=True)
+    idx["end"]=pd.to_datetime(idx["fy_end"],errors="coerce",utc=True,format="mixed")
+    idx["available"]=pd.to_datetime(idx["available_at_utc"],errors="coerce",utc=True,format="mixed")
     idx["mode"]=idx["consolidated"].map(canonical_mode)
     src=idx["xbrl_url"].str.match(r"^https://nsearchives\.nseindia\.com/.*\.xml$",case=False)
+    raw_rows=len(idx)
+    raw_2025=int((idx["fy_end"]=="2025-03-31").sum())
+    after_date_rows=int((idx["end"].notna()&idx["available"].notna()).sum())
     idx=idx[idx["end"].notna()&idx["available"].notna()&
             (idx["available"]>=idx["end"])&src&idx["symbol"].ne("")].copy()
     snap=pd.read_parquet(args.snapshot,columns=["date","symbol"])
@@ -103,12 +106,18 @@ def main():
         row["index_7y_coverage"]=row["index_7y_candidate_symbols"]/max(len(syms),1)
         result.append(row)
     if len(result)!=18:raise SystemExit(f"Expected 18 frozen folds, saw {len(result)}")
+    if raw_2025>=1000 and int((idx["fy_end"]=="2025-03-31").sum())<800:
+        raise SystemExit("FY2025 source rows were silently lost after parsing; abort as-of audit")
     results=pd.DataFrame(result)
     results.to_csv(out/"annual_index_v2_by_fold.csv",index=False)
     pd.DataFrame(detail).to_csv(out/"annual_index_v2_by_symbol.csv",index=False)
     summary={
         "scope":"EXPERIMENTAL_PIT_INDEX_V2_NOT_NUMERIC_FEATURES",
         "folds":len(result),"valid_index_rows":len(idx),
+        "unfiltered_source_rows":raw_rows,
+        "raw_FY2025_rows":raw_2025,
+        "FY2025_rows_after_valid_timestamp_and_url_check":int((idx["fy_end"]=="2025-03-31").sum()),
+        "rows_with_parseable_publication_and_fy":after_date_rows,
         "covered_symbols":idx["symbol"].nunique(),
         "max_5y_candidates":int(results["index_5y_candidate_symbols"].max()),
         "max_7y_candidates":int(results["index_7y_candidate_symbols"].max()),
@@ -122,5 +131,7 @@ def main():
     (out/"annual_index_v2_summary.json").write_text(json.dumps(summary,indent=2))
     print(json.dumps(summary,indent=2),flush=True)
     print(results.tail(5).to_string(index=False),flush=True)
+    if raw_2025>=1000 and summary["FY2025_dec_5y_candidates"]<100:
+        raise SystemExit("FY2025 annual source merge still not reflected in historical continuity; flag for investigation")
 
 if __name__=="__main__":main()
