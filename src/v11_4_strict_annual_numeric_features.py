@@ -32,7 +32,7 @@ def dimensional_contexts(root):
         out[el.attrib.get("id")]=sum(local(c.tag) in ("explicitMember","typedMember") for c in el.iter())
     return out
 
-def strict_annual_facts(xml,fy):
+def strict_annual_facts(xml,fy,source_is_annual=False):
     root=ET.fromstring(xml)
     ctx=context_map(root);units=parse_units(root);dimensions=dimensional_contexts(root)
     target=pd.Timestamp(fy).date()
@@ -46,20 +46,31 @@ def strict_annual_facts(xml,fy):
             context=ctx.get(ref,{})
             if context.get("end")!=target:continue
             days=context.get("duration")
-            if days is None or not 330<=days<=400:continue
+            annual_duration=(days is not None and 330<=days<=400)
+            # Older NSE Ind-AS annual results encode fiscal YTD flows in
+            # "FourD", even when the XBRL context period spans Q4 (91 days).
+            # Only an official *annual* filing can activate this exception;
+            # quarter-only "OneD" is always rejected for annual growth.
+            named_annual_ytd=(
+                source_is_annual and ref.lower()=="fourd"
+                and days is not None and 60<=days<=120
+            )
+            if not (annual_duration or named_annual_ytd):continue
             if dimensions.get(ref,0)!=0:continue
             unit=el.get("unitRef","")
             # Financial values must be documented in INR; no synthetic scaling.
             if CURRENCY not in units.get(unit,[]):continue
             number=parse_num(el.text)
             if number is None or not math.isfinite(number):continue
-            candidates.append((TAG_GROUPS[key].index(tag),tag,ref,unit,number))
+            candidates.append((0 if annual_duration else 1,TAG_GROUPS[key].index(tag),tag,ref,unit,number))
         if not candidates:
             ans[key]=None
         else:
-            v=min(candidates,key=lambda z:z[0])
-            ans[key]=v[4]
-            audit[key]={"tag":v[1],"context":v[2],"unit":v[3],"value":v[4]}
+            v=min(candidates,key=lambda z:(z[0],z[1]))
+            ans[key]=v[5]
+            audit[key]={"tag":v[2],"context":v[3],"unit":v[4],"value":v[5],
+                        "source_is_annual":bool(source_is_annual),
+                        "period_interpretation":"explicit_annual" if v[0]==0 else "annual_FourD_YTD"}
     return ans,audit
 
 def coherent_run(sub,maxyears=8):
@@ -133,7 +144,10 @@ def main():
                  "available_at_utc":rec.available_at_utc,"xbrl_url":url}
             try:
                 response=client.get(url)
-                numeric,audit=strict_annual_facts(response.content,fy)
+                numeric,audit=strict_annual_facts(
+                    response.content,fy,
+                    source_is_annual=str(getattr(rec,"filed_period","")).strip().lower()=="annual"
+                )
                 ctx.update(numeric)
                 ctx["fact_audit"]=json.dumps(audit,sort_keys=True)
                 ctx["status"]="complete" if all(numeric.get(k) is not None for k in ("revenue","pat")) else "missing_core"
@@ -184,4 +198,6 @@ def main():
     print(json.dumps(summary,indent=2),flush=True)
     if len(selected)<5:raise SystemExit("Insufficient candidate company fiscal-year histories")
     if len(facts)<6:raise SystemExit("Insufficient downloaded numerical data")
+    if summary["strict_revenue_and_pat_document_rows"]<20 or summary["companies_sales_growth_5y_calculable"]<2:
+        raise SystemExit("Historical revenue/PAT 5-year feature completeness gate FAILED; reject zero-value features")
 if __name__=="__main__":main()
