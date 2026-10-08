@@ -13,6 +13,7 @@ import joblib
 import pandas as pd
 from huggingface_hub import HfApi
 from v11_4_forward_research_release import VERSION,score_prospective,sha256
+from v11_4_four_family_live_screener import analyze
 
 HF_REPO="ayushverma1988/v10-multibagger-archive"
 FORWARD_ROOT="v11_4/forward_observations"
@@ -62,6 +63,14 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
  if any(p==prefix or p.startswith(prefix+"/") for p in existing):
   raise ValueError(f"Private forward observation already exists at {prefix}: immutable; no overwrite")
  dest=Path(out);dest.mkdir(parents=True,exist_ok=True)
+ raw_cfg=Path("config/v11_4_four_screener_families.json")
+ if not raw_cfg.is_file():raise ValueError("Four previously requested screener families config missing")
+ screener=analyze(x,json.loads(raw_cfg.read_text()))
+ sc=dest/"four_screener_families_audit_ALL_ELIGIBLE.csv"
+ screener.to_csv(sc,index=False)
+ s4=screener[screener["symbol"].isin(picks["symbol"])].copy()
+ if len(s4)!=10:raise ValueError("Four screening overlay lost a predicted stock")
+ s4.to_csv(dest/"four_screener_status_original_top10_NO_RERANK.csv",index=False)
  csv=dest/"verified_forward_top10.csv"
  picks.to_csv(csv,index=False)
  manifest={
@@ -79,6 +88,10 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
   "frozen_manifest_SHA256":sha256(Path(frozen)/NEEDED[1]),
   "live_PIT_market_filing_features_SHA256":source["live_features_SHA256"],
   "recorded_selection_csv_SHA256":sha256(csv),
+  "independent_four_original_screening_conditions_audit_SHA256":sha256(sc),
+  "fourth_RSI14_strictly_above_80_in_top10":int(s4["rsi14_gt80"].fillna(False).sum()),
+  "three_original_screening_families_not_yet_fully_sourced":True,
+  "frozen_model_ranking_unmodified_by_all_four_screens":True,
   "recorded_stock_count":len(picks),
   "six_month_target_evaluation_due_approximately":str((asof+pd.DateOffset(months=6)).date()),
   "no_current_2026_outcome_has_been_observed":True,
