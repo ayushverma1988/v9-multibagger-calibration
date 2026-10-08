@@ -67,8 +67,8 @@ def main():
             errors.append({"symbol":sym,"error":str(e)[:170]})
         time.sleep(0.5)
     d=pd.DataFrame(rows,columns=["symbol","fy_end","available_at_utc","xbrl_url","filed_period","consolidated"])
-    d.to_csv(out/"annual_filings_source_index_PIT_CANDIDATES.csv",index=False)
-    pd.DataFrame(errors,columns=["symbol","error"]).to_csv(out/"annual_catalog_errors.csv",index=False)
+    d.to_csv(out/"quarterly_filings_source_index_PIT_CANDIDATES.csv",index=False)
+    pd.DataFrame(errors,columns=["symbol","error"]).to_csv(out/"quarterly_catalog_errors.csv",index=False)
     good=d[pd.to_datetime(d["available_at_utc"],utc=True,errors="coerce").le(pd.Timestamp("2021-12-31T10:00:00Z"))]
     fetched=pd.to_datetime(d["available_at_utc"],utc=True,errors="coerce")
     period_end=pd.to_datetime(d["fy_end"],errors="coerce")
@@ -77,6 +77,8 @@ def main():
     result={
         "sample_requested":len(chosen),"sample_completed":len(chosen)-len(errors),
         "quarterly_index_rows":len(d),
+        "quarterly_2025_records_available_by_2025_dec_close":int(len(fresh)),
+        "companies_2025_quarterly_data_available_by_2025_dec_close":int(fresh["symbol"].nunique()),
         "distinct_companies_quarterly_rows":d["symbol"].nunique(),
         "distinct_companies_with_pre_2022_filings":good["symbol"].nunique(),
         "pre_2022_filing_rows":len(good),
@@ -85,7 +87,7 @@ def main():
         "source":"Official NSE quarterly financial filing catalog; retain timestamps and original URLs",
         "errors":errors,
     }
-    (out/"annual_source_probe_summary.json").write_text(json.dumps(result,indent=2))
+    (out/"quarterly_source_probe_summary.json").write_text(json.dumps(result,indent=2))
     print(json.dumps(result,indent=2),flush=True)
     if d.empty:raise SystemExit("No usable quarterly financial catalog returned")
 if __name__=="__main__":main()
