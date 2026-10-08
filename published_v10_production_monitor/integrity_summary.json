@@ -2,13 +2,13 @@
   "model": "V10.2 selected-window residual integrity audit",
   "selected_oos_rows": 180,
   "selected_symbols": 162,
-  "selected_symbol_jumps_50pct": 26,
+  "selected_symbol_jumps_50pct": 27,
   "jump_class_counts": {
     "adjustment_factor_discontinuity": 17,
     "raw_market_move_or_unresolved": 6,
-    "corporate_action_or_restructuring": 3
+    "corporate_action_or_restructuring": 4
   },
-  "corporate_action_matches": 3,
+  "corporate_action_matches": 4,
   "selected_rows_exposed_feature_252_any_jump": 1,
   "selected_rows_exposed_y6_any_jump": 0,
   "selected_rows_exposed_y12_any_jump": 0,

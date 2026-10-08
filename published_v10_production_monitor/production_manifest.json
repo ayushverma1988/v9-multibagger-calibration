@@ -2,8 +2,8 @@
   "production_model": "V10.2 integrity-corrected V9.4.1",
   "production_rules_frozen": true,
   "data_start": "2003-01-01",
-  "data_end": "2026-10-07",
-  "eligible_current_rows": 1412,
+  "data_end": "2026-10-08",
+  "eligible_current_rows": 1420,
   "selected_rows": 10,
   "selector": {
     "name": "N100_drop0.50_s0.20_c0.05",
