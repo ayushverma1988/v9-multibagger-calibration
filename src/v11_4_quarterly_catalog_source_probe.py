@@ -73,11 +73,18 @@ def main():
     fetched=pd.to_datetime(d["available_at_utc"],utc=True,errors="coerce")
     period_end=pd.to_datetime(d["fy_end"],errors="coerce")
     asof=pd.Timestamp("2025-12-31T10:00:00Z")
+    latest_quarters=d[period_end>=pd.Timestamp("2025-01-01")].copy()
     fresh=d[(fetched<=asof)&(period_end>=pd.Timestamp("2025-06-30"))]
+    latest_quarters.to_csv(out/"quarterly_2025_filing_records.csv",index=False)
     result={
         "sample_requested":len(chosen),"sample_completed":len(chosen)-len(errors),
         "quarterly_index_rows":len(d),
+        "quarterly_2025_records_any_date":int(len(latest_quarters)),
+        "quarterly_2025_distinct_companies":int(latest_quarters["symbol"].nunique()),
         "quarterly_2025_records_available_by_2025_dec_close":int(len(fresh)),
+        "all_2025_earliest_filing_ts":str(fetched[period_end>=pd.Timestamp("2025-01-01")].min()),
+        "all_2025_latest_filing_ts":str(fetched[period_end>=pd.Timestamp("2025-01-01")].max()),
+        "all_2025_earliest_period_end":str(period_end[period_end>=pd.Timestamp("2025-01-01")].min()),
         "companies_2025_quarterly_data_available_by_2025_dec_close":int(fresh["symbol"].nunique()),
         "distinct_companies_quarterly_rows":d["symbol"].nunique(),
         "distinct_companies_with_pre_2022_filings":good["symbol"].nunique(),
