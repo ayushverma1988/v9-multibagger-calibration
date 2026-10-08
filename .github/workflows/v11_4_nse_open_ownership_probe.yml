@@ -31,8 +31,11 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 --filter=blob:none --sparse https://github.com/aditya-jha/nse-historical-membership.git upstream_nse
+          git -C upstream_nse fetch --depth 1 origin 0e9f58c4d457faf0e7ad3db4f4c1449e697e23e0
+          git -C upstream_nse checkout --detach 0e9f58c4d457faf0e7ad3db4f4c1449e697e23e0
           git -C upstream_nse sparse-checkout set shareholding_history/data/parsed shareholding_history/data/filings_index
           test -s upstream_nse/shareholding_history/data/parsed/_flat.csv
+          echo 'c82b7d0972a99d427d218770234658d1e16adc08972d3765496a44cdd829d2f5  upstream_nse/shareholding_history/data/parsed/_flat.csv' | sha256sum -c -
       - name: Obtain 18 original backtest folds
         shell: bash
         run: |
