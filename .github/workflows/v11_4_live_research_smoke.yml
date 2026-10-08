@@ -1,4 +1,5 @@
 name: V11.4 Verify Current NSE Market and Freeze Forward Predictions
+# Corrected offline market-feature tuple selector and re-ran strict V11.4 source-validation pipeline.
 on:
   workflow_dispatch:
   push:
