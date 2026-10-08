@@ -1,0 +1,55 @@
+name: V11.4 Standalone Six-Month Stock Discovery Model
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_standalone_6m_train.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  standalone-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - name: Verify V11.4 standalone source-only and maturity-cutoff tests
+        run: |
+          python -m py_compile src/v11_4_standalone_train_walkforward.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_standalone_walkforward.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: v11_4_input
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_labels_only
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Train, calibrate and evaluate standalone V11.4 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          FEATURES=$(find v11_4_input -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          HISTORY=$(find historical_labels_only -name snapshot_dataset.parquet -print -quit)
+          test -n "$FEATURES" && test -n "$HISTORY"
+          python src/v11_4_standalone_train_walkforward.py \
+            --features "$FEATURES" --snapshot "$HISTORY" \
+            --output outputs_v11_4_standalone_model
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-standalone-six-month-model-walkforward-and-stability
+          path: outputs_v11_4_standalone_model/
+          retention-days: 90
+          if-no-files-found: warn
