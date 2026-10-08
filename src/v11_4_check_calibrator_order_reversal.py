@@ -21,7 +21,7 @@ def main():
  for z in (f,snap):
   z["date"]=pd.to_datetime(z["date"]).dt.normalize()
   z["symbol"]=z["symbol"].astype(str).str.upper().str.strip()
- z=safe_featureize(f.merge(snap,on=["date","symbol"],how="left",validate="1:1"))
+ z=safe_featureize(f.merge(snap,on=["date","symbol"],how="left",validate="1:1",suffixes=("","_snapshot")))
  allrows=[]
  for date in DATES:
   day=pd.Timestamp(date)
