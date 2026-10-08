@@ -4,7 +4,7 @@ import numpy as np
 from v11_4_standalone_train_walkforward import (
     fold_close,keep_train,eligible_asof,top10_similarity,
     safe_featureize,CATALYST_PREFIXES,PRICE_MIN,PRICE_MAX,
-    MODEL_FEATURES,train_once,BAGGING_SEEDS,STABILITY_RETENTION
+    MODEL_FEATURES,train_once,calibrate_logit,calibration_mode,MIN_CALIBRATION_POSITIVES
 )
 
 class StandaloneV114Tests(unittest.TestCase):
@@ -35,7 +35,7 @@ class StandaloneV114Tests(unittest.TestCase):
         self.assertAlmostEqual(top10_similarity(["A","B","C"],["A","B","D"]),.5)
         self.assertEqual(top10_similarity(["A","B"],["A","B"]),1)
 
-    def test_bagged_ranker_is_deterministic_and_bounded(self):
+    def test_ranker_is_deterministic_and_bounded(self):
         n=100
         train=pd.DataFrame({"date":pd.to_datetime(["2018-06-29"]*50+["2018-12-31"]*50),
                             "y6":[0,1]*50})
@@ -49,8 +49,25 @@ class StandaloneV114Tests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(p1)))
         self.assertTrue(np.all((p1>0)&(p1<1)))
         np.testing.assert_array_equal(p1,p2)
-        self.assertEqual(len(BAGGING_SEEDS),4)
-        self.assertEqual(STABILITY_RETENTION,0.95)
+        self.assertEqual(MIN_CALIBRATION_POSITIVES,12)
+
+    def test_zero_winner_calibration_is_shrunk_not_zeroed(self):
+        prior=np.array([0]*1900+[1]*100)
+        rare=np.zeros(900,dtype=int)
+        calp=np.full(900,.04)
+        testp=np.array([.01,.04,.15])
+        self.assertEqual(calibration_mode(rare),"sparse_empirical_bayes_intercept")
+        calibrated=calibrate_logit(testp,calp,rare,prior)
+        self.assertTrue(np.all((calibrated>0)&(calibrated<1)))
+        self.assertTrue(np.all(np.diff(calibrated)>0))
+        target=(200*(100/2000))/(900+200)
+        calibrated_cal=calibrate_logit(calp,calp,rare,prior)
+        self.assertAlmostEqual(float(calibrated_cal.mean()),target,places=6)
+
+    def test_sparse_winner_fold_never_fits_unstable_platt(self):
+        y=np.array([1]*7+[0]*846,dtype=int)
+        self.assertEqual(calibration_mode(y),"sparse_empirical_bayes_intercept")
+        self.assertEqual(calibration_mode(np.array([1]*12+[0]*30)),"platt")
 
     def test_filing_count_cannot_be_negative(self):
         df=pd.DataFrame({"nse_order_win_90d":[-2,0,3]})
