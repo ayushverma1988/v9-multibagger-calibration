@@ -148,7 +148,7 @@ def freeze(features,snapshot,out,asof=ASOF,exclude_covid=True):
         raise SystemExit("Source PIT feature matrix already contaminated by outcomes or old scores")
     if not set(FLOAT_FEATURES).issubset(inp):
         raise SystemExit("Missing exact 22 preserved V11.4 features")
-    y=pd.read_parquet(snapshot,columns=["date","symbol","close","avg_turnover_63",
+    y=pd.read_parquet(snapshot,columns=["date","symbol","close",
          "y6","y6_mature_date","integrity_y6_clean"])
     for z in (inp,y):
         z["date"]=pd.to_datetime(z["date"],errors="coerce").dt.normalize()
