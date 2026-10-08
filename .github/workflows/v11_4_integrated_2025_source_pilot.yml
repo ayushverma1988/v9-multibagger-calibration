@@ -12,7 +12,7 @@ permissions:
 jobs:
   integrated:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,7 +31,7 @@ jobs:
         run: |
           SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
           test -n "$SNAP"
-          python src/v11_4_integrated_2025_source_pilot.py --snapshot "$SNAP" --max-symbols 16 --output outputs_v11_4_integrated_pilot
+          python src/v11_4_integrated_2025_source_pilot.py --snapshot "$SNAP" --max-symbols 128 --output outputs_v11_4_integrated_pilot
       - uses: actions/upload-artifact@v4
         if: always()
         with:
