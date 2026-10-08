@@ -1,0 +1,56 @@
+{
+  "model": "V9.3-H6-Selection",
+  "pipeline_version": "selection-v9.3-1",
+  "data_start": "2003-01-01",
+  "data_end": "2026-09-25",
+  "oos_rows_calibrated": 24029,
+  "oos_positive_6m": 1002,
+  "base_rate_6m": 0.04169961296766407,
+  "best_calibrator": "platt",
+  "brier": 0.039731030131408336,
+  "logloss": 0.17060005372652853,
+  "pr_auc": 0.06237071304326124,
+  "calibration_slope": 0.7965084899432222,
+  "calibration_intercept": -0.52233821034781,
+  "best_downside_calibrator": "beta",
+  "return_model_target": "126-session split/bonus-normalized return; dividends excluded; disappearance before horizon=-100%",
+  "return_mae": 0.28792173831788503,
+  "return_rmse": 0.4132326105352948,
+  "return_spearman": 0.0022303004441244674,
+  "selection_k": 10,
+  "production_weights": {
+    "upside_2x": 0.30000000000000004,
+    "downside_safety": 0.5,
+    "expected_return": 0.2,
+    "model_consensus": 0.0
+  },
+  "selection_optimizer": {
+    "objective": "median fold utility - IQR penalty - bad-fold penalty",
+    "leakage_control": "each OOS fold uses prior folds only",
+    "do_no_harm_baseline_in_search": true
+  },
+  "selection_history": {
+    "V9.3": {
+      "folds": 18,
+      "median_precision_2x": 0.0,
+      "median_lift_2x": 0.0,
+      "median_mean_ret_6m": 0.05739730070502799,
+      "median_median_ret_6m": 0.011904271080545425,
+      "median_positive_return_rate": 0.5,
+      "median_dd30_rate": 0.15000000000000002,
+      "mean_utility": 0.09583649416413345,
+      "median_utility": 0.07538689650922012
+    },
+    "V9.2_pcal": {
+      "folds": 18,
+      "median_precision_2x": 0.1,
+      "median_lift_2x": 2.2440677966101696,
+      "median_mean_ret_6m": 0.03966029154033477,
+      "median_median_ret_6m": -0.06370636663830251,
+      "median_positive_return_rate": 0.45,
+      "median_dd30_rate": 0.35,
+      "mean_utility": 0.050026857756941316,
+      "median_utility": -0.024527913815795964
+    }
+  }
+}
