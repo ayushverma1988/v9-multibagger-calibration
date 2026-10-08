@@ -1,0 +1,78 @@
+name: V11.4 FY2025 Historic Integrated Plus Annual 1Y Features
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2025_integrated_yoy_pit.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  annual-2025:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Restore original NSE financial taxonomy and validate matching methodology
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_2025_integrated_yoy_pit.py src/v11_4_short_horizon_financial_pit.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: old_annual
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-repaired-2025-full-integrated-PIT-index
+          path: integrated
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37746681814
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2025-annual-FourD-integrated-source-probe
+          path: qa_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37752852387
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Build same-mode 2024 historical and FY2025 integrated fiscal-year revenue/PAT source pairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD=$(find old_annual -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          INTEGRATED=$(find integrated -name integrated_financial_index_2025_REPAIRED_REHEARSAL_ONLY.parquet -print -quit)
+          QA=$(find qa_seed -name FY2025_integrated_annual_bridge_summary.json -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$OLD" && test -n "$INTEGRATED" && test -n "$QA" && test -n "$SNAP"
+          python src/v11_4_2025_integrated_yoy_pit.py \
+            --annual "$OLD" --integrated "$INTEGRATED" --qa "$QA" --snapshot "$SNAP" \
+            --max-companies 96 --output outputs_v11_4_2025_yoy
+      - name: Stage FY2025 1y financial trend features
+        run: |
+          python src/v11_4_short_horizon_financial_pit.py \
+            --annual-numerics outputs_v11_4_2025_yoy/strict_2025_fold_annual_numeric_pairs.csv \
+            --fold-date 2025-12-31 --output outputs_v11_4_2025_yoy/features
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-FY2025-legacy-integrated-annual-1y-PIT-research-features
+          path: outputs_v11_4_2025_yoy/
+          retention-days: 90
+          if-no-files-found: warn
