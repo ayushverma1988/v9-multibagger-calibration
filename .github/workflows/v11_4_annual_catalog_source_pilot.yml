@@ -2,11 +2,6 @@ name: V11.4 NSE Historical Annual Filing Index Pilot
 
 on:
   workflow_dispatch:
-  push:
-    branches: [v11-4-ownership-backfill-probe]
-    paths:
-      - 'src/v11_4_annual_catalog_source_pilot.py'
-      - '.github/workflows/v11_4_annual_catalog_source_pilot.yml'
 
 permissions:
   actions: read
