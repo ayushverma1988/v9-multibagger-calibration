@@ -1,0 +1,20 @@
+{
+  "symbols_requested": 74,
+  "symbols_extracted": 74,
+  "errors": 0,
+  "pe_coverage": 0.8648648648648649,
+  "industry_pe_coverage": 0.7702702702702703,
+  "market_cap_coverage": 0.7162162162162162,
+  "sme_count": 0,
+  "report_diagnostics": {
+    "daily_report_buckets": {
+      "CurrentDay": 7,
+      "PreviousDay": 39,
+      "FutureDay": 0
+    },
+    "pe_file": "PE_071026.csv",
+    "pe_trading_date": "07-Oct-2026",
+    "pe_rows": 2270
+  },
+  "error_samples": []
+}

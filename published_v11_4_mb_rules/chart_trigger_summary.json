@@ -1,0 +1,9 @@
+{
+  "asof": "2026-10-07",
+  "symbols_requested": 74,
+  "symbols_extracted": 72,
+  "dma50_coverage": 1.0,
+  "dma200_coverage": 0.9166666666666666,
+  "recovery_setup_count": 4,
+  "trend_confirmation_count": 9
+}

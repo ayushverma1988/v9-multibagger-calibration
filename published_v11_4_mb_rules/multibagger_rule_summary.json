@@ -1,0 +1,21 @@
+{
+  "companies": 74,
+  "family_full_pass": {
+    "quality_compounder": 0,
+    "recovery_value_setup": 2,
+    "earnings_acceleration": 0
+  },
+  "family_signal": {
+    "quality_compounder": 0,
+    "recovery_value_setup": 2,
+    "earnings_acceleration": 6
+  },
+  "two_or_more_family_signals": 0,
+  "three_family_signals": 0,
+  "median_coverage": {
+    "quality_compounder": 0.8,
+    "recovery_value_setup": 1.0,
+    "earnings_acceleration": 0.875
+  },
+  "note": "Challenger only. It cannot create V11.4 causal eligibility. Historical PIT validation is required before any promotion."
+}
