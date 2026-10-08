@@ -74,7 +74,7 @@ class NSELiveSourceTests(unittest.TestCase):
   features=market_features(g,day,min_company_rows=1)
   self.assertEqual(len(features),1)
   self.assertTrue(features["integrity_feature_clean"].iloc[0])
-  self.assertTrue(np.isfinite(features[PRICE_COLUMNS].to_numpy(float)).all())
+  self.assertTrue(np.isfinite(features[list(PRICE_COLUMNS)].to_numpy(float)).all())
  def test_future_feed_missing_catalog_blocks_scorer(self):
   frame={"date":["2026-10-08"]*10,
    "symbol":[f"C{i}" for i in range(10)],
