@@ -1,0 +1,46 @@
+name: V11.4 Annual XBRL Unit-Context Diagnostics
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_annual_xbrl_context_diagnostics.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inspect-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3'
+      - name: Retrieve original NSE XBRL tag rules
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_debug_annual_xbrl_contexts.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-historical-annual-filing-pilot
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37747467876
+      - name: Compare actual annual XBRL contexts, date spans and monetary units
+        shell: bash
+        run: |
+          INDEX=$(find annual_seed -name annual_filings_source_index_PIT_CANDIDATES.csv -print -quit)
+          test -n "$INDEX"
+          python src/v11_4_debug_annual_xbrl_contexts.py \
+            --catalog "$INDEX" --output outputs_v11_4_annual_xbrl_context_debug
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-annual-xbrl-original-context-diagnostics
+          path: outputs_v11_4_annual_xbrl_context_debug/
+          retention-days: 60
+          if-no-files-found: warn
