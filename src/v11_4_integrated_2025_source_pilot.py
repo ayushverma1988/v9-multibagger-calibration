@@ -30,6 +30,8 @@ def main():
     p.add_argument("--snapshot",required=True)
     p.add_argument("--output",required=True)
     p.add_argument("--max-symbols",type=int,default=16)
+    p.add_argument("--shard-index",type=int,default=0)
+    p.add_argument("--shard-count",type=int,default=1)
     a=p.parse_args()
     out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
     snap=pd.read_parquet(a.snapshot,columns=["date","symbol"])
@@ -37,7 +39,11 @@ def main():
     universe=set(snap.loc[snap["date"].eq(pd.Timestamp("2025-12-31")),"symbol"].astype(str).str.upper().str.strip())
     chosen=[z for z in ("RELIANCE","INFY","TCS","SBIN","20MICRONS","HDFCBANK") if z in universe]
     extras=sorted(universe-set(chosen),key=lambda z:hashlib.sha256(z.encode()).hexdigest())
-    chosen=(chosen+extras)[:a.max_symbols]
+    if a.shard_count<1 or not (0<=a.shard_index<a.shard_count):
+        raise SystemExit("Invalid shard definition")
+    all_symbols=chosen+extras
+    shard_universe=all_symbols[a.shard_index::a.shard_count]
+    chosen=shard_universe[:a.max_symbols]
     session=requests.Session()
     session.headers.update({
         "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -46,8 +52,9 @@ def main():
     })
     try:session.get(HOMEPAGE,timeout=15)
     except requests.RequestException:pass
-    rows=[];errors=[];schemas={}
+    rows=[];errors=[];schemas={};attempted=0
     for sym in chosen:
+        attempted+=1
         total=0
         try:
             for page in range(1,4):
@@ -98,7 +105,10 @@ def main():
     eligible=df[(end>=pd.Timestamp("2025-03-01T00:00:00Z"))&(filed<=cutoff)]
     summary={
         "source":API,"source_type":"NSE Integrated Filing - Financials",
-        "sample_companies":len(chosen),"successful_companies":len(chosen)-len(errors),
+        "sample_companies":len(chosen),"attempted_companies":attempted,
+        "successful_companies":attempted-len(errors),"full_universe_size":len(all_symbols),
+        "shard_index":a.shard_index,"shard_count":a.shard_count,
+        "requested_symbols":chosen,"symbols_with_records":int(df["symbol"].nunique()),
         "rows":len(df),"2025_plus_rows_filed_before_2025_dec_close":len(eligible),
         "covered_companies_by_2025_dec_close":int(eligible["symbol"].nunique()),
         "sample_symbols":chosen,"api_schema_by_sample":schemas,
