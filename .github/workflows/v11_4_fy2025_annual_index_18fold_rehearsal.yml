@@ -1,0 +1,76 @@
+name: V11.4 Restored FY2025 Annual Index 18-Fold Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_fy2025_annual_index_18fold_rehearsal.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  restored-annual-index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_merge_2025_integrated_into_annual_index.py src/v11_4_annual_5y7y_index_fold_audit.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: old_annual
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-repaired-2025-full-integrated-PIT-index
+          path: integrated_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37746681814
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2025-annual-FourD-integrated-source-probe
+          path: bridge_qa
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37752852387
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Freeze original 18 dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Merge legacy annual and verified-sample 2025 integrated fiscal filing indexes
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX=$(find old_annual -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          INT=$(find integrated_seed -name integrated_financial_index_2025_REPAIRED_REHEARSAL_ONLY.parquet -print -quit)
+          QA=$(find bridge_qa -name FY2025_integrated_annual_bridge_summary.json -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$INT" && test -n "$QA" && test -n "$SNAP"
+          python src/v11_4_merge_2025_integrated_into_annual_index.py \
+            --original "$INDEX" --integrated "$INT" --sample-qa "$QA" \
+            --out outputs_v11_4_annual_2025_bridge
+          python src/v11_4_annual_5y7y_index_fold_audit.py \
+            --annual-index outputs_v11_4_annual_2025_bridge/NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv \
+            --snapshot "$SNAP" --folds folds.csv \
+            --output outputs_v11_4_annual_2025_bridge/18fold_index_QA
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: outputs_v11_4_annual_2025_bridge/
+          retention-days: 90
+          if-no-files-found: warn
