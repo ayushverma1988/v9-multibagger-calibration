@@ -1,0 +1,52 @@
+name: V11.4 Sparse Platt Ranking Inversion Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_calibrator_rank_inversion_audit.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - run: python -m py_compile src/v11_4_check_calibrator_order_reversal.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: feature_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_label_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Diagnose Platt calibration slope and raw versus calibrated top10 consistency in worst historical folds
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=$(find feature_seed -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          LAB=$(find original_label_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$SRC" && test -n "$LAB"
+          python src/v11_4_check_calibrator_order_reversal.py \
+            --features "$SRC" --snapshot "$LAB" \
+            --output outputs_v11_4_rank_inversion
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-standalone-Platt-ranking-inversion-audit
+          path: outputs_v11_4_rank_inversion/
+          retention-days: 60
+          if-no-files-found: warn
