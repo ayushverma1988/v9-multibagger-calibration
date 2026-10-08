@@ -1,0 +1,60 @@
+name: V11.4 NSE Integrated 2025 PIT Merge Rehearsal
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - 'src/v11_4_integrated_2025_merge_rehearsal.py'
+      - '.github/workflows/v11_4_integrated_2025_merge_rehearsal.yml'
+permissions:
+  actions: read
+  contents: read
+jobs:
+  merge-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_integrated_2025_merge_rehearsal.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-integrated-2025-financial-pilot
+          path: integrated_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37744827980
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: old_fin
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Compare historic archived vs integrated PIT financial availability
+        shell: bash
+        run: |
+          FIN=$(find old_fin -name financial_results_metadata.parquet -print -quit)
+          INT=$(find integrated_seed -name integrated_filing_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$FIN" && test -n "$INT" && test -n "$SNAP"
+          python src/v11_4_integrated_2025_merge_rehearsal.py \
+            --official "$FIN" --integrated "$INT" --snapshot "$SNAP" \
+            --output outputs_v11_4_integrated_merge
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-integrated-2025-financial-PIT-merge-REHEARSAL
+          path: outputs_v11_4_integrated_merge/
+          retention-days: 60
+          if-no-files-found: warn
