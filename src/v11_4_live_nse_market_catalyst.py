@@ -89,11 +89,11 @@ def validate_market(primary,secondary):
   raise ValueError(f"Two NSE source overlap failed: {len(y)}/{len(primary)}")
  absdiff=(y["close"]-y["check_close"]).abs()
  med=float(absdiff.median());p99=float(absdiff.quantile(.99))
- if med>.01 or p99>.10:
+ if med>.01 or p99>.10 or float(absdiff.max())>.10:
   raise ValueError(f"Official NSE two-source prices disagree: median={med}, p99={p99}")
  return {"official_udiff_rows":len(primary),"official_overlap_rows":len(y),
          "official_overlap_fraction":overlap,"close_median_abs_diff":med,
-         "close_p99_abs_diff":p99}
+         "close_p99_abs_diff":p99,"close_max_abs_diff":float(absdiff.max())}
 
 def exchange_primary_for_day(target):
  target=pd.Timestamp(target).normalize()
@@ -228,7 +228,7 @@ def rsi_wilder_last(prices,period=14):
  rs=g/l
  return float(100-100/(1+rs))
 
-def market_features(history,target):
+def market_features(history,target,min_company_rows=MIN_UNIQUE_MARKET_CANDIDATES):
  out=[]
  for symbol,g in history.groupby("symbol",sort=False):
   g=g.sort_values("date")
@@ -272,7 +272,7 @@ def market_features(history,target):
                     d["avg_turnover_63"]>0)
   out.append(d)
  result=pd.DataFrame(out)
- if len(result)<MIN_UNIQUE_MARKET_CANDIDATES:
+ if len(result)<min_company_rows:
   raise ValueError(f"Fewer than 500 equities with at least 252 market sessions: {len(result)}")
  return result
 
