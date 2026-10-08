@@ -1,0 +1,45 @@
+name: V11.4 Validated 1-Year Annual Fundamental PIT Features
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_short_horizon_financial_pit.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Run short-horizon financial feature unit tests
+        run: PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_short_horizon_financial_pit.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-strict-annual-PIT-5y7y-numeric-candidates
+          path: strict_annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37752692605
+      - name: Build 2024-12-31 FY2023/24 point-in-time short-horizon revenue PAT features
+        shell: bash
+        run: |
+          set -euo pipefail
+          NUM=$(find strict_annual_seed -name annual_exact_context_PIT_numeric_candidates.csv -print -quit)
+          test -n "$NUM"
+          python src/v11_4_short_horizon_financial_pit.py \
+            --annual-numerics "$NUM" --fold-date 2024-12-31 \
+            --output outputs_v11_4_short_horizon_financial
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-short-horizon-PIT-annual-revenue-PAT-research-features
+          path: outputs_v11_4_short_horizon_financial/
+          retention-days: 90
+          if-no-files-found: warn
