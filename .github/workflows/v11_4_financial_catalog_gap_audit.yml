@@ -1,0 +1,47 @@
+name: V11.4 PIT Annual-Filing Gap Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - src/v11_4_audit_financial_catalog.py
+      - .github/workflows/v11_4_financial_catalog_gap_audit.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_audit_financial_catalog.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: official_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+      - name: Load frozen fold dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Diagnose actual historical financial filings
+        run: |
+          FIN=$(find official_seed -name financial_results_metadata.parquet -print -quit)
+          test -n "$FIN"
+          python src/v11_4_audit_financial_catalog.py --financial "$FIN" --folds folds.csv --output outputs_v11_4_financial_diagnostics
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-annual-gap-diagnostics
+          path: outputs_v11_4_financial_diagnostics/
+          if-no-files-found: warn
