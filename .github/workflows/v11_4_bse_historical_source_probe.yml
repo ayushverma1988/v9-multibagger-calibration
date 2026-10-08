@@ -1,0 +1,40 @@
+name: V11.4 BSE Historical Ownership Source Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v11_4_bse_historical_source_probe.yml'
+      - 'src/v11_4_probe_bse_historical_shareholding.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v11-4-bse-historical-source-probe
+  cancel-in-progress: true
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install request client
+        run: python -m pip install 'requests>=2.31,<3'
+      - name: Check script compiles
+        run: python -m py_compile src/v11_4_probe_bse_historical_shareholding.py
+      - name: Probe BSE historical shareholding index 2017-2021
+        run: python src/v11_4_probe_bse_historical_shareholding.py
+      - name: Preserve source coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-bse-historical-ownership-pilot
+          path: outputs_v11_4_bse_historical_probe/
+          retention-days: 90
+          if-no-files-found: warn
