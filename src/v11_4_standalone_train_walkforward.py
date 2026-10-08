@@ -46,10 +46,9 @@ MIN_BASE_POSITIVES=45
 MIN_CALIBRATION_POSITIVES=12
 MIN_RESEARCH_TEST_FOLDS=12
 STABILITY_SEEDS=(17,41,83)
-# Research v11.4b: fixed bagged logistic members average out idiosyncratic
-# fold-stratum training subsample variation, without tuning to test labels.
-BAGGING_SEEDS=(101,211,307,419)
-BAGGING_RETENTION=0.90
+# Sparse historical winner regimes use a conservative shrinkage estimator
+# instead of fitting unstable Platt coefficients from 0-7 observations.
+SPARSE_CAL_PRIOR_STRENGTH=200.0
 # Fixed 95% stratified retention per training fold; this measures
 # robustness to plausible omissions in old observations, not re-tuning.
 STABILITY_RETENTION=0.95
@@ -91,36 +90,54 @@ def make_model():
             class_weight=None,solver="lbfgs",random_state=31))
     ])
 
-def calibrate_logit(raw,calibration_values,calibration_y):
-    # A separate prior matured fold calibrates each held-out prediction.
-    # This is NOT retrospective isotonic fitting on the test fold.
+def calibration_mode(calibration_y):
+    yy=np.asarray(calibration_y,dtype=int)
+    return ("platt" if int(yy.sum())>=MIN_CALIBRATION_POSITIVES
+            and int((yy==0).sum())>=MIN_CALIBRATION_POSITIVES
+            else "sparse_empirical_bayes_intercept")
+
+def calibrate_logit(raw,calibration_values,calibration_y,training_y=None):
+    # An already-matured calibration fold is disjoint from train and test.
+    # Where it contains fewer than 12 successes, avoid fitting unreliable
+    # Platt slope/intercept parameters. Shrink its empirical event rate
+    # toward the earlier, already-matured training-fold event rate, and
+    # fit only a monotone, probability-preserving intercept correction.
+    y=np.asarray(calibration_y,dtype=int)
     q=np.clip(np.asarray(calibration_values,dtype=float),1e-5,1-1e-5)
-    z=np.log(q/(1-q)).reshape(-1,1)
-    lr=LogisticRegression(C=CALIBRATION_C,solver="lbfgs",
-                          class_weight=None,max_iter=400,random_state=31)
-    lr.fit(z,np.asarray(calibration_y,dtype=int))
     t=np.clip(np.asarray(raw,dtype=float),1e-5,1-1e-5)
-    return lr.predict_proba(np.log(t/(1-t)).reshape(-1,1))[:,1]
+    if calibration_mode(y)=="platt":
+        lr=LogisticRegression(C=CALIBRATION_C,solver="lbfgs",
+                              class_weight=None,max_iter=400,random_state=31)
+        lr.fit(np.log(q/(1-q)).reshape(-1,1),y)
+        return lr.predict_proba(np.log(t/(1-t)).reshape(-1,1))[:,1]
+    if training_y is None:
+        raise ValueError("Sparse calibration requires independently matured earlier training labels")
+    earlier=np.asarray(training_y,dtype=int)
+    if len(earlier)<MIN_BASE_TRAIN_ROWS or not set(np.unique(earlier)).issuperset({0,1}):
+        raise ValueError("Sparse calibration lacks enough earlier matured training history")
+    prior=float(earlier.mean())
+    goal=(float(y.sum())+SPARSE_CAL_PRIOR_STRENGTH*prior)/(len(y)+SPARSE_CAL_PRIOR_STRENGTH)
+    goal=np.clip(goal,1e-5,1-1e-5)
+    cal_logits=np.log(q/(1-q))
+    lo,hi=-20.0,20.0
+    for _ in range(55):
+        middle=(lo+hi)/2
+        corrected=1/(1+np.exp(-np.clip(cal_logits+middle,-35,35)))
+        if float(corrected.mean())<goal:lo=middle
+        else:hi=middle
+    pred=np.log(t/(1-t))+(lo+hi)/2
+    return 1/(1+np.exp(-np.clip(pred,-35,35)))
 
 def top10_similarity(a,b):
     aa=set(a);bb=set(b)
     return len(aa&bb)/len(aa|bb) if aa or bb else 1.0
 
 def train_once(train,cal,test):
-    # Bagging/ensemble operates exclusively on labels available before td.
-    # A full-data estimator anchors the ensemble while four fixed 90%
-    # stratified perturbations reduce one-fold coefficient instability.
-    cal_preds=[];test_preds=[]
-    for seed in (None,*BAGGING_SEEDS):
-        local=train if seed is None else perturbation_training(
-            train,seed,retention=BAGGING_RETENTION)
-        model=make_model()
-        model.fit(local[list(MODEL_FEATURES)],local["y6"].astype(int))
-        cal_preds.append(model.predict_proba(cal[list(MODEL_FEATURES)])[:,1])
-        test_preds.append(model.predict_proba(test[list(MODEL_FEATURES)])[:,1])
-    cal_raw=np.mean(np.stack(cal_preds,axis=0),axis=0)
-    test_raw=np.mean(np.stack(test_preds,axis=0),axis=0)
-    return calibrate_logit(test_raw,cal_raw,cal["y6"])
+    model=make_model()
+    model.fit(train[list(MODEL_FEATURES)],train["y6"].astype(int))
+    calpred=model.predict_proba(cal[list(MODEL_FEATURES)])[:,1]
+    testpred=model.predict_proba(test[list(MODEL_FEATURES)])[:,1]
+    return calibrate_logit(testpred,calpred,cal["y6"],train["y6"])
 
 def perturbation_training(train,seed,retention=STABILITY_RETENTION):
     # Preserve each original fold and both classes. Randomly retain 95% of
@@ -184,7 +201,7 @@ def main():
         current=training[(training["date"]==td)&eligible_asof(training)].copy()
         if (base["date"].nunique()<MIN_BASE_TRAIN_FOLDS or len(base)<MIN_BASE_TRAIN_ROWS or
             int(base["y6"].sum())<MIN_BASE_POSITIVES or
-            cal["y6"].nunique()<2 or int(cal["y6"].sum())<MIN_CALIBRATION_POSITIVES):
+            len(cal)<50 or cal["y6"].isna().any()):
             fold_records.append({"date":str(pd.Timestamp(td).date()),"status":"insufficient_prior_training_or_calibration",
                                  "training_fold_count":int(base["date"].nunique()),
                                  "training_rows":len(base),"calibration_positive":int(cal["y6"].sum())})
@@ -217,6 +234,8 @@ def main():
             "training_folds":int(base["date"].nunique()),"training_rows":len(base),
             "calibration_fold":str(pd.Timestamp(cal_fold).date()),
             "calibration_rows":len(cal),
+            "calibration_winners":int(cal["y6"].sum()),
+            "calibration_method":calibration_mode(cal["y6"]),
             "candidates":len(current),"selected":len(chosen),
             "outcome_matured_eligible":len(assessed),
             "matured_selections":len(chosen_good),
@@ -268,10 +287,10 @@ def main():
         "training_feature_count":len(MODEL_FEATURES),
         "finance_numeric_folds_verified":int(fy_coverage),
         "finance_numeric_features_deliberately_dormant_until_12_folds":True,
-        "training_algorithm":"fixed 5-member bagged L2 logistic regression with 1 previously matured fold Platt calibration",
-        "bagging_member_count":1+len(BAGGING_SEEDS),
-        "bagging_train_retention":BAGGING_RETENTION,
-        "bagging_seeds":list(BAGGING_SEEDS),
+        "training_algorithm":"L2 logistic with prior-matured-fold Platt (when adequate) or sparse empirical-Bayes intercept calibration",
+        "sparse_calibration_prior_strength":SPARSE_CAL_PRIOR_STRENGTH,
+        "sparse_calibration_does_not_override_12fold_or_jaccard_gates":True,
+        "sparse_calibration_is_exploratory":True,
         "fixed_C":REGULARIZATION_C,
         "previous_matured_label_only":True,
         "training_or_calibration_current_or_future_labels":False,
@@ -299,4 +318,9 @@ def main():
     print(json.dumps(summary,indent=2),flush=True)
     if len(full)<MIN_RESEARCH_TEST_FOLDS:
         raise SystemExit(f"Minimum 12 historically valid folds NOT met (found {len(full)}); retain diagnostic artifacts")
+    if not summary["selection_stability_gate_pass"]:
+        raise SystemExit(
+            "Standalone V11.4 stability gates NOT met: "
+            f"mean={meanstab:.4f} (min .80), worst fold p05={worstp05:.4f} (min .60). "
+            "Do not promote.")
 if __name__=="__main__":main()
