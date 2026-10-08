@@ -35,7 +35,7 @@ jobs:
           run-id: 37762862034
       - name: Archive 18 original PIT folds plus 8 annual numeric source shards to private HF with SHA256 manifest
         env:
-          HF_ARCHIVE_${{ secrets.GITHUB_TOKEN }}: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: |
           python src/v11_4_archive_marketwide_pit_private.py \
             --numeric numeric --catalyst catalysts \
