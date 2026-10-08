@@ -33,7 +33,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
-      - name: Diagnose Platt calibration slope and raw versus calibrated top10 consistency in worst historical folds
+      - name: Diagnose Platt slope using explicitly disambiguated original PIT liquidity and event fields
         shell: bash
         run: |
           set -euo pipefail
