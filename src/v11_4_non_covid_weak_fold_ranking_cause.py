@@ -41,7 +41,7 @@ def run():
     snap=clean(pd.read_parquet(args.snapshot,columns=[
         "date","symbol","close","avg_turnover_63","y6","y6_mature_date",
         "integrity_y6_clean","dd30_6m"]))
-    joined=x.merge(snap,on=["date","symbol"],how="left",validate="1:1")
+    joined=x.merge(snap,on=["date","symbol"],how="left",validate="1:1",suffixes=("","_snapshot"))
     data=safe_featureize(joined)
     records=[];features=[];candidate_rows=[]
     for selection_date in CHECK_FOLDS:
