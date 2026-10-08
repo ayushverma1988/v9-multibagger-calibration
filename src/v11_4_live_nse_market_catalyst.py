@@ -50,6 +50,19 @@ def get_bytes(url,session=None):
  if not r.content:raise ValueError("Empty exchange response: "+url)
  return r.content
 
+def parse_bhavcopy_trad_dt(values):
+ # Exchange files use both strict ISO yyyy-mm-dd and NSE dd-mm-yyyy
+ # displays. 'dayfirst=True' alone can silently invert ISO Oct 8 to Aug 10.
+ raw=pd.Series(values).astype(str).str.strip()
+ result=pd.Series(pd.NaT,index=raw.index,dtype="datetime64[ns]")
+ for pattern in ("%Y-%m-%d","%d-%m-%Y","%d-%b-%Y",
+                 "%Y/%m/%d","%d/%m/%Y"):
+  missing=result.isna()
+  if not missing.any():break
+  converted=pd.to_datetime(raw.loc[missing],format=pattern,errors="coerce")
+  result.loc[missing]=converted
+ return result.dt.normalize()
+
 def market_udiff(data,target):
  x=pd.read_csv(io.BytesIO(data),low_memory=False)
  date=col(x,"TradDt","TRADE_DATE")
@@ -62,7 +75,7 @@ def market_udiff(data,target):
          "close":("ClsPric","CLOSE_PRICE"),
          "volume":("TtlTradgVol","TOTTRDQTY"),
          "turnover":("TtlTrfVal","TOTTRDVAL")}
- out=pd.DataFrame({"date":pd.to_datetime(x[date],dayfirst=True,errors="coerce").dt.normalize(),
+ out=pd.DataFrame({"date":parse_bhavcopy_trad_dt(x[date]),
        "symbol":x[sy].astype(str).str.upper().str.strip(),
        "series":x[ser].astype(str).str.upper().str.strip(),
        "isin":x[isin].astype(str).str.upper().str.strip() if isin else ""})
@@ -71,7 +84,11 @@ def market_udiff(data,target):
  out=out[out["date"].eq(pd.Timestamp(target))&out["series"].isin(SERIES)]
  out=out.dropna(subset=["close","turnover","volume"])
  if out.duplicated(["symbol","series"]).any():raise ValueError("NSE UDiFF duplicated listed security")
- if len(out)<MIN_NSE_ROWS:raise ValueError("NSE primary day incomplete")
+ if len(out)<MIN_NSE_ROWS:raise ValueError(
+  f"NSE primary day incomplete: matched={len(out)}, original={len(x)}, "
+  f"target={pd.Timestamp(target).date()}, "
+  f"source_date_samples={x[date].dropna().astype(str).unique()[:5].tolist()}, "
+  f"parsed_date_samples={parse_bhavcopy_trad_dt(x[date]).dropna().unique()[:5].astype(str).tolist()}")
  return out
 
 def market_full(data):
