@@ -9,6 +9,7 @@ def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--financial", required=True)
     ap.add_argument("--folds", required=True)
+    ap.add_argument("--snapshot", required=True)
     ap.add_argument("--output", required=True)
     a=ap.parse_args()
     out=Path(a.output)
@@ -30,6 +31,9 @@ def main():
     x["_valid"]=x["_available"].notna()&x["_toDate"].notna()&(x["_available"]>=x["_toDate"])
     x["_period_lead_days"]=(x["_available"]-x["_toDate"]).dt.days
     folds=pd.read_csv(a.folds)
+    snap=pd.read_parquet(a.snapshot,columns=["date","symbol"])
+    snap["date"]=pd.to_datetime(snap["date"],errors="coerce").dt.normalize()
+    snap["symbol"]=snap["symbol"].astype(str).str.upper().str.strip()
     records=[]
     for date in pd.to_datetime(folds["date"],errors="coerce").dropna().unique():
         f=pd.Timestamp(date).normalize().tz_localize("Asia/Kolkata")+pd.Timedelta(days=1)-pd.Timedelta(seconds=1)
@@ -39,6 +43,28 @@ def main():
         quarter=used[used["_quarter"]]
         ac=annual.groupby("_sym")["_toDate"].nunique()
         qc=quarter.groupby("_sym")["_toDate"].nunique()
+        # A 5-year point-in-time comparison needs 24 consecutive quarters,
+        # not just 20 observations scattered across reporting periods.
+        # Similarly, seven years require 32 consecutive quarters.
+        per=quarter[["_sym","_toDate"]].dropna().copy()
+        per["qi"]=per["_toDate"].dt.year*4+((per["_toDate"].dt.month-1)//3)
+        per=per.drop_duplicates(["_sym","qi"])
+        fold_universe=set(snap.loc[snap["date"].eq(f.tz_convert("Asia/Kolkata").normalize().tz_localize(None)),"symbol"])
+        cutoff_period=f.year*4+(f.month-1)//3
+        consecutive_24=consecutive_32=0
+        for symbol, gg in per.groupby("_sym")["qi"]:
+            if symbol not in fold_universe:
+                continue
+            vs=sorted(set(gg.astype(int)),reverse=True)
+            if not vs or cutoff_period-vs[0]>2:
+                continue
+            count=1
+            for a0,b0 in zip(vs,vs[1:]):
+                if a0-b0!=1:break
+                count+=1
+            consecutive_24+=count>=24
+            consecutive_32+=count>=32
+
         records.append({
             "date":f.date().isoformat(),
             "unique_fiscal_ends_annual_total":annual["_toDate"].nunique(),
@@ -50,6 +76,11 @@ def main():
             "quarter_12_periods":int((qc>=12).sum()),
             "quarter_20_periods":int((qc>=20).sum()),
             "quarter_28_periods":int((qc>=28).sum()),
+            "fold_universe_symbols":len(fold_universe),
+            "fold_contiguous_24_quarters":consecutive_24,
+            "fold_contiguous_32_quarters":consecutive_32,
+            "fold_contiguous_24_share":round(consecutive_24/max(len(fold_universe),1),4),
+            "fold_contiguous_32_share":round(consecutive_32/max(len(fold_universe),1),4),
         })
     pd.DataFrame(records).sort_values("date").to_csv(out/"annual_history_by_fold.csv",index=False)
     distribution={
@@ -68,6 +99,7 @@ def main():
         "max_filing_ts":str(x["_available"].max()),
         "unavailable_ts_rows":int(x["_available"].isna().sum()),
         "filing_before_period_end":int((x["_available"].notna()&x["_toDate"].notna()&(x["_available"]<x["_toDate"])).sum()),
+        "contiguous_history_policy":"24 and 32 consecutive filed quarters; a *potential* fiscal-history proxy, NOT annual XBRL fact extraction or backtest approval",
         "retrospective_annual_min_history": "six separately published fiscal ends for five-year CAGR; eight for seven-year CAGR",
         "pit_policy": "use only filings available on or before fold, not present-day reconstructed annual values",
     }
