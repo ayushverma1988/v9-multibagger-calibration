@@ -45,7 +45,7 @@ jobs:
           FEATURES=$(find V11_4_PIT_source -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
           test -n "$OOS" && test -n "$FEATURES"
           python src/v11_4_fixed_sleeve_vs_exact_v10_research.py \
-            --oos "$OOS" --features "$FEATURES" \
+            --oos "$OOS" --features "$FEATURES" --frozen-snapshot "$(find V10_frozen -name snapshot_dataset.parquet -print -quit)" \
             --config v11_4_frozen_validation_config.json \
             --output outputs_v11_4_fixed_vs_exact_v10
       - uses: actions/upload-artifact@v4
