@@ -54,7 +54,8 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
  if picks["date"].nunique()!=1 or str(picks["date"].iloc[0].date())!=str(asof.date()):
   raise ValueError("Forward picks date invalid")
  client=api or HfApi(token=hf_token)
- if not client.repo_info(repo_id=HF_REPO,repo_type="dataset").private:
+ info=client.repo_info(repo_id=HF_REPO,repo_type="dataset")
+ if not info.private:
   raise ValueError("Refuse to store V11.4 research shortlist in public dataset")
  prefix=f"{FORWARD_ROOT}/{asof.date()}"
  # The initial source-freeze date must not be used for an overwritten
@@ -103,6 +104,7 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
  # Hugging Face private upload preserves both CSV and source manifests.
  client.upload_folder(repo_id=HF_REPO,repo_type="dataset",
                       folder_path=str(dest),path_in_repo=prefix,
+                      parent_commit=info.sha,
                       commit_message=f"Immutable V11.4 original NSE PIT research prediction {asof.date()}")
  print(json.dumps({"stored_private_forward_observation":True,
                    "research_date":str(asof.date()),"prediction_count":len(picks),
