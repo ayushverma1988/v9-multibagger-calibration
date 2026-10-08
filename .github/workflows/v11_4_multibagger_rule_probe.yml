@@ -66,20 +66,25 @@ jobs:
         run: |
           set -euo pipefail
           BASE=$(find audit_seed -type f -name 'candidate_audit_eligible.csv' | head -n 1)
-          QFIN=$(find audit_seed -type f \( -name 'financial_inflection.csv' -o -name 'financials_3y.csv' \) | head -n 1)
           SH=$(find pit_seed -type f -name 'shareholding_master.parquet' | head -n 1)
           INS=$(find pit_seed -type f -name 'insider_trades.parquet' | head -n 1)
           FINMETA=$(find pit_seed -type f -name 'financial_results_metadata.parquet' | head -n 1)
           test -n "$BASE"
-          test -n "$QFIN"
           test -n "$SH"
           test -n "$INS"
           test -n "$FINMETA"
           echo "BASE_AUDIT=$BASE" >> "$GITHUB_ENV"
-          echo "QFIN=$QFIN" >> "$GITHUB_ENV"
           echo "SHAREHOLDING=$SH" >> "$GITHUB_ENV"
           echo "INSIDER=$INS" >> "$GITHUB_ENV"
           echo "FINMETA=$FINMETA" >> "$GITHUB_ENV"
+
+      - name: Build fresh quarterly financial context
+        run: |
+          python src/v11_4_integrated_financials.py \
+            --symbols-file "$BASE_AUDIT" \
+            --symbol-column symbol \
+            --output outputs_v11_4_mb_rules/quarterly_financials.csv \
+            --max-symbols 120
 
       - name: Build official annual 5-7 year fundamentals
         run: |
@@ -104,7 +109,10 @@ jobs:
             --symbols-file "$BASE_AUDIT" \
             --symbol-column symbol \
             --output outputs_v11_4_mb_rules/valuation.csv \
-            --max-symbols 120
+            --max-symbols 120 \
+            --asof 2026-10-07 \
+            --financial-metadata "$FINMETA" \
+            --quarterly outputs_v11_4_mb_rules/quarterly_financials.csv
 
       - name: Build PIT ownership features
         run: |
@@ -122,7 +130,7 @@ jobs:
           python src/v11_4_multibagger_rule_overlay.py \
             --config config/v11_4_multibagger_rule_families.json \
             --base-audit "$BASE_AUDIT" \
-            --quarterly "$QFIN" \
+            --quarterly outputs_v11_4_mb_rules/quarterly_financials.csv \
             --annual outputs_v11_4_mb_rules/annual_fundamentals.csv \
             --chart outputs_v11_4_mb_rules/chart_triggers.csv \
             --valuation outputs_v11_4_mb_rules/valuation.csv \
@@ -133,13 +141,16 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          q=json.load(open("outputs_v11_4_mb_rules/financial_summary.json"))
           a=json.load(open("outputs_v11_4_mb_rules/annual_fundamental_summary.json"))
           c=json.load(open("outputs_v11_4_mb_rules/chart_trigger_summary.json"))
           v=json.load(open("outputs_v11_4_mb_rules/valuation_summary.json"))
           o=json.load(open("outputs_v11_4_mb_rules/ownership_summary.json"))
           r=json.load(open("outputs_v11_4_mb_rules/multibagger_rule_summary.json"))
-          s={"annual":a,"chart":c,"valuation":v,"ownership":o,"rules":r}
+          s={"quarterly":q,"annual":a,"chart":c,"valuation":v,"ownership":o,"rules":r}
           print(json.dumps(s,indent=2))
+          if q.get("symbols_with_5q",0)<40:
+              raise SystemExit("Quarterly financial coverage too low")
           if c.get("dma50_coverage",0)<0.75:
               raise SystemExit("DMA50 coverage too low")
           if c.get("dma200_coverage",0)<0.60:
@@ -166,6 +177,7 @@ jobs:
           cp outputs_v11_4_mb_rules/multibagger_rule_summary.json published_v11_4_mb_rules/
           cp outputs_v11_4_mb_rules/multibagger_rule_top30.csv published_v11_4_mb_rules/
           cp outputs_v11_4_mb_rules/multi_family_overlap.csv published_v11_4_mb_rules/
+          cp outputs_v11_4_mb_rules/financial_summary.json published_v11_4_mb_rules/
           cp outputs_v11_4_mb_rules/annual_fundamental_summary.json published_v11_4_mb_rules/
           cp outputs_v11_4_mb_rules/chart_trigger_summary.json published_v11_4_mb_rules/
           cp outputs_v11_4_mb_rules/valuation_summary.json published_v11_4_mb_rules/
