@@ -1,0 +1,50 @@
+name: V11.4 Non-COVID Weak-Fold Feature Instability Diagnosis
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_weak_fold_2019_2023_diagnosis.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - run: python -m py_compile src/v11_4_non_covid_weak_fold_ranking_cause.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: pit_features
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: immutable_original_market_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Explain genuine non-COVID worst-fold stability failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=$(find pit_features -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          H=$(find immutable_original_market_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$F" && test -n "$H"
+          python src/v11_4_non_covid_weak_fold_ranking_cause.py \
+            --features "$F" --snapshot "$H" --output outputs_v11_4_non_covid_weak_folds
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-nonCOVID-2019-and-2023-weak-fold-rank-cause
+          path: outputs_v11_4_non_covid_weak_folds/
+          retention-days: 90
