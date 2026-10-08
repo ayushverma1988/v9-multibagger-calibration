@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import pandas as pd
 from v11_4_live_nse_market_catalyst import (
- market_udiff,market_full,validate_market,classify_event,
+ market_udiff,market_full,validate_market,classify_event,parse_bhavcopy_trad_dt,
  with_catalyst_features,parse_nse_ts,market_features,adjustment_factors
 )
 from v11_4_standalone_train_walkforward import CATALYST_PREFIXES,PRICE_COLUMNS
@@ -29,6 +29,9 @@ class NSELiveSourceTests(unittest.TestCase):
   b.loc[0,"CLOSE_PRICE"]=300
   with self.assertRaisesRegex(ValueError,"disagree"):
    validate_market(pri,market_full(b.to_csv(index=False).encode()))
+ def test_mixed_date_formats_preserve_iso_2026_october_8(self):
+  d=parse_bhavcopy_trad_dt(pd.Series(["2026-10-08","08-10-2026","08-Oct-2026"]))
+  self.assertEqual(d.dt.strftime("%Y-%m-%d").tolist(),["2026-10-08"]*3)
  def test_all_catalyst_predictions_timestamp_gate(self):
   self.assertIn(("order_win",1),classify_event("Receipt of order","new supply contract"))
   self.assertIn(("capacity_expansion",1),classify_event("Commencement of operations","plant"))
