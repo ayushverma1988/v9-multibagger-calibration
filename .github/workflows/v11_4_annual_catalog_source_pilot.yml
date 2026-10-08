@@ -15,7 +15,7 @@ permissions:
 jobs:
   annual-source:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,7 +36,7 @@ jobs:
         run: |
           SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
           test -n "$SNAP"
-          python src/v11_4_annual_catalog_source_pilot.py --snapshot "$SNAP" --sample-size 16 --output outputs_v11_4_annual_pilot
+          python src/v11_4_annual_catalog_source_pilot.py --snapshot "$SNAP" --sample-size 128 --output outputs_v11_4_annual_pilot
       - uses: actions/upload-artifact@v4
         if: always()
         with:
