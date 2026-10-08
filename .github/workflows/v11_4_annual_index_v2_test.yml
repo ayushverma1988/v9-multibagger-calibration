@@ -38,7 +38,7 @@ jobs:
         run: |
           git fetch origin v10-fresh-current --depth 1
           git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
-      - name: Reconstruct contiguous annual index periods without reporting-mode mixing
+      - name: Reconstruct mixed-format 2025 annual index as-of and fail closed on coverage drop
         shell: bash
         run: |
           set -euo pipefail
