@@ -1,0 +1,53 @@
+name: V11.4 Embargoed Catalyst Shadow vs Exact V10 Walk-Forward
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_embargoed_catalyst_shadow_vs_exact_v10.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - run: python -m py_compile src/v11_4_temporal_incremental_catalyst_shadow.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: immutable_frozen_v10
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: v11_4_source_features
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - name: Enforce six-month label maturity before every training fold; compare to exact original V10
+        shell: bash
+        run: |
+          set -euo pipefail
+          OOS=$(find immutable_frozen_v10 -name oos_predictions.parquet -print -quit)
+          SNAP=$(find immutable_frozen_v10 -name snapshot_dataset.parquet -print -quit)
+          FEATURES=$(find v11_4_source_features -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          test -n "$OOS" && test -n "$SNAP" && test -n "$FEATURES"
+          python src/v11_4_temporal_incremental_catalyst_shadow.py \
+            --oos "$OOS" --snapshot "$SNAP" \
+            --features "$FEATURES" --output outputs_v11_4_embargoed_catalyst_shadow
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-matured-prior-fold-catalyst-shadow-vs-exact-V10
+          path: outputs_v11_4_embargoed_catalyst_shadow/
+          retention-days: 90
+          if-no-files-found: warn
