@@ -1,0 +1,67 @@
+name: V11.4 Daily NSE Six-Month Forward Research (Private)
+on:
+  workflow_dispatch:
+  schedule:
+    # NSE 15:30 close is 10:00 UTC. Run at 21:45 IST for published EOD files.
+    - cron: '15 16 * * 1-5'
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: v11-4-private-forward-observation
+  cancel-in-progress: false
+jobs:
+  standalone-only:
+    if: github.repository == 'ayushverma1988/v9-multibagger-calibration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'joblib>=1.4' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Validate live source integrity and original 4 independent screen families
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_live_nse_sources.py' -v
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_four_family_rsi.py' -v
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_forward_freeze_contract.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-frozen-standalone-research-model-20261008-forward-only
+          path: verified_frozen_model
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37806626992
+      - name: Validate actual today's official NSE UDiFF/full bhavcopy and historical NSE announcements
+        shell: bash
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_live_nse_market_catalyst.py \
+            --date "$TODAY" --output verified_live_source
+      - name: Check 3 previous conditions and RSI(14) strictly over 80 independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python src/v11_4_four_family_live_screener.py \
+            --features verified_live_source/v11_4_live_NSE_verified_stock_features.parquet \
+            --config config/v11_4_four_screener_families.json \
+            --output screener_audit
+          cat screener_audit/four_family_screening_audit.json
+      - name: Score the UNCHANGED frozen independent V11.4, record future outcomes only in private archive
+        shell: bash
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_publish_forward_private.py \
+            --features verified_live_source/v11_4_live_NSE_verified_stock_features.parquet \
+            --metadata verified_live_source/v11_4_live_source_validation.json \
+            --frozen verified_frozen_model \
+            --output sealed_private_first_seen_observation \
+            --asof "$TODAY"
