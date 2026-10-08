@@ -1,4 +1,5 @@
 name: V11.4 Live NSE and Four-Screener Contract Tests
+# RSI14 and dual-official-source discrepancy unit corrections validated on this branch.
 on:
   workflow_dispatch:
   push:
