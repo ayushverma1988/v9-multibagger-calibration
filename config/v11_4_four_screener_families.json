@@ -1,0 +1,201 @@
+{
+  "version": "V11.4-four-independent-multibagger-rule-families-20261008",
+  "research_scope": "COMPANION_SCREENER_NOT_FROZEN_MODEL_PREDICTOR",
+  "source_rule_config_from_prior_V11_4_prototyping": "v10-fresh-current/config/v11_4_multibagger_rule_families.json",
+  "treatment": "Four independently evaluated screening families, no AND intersection requirement, frozen model ranking unchanged",
+  "missing_input_policy": "UNKNOWN_NEVER_FALSE_AND_NEVER_PASS",
+  "conditions": {
+    "condition_1_quality_compounder": {
+      "label": "Quality Compounder + Balance-Sheet Strength",
+      "hard_rules": [
+        [
+          "sales_growth_5y",
+          ">",
+          0.1
+        ],
+        [
+          "sales_growth_3y",
+          ">",
+          0.12
+        ],
+        [
+          "opm_current",
+          ">",
+          0.12
+        ],
+        [
+          "opm_5y_avg",
+          ">",
+          0.1
+        ],
+        [
+          "profit_growth_5y",
+          ">",
+          0.13
+        ],
+        [
+          "profit_growth_7y",
+          ">",
+          0.1
+        ],
+        [
+          "roce_7y_avg",
+          ">",
+          0.12
+        ],
+        [
+          "roce_3y_avg",
+          ">",
+          0.15
+        ],
+        [
+          "roe_3y_avg",
+          ">",
+          0.15
+        ],
+        [
+          "roe_5y_avg",
+          ">",
+          0.12
+        ],
+        [
+          "debt_to_equity",
+          "<",
+          1
+        ],
+        [
+          "interest_coverage",
+          ">",
+          3
+        ],
+        [
+          "up_from_52w_low",
+          ">",
+          0.3
+        ],
+        [
+          "down_from_52w_high",
+          "<",
+          0.25
+        ],
+        [
+          "promoter_holding",
+          ">",
+          0.3
+        ],
+        [
+          "pledged_pct",
+          "<",
+          0.05
+        ],
+        [
+          "cfo_to_pat_last_year",
+          ">",
+          0.7
+        ],
+        [
+          "market_cap_crore",
+          ">",
+          200
+        ],
+        [
+          "sales_to_capital_employed",
+          ">",
+          1
+        ],
+        [
+          "roe_current",
+          ">",
+          0.1
+        ]
+      ]
+    },
+    "condition_2_recovery_value_setup": {
+      "label": "Early Recovery / Value + Technical Setup",
+      "hard_rules": [
+        [
+          "price_gt_dma50_prev",
+          "==",
+          true
+        ],
+        [
+          "price_lt_dma200_prev",
+          "==",
+          true
+        ],
+        [
+          "pe_lt_industry_pe",
+          "==",
+          true
+        ],
+        [
+          "is_sme",
+          "==",
+          false
+        ]
+      ],
+      "interpretation": "Early recovery state; do not confuse with mature trend confirmation."
+    },
+    "condition_3_earnings_acceleration": {
+      "label": "Quarterly Earnings Acceleration",
+      "hard_rules": [
+        [
+          "sales_latest_ge_yoy_quarter",
+          "==",
+          true
+        ],
+        [
+          "sales_latest_ge_2q_back",
+          "==",
+          true
+        ],
+        [
+          "debt_to_equity",
+          "<",
+          1
+        ],
+        [
+          "yoy_quarterly_profit_growth",
+          ">",
+          1
+        ],
+        [
+          "pat_latest_gt_preceding",
+          "==",
+          true
+        ],
+        [
+          "pat_preceding_gt_2q_back",
+          "==",
+          true
+        ],
+        [
+          "market_cap_crore",
+          "<",
+          100000
+        ],
+        [
+          "peg_ratio",
+          "<",
+          2
+        ]
+      ]
+    },
+    "condition_4_RSI14_high_momentum": {
+      "label": "RSI(14) > 80, Wilder smoothing on close adjusted for split/bonus",
+      "hard_rules": [
+        [
+          "rsi14_wilder",
+          ">",
+          80
+        ]
+      ],
+      "caveat": "High RSI may reflect an already overextended stock; assess downside and out-of-sample precision before using for model ranking"
+    }
+  },
+  "condition_1_requires_5y_7y_verified_XBRL_not_yet_available": true,
+  "condition_2_requires_independent_pe_and_sme_metadata_not_yet_available": true,
+  "condition_3_requires_quarterly_earnings_valuation_metadata_not_yet_available": true,
+  "condition_4_can_be_calculated_from_recent_verified_prices": true,
+  "not_production_approved": true
+}
