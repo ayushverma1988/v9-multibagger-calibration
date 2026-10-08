@@ -62,7 +62,7 @@ def market_udiff(data,target):
          "close":("ClsPric","CLOSE_PRICE"),
          "volume":("TtlTradgVol","TOTTRDQTY"),
          "turnover":("TtlTrfVal","TOTTRDVAL")}
- out=pd.DataFrame({"date":pd.to_datetime(x[date],errors="coerce").dt.normalize(),
+ out=pd.DataFrame({"date":pd.to_datetime(x[date],dayfirst=True,errors="coerce").dt.normalize(),
        "symbol":x[sy].astype(str).str.upper().str.strip(),
        "series":x[ser].astype(str).str.upper().str.strip(),
        "isin":x[isin].astype(str).str.upper().str.strip() if isin else ""})
@@ -310,7 +310,7 @@ def collect_nse_events(target,sess=None):
  parts=[];ranges=[];d=pd.Timestamp(start.tz_convert("Asia/Kolkata").date())
  last=pd.Timestamp(target)
  while d<=last:
-  end=min(d+pd.Timedelta(days=24),last)
+  end=min(d+pd.Timedelta(days=6),last)
   urlparams={"index":"equities","from_date":d.strftime("%d-%m-%Y"),
               "to_date":end.strftime("%d-%m-%Y")}
   r=s.get(NSE_API,params=urlparams,headers=HEADERS,timeout=90)
