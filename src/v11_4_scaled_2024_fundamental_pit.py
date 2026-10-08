@@ -23,6 +23,8 @@ def main():
     p.add_argument("--snapshot",required=True)
     p.add_argument("--fold-date",default="2024-12-31")
     p.add_argument("--max-companies",type=int,default=128)
+    p.add_argument("--shard-index",type=int,default=0)
+    p.add_argument("--shard-count",type=int,default=1)
     p.add_argument("--output",required=True)
     a=p.parse_args()
     out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
@@ -53,7 +55,8 @@ def main():
             selected=viable[0]
             candidates.append((sym,selected,g[g["mode"].eq(selected)].sort_values("fy",ascending=False)))
     candidates.sort(key=lambda x:hashlib.sha256(x[0].encode()).hexdigest())
-    selected=candidates[:a.max_companies]
+    if a.shard_count<1 or not 0<=a.shard_index<a.shard_count:raise SystemExit("Invalid 2024 numeric shard")
+    selected=candidates[a.shard_index::a.shard_count][:a.max_companies]
     client=Client()
     records=[];errors=[]
     for i,(sym,report_mode,rows) in enumerate(selected,1):
@@ -88,6 +91,8 @@ def main():
         "fold":a.fold_date,"original_universe_symbols":len(universe),
         "eligible_companies_with_both_fiscal_index_records":len(candidates),
         "sample_requested":len(selected),"source_documents_expected":2*len(selected),
+        "shard_index":a.shard_index,"shard_count":a.shard_count,
+        "candidate_symbol_total":len(candidates),"requested_symbols":[c[0] for c in selected],
         "source_documents_downloaded":len(records),
         "strict_annual_revenue_and_PAT_docs":len(complete),
         "source_download_errors":len(errors),
@@ -100,6 +105,6 @@ def main():
     }
     (out/"strict_2024_fold_annual_numeric_coverage.json").write_text(json.dumps(metrics,indent=2))
     print(json.dumps(metrics,indent=2),flush=True)
-    if int((two>=2).sum())<max(12,a.max_companies//3):
+    if int((two>=2).sum())<max(12,len(selected)//3):
         raise SystemExit("Strict annual 2023/2024 paired numeric extraction below minimum research coverage")
 if __name__=="__main__":main()
