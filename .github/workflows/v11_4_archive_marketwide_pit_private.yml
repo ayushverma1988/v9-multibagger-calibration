@@ -1,0 +1,44 @@
+name: V11.4 Private Full 18-Fold Market Research Archive
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_archive_marketwide_pit_private.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  private:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'huggingface_hub>=0.25,<2'
+      - run: python -m py_compile src/v11_4_archive_marketwide_pit_private.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: numeric
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-18fold-catalyst-PIT-research
+          path: catalysts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37762862034
+      - name: Archive 18 original PIT folds plus 8 annual numeric source shards to private HF with SHA256 manifest
+        env:
+          HF_ARCHIVE_${{ secrets.GITHUB_TOKEN }}: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v11_4_archive_marketwide_pit_private.py \
+            --numeric numeric --catalyst catalysts \
+            --output outputs_v11_4_private_complete_archive \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --prefix v11_4/research/18fold_NSE_catalyst_2024_2025_verified_annual/20261008
