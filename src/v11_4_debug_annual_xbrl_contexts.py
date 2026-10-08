@@ -45,6 +45,6 @@ def main():
           "top_context_ids":list(ctx.items())[:8]}
   reports.append(report)
   print(json.dumps({k:v for k,v in report.items() if k not in ("candidate_facts_top","exact_period_facts_top","top_context_ids")},default=str),flush=True)
-  print("SAMPLES",json.dumps(report["exact_period_facts_top"][:5],default=str),flush=True)
+  print("SAMPLES",json.dumps((report["exact_period_facts_top"] or report["candidate_facts_top"])[:6],default=str),flush=True)
  (out/"annual_xbrl_strict_rejection_diagnostic.json").write_text(json.dumps(reports,indent=2,default=str))
 if __name__=="__main__":main()
