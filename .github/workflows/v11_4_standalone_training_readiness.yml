@@ -1,0 +1,51 @@
+name: V11.4 Standalone 18-Fold Training Readiness Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_standalone_training_readiness.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - run: python -m py_compile src/v11_4_standalone_training_readiness.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: historical_features
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_2x_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Inspect each original historical folds independently, without training or ranking
+        shell: bash
+        run: |
+          set -euo pipefail
+          FEATURES=$(find historical_features -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          SNAP=$(find original_2x_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$FEATURES" && test -n "$SNAP"
+          python src/v11_4_standalone_training_readiness.py \
+            --features "$FEATURES" --snapshot "$SNAP" \
+            --output outputs_v11_4_training_readiness
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-standalone-training-maturity-18fold-diagnostic
+          path: outputs_v11_4_training_readiness/
+          retention-days: 60
