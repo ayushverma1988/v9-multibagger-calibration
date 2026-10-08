@@ -24,8 +24,8 @@ jobs:
           path: validated_standalone
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
-          run-id: 37766824207
-      - name: Print every fold's actual stability p05 and sparse calibration method
+          run-id: 37767869111
+      - name: Identify 12-seed worst fold and actual source-only monotonic calibration mode
         run: |
           python - <<'PY'
           import json
