@@ -48,6 +48,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--oos",required=True)
     p.add_argument("--features",required=True)
+    p.add_argument("--frozen-snapshot",required=True)
     p.add_argument("--config",required=True)
     p.add_argument("--output",required=True)
     a=p.parse_args()
@@ -62,19 +63,27 @@ def main():
     cols=[
        "date","symbol","p_cal","model_dispersion",
        "selected_v941","selection_rank_v941",
-       "y6","y6_mature_date","dd30_6m","integrity_y6_clean",
-       "integrity_feature_clean","ret_120"]
+       "y6","dd30_6m"]
     oos=pd.read_parquet(a.oos,columns=cols)
     oos["date"]=pd.to_datetime(oos["date"],errors="coerce").dt.normalize()
     oos["symbol"]=oos["symbol"].astype(str).str.upper().str.strip()
     if oos.duplicated(["date","symbol"]).any():raise SystemExit("Original V10 duplicate stock date")
     f=pd.read_parquet(a.features,columns=[
         "date","symbol","nse_capacity_expansion_90d","nse_order_win_90d",
-        "historical_asof_utc"])
+        "historical_asof_utc","integrity_feature_clean","ret_120"])
     f["date"]=pd.to_datetime(f["date"],errors="coerce").dt.normalize()
     f["symbol"]=f["symbol"].astype(str).str.upper().str.strip()
     if f.duplicated(["date","symbol"]).any():raise SystemExit("Original NSE event feature duplicate")
+    original=pd.read_parquet(a.frozen_snapshot,columns=[
+        "date","symbol","y6_mature_date","integrity_y6_clean"])
+    original["date"]=pd.to_datetime(original["date"],errors="coerce").dt.normalize()
+    original["symbol"]=original["symbol"].astype(str).str.upper().str.strip()
+    if original.duplicated(["date","symbol"]).any():
+        raise SystemExit("Frozen outcome maturity has duplicated company-date keys")
     z=oos.merge(f,on=["date","symbol"],how="inner",validate="1:1")
+    z=z.merge(original,on=["date","symbol"],how="left",validate="1:1")
+    if z["y6_mature_date"].isna().any():
+        raise SystemExit("Historical V10 label maturity provenance missing")
     if len(z)!=len(f) or len(z)!=len(oos[oos["date"].isin(f["date"].unique())]):
         raise SystemExit("V10 immutable historical selection pool != 18fold catalyst source")
     times=pd.to_datetime(z["historical_asof_utc"],utc=True,format="mixed",errors="coerce")
