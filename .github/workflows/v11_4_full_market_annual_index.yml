@@ -1,0 +1,118 @@
+name: V11.4 Full-Market Historical Annual Filing Source
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_full_market_annual_index.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  gather:
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
+      - run: python -m py_compile src/v11_4_full_annual_index.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore exact 18 original validation fold dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Retrieve historical annual filing index with original broadcast timestamps
+        id: download
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$SNAP"
+          python src/v11_4_full_annual_index.py \
+            --snapshot "$SNAP" --folds folds.csv \
+            --shard-index ${{ matrix.shard }} --shard-count 8 \
+            --out outputs_annual_shard_${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-full-annual-index-shard-${{ matrix.shard }}
+          path: outputs_annual_shard_${{ matrix.shard }}/
+          retention-days: 60
+          if-no-files-found: warn
+      - name: Report retrieval result
+        if: steps.download.outcome != 'success'
+        run: |
+          echo "::warning::Annual NSE source shard has incomplete retrieval; evidence preserved for targeted retry."
+  reconcile:
+    needs: gather
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_collate_full_annual_index.py src/v11_4_annual_5y7y_index_fold_audit.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-full-annual-index-shard-*
+          path: annual_shards/
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore frozen fold dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Collate PIT annual filing source into single historic company archive
+        id: collation
+        continue-on-error: true
+        run: |
+          python src/v11_4_collate_full_annual_index.py \
+            --artifacts annual_shards --output outputs_full_annual \
+            --expected-shards 8
+      - name: Audit 5y7y annual filing completeness at original 18 historical folds
+        if: steps.collation.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$SNAP"
+          python src/v11_4_annual_5y7y_index_fold_audit.py \
+            --annual-index outputs_full_annual/full_historical_annual_index_PIT_CANDIDATES.csv \
+            --snapshot "$SNAP" --folds folds.csv \
+            --output outputs_full_annual/5y7y_index_audit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: outputs_full_annual/
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Enforce full source integrity
+        if: always()
+        run: |
+          if [[ "${{ steps.collation.outcome }}" != "success" ]]; then
+            echo "::error::Historical annual source incomplete. Numeric features remain blocked."
+            exit 1
+          fi
