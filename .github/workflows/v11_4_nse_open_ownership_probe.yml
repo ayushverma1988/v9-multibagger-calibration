@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/v11_4_nse_open_ownership_probe.yml
       - src/v11_4_nse_open_ownership_probe.py
+      - src/v11_4_nse_xbrl_source_verify.py
 
 permissions:
   actions: read
@@ -22,9 +23,9 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install data readers
-        run: python -m pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+        run: python -m pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
       - name: Compile independent probe
-        run: python -m py_compile src/v11_4_nse_open_ownership_probe.py
+        run: python -m py_compile src/v11_4_nse_open_ownership_probe.py src/v11_4_nse_xbrl_source_verify.py
       - name: Obtain community NSE-XBRL filing index and derived CSV
         shell: bash
         run: |
@@ -49,6 +50,8 @@ jobs:
           run-id: 37059786518
       - name: Audit independently sourced ownership PIT coverage
         run: python src/v11_4_nse_open_ownership_probe.py
+      - name: Verify sampled facts against original NSE XBRL
+        run: python src/v11_4_nse_xbrl_source_verify.py
       - name: Upload evidence even on failure
         if: always()
         uses: actions/upload-artifact@v4
