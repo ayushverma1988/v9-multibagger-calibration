@@ -69,6 +69,28 @@ class StandaloneV114Tests(unittest.TestCase):
         self.assertEqual(calibration_mode(y),"sparse_empirical_bayes_intercept")
         self.assertEqual(calibration_mode(np.array([1]*12+[0]*30)),"platt")
 
+    def test_negative_platt_slope_cannot_reverse_stock_rank(self):
+        # 15 historical winners have LOW raw predictions, making a
+        # naive unconstrained Platt calibrator choose a negative slope.
+        cal_y=np.array([0]*45+[1]*15,dtype=int)
+        cal_raw=np.array([.90]*45+[.10]*15)
+        base_y=np.array([0]*1900+[1]*100,dtype=int)
+        result,method=calibrate_logit(
+            np.array([.03,.20,.80]),cal_raw,cal_y,
+            base_y,return_mode=True)
+        self.assertEqual(method,"monotone_EB_after_negative_Platt_slope")
+        self.assertTrue(np.all(np.diff(result)>0))
+
+    def test_positive_platt_is_still_permitted(self):
+        cal_y=np.array([0]*45+[1]*15,dtype=int)
+        cal_raw=np.array([.10]*45+[.90]*15)
+        base_y=np.array([0]*1900+[1]*100,dtype=int)
+        result,method=calibrate_logit(
+            np.array([.03,.20,.80]),cal_raw,cal_y,
+            base_y,return_mode=True)
+        self.assertEqual(method,"platt_positive_slope")
+        self.assertTrue(np.all(np.diff(result)>0))
+
     def test_filing_count_cannot_be_negative(self):
         df=pd.DataFrame({"nse_order_win_90d":[-2,0,3]})
         for name in CATALYST_PREFIXES:
