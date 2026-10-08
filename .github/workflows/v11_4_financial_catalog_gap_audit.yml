@@ -30,6 +30,14 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37164416825
+      - name: Load integrity-clean snapshot universes
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
       - name: Load frozen fold dates
         run: |
           git fetch origin v10-fresh-current --depth 1
@@ -38,7 +46,9 @@ jobs:
         run: |
           FIN=$(find official_seed -name financial_results_metadata.parquet -print -quit)
           test -n "$FIN"
-          python src/v11_4_audit_financial_catalog.py --financial "$FIN" --folds folds.csv --output outputs_v11_4_financial_diagnostics
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$SNAP"
+          python src/v11_4_audit_financial_catalog.py --financial "$FIN" --snapshot "$SNAP" --folds folds.csv --output outputs_v11_4_financial_diagnostics
       - uses: actions/upload-artifact@v4
         if: always()
         with:
