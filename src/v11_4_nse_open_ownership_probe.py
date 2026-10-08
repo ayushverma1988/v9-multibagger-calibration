@@ -70,6 +70,28 @@ def main():
     valid = records[records["source_ok"]].copy()
     valid = valid.sort_values("available_at_utc").drop_duplicates(["ticker", "source_filename"])
 
+    # Save reproducible candidate facts for a separate, source-verified PIT validation.
+    # No quarter-end substitution for missing publication timestamp is permitted.
+    export_columns = [
+        "ticker", "period", "period_end", "available_at_utc",
+        "promoter_pct", "fii_pct", "dii_pct", "public_pct", "noninst_pct",
+        "source_filename", "xbrl_url", "quarter_end", "submission_date",
+        "broadcast_date", "revised",
+    ]
+    export_columns = [c for c in export_columns if c in valid.columns]
+    valid[export_columns].to_parquet(
+        OUT / "ownership_historical_pit_candidates.parquet",
+        index=False, compression="zstd",
+    )
+    (OUT / "SOURCE_ATTRIBUTION.txt").write_text(
+        "Derived from Aditya Jha (2026), NSE Historical Membership/Shareholding History,\n"
+        "https://github.com/aditya-jha/nse-historical-membership\n"
+        "Original derived dataset: CC BY 4.0, subject to upstream LICENSE-DATA.\n"
+        "The underlying regulatory XBRL documents belong to their publishers.\n"
+        "This export is unverified and is not approved for live investment use.\n",
+        encoding="utf-8",
+    )
+
     snapfiles = list(Path("control_seed").rglob("snapshot_dataset.parquet"))
     assert snapfiles, "Missing accepted control snapshot"
     snap = pd.read_parquet(snapfiles[0], columns=["date", "symbol"])
