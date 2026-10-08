@@ -50,7 +50,7 @@ jobs:
             companies=("symbol","nunique")
           ).to_string())
           PY
-      - name: Compare actual annual XBRL contexts, date spans and monetary units
+      - name: Inspect older-year raw XBRL context dates and fiscal spans
         shell: bash
         run: |
           INDEX=$(find annual_seed -name annual_filings_source_index_PIT_CANDIDATES.csv -print -quit)
