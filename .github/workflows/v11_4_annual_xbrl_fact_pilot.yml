@@ -1,0 +1,50 @@
+name: V11.4 Historical Annual XBRL Numeric Pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - 'src/v11_4_annual_xbrl_fact_pilot.py'
+      - '.github/workflows/v11_4_annual_xbrl_fact_pilot.yml'
+permissions:
+  actions: read
+  contents: read
+jobs:
+  parse-historical-annuals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Freeze existing NSE annual XBRL parser from accepted reference branch
+        shell: bash
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_longterm_fundamentals.py src/v11_4_annual_xbrl_fact_pilot.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-historical-annual-filing-pilot
+          path: historical_annual_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37725437476
+      - name: Validate numeric historical annual XBRL facts
+        shell: bash
+        run: |
+          INDEX=$(find historical_annual_index -name annual_filings_source_index_PIT_CANDIDATES.csv -print -quit)
+          test -n "$INDEX"
+          python src/v11_4_annual_xbrl_fact_pilot.py --catalog "$INDEX" \
+            --max-companies 8 --max-filings-per-company 3 \
+            --output outputs_v11_4_annual_xbrl_pilot
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-historical-annual-xbrl-numerics
+          path: outputs_v11_4_annual_xbrl_pilot/
+          if-no-files-found: warn
+          retention-days: 60
