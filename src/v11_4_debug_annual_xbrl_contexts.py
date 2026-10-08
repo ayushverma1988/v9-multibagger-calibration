@@ -15,7 +15,9 @@ def main():
  selected=[]
  for symbol in ("UGARSUGAR","RKFORGE","TPLPLASTEH","KAMDHENU"):
   z=src[(src["symbol"]==symbol)&(src["_pub"]<=cutoff)&(src["xbrl_url"].str.startswith("https://nsearchives.nseindia.com/"))].sort_values("_fy",ascending=False)
-  if len(z): selected.append(z.iloc[0])
+  for fy in ("2024-03-31","2022-03-31","2020-03-31","2018-03-31"):
+   q=z[z["fy_end"].eq(fy)]
+   if len(q):selected.append(q.iloc[0])
  client=Client();reports=[]
  for row in selected:
   root=ET.fromstring(client.get(row["xbrl_url"]).content)
