@@ -1,0 +1,57 @@
+name: V11.4 Annual PIT Index Mode-Consistency V2
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_annual_index_v2_test.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Run source PIT 5y7y fiscal mode and market close unit tests
+        run: PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_annual_index_v2.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37753978251
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Load frozen fold universe dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Reconstruct contiguous annual index periods without reporting-mode mixing
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDX=$(find annual_seed -name NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$IDX" && test -n "$SNAP"
+          python src/v11_4_annual_index_pit_v2.py --annual-index "$IDX" \
+            --snapshot "$SNAP" --folds folds.csv \
+            --output outputs_annual_index_v2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-annual-index-v2-mode-consistency-PIT
+          path: outputs_annual_index_v2/
+          if-no-files-found: warn
+          retention-days: 90
