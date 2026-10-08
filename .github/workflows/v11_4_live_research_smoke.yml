@@ -1,0 +1,66 @@
+name: V11.4 Verify Current NSE Market and Freeze Forward Predictions
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_live_research_smoke.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  live-validated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install standalone NSE forward pipeline dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'joblib>=1.4' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Validate exact original model, four independent user rules, and RSI math
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_live_nse_sources.py' -v
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_four_family_rsi.py' -v
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_forward_freeze_contract.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-frozen-standalone-research-model-20261008-forward-only
+          path: frozen_verified_model
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37806626992
+      - name: Ingest actual current NSE dual verified bhavcopies and complete 185 day original NSE disclosures
+        shell: bash
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_live_nse_market_catalyst.py \
+            --date "$TODAY" --output live_v11_4_input
+      - name: Independently score four original screening families including RSI14 above 80
+        shell: bash
+        run: |
+          python src/v11_4_four_family_live_screener.py \
+            --features live_v11_4_input/v11_4_live_NSE_verified_stock_features.parquet \
+            --config config/v11_4_four_screener_families.json \
+            --output four_family_coverage
+      - name: Score unmodified frozen standalone V11.4 and seal first-seen private six-month observations
+        env:
+          HF_ARCHIVE_TOKEN: HF_${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_publish_forward_private.py \
+            --features live_v11_4_input/v11_4_live_NSE_verified_stock_features.parquet \
+            --metadata live_v11_4_input/v11_4_live_source_validation.json \
+            --frozen frozen_verified_model \
+            --output first_seen_sealed_forward_selection \
+            --asof "$TODAY"
+      - name: Print only source and family coverage summary, no publicly disclosed private prediction file
+        if: success()
+        run: |
+          cat four_family_coverage/four_family_screening_audit.json
+          echo "Individual first-seen stock recommendations have been sealed only into private Hugging Face archive, not GitHub Actions artifacts."
