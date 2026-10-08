@@ -1,0 +1,57 @@
+name: V11.4 Annual 5y7y PIT Index Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - src/v11_4_annual_5y7y_index_fold_audit.py
+      - .github/workflows/v11_4_annual_5y7y_index_fold_audit.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_annual_5y7y_index_fold_audit.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-historical-annual-filing-pilot
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37747467876
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore frozen 18 historic folds
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Count 5y7y point-in-time indexed fiscal histories
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX=$(find annual_seed -name annual_filings_source_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$SNAP"
+          python src/v11_4_annual_5y7y_index_fold_audit.py \
+            --annual-index "$INDEX" --snapshot "$SNAP" --folds folds.csv \
+            --output outputs_v11_4_annual_5y7y_index
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-annual-5y7y-index-fold-qa
+          path: outputs_v11_4_annual_5y7y_index/
+          retention-days: 60
+          if-no-files-found: warn
