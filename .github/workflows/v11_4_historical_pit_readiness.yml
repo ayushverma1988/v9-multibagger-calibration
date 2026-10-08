@@ -1,0 +1,101 @@
+name: V11.4 Historical PIT Readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/v11_4_historical_pit_readiness.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: v11-4-historical-pit-readiness
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-fresh-current
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile readiness audit
+        run: python -m py_compile src/v11_4_historical_pit_readiness.py
+
+      - name: Download PIT archive
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: pit_seed
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+
+      - name: Locate PIT inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVENTS=$(find pit_seed -type f -name 'events_all_2016_2026.parquet' | head -n 1)
+          FINMETA=$(find pit_seed -type f -name 'financial_results_metadata.parquet' | head -n 1)
+          SH=$(find pit_seed -type f -name 'shareholding_master.parquet' | head -n 1)
+          INS=$(find pit_seed -type f -name 'insider_trades.parquet' | head -n 1)
+          SNAP=$(find pit_seed -type f -name 'snapshot_dataset.parquet' | head -n 1)
+          test -n "$EVENTS"
+          test -n "$FINMETA"
+          test -n "$SH"
+          test -n "$INS"
+          test -n "$SNAP"
+          echo "EVENTS=$EVENTS" >> "$GITHUB_ENV"
+          echo "FINMETA=$FINMETA" >> "$GITHUB_ENV"
+          echo "SHAREHOLDING=$SH" >> "$GITHUB_ENV"
+          echo "INSIDER=$INS" >> "$GITHUB_ENV"
+          echo "SNAPSHOT=$SNAP" >> "$GITHUB_ENV"
+
+      - name: Audit 18 historical folds
+        run: |
+          python src/v11_4_historical_pit_readiness.py \
+            --events "$EVENTS" \
+            --financial-metadata "$FINMETA" \
+            --shareholding "$SHAREHOLDING" \
+            --insider "$INSIDER" \
+            --snapshot "$SNAPSHOT" \
+            --folds published_v9_4_1/chosen_v941_gates_by_fold.csv \
+            --output outputs_v11_4_historical_pit_readiness
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-historical-pit-readiness
+          path: outputs_v11_4_historical_pit_readiness/
+          retention-days: 90
+
+      - name: Publish PIT readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published_v11_4_historical_pit_readiness
+          cp outputs_v11_4_historical_pit_readiness/* published_v11_4_historical_pit_readiness/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published_v11_4_historical_pit_readiness
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish V11.4 historical PIT readiness [skip ci]"
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin v10-fresh-current || true
+            if git push origin HEAD:v10-fresh-current; then exit 0; fi
+            sleep $((attempt*8))
+          done
+          exit 1
