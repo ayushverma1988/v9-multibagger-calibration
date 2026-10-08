@@ -1,0 +1,48 @@
+name: V11.4 Integrated 2025 XBRL Numeric Pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - src/v11_4_integrated_2025_xbrl_fact_pilot.py
+      - .github/workflows/v11_4_integrated_2025_xbrl_fact_pilot.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  xbrl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install parser pinned to open source version
+        run: |
+          pip install 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+          pip install 'git+https://github.com/ShantanuAnant/nse-xbrl.git@3750df000adcd4877194eb7fbd894e1ac71f020c'
+      - run: python -m py_compile src/v11_4_integrated_2025_xbrl_fact_pilot.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-integrated-2025-financial-pilot
+          path: integrated_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37744827980
+      - name: Validate 2025 XBRL numeric filing facts
+        shell: bash
+        run: |
+          INDEX=$(find integrated_seed -name integrated_filing_index_PIT_CANDIDATES.csv -print -quit)
+          test -n "$INDEX"
+          python src/v11_4_integrated_2025_xbrl_fact_pilot.py \
+            --catalog "$INDEX" --max-companies 8 \
+            --output outputs_v11_4_integrated_xbrl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-integrated-2025-numeric-XBRL-pilot
+          path: outputs_v11_4_integrated_xbrl/
+          retention-days: 60
+          if-no-files-found: warn
