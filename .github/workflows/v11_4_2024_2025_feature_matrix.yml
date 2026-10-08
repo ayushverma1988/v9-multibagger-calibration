@@ -1,0 +1,62 @@
+name: V11.4 Frozen 2024-2025 PIT Financial Feature Matrix
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2024_2025_feature_matrix.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: |
+          python -m py_compile src/v11_4_short_horizon_2fold_matrix.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_short_horizon_2fold_matrix.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-128-historical-fundamental-PIT-feature-pilot
+          path: FY2024_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37757430500
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-legacy-integrated-annual-1y-PIT-research-features
+          path: FY2025_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37757570775
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Retain original stock universe and construct missing-safe annual research feature rows
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          FY24=$(find FY2024_seed -name short_horizon_financial_PIT_research_features.csv -print -quit)
+          FY25=$(find FY2025_seed -name short_horizon_financial_PIT_research_features.csv -print -quit)
+          test -n "$SNAP" && test -n "$FY24" && test -n "$FY25"
+          python src/v11_4_short_horizon_2fold_matrix.py \
+            --snapshot "$SNAP" --features-2024 "$FY24" \
+            --features-2025 "$FY25" --output outputs_v11_4_2024_2025_matrix
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-twofold-frozen-universe-financial-PIT-research-matrix
+          path: outputs_v11_4_2024_2025_matrix/
+          if-no-files-found: warn
+          retention-days: 90
