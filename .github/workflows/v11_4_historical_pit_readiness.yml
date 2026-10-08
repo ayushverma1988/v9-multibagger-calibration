@@ -45,20 +45,42 @@ jobs:
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37164416825
 
+      - name: Download canonical historical events
+        uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+
+      - name: Download integrity-clean historical snapshots
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+
       - name: Locate PIT inputs
         shell: bash
         run: |
           set -euo pipefail
-          EVENTS=$(find pit_seed -type f -name 'events_all_2016_2026.parquet' | head -n 1)
-          FINMETA=$(find pit_seed -type f -name 'financial_results_metadata.parquet' | head -n 1)
-          SH=$(find pit_seed -type f -name 'shareholding_master.parquet' | head -n 1)
-          INS=$(find pit_seed -type f -name 'insider_trades.parquet' | head -n 1)
-          SNAP=$(find pit_seed -type f -name 'snapshot_dataset.parquet' | head -n 1)
-          test -n "$EVENTS"
-          test -n "$FINMETA"
-          test -n "$SH"
-          test -n "$INS"
-          test -n "$SNAP"
+          EVENTS=$(find events_seed -type f -name 'events_all_2016_2026.parquet' -print -quit)
+          FINMETA=$(find pit_seed -type f -name 'financial_results_metadata.parquet' -print -quit)
+          SH=$(find pit_seed -type f -name 'shareholding_master.parquet' -print -quit)
+          INS=$(find pit_seed -type f -name 'insider_trades.parquet' -print -quit)
+          SNAP=$(find control_seed -type f -name 'snapshot_dataset.parquet' -print -quit)
+          for entry in "events:$EVENTS" "financial:$FINMETA" "shareholding:$SH" "insider:$INS" "snapshot:$SNAP"; do
+            label="${entry%%:*}"
+            file="${entry#*:}"
+            if [[ -z "$file" || ! -f "$file" ]]; then
+              echo "::error::Missing required $label PIT input in downloaded artifacts"
+              exit 1
+            fi
+            echo "Resolved $label: $file"
+          done
           echo "EVENTS=$EVENTS" >> "$GITHUB_ENV"
           echo "FINMETA=$FINMETA" >> "$GITHUB_ENV"
           echo "SHAREHOLDING=$SH" >> "$GITHUB_ENV"
@@ -66,6 +88,8 @@ jobs:
           echo "SNAPSHOT=$SNAP" >> "$GITHUB_ENV"
 
       - name: Audit 18 historical folds
+        id: pit_audit
+        continue-on-error: true
         run: |
           python src/v11_4_historical_pit_readiness.py \
             --events "$EVENTS" \
@@ -99,3 +123,12 @@ jobs:
             sleep $((attempt*8))
           done
           exit 1
+
+      - name: Enforce historical PIT readiness
+        if: always()
+        shell: bash
+        run: |
+          if [[ "${{ steps.pit_audit.outcome }}" != "success" ]]; then
+            echo "::error::Historical PIT readiness audit did not pass. Review the published readiness-by-fold CSV and summary."
+            exit 1
+          fi
