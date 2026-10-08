@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
-      - name: Verify V11.4 standalone source-only and maturity-cutoff tests
+      - name: Verify six V11.4 source-only, bagging and maturity-cutoff tests
         run: |
           python -m py_compile src/v11_4_standalone_train_walkforward.py
           PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_standalone_walkforward.py -v
@@ -36,7 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37059786518
-      - name: Train, calibrate and evaluate standalone V11.4 only
+      - name: Train and independently evaluate bagged standalone V11.4 without weakening 12-fold or Jaccard acceptance gates
         shell: bash
         run: |
           set -euo pipefail
