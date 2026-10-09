@@ -47,6 +47,14 @@ that every historical chat message was exported or read verbatim.
 4. The required news-source acquisition and additional user checks were not
    present in the standalone runner. They now run with explicit missing or
    blocked status and no silent substitution.
+5. The newer financial source-only sidecar also includes closing prices. The
+   join now verifies both originals agree and restores one canonical close.
+6. The live tradability audit now receives exactly the four screening
+   verdicts; additional checks remain attached to the complete stock audit.
+7. The additional chart check now gets a sourced above-200-DMA flag, distinct
+   from the recovery screen's below-200-DMA test. Moving averages require their
+   full 50/200 prior sessions; equality is neither above nor below, and missing
+   observations remain UNKNOWN.
 
 ## Two model components to execute
 
