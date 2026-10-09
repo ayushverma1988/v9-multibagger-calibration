@@ -1,9 +1,9 @@
 name: V11.4 Scheduled Private NSE Forward Research
 # Main-branch scheduler. A GitHub cron on a non-default branch DOES NOT RUN.
-# 13:25 UTC = 18:55 Asia/Kolkata (no DST); never publish stale or post-close news.
+# 16:15 UTC = 21:45 Asia/Kolkata (no DST). Safety gate blocks weekends and pre-21:00 manual runs.
 on:
   schedule:
-    - cron: '25 13 * * 1-5'
+    - cron: '15 16 * * 1-5'
   workflow_dispatch:
   push:
     branches: [main]
@@ -18,7 +18,22 @@ concurrency:
 jobs:
   schedule-contract:
     runs-on: ubuntu-latest
+    outputs:
+      run_live: ${{ steps.india_session.outputs.run_live }}
+      market_IST_date: ${{ steps.india_session.outputs.market_IST_date }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - name: Reject weekend and premature snapshot requests before contacting NSE
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        id: india_session
+        env:
+          TRIGGER: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          python src/v11_4_scheduler_session_gate.py --event "$TRIGGER" --github-output "$GITHUB_OUTPUT"
       - name: Validate scheduler trigger, exact weekday cadence, no private output to public repo
         env:
           GITHUB_EVENT: ${{ github.event_name }}
@@ -26,15 +41,18 @@ jobs:
         run: |
           set -euo pipefail
           echo "Scheduler event: $GITHUB_EVENT"
-          echo "On cron: 13:25 UTC = 18:55 IST, Monday to Friday."
+          echo "On cron: 16:15 UTC = 21:45 IST, Monday to Friday."
+          echo "Saturday, Sunday, before 21:00 IST, and UTC→IST midnight crossover are skipped without downloading stale NSE prices."
           echo "Scores are recorded only if both official NSE bhavcopies + exchange filings are verified."
           echo "Exchange holidays, incomplete announcements, stale data or duplicate dates fail closed."
           echo "Frozen model SHA is verified; private Top-10 only in private Hugging Face."
   daily-forward:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: needs.schedule-contract.outputs.run_live == 'true'
     needs: schedule-contract
     runs-on: ubuntu-latest
     timeout-minutes: 65
+    env:
+      NSE_ASOF: ${{ needs.schedule-contract.outputs.market_IST_date }}
     steps:
       - name: Checkout isolated V11.4 research branch, never modify older production
         uses: actions/checkout@v4
@@ -64,18 +82,18 @@ jobs:
       - name: Validate today's two official NSE prices and original 185-day filings
         run: |
           set -euo pipefail
-          TODAY=$(TZ=Asia/Kolkata date +%F)
+          TODAY="$NSE_ASOF"
           echo "As-of Indian exchange date: $TODAY"
           python src/v11_4_live_nse_market_catalyst.py --date "$TODAY" --output private_v11_4_live_input
       - name: Audit original NSE/BSE XBRL PIT input availability, preserve missing 5Y/7Y and quarterly facts as UNKNOWN
         run: |
           set -euo pipefail
-          TODAY=$(TZ=Asia/Kolkata date +%F)
+          TODAY="$NSE_ASOF"
           python src/v11_4_rule_input_provenance.py \
             --features private_v11_4_live_input/v11_4_live_NSE_verified_stock_features.parquet \
             --config config/v11_4_four_screener_families.json \
             --asof "$TODAY" --output audited_four_family_PIT
-      - name: Audit four independent user screening conditions including Wilder RSI14 above 80
+      - name: Audit four independent user screening conditions including Wilder RSI14 strictly above 70
         run: |
           set -euo pipefail
           python src/v11_4_four_family_live_screener.py \
@@ -87,7 +105,7 @@ jobs:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: |
           set -euo pipefail
-          TODAY=$(TZ=Asia/Kolkata date +%F)
+          TODAY="$NSE_ASOF"
           python src/v11_4_publish_forward_private.py \
             --features private_v11_4_live_input/v11_4_live_NSE_verified_stock_features.parquet \
             --metadata private_v11_4_live_input/v11_4_live_source_validation.json \
@@ -103,7 +121,7 @@ jobs:
           import json
           x=json.load(open('four_family_research_audit/four_family_screening_audit.json'))
           print(json.dumps({'nse_equity_universe':x['companies'],
-            'rsi14_above80':x['rsi14_over80_stock_count'],
+            'rsi14_above70':x['rsi14_over70_stock_count'],
             'families':x['families'],'production_approved':False},indent=2))
           provenance=json.load(open('audited_four_family_PIT/four_family_filing_pit_readiness.json'))
           print(json.dumps({'verified_unique_screening_metrics':provenance['fields_with_any_verified_observations'],
