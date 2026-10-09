@@ -141,7 +141,7 @@ def extract_original_rsi(prices,actions,original):
    "verified_RSI_percent":round(100*avail/len(snap),2),
    "missing_price_or_adjustment_reasons":{str(k):int(v) for k,v in fail_counts.items()}})
  full=pd.DataFrame(out)
- if full.duplicated(["date","symbol"]).any() or len(full)!=9912:
+ if full.duplicated(["date","symbol"]).any() or len(full)!=sum(UNIVERSES.values()):
   raise ValueError("Original 8fold RSI source-only panel key drift")
  report={"scope":"ORIGINAL_NSE_MARKET_8FOLD_ASOF_WILDER_RSI14_STRICT_GREATER_THAN_70",
    "original_stock_date_rows":len(full),
