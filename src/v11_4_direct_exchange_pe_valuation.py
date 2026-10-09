@@ -14,10 +14,9 @@ from datetime import datetime,timezone
 import numpy as np
 import pandas as pd
 import requests
-from v11_4_nse_archive_valuation_probe import decode_tabular,HEADERS
+from v11_4_nse_archive_valuation_probe import decode_tabular,HEADERS,HOSTS
 from v11_4_live_nse_market_catalyst import exchange_primary_for_day
 
-HOST="https://archives.nseindia.com"
 def digest(raw):return hashlib.sha256(raw).hexdigest()
 def parse_positive_pe(values):
  # NSE publishes non-numeric P/E for companies with losses/no coverage:
@@ -40,6 +39,29 @@ def normalize_company_pe(frame):
  if len(x)<1200:raise ValueError("Incomplete original NSE company P/E report")
  if x["company_pe"].notna().sum()<350:raise ValueError("Too few numeric positive securities P/E")
  return x[["symbol","company_pe","company_pe_adjusted_exchange"]]
+def fetch_original_company_pe(target, session_get=requests.get):
+ # Try only the TWO preapproved original NSE archive hosts. A response from
+ # an index PE endpoint or malformed HTML is never accepted as company PE.
+ date=pd.Timestamp(target).normalize()
+ suffix=f"/content/equities/peDetail/PE_{date.strftime('%d%m%y')}.csv"
+ attempted=[]
+ for host in HOSTS:
+  url=host+suffix
+  try:
+   r=session_get(url,headers=HEADERS,timeout=45)
+   r.raise_for_status()
+   raw=r.content
+   if len(raw)<20000:raise ValueError("Original NSE company PE CSV too small")
+   company=normalize_company_pe(decode_tabular(raw,url))
+   attempted.append({"url":url,"accepted_original_company_pe":True,"bytes":len(raw),
+                     "sha256":digest(raw)})
+   return raw,url,company,attempted
+  except (requests.RequestException,ValueError,TypeError,KeyError) as exc:
+   attempted.append({"url":url,"accepted_original_company_pe":False,
+                     "error":str(exc)[:160]})
+ raise ValueError("Both official NSE company PE archives unavailable or invalid; "
+                  "no index PE substitution: "+json.dumps(attempted))
+
 def normalize_day_market(primary):
  # Official exchange day already checked against independent second bhavcopy.
  x=primary[primary["series"].isin(["EQ","BE","BZ"])].copy()
@@ -52,13 +74,7 @@ def run(date,out):
  target=pd.Timestamp(date).normalize()
  official,market_proof=exchange_primary_for_day(target)
  m=normalize_day_market(official)
- url=f"{HOST}/content/equities/peDetail/PE_{target.strftime('%d%m%y')}.csv"
- r=requests.get(url,headers=HEADERS,timeout=45)
- r.raise_for_status()
- original=r.content
- if len(original)<20000:raise ValueError("NSE company P/E file suspiciously small")
- exchange=decode_tabular(original,url)
- p=normalize_company_pe(exchange)
+ original,url,p,source_attempts=fetch_original_company_pe(target)
  full=m.merge(p,on="symbol",how="left",validate="1:1",indicator=True)
  both=int(full["_merge"].eq("both").sum())
  if both<500:raise ValueError("Insufficient same-day independently verified NSE market/P-E company match")
@@ -79,6 +95,7 @@ def run(date,out):
   "scope":"ORIGINAL_NSE_COMPANY_PE_DATE_JOIN_NON_PREDICTIVE_RESEARCH_OVERLAY",
   "asof_date_IST":str(target.date()),"official_company_pe_url":url,
   "official_company_pe_original_bytes_sha256":digest(original),
+  "official_company_pe_archive_attempts":source_attempts,
   "exact_day_bhavcopy_independently_cross_checked":bool(market_proof["official_primary_used"]),
   "independent_verified_market_rows":len(m),
   "original_company_PE_report_securities":len(p),
