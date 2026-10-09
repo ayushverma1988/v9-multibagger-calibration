@@ -298,7 +298,8 @@ def market_features(history,target,min_company_rows=MIN_UNIQUE_MARKET_CANDIDATES
   d["price_lt_dma200_prev"]=bool(x.iloc[-1]<d["dma200_prev"])
   d["up_from_52w_low"]=float((x/lo252-1).iloc[-1])
   d["down_from_52w_high"]=float((1-x/hi252).iloc[-1])
-  d["rsi14_gt80"]=bool(d["rsi14_wilder"]>80)
+  d["rsi14_gt70"]=bool(d["rsi14_wilder"]>70)
+  d["rsi14_gt80"]=bool(d["rsi14_wilder"]>80)  # Legacy audit only; fourth screener is >70
   # Official EQ/BE/BZ security series are main-board equities, not NSE
   # EMERGE SME SM/ST series. Make this one authentic Rule-2 source input.
   security_series=str(g["series"].iloc[-1]).upper().strip() if "series" in g else ""
