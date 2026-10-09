@@ -1,6 +1,10 @@
 name: V11.4 Reconcile Private Original Dec2022 Three-FY Full Market Facts
 on:
   workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2022_threeFY_full_reconcile_private.yml
 permissions:
   actions: read
   contents: read
