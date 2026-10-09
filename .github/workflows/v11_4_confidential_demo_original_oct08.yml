@@ -1,0 +1,33 @@
+name: V11.4 Confidential Demo Original October Eight Research Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_confidential_demo_original_oct08.yml
+permissions:
+  contents: read
+concurrency:
+  group: v11-4-confidential-owner-demo-20261008
+  cancel-in-progress: true
+jobs:
+  private-owner-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install read-only encrypted research demo requirements
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'huggingface_hub>=0.25,<2' 'cryptography>=43,<50'
+      - name: Verify original private archived ten stocks and return only RSA/AES encrypted evidence
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_confidential_demo_packet.py
+          python src/v11_4_confidential_demo_packet.py --run
+          echo "Plaintext selections NEVER printed, committed or stored in public GitHub."
