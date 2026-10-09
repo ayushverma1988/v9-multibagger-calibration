@@ -59,3 +59,21 @@ jobs:
           python src/v11_4_archive_company_pe_private.py \
             --source verified_company_PE_valuation \
             --asof "$TODAY" --out temporary_company_PE_private_archive
+
+      - name: Research sector P/E peer medians and sharecount-based market-size estimates, never same-as-close PIT
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_nse_valuation_peer_size_proxies.py \
+            --source verified_company_PE_valuation/nse_original_company_pe_same_day_research.csv \
+            --asof "$TODAY" \
+            --output afterclose_industry_PE_peer_and_market_size_RESEARCH
+      - name: Separately archive original NSE sector peer and size proxies privately; never modify frozen Top-10 predictions
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_archive_peer_proxy_private.py \
+            --source afterclose_industry_PE_peer_and_market_size_RESEARCH \
+            --asof "$TODAY" --out staging_private_sector_research
