@@ -1,0 +1,38 @@
+name: V11.4 Private Oct8 Top10 Original Three-FY Financial Annotation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  immutable-source-overlay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install owner private research overlay requirements
+        run: pip install 'pandas>=2.2,<3' 'huggingface_hub>=0.25,<2'
+      - name: Verify separate financial overlay never reranks frozen V11.4
+        run: python -m py_compile src/v11_4_private_3fy_current_demo_overlay.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-original-NSE-integrated-full-three-FY-market-financials
+          path: audited_recent_3FY_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37907820467
+      - name: Attach original FY2023-2025 financials to existing private frozen Oct8 model record
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          FIN=$(find audited_recent_3FY_source -name FY2025_original_NSE_full_3FY_2023_2025_annual_financial_facts.csv -print -quit)
+          test -n "$FIN"
+          python src/v11_4_private_3fy_current_demo_overlay.py \
+            --financial "$FIN" --out private_oct8_verified_three_FY_overlay \
+            --run-id 37907820467
+      - name: No private ticker list emitted publicly
+        run: echo "Fiscal FY2023-25 audited overlay privately archived, frozen model untouched."
