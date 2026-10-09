@@ -22,6 +22,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import brier_score_loss,average_precision_score,roc_auc_score
+from v11_4_label_clock import maturity_utc
 
 PRICE_COLUMNS=("ret_20","ret_60","ret_120","ret_252","mom_accel",
                "vol_accel","turnover_accel","off_high_252","above_low_252",
@@ -60,7 +61,7 @@ def fold_close(d):
 
 def keep_train(pit_data, heldout):
     heldout=pd.Timestamp(heldout)
-    maturity=pd.to_datetime(pit_data["y6_mature_date"],utc=True,errors="coerce",format="mixed")
+    maturity=maturity_utc(pit_data["y6_mature_date"])
     return (pit_data["date"].lt(heldout) &
             maturity.notna() & maturity.lt(fold_close(heldout)) &
             pit_data["y6"].isin([0,1]) &
@@ -83,8 +84,7 @@ def partition_train_calibration(trainable, calibration_fold):
     """
     dates=pd.to_datetime(trainable["date"],errors="raise").dt.normalize()
     day=pd.Timestamp(calibration_fold).normalize()
-    mature=pd.to_datetime(trainable["y6_mature_date"],utc=True,
-                          errors="coerce",format="mixed")
+    mature=maturity_utc(trainable["y6_mature_date"])
     known=mature.notna() & mature.lt(fold_close(day))
     base=trainable.loc[dates.lt(day) & known].copy()
     cal=trainable.loc[dates.eq(day)].copy()
@@ -236,11 +236,11 @@ def main():
                                  "training_rows":len(base),"calibration_positive":int(cal["y6"].sum())})
             continue
         if len(current)<TOP_K:raise SystemExit("Too few stocks from independent original market/PIT universe")
-        if pd.to_datetime(base["y6_mature_date"],utc=True,errors="coerce").max()>=fold_close(td):
+        if maturity_utc(base["y6_mature_date"]).max()>=fold_close(td):
             raise SystemExit("Six-month training outcome matured AFTER selection cutoff")
-        if pd.to_datetime(base["y6_mature_date"],utc=True,errors="coerce").max()>=fold_close(cal_fold):
+        if maturity_utc(base["y6_mature_date"]).max()>=fold_close(cal_fold):
             raise SystemExit("Training outcome was not known BEFORE calibration selection")
-        if pd.to_datetime(cal["y6_mature_date"],utc=True,errors="coerce").max()>=fold_close(td):
+        if maturity_utc(cal["y6_mature_date"]).max()>=fold_close(td):
             raise SystemExit("Calibration outcome matured AFTER selection cutoff")
         cal_values=cal["y6"].astype(int).to_numpy()
         pvalues,actual_calibration_method=train_once(base,cal,current,return_mode=True)
@@ -255,7 +255,7 @@ def main():
                 "research_standalone_V11_4":True,
                 # Outcomes never included in saved selection file.
             })
-        labelm=pd.to_datetime(current["y6_mature_date"],utc=True,errors="coerce")
+        labelm=maturity_utc(current["y6_mature_date"])
         outcome_ok=current["y6"].isin([0,1])&current["integrity_y6_clean"].eq(True)&(
             labelm<=pd.Timestamp("2026-10-08T23:59:59Z"))
         assessed=current[outcome_ok]

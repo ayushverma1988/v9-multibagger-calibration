@@ -8,10 +8,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
+from v11_4_label_clock import maturity_utc
 
 
 def clean_outcome_mask(frame, cutoff):
-    maturity = pd.to_datetime(frame["y6_mature_date"], utc=True, errors="coerce", format="mixed")
+    maturity = maturity_utc(frame["y6_mature_date"])
     moment = pd.Timestamp(cutoff)
     if moment.tzinfo is None:
         raise ValueError("Evaluation cutoff must be explicitly timezone-aware")

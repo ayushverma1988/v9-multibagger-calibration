@@ -8,6 +8,8 @@ on:
       - src/v11_4_complete_validation.py
       - src/v11_4_robust_research_model.py
       - src/v11_4_validation_metrics.py
+      - src/v11_4_label_clock.py
+      - src/v11_4_standalone_train_walkforward.py
       - src/v11_4_systematic_rsi_research.py
       - src/v11_4_threeFY_market_catalyst_chronological_research.py
       - tests/test_v11_4_complete_validation.py

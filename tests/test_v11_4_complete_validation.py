@@ -11,6 +11,8 @@ from v11_4_complete_validation import acceptance_report, partitions, normalize_k
 import v11_4_threeFY_market_catalyst_chronological_research as financial
 from v11_4_systematic_rsi_research import cohort, FEATURES
 from v11_4_threeFY_RSI70_promoter_source_ready import STRICT_STATUS
+from v11_4_label_clock import maturity_utc
+from v11_4_standalone_train_walkforward import partition_train_calibration
 
 
 def ranked_fixture():
@@ -104,6 +106,28 @@ class TrainingBoundTests(unittest.TestCase):
         b=robust.TrainingTailBounds(n_market=1).fit([[0,1],[1,1]])
         for candidate in ([[0]],[[np.inf,1]]):
             with self.assertRaises(ValueError):b.transform(candidate)
+
+
+class MarketMaturityClockTests(unittest.TestCase):
+    def test_date_only_label_is_not_available_at_midnight(self):
+        for values in (pd.Series(["2024-06-28",None]),pd.Series(pd.to_datetime(["2024-06-28",None]))):
+            times=maturity_utc(values)
+            self.assertEqual(times.iloc[0],pd.Timestamp("2024-06-28T10:00:00Z"))
+            self.assertTrue(pd.isna(times.iloc[1]))
+
+    def test_preserves_explicit_timestamp_but_rejects_ambiguous_intraday(self):
+        self.assertEqual(maturity_utc(pd.Series(["2024-06-28T09:59:59Z"])).iloc[0],
+                         pd.Timestamp("2024-06-28T09:59:59Z"))
+        with self.assertRaisesRegex(ValueError,"explicit source timezone"):
+            maturity_utc(pd.Series(["2024-06-28T11:00:00"]))
+
+    def test_maturity_on_calibration_close_cannot_enter_base_training(self):
+        x=pd.DataFrame({"date":["2023-12-29"]*3+["2024-06-28"],
+            "symbol":["EARLIER","SAME_CLOSE","UNKNOWN","CAL"],
+            "y6_mature_date":["2024-06-27","2024-06-28",None,"2024-12-30"]})
+        base,cal=partition_train_calibration(x,"2024-06-28")
+        self.assertEqual(base.symbol.tolist(),["EARLIER"])
+        self.assertEqual(cal.symbol.tolist(),["CAL"])
 
 
 class FinancialDecisionCohortTests(unittest.TestCase):

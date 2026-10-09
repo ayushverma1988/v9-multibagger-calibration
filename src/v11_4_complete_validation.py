@@ -24,6 +24,7 @@ from v11_4_exchange_NSE_day_close_RSI70_source_gate import annotate as official_
 from v11_4_threeFY_RSI70_promoter_source_ready import STRICT_STATUS
 from v11_4_required_news_sources import collect as collect_news
 from v11_4_validation_metrics import evaluate_ranked, summarize_folds
+from v11_4_label_clock import maturity_utc
 
 EXPECTED_HASHES = {
     "features18":"20692301a594b2d504ba80066352187500e37af2d8f762bb2cc9bb0bf87804fe",
@@ -88,7 +89,7 @@ def partitions(history, date):
         or base["y6"].sum() < core.MIN_BASE_POSITIVES or len(cal) < 50):
         return None
     for panel, clock in ((base, core.fold_close(past[-1])), (cal, core.fold_close(date))):
-        maturity = pd.to_datetime(panel["y6_mature_date"], utc=True, errors="coerce", format="mixed")
+        maturity = maturity_utc(panel["y6_mature_date"])
         if maturity.isna().any() or not maturity.lt(clock).all():
             raise ValueError("Outcome unavailable before train/calibration decision")
     return base, cal
@@ -290,6 +291,7 @@ def execute(args):
         "C":core.REGULARIZATION_C,"seeds":list(core.STABILITY_SEEDS),
         "training_perturbation_retention":core.STABILITY_RETENTION,
         "future_outcomes_cannot_filter_test_candidates":True,"parameter_search_performed":False,
+        "date_only_label_maturity_is_1530_IST_close_not_UTC_midnight":True,
         "already_inspected_test_dates_not_new_blind_evidence":True}
     (root/"fixed_validation_recipe.json").write_text(json.dumps(recipe,indent=2))
     history,labels=load_history(args.features18,args.labels)

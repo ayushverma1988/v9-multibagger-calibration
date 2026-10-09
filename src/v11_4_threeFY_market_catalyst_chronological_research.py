@@ -23,6 +23,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score,average_precision_score,brier_score_loss
+from v11_4_label_clock import maturity_utc
 from v11_4_eightfold_3FY_market_catalyst_source_matrix import (
     FOLDS,EXPECT_UNIVERSE,PRICE,EVENTS,FIN_FEATS,FORBIDDEN,local_1530)
 
@@ -119,7 +120,7 @@ def eligible_at(frame,date,maturity_cutoff=None,require_mature_labels=True):
            subset["close"].between(20,2000)&subset["avg_turnover_63"].gt(0))
     if require_mature_labels:
         if maturity_cutoff is None:raise ValueError("Training requires an explicit maturity cutoff")
-        mature=pd.to_datetime(subset["y6_mature_date"],utc=True,errors="coerce",format="mixed")
+        mature=maturity_utc(subset["y6_mature_date"])
         valid&=(subset["integrity_y6_clean"].eq(True)&subset["y6"].isin([0,1])&
                 mature.notna()&(mature<maturity_cutoff))
     # Missing source stock remains in audit but cannot become synthetic financial features.
