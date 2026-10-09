@@ -1,0 +1,29 @@
+name: V11.4 3FY Chronological Financial ML Pilot Regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_chronological_ML_tests.yml
+      - src/v11_4_threeFY_chronological_research_ML.py
+      - tests/test_v11_4_threeFY_chronological_research_ML.py
+permissions:
+  contents: read
+jobs:
+  three-fiscal-year-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Dependencies for no-lookahead three fiscal year research protocol
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26'
+      - name: Enforce no future label training and actual single-fold score audit
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_threeFY_chronological_research_ML.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_chronological_research_ML.py -v
+      - name: Protocol limitation notice
+        run: echo "One Dec2025 out-of-time holdout is exploratory, never a claim of multi-fold calibrated ability to identify 2x stocks."
