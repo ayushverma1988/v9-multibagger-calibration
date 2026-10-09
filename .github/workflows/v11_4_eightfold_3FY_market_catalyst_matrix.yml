@@ -1,0 +1,156 @@
+name: V11.4 Eight-Fold Three-FY NSE Financial Momentum Catalyst PIT Matrix
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_eightfold_3FY_market_catalyst_matrix.yml
+      - src/v11_4_eightfold_3FY_market_catalyst_source_matrix.py
+      - tests/test_v11_4_eightfold_3FY_market_catalyst_source_matrix.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-eight-fold-joined-source-not-predictive-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install source-only matrix tooling
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Enforce 3FY missingness and original NSE catalyst 15:30 PIT semantics
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_eightfold_3FY_market_catalyst_source_matrix.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_eightfold_3FY_market_catalyst_source_matrix.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-18fold-NSE-catalyst-market-financial-PIT-research-matrix
+          path: verified_original_18fold_market_event_sources
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763154846
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-Dec2022-full-NSE-3FY-2020-2022-strict-numerics
+          path: original_NSE_Dec2022_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37939986289
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-full-market-strict-three-FY-numeric-2023-reconciled
+          path: original_NSE_Dec2023_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37906034342
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2024-3FY-original-NSE-audited-financials
+          path: original_NSE_Dec2024_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37920892862
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-original-NSE-integrated-full-three-FY-market-financials
+          path: original_NSE_Dec2025_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37907820467
+      - name: Restore private only the original source-clock-qualified June financial columns
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          repo="ayushverma1988/v10-multibagger-archive"
+          api=HfApi(token=token)
+          assert api.repo_info(repo_id=repo,repo_type="dataset").private is True
+          fiscal={
+           "2022-06-30":"v11_4/historical_source_original_NSE/FY2020_FY2021_FY2022_asof_2022_June/run_37940351199/original_2022_June_stocks_FY2020_2022_verified_pre_close_3FY_PRIVATE.parquet",
+           "2023-06-30":"v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_37938677845/original_NSE_June_2023_verified_3FY_asof_1530_IST_PRIVATE.parquet",
+           "2024-06-28":"v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_37938677845/original_NSE_June_2024_verified_3FY_asof_1530_IST_PRIVATE.parquet",
+           "2025-06-30":"v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_37938677845/original_NSE_June_2025_verified_3FY_asof_1530_IST_PRIVATE.parquet"}
+          root=Path("source_eight_fiscal_dates");root.mkdir(exist_ok=True)
+          for date,p in fiscal.items():
+           f=hf_hub_download(repo_id=repo,repo_type="dataset",filename=p,token=token)
+           shutil.copy2(f,root/(date+".parquet"))
+          print("Retrieved exactly four verified June historical fiscal sources; no outcomes copied into new feature inputs.")
+          PY
+      - name: Add four December issuer source audits and locate the original 18fold NSE price/catalyst file
+        run: |
+          set -euo pipefail
+          ROOT=source_eight_fiscal_dates
+          cp "$(find original_NSE_Dec2022_3FY -name original_FY2022_fold_verified_FY2020_2021_2022_annual_facts.csv -print -quit)" "$ROOT/2022-12-30.csv"
+          cp "$(find original_NSE_Dec2023_3FY -name original_NSE_2021_2023_three_FY_STRICT_FINANCIAL_FACTS.csv -print -quit)" "$ROOT/2023-12-29.csv"
+          cp "$(find original_NSE_Dec2024_3FY -name strict_original_FY2022_2024_annual_facts.csv -print -quit)" "$ROOT/2024-12-31.csv"
+          cp "$(find original_NSE_Dec2025_3FY -name FY2025_original_NSE_full_3FY_2023_2025_annual_financial_facts.csv -print -quit)" "$ROOT/2025-12-31.csv"
+          test "$(find "$ROOT" -maxdepth 1 -name "*.csv" -o -name "*.parquet" | wc -l)" -eq 8
+          test -n "$(find verified_original_18fold_market_event_sources -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)"
+      - name: Build pure point-in-time financial + momentum + NSE catalyst source matrix with no future label
+        run: |
+          set -euo pipefail
+          SNAP=$(find verified_original_18fold_market_event_sources -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          python src/v11_4_eightfold_3FY_market_catalyst_source_matrix.py \
+            --market-catalyst "$SNAP" \
+            --financial-2022-06-30 source_eight_fiscal_dates/2022-06-30.parquet \
+            --financial-2022-12-30 source_eight_fiscal_dates/2022-12-30.csv \
+            --financial-2023-06-30 source_eight_fiscal_dates/2023-06-30.parquet \
+            --financial-2023-12-29 source_eight_fiscal_dates/2023-12-29.csv \
+            --financial-2024-06-28 source_eight_fiscal_dates/2024-06-28.parquet \
+            --financial-2024-12-31 source_eight_fiscal_dates/2024-12-31.csv \
+            --financial-2025-06-30 source_eight_fiscal_dates/2025-06-30.parquet \
+            --financial-2025-12-31 source_eight_fiscal_dates/2025-12-31.csv \
+            --out original_eightfold_threeFY_market_catalyst_PIT_NO_OUTCOMES
+      - name: Verify private destination and save research matrix with original input hashes
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          src=Path("source_eight_fiscal_dates")
+          root=Path("original_eightfold_threeFY_market_catalyst_PIT_NO_OUTCOMES")
+          report=json.loads((root/"eight_folds_original_3FY_market_catalyst_source_summary.json").read_text())
+          assert report["source_verified_original_8_decision_dates"]==8
+          assert report["no_future_six_month_labels_or_prices_in_feature_matrix"] is True
+          assert report["no_trained_new_market_financial_catalyst_model"] is True
+          checksums={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in src.iterdir() if p.is_file()}
+          (root/"eightfold_threeFY_fiscal_source_SHA256_manifest.json").write_text(json.dumps({
+             "original_eight_fiscal_inputs_SHA256":checksums,
+             "no_six_month_future_labels_in_combined_feature_matrix":True,
+             "2025_june_and_Dec_research_predictions_not_updated":True},indent=2))
+          client=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=client.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          dest="v11_4/predeclared_eightfold_3FY_price_NSE_catalyst_NO_LABELS/run_${{ github.run_id }}"
+          assert not any(path.startswith(dest+"/") for path in client.list_repo_files(repo_id=repo,repo_type="dataset"))
+          client.upload_folder(folder_path=str(root),repo_id=repo,repo_type="dataset",path_in_repo=dest,parent_commit=head.sha,
+            commit_message="Original 8fold NSE three fiscal year market/catalyst source-only matrix, no labels or forecasts")
+          print(json.dumps({"private_eightfold_source_matrix_saved":True,
+            "source_original_date_count":report["source_verified_original_8_decision_dates"],
+            "original_market_stock_date_records":report["full_original_market_stock_date_rows"],
+            "threeFY_source_verified_stock_date_records":report["original_NSE_strict_3FY_company_date_rows"],
+            "June2022_source_70pct_gate_passed":report["2022_June_70pct_coverage_threshold_passed"],
+            "retrospective_model_accuracy_claimed":False,
+            "model_training_performed":False,
+            "private_source_path":dest},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-8fold-3FY-NSE-price-catalyst-source-only-aggregate-coverage
+          path: original_eightfold_threeFY_market_catalyst_PIT_NO_OUTCOMES/eight_folds_original_3FY_market_catalyst_source_summary.json
+          retention-days: 90
+          if-no-files-found: warn
