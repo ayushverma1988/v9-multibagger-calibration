@@ -1,4 +1,4 @@
-"""Four original user screener families plus RSI(14) Wilder over 80."""
+"""Four original user screener families plus RSI(14) Wilder over 70."""
 import json,unittest
 from pathlib import Path
 import pandas as pd
@@ -12,22 +12,22 @@ class FourFamilyTests(unittest.TestCase):
   counts=[len(v["hard_rules"]) for v in self.config["conditions"].values()]
   self.assertEqual(counts,[20,4,8,1])
   self.assertEqual(self.config["conditions"]["condition_4_RSI14_high_momentum"]["hard_rules"],
-                   [["rsi14_wilder",">",80]])
+                   [["rsi14_wilder",">",70]])
  def test_rsi_wilder_numerical_extremes(self):
   self.assertEqual(rsi_wilder_last([100.]*30),50.)
   self.assertAlmostEqual(rsi_wilder_last(list(range(1,45))),100.)
   self.assertAlmostEqual(rsi_wilder_last(list(range(45,1,-1))),0.)
   self.assertTrue(pd.isna(rsi_wilder_last([1.]*14)))
- def test_strict_above_80_not_greater_equal(self):
-  self.assertTrue(eval_rule(80.1,">",80))
-  self.assertFalse(eval_rule(80.,">",80))
-  self.assertIsNone(eval_rule(float("nan"),">",80))
+ def test_strict_above_70_not_greater_equal(self):
+  self.assertTrue(eval_rule(70.1,">",70))
+  self.assertFalse(eval_rule(70.,">",70))
+  self.assertIsNone(eval_rule(float("nan"),">",70))
  def test_missing_fundamentals_is_unknown_not_fail(self):
   x=pd.DataFrame({"date":pd.to_datetime(["2026-10-08"]*3),
     "symbol":["STRONG","BORDER","WEAK"],
-    "rsi14_wilder":[90.0,80.0,20.0]})
+    "rsi14_wilder":[90.0,70.0,20.0]})
   res=analyze(x,self.config)
-  self.assertEqual(res["rsi14_gt80"].fillna(False).tolist(),[True,False,False])
+  self.assertEqual(res["rsi14_gt70"].fillna(False).tolist(),[True,False,False])
   self.assertEqual(res["condition_1_quality_compounder_status"].tolist(),["UNKNOWN"]*3)
   self.assertEqual(res["condition_2_recovery_value_setup_status"].tolist(),["UNKNOWN"]*3)
   self.assertEqual(res["condition_3_earnings_acceleration_status"].tolist(),["UNKNOWN"]*3)
