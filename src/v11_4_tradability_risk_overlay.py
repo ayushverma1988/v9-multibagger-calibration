@@ -60,8 +60,8 @@ def audit_tradability(features,picks,screeners=None):
    if sessions<MIN_OBSERVED_SESSIONS_35_CALENDAR_DAYS:
     liquidity.append("FEWER_THAN_15_RECENT_TRADING_SESSIONS")
   selected_risks=[]
-  if ratio is not None and ratio>PROBABILITY_TOP_OUTLIER_MULTIPLIER and
-        float(row["p6_double_calibrated"])==float(probabilities.max()):
+  if (ratio is not None and ratio>PROBABILITY_TOP_OUTLIER_MULTIPLIER and
+      float(row["p6_double_calibrated"])==float(probabilities.max())):
     selected_risks.append("TOP_PROBABILITY_EXCEEDS_4X_TOP10_MEDIAN_UNVALIDATED_TAIL")
   if flags:
    if any(str(row[f])=="UNKNOWN" for f in flags):
