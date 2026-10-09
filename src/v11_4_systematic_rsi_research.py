@@ -22,6 +22,7 @@ from v11_4_standalone_train_walkforward import (
     make_model,REGULARIZATION_C,STABILITY_SEEDS,perturbation_training,
     top10_similarity)
 from v11_4_forward_research_release import fit_calibration_params,apply_frozen_calibration
+from v11_4_validation_metrics import evaluate_ranked
 
 SPECIFIC_EVENTS=("nse_capacity_expansion_180d_positive",
     "nse_order_win_180d_positive","nse_regulatory_180d_positive",
@@ -50,11 +51,11 @@ def prepare(source,labels):
     joined["rsi14_gt70_indicator"]=joined["rsi14_strict_gt70_source_verified"].astype("Float64")
     return joined
 
-def cohort(allrows,date,cutoff):
+def cohort(allrows,date,cutoff=None,require_mature_labels=True):
     # The old selector's guards establish original financial coverage, clean
     # prices and label maturity. RSI-unverified stocks are then explicitly
     # excluded, never assigned neutral RSI or a fabricated negative flag.
-    base=eligible_at(allrows,date,cutoff)
+    base=eligible_at(allrows,date,cutoff,require_mature_labels=require_mature_labels)
     q=base.loc[base["source_verification"].eq(STRICT_STATUS)].copy()
     for key in FEATURES:
         q[key]=pd.to_numeric(q[key],errors="coerce").replace([np.inf,-np.inf],np.nan)
@@ -85,26 +86,21 @@ def run(source,labels,out):
     output=Path(out);output.mkdir(parents=True,exist_ok=True)
     records=[];summaries=[];stability=[]
     for date in RESEARCH_TEST_DATES:
-        test=cohort(allrows,date,EVALUATION_CUTOFF_UTC)
+        test=cohort(allrows,date,require_mature_labels=False)
         if len(test)<10:raise ValueError("Cannot form an original 10-stock research cohort")
         probability,parameters=fit_once(train,cal,test)
         if not np.isfinite(probability).all() or not ((probability>0)&(probability<1)).all():
             raise ValueError("Invalid calibrated model output")
-        q=test[["date","symbol","close","y6",*FEATURES]].copy()
+        q=test[["date","symbol","close","y6","y6_mature_date",
+                "integrity_y6_clean",*FEATURES]].copy()
         q["research_probability_6m_2x"]=probability
         q=q.sort_values(["research_probability_6m_2x","symbol"],ascending=[False,True])
         q.insert(0,"rank",range(1,len(q)+1));records.append(q)
-        y=q["y6"].astype(int);wins=int(q.head(10)["y6"].sum());rate=float(y.mean())
-        summaries.append({"date":date,"source_and_label_clean_cohort":len(q),
-            "actual_six_month_doublers":int(y.sum()),"cohort_base_rate":rate,
-            "top10_doublers":wins,"top10_precision":wins/10,
-            "top10_precision_Wilson95":wilson_interval(wins,10),
-            "top10_lift":wins/10/rate if rate>0 else None,
-            "average_precision":float(average_precision_score(y,q["research_probability_6m_2x"])),
-            "roc_auc":float(roc_auc_score(y,q["research_probability_6m_2x"])) if y.nunique()==2 else None,
-            "brier":float(brier_score_loss(y,q["research_probability_6m_2x"])),
-            "calibration_method":parameters["method"],
-            "already_examined_outcomes_retrospective_only":True})
+        metric=evaluate_ranked(q,"research_probability_6m_2x",EVALUATION_CUTOFF_UTC,
+                               float(cal["y6"].mean()))
+        metric.update({"date":date,"calibration_method":parameters["method"],
+                       "already_examined_outcomes_retrospective_only":True})
+        summaries.append(metric)
         for seed in STABILITY_SEEDS:
             alternative,_=fit_once(perturbation_training(train,seed),cal,test)
             alt=test.assign(_probability=alternative).sort_values(
@@ -129,6 +125,8 @@ def run(source,labels,out):
         "GDELT_and_Google_historical_PIT_features_available":False,
         "six_month_target_only_12m24m_horizon_model_not_fitted":True,
         "already_examined_test_dates_not_new_blinded_evidence":True,
+        "test_selection_independent_of_future_outcome_availability":True,
+        "missing_selected_outcomes_never_replaced_by_lower_ranked_stocks":True,
         "required_independent_test_folds":12,"new_independent_test_folds":0,
         "production_approved":False,"original_Oct8_observation_preserved":True,
         "mean_top10_jaccard":float(sf["jaccard"].mean()),

@@ -1,0 +1,104 @@
+name: V11.4 Pre2022 Original 3FY Missing Source Root-Cause Remediation
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_pre2022_original_3FY_source_gap_rootcauses.yml
+      - src/v11_4_recover_2020_2021_threeFY_PIT_source_triage.py
+      - tests/test_v11_4_recover_2020_2021_threeFY_PIT_source_triage.py
+permissions:
+  actions: read
+  contents: read
+jobs:
+  original-NSE-preclose-2020-2021-source-gap-accounting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original-source audit and private archive dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Prove original fold dates, same-mode fiscal years, cutoff and no future labels
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_recover_2020_2021_threeFY_PIT_source_triage.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_recover_2020_2021_threeFY_PIT_source_triage.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: original_NSE_historic_filing_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37753978251
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_18fold_frozen_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Forensically categorize FOUR missing 2020/2021 original three-FY filing source vintages
+        run: |
+          set -euo pipefail
+          ANNUAL=$(find original_NSE_historic_filing_index -name NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv -print -quit)
+          FROZEN=$(find original_18fold_frozen_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$ANNUAL" && test -n "$FROZEN" && test -s "$ANNUAL" && test -s "$FROZEN"
+          PYTHONPATH=src python src/v11_4_recover_2020_2021_threeFY_PIT_source_triage.py \
+            --official-annual-index "$ANNUAL" \
+            --frozen-snapshot "$FROZEN" \
+            --out PRIVATE_pre2022_source_gaps_analysis
+      - name: Independently enforce that source-only coverage was NOT misreported as actual reconstructed 3FY
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path("PRIVATE_pre2022_source_gaps_analysis/2020_2021_original_NSE_threeFY_missing_preclose_source_triage_aggregate.json")
+          summary=json.loads(path.read_text())
+          assert summary["four_frozen_historical_pre2022_folds"]==4
+          assert summary["source_link_matched_3FY_company_fold_sets"]==393+565+704+751
+          assert summary["source_link_percent_not_equivalent_to_numeric_coverage"] is True
+          assert summary["historical_publication_clock_and_issuer_mode_not_weakened"] is True
+          assert summary["no_futures_no_2025_outcomes_no_model_training"] is True
+          expected={"2020-06-30":101,"2020-12-31":40,"2021-06-30":29,"2021-12-31":5}
+          assert {z["original_fold"]:z["additional_strict_same_mode_preclose_original_annual_link_sets_needed_for_70pct"] for z in summary["per_date"]}==expected
+          print("Coverage deficits verified: all 4 dates remain BELOW 70 percent link coverage. No invented financial values.")
+          PY
+      - name: Save historical missing issuer names PRIVATE to target actual official older report retrieval
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          from pathlib import Path
+          p=Path("PRIVATE_pre2022_source_gaps_analysis")
+          summary=json.loads((p/"2020_2021_original_NSE_threeFY_missing_preclose_source_triage_aggregate.json").read_text())
+          assert summary["source_link_percent_not_equivalent_to_numeric_coverage"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          remote="v11_4/pre2022_four_original_3FY_missing_NSE_filing_source_triage/run_${{ github.run_id }}"
+          assert not any(f.startswith(remote+"/") for f in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(p),repo_id=repo,repo_type="dataset",
+            path_in_repo=remote,parent_commit=head.sha,
+            commit_message="PRIVATE original 2020-2021 NSE annual filing 3FY PIT nonfabricated missing-source worklist")
+          print(json.dumps({"private_missing_old_NSE_sources_archived":True,
+           "older_original_2020_21_fold_count":len(summary["per_date"]),
+           "additional_filing_link_sets_minimum_for_70pct":summary["minimum_additional_3FY_original_same_mode_XML_sources_for_70pct_each_fold"],
+           "numeric_3FY_or_ML_improvement_claimed":False,
+           "historical_company_names_not_exposed_in_public_logs":True,
+           "research_private_archive":remote},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2020-2021-original-3FY-source-gaps-no-new-financials
+          path: PRIVATE_pre2022_source_gaps_analysis/2020_2021_original_NSE_threeFY_missing_preclose_source_triage_aggregate.json
+          retention-days: 90
+          if-no-files-found: warn

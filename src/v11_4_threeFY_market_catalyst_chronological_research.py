@@ -103,7 +103,7 @@ def check_and_join(source,labels):
         join=join.rename(columns={"close_x":"close"}).drop(columns=["close_y"])
     return join
 
-def eligible_at(frame,date,maturity_cutoff):
+def eligible_at(frame,date,maturity_cutoff=None,require_mature_labels=True):
     if date not in FOLDS:raise ValueError("Unregistered research fold date")
     subset=frame.loc[frame["date"].eq(date)].copy()
     verified=subset["has_strict_3FY_original_fiscal_source"].eq(True)
@@ -112,11 +112,16 @@ def eligible_at(frame,date,maturity_cutoff):
         raise ValueError(f"{date}: below 70 percent verified original 3FY financial threshold")
     if date=="2022-06-30":
         raise ValueError("2022 June is predeclared below 70% original financial coverage")
-    mature=pd.to_datetime(subset["y6_mature_date"],utc=True,errors="coerce",format="mixed")
+    # Test candidates must be selected before looking at future label
+    # availability or integrity. Otherwise a delisting/corporate-action
+    # exception can disappear from the Top 10 using hindsight.
     valid=(verified&subset["integrity_feature_clean"].eq(True)&
-           subset["integrity_y6_clean"].eq(True)&subset["close"].between(20,2000)&
-           subset["avg_turnover_63"].gt(0)&subset["y6"].isin([0,1])&
-           mature.notna()&(mature<maturity_cutoff))
+           subset["close"].between(20,2000)&subset["avg_turnover_63"].gt(0))
+    if require_mature_labels:
+        if maturity_cutoff is None:raise ValueError("Training requires an explicit maturity cutoff")
+        mature=pd.to_datetime(subset["y6_mature_date"],utc=True,errors="coerce",format="mixed")
+        valid&=(subset["integrity_y6_clean"].eq(True)&subset["y6"].isin([0,1])&
+                mature.notna()&(mature<maturity_cutoff))
     # Missing source stock remains in audit but cannot become synthetic financial features.
     take=subset.loc[valid].copy()
     take["log_mean_63turnover_INR"]=np.log1p(take["avg_turnover_63"].astype(float))
@@ -185,35 +190,25 @@ def research_train_score(source,labels):
         offset=monotone_prior_shrunk_intercept(train,(r,cal["y6"].astype(int).to_numpy()))
     score_out=[];test_summaries=[]
     for fold in RESEARCH_TEST_DATES:
-        data=eligible_at(allrows,fold,EVALUATION_CUTOFF_UTC)
+        data=eligible_at(allrows,fold,require_mature_labels=False)
         raw=np.clip(model.predict_proba(data[list(FEATURES)].astype(float))[:,1],1e-5,1-1e-5)
         p=(platt.predict_proba(logit(raw).reshape(-1,1))[:,1] if platt is not None
            else expit(logit(raw)+offset))
         if not np.isfinite(p).all() or not ((p>=0)&(p<=1)).all():
             raise ValueError("Research combined model invalid calibrated probabilities")
-        frame=data[["date","symbol","close","avg_turnover_63","y6",*FEATURES]].copy()
+        frame=data[["date","symbol","close","avg_turnover_63","y6",
+                    "y6_mature_date","integrity_y6_clean",*FEATURES]].copy()
         frame["exploratory_p6_double_combined_research_only"]=p
         frame=frame.sort_values(["exploratory_p6_double_combined_research_only","symbol"],
                                 ascending=[False,True]).reset_index(drop=True)
         frame.insert(0,"research_rank",np.arange(1,len(frame)+1))
-        n=len(frame);y=frame["y6"].astype(int).to_numpy()
-        positives=int(y.sum());w=int(frame.head(10)["y6"].sum())
-        base=positives/n
-        metric={
-         "fold":fold,"financial_sources_before_original_decision":True,
-         "available_stock_universe_original":len(allrows.loc[allrows["date"].eq(fold)]),
-         "original_threeFY_source_verified":FOLDS[fold][1],
-         "evaluated_label_matured_source_clean_stocks":n,
-         "six_month_2x_positive_stocks":positives,
-         "market_2x_baseline_frequency_in_evaluated_cohort":float(base),
-         "top10_actual_six_month_doublers":w,
-         "top10_precision":w/10.,
-         "top10_precision_95pct_wilson_interval":wilson_interval(w,10),
-         "top10_lift_over_evaluated_cohort":float(w/10/base) if base>0 else None,
-         "average_precision":float(average_precision_score(y,p)) if positives else None,
-         "roc_auc":float(roc_auc_score(y,p)) if 0<positives<n else None,
-         "brier_score":float(brier_score_loss(y,p)),
-         "previously_seen_2025_dates_not_newly_independent_blinded_prospective_test":True}
+        from v11_4_validation_metrics import evaluate_ranked
+        metric=evaluate_ranked(frame,"exploratory_p6_double_combined_research_only",
+                               EVALUATION_CUTOFF_UTC,float(cal["y6"].mean()))
+        metric.update({"fold":fold,"financial_sources_before_original_decision":True,
+            "available_stock_universe_original":len(allrows.loc[allrows["date"].eq(fold)]),
+            "original_threeFY_source_verified":FOLDS[fold][1],
+            "previously_seen_2025_dates_not_newly_independent_blinded_prospective_test":True})
         test_summaries.append(metric);score_out.append(frame)
     report={
       "scope":"V11_4_RESEARCH_FROZEN_RECIPE_3FY_MOMENTUM_NSE_CATALYST_COMBINED_2X_HISTORIC_REPLICATION",

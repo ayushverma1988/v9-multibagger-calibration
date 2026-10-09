@@ -1,0 +1,27 @@
+name: V11.4 India NSE Market Session Scheduler Safety Test
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_scheduler_IST_session_guard_contract.yml
+      - src/v11_4_scheduler_session_gate.py
+      - tests/test_v11_4_scheduler_session_gate.py
+permissions:
+  contents: read
+jobs:
+  verify-weekend-early-and-UTC-rollover-blocked:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test original NSE market chronology and weekend deferral
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_scheduler_session_gate.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_scheduler_session_gate.py -v
+          python src/v11_4_scheduler_session_gate.py --event workflow_dispatch --asof 2026-10-10T00:23:00+05:30
+          python src/v11_4_scheduler_session_gate.py --event schedule --asof 2026-10-09T21:45:00+05:30

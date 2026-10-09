@@ -1,0 +1,91 @@
+name: V11.4 Official NSE 2021 December Missing Annual Report Vintage Recovery Pilot
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2021Dec_official_missing_annual_report_metadata_pilot.yml
+      - src/v11_4_2021Dec_original_NSE_annual_reports_metadata_candidate_probe.py
+      - tests/test_v11_4_2021Dec_original_NSE_annual_reports_metadata_candidate_probe.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  only-official-NSE-2021-December-asof-annual-report-vintage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install NSE original metadata and private source audit dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Prove official host, no after-2021 filing, missing exact FY and no reclassification into numeric revenue
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_2021Dec_original_NSE_annual_reports_metadata_candidate_probe.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_2021Dec_original_NSE_annual_reports_metadata_candidate_probe.py -v
+      - name: Load PRIVATE original historical missing company fiscal source worklist, never any stocks selected by outcomes
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi,hf_hub_download
+          from pathlib import Path
+          import os,shutil
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          repo="ayushverma1988/v10-multibagger-archive"
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          source="v11_4/pre2022_four_original_3FY_missing_NSE_filing_source_triage/run_37967202140/PRIVATE_original_2020_2021_missing_3FY_filing_link_candidates.parquet"
+          p=hf_hub_download(repo_id=repo,repo_type="dataset",filename=source,token=token)
+          shutil.copy2(p,"PRIVATE_source_only_2021Dec_missing_original_FY_issuer_candidates.parquet")
+          print("Earlier original 2020/21 missing fiscal-year NSE source-only worklist restored privately")
+          PY
+      - name: Check bounded 48 original missing 2021 December FY source candidates through official NSE annual reports API
+        run: |
+          set -euo pipefail
+          python src/v11_4_2021Dec_original_NSE_annual_reports_metadata_candidate_probe.py \
+            --private-missing-original PRIVATE_source_only_2021Dec_missing_original_FY_issuer_candidates.parquet \
+            --max-companies 48 \
+            --out original_2021_Dec_annual_reports_PRE_2022_SOURCE_METADATA_PILOT_PRIVATE
+      - name: Archive all individual NSE source link examples PRIVATELY and reject any claim this constitutes fiscal numeric facts
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi
+          import json,os
+          from pathlib import Path
+          p=Path("original_2021_Dec_annual_reports_PRE_2022_SOURCE_METADATA_PILOT_PRIVATE")
+          r=json.loads((p/"2021Dec_NSE_original_asof_old_annualreport_api_metadata_pilot_aggregate.json").read_text())
+          assert r["historical_original_frozen_fold"]=="2021-12-31"
+          assert r["new_original_3FY_numeric_company_years_verified"]==0
+          assert r["needed_additional_genuinely_usable_full_3FY_company_sources_to_70pct"]==5
+          assert r["new_original_3FY_scientifically_validated_2021_Dec_fold"] is False
+          assert r["no_original_2025_six_month_outcomes_or_current_stock_picker_read"] is True
+          assert r["original_frozen_2026_V11_4_model_rankings_unchanged"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          dest="v11_4/2021_Dec_original_NSE_missing_annual_REPORT_asof_metadata_sample_no_numeric/run_${{ github.run_id }}"
+          assert not any(x.startswith(dest+"/") for x in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(p),repo_id=repo,repo_type="dataset",path_in_repo=dest,parent_commit=head.sha,
+            commit_message="Original NSE 2021 December 48 missing FY annual-report metadata PIT pilot only; no future or 3FY numeric facts inferred")
+          print(json.dumps({"private_original_NSE_annual_metadata_saved":True,
+           "issuer_candidate_sample_count":r["max_sample_48_deterministic_missing_annual_NSE_XBRL_issuers_not_selected_by_past_returns"],
+           "pre_2022_official_annual_report_source_candidate_issuers":r["annual_report_metadata_issuer_FY_candidates_available_before_historical_asof"],
+           "original_2021_full_threeFY_numeric_added":0,
+           "still_not_new_matured_model_fold":True,
+           "private_issuer_source_provenance":dest},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-2021Dec-annual-report-alternate-PIT-source-ONLY-aggregate
+          path: original_2021_Dec_annual_reports_PRE_2022_SOURCE_METADATA_PILOT_PRIVATE/2021Dec_NSE_original_asof_old_annualreport_api_metadata_pilot_aggregate.json
+          retention-days: 90
+          if-no-files-found: warn

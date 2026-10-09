@@ -1,0 +1,149 @@
+name: V11.4 Complete Validation and Fixed Robustness Research
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-systematic-sleeve-views-20261009]
+    paths:
+      - .github/workflows/v11_4_complete_validation.yml
+      - src/v11_4_complete_validation.py
+      - src/v11_4_robust_research_model.py
+      - src/v11_4_validation_metrics.py
+      - src/v11_4_systematic_rsi_research.py
+      - src/v11_4_threeFY_market_catalyst_chronological_research.py
+      - tests/test_v11_4_complete_validation.py
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v11-4-complete-validation-research
+  cancel-in-progress: false
+jobs:
+  tests-source-clock-coverage-selection-and-uncertainty:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install complete reproducible dependencies
+        run: pip install -r requirements_v11_4_systematic.txt
+      - name: Test historical eligibility label censoring model persistence and source clocks
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-18fold-NSE-catalyst-market-financial-PIT-research-matrix
+          path: validation_inputs/features18
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763154846
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: validation_inputs/labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore exact source-only financial RSI official fold-day price and October9 current evidence privately
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os,shutil,json
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          token=os.environ['HF_ARCHIVE_TOKEN']
+          repo='ayushverma1988/v10-multibagger-archive'
+          api=HfApi(token=token);head=api.repo_info(repo_id=repo,repo_type='dataset')
+          assert head.private is True
+          old='v11_4/systematic_repair_research/run_37970837477'
+          files={
+            'source8.parquet':'v11_4/strict_8fold_3FY_RSI70_promoter_source_only_shadow/run_37965973956/eightfold_3FY_market_specificNSEevents_RSI70_source_only_PRIVATE.parquet',
+            'official_day.parquet':'v11_4/original_8fold_NSE_dual_official_DAY_CLOSE_proof_not_RSI120bars/run_37967542684/PRIVATE_NSE_original_8fold_cash_full_day_close_dual_source_validation.parquet',
+            'current_features.parquet':old+'/current_NSE/v11_4_live_NSE_verified_stock_features.parquet',
+            'current_metadata.json':old+'/current_NSE/v11_4_live_source_validation.json',
+            'current_model.joblib':old+'/current_model/systematic_corrected_current_model_PRIVATE.joblib',
+            'current_recorded.csv':old+'/current_corrected_model_demo_PRIVATE.csv'}
+          dest=Path('validation_inputs/private');dest.mkdir(parents=True,exist_ok=True)
+          for name,path in files.items():
+              original=hf_hub_download(repo_id=repo,repo_type='dataset',filename=path,
+                                      revision=head.sha,token=token)
+              shutil.copy2(original,dest/name)
+          (dest/'source_archive_revision.json').write_text(json.dumps({'revision':head.sha,'original_paths':files},indent=2))
+          print('Pinned private evidence restored; no new trading day or new blind outcomes claimed.')
+          PY
+      - name: Run both fixed V11.4 variants corrected RSI test selection complete requirement gates and current-source replay
+        run: |
+          python - <<'PY'
+          import subprocess,sys
+          from pathlib import Path
+          root=Path('validation_inputs')
+          feature=list((root/'features18').rglob('v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet'))
+          labels=list((root/'labels').rglob('snapshot_dataset.parquet'))
+          assert len(feature)==len(labels)==1
+          private=root/'private'
+          cmd=[sys.executable,'src/v11_4_complete_validation.py',
+              '--features18',str(feature[0]),'--labels',str(labels[0]),'--output','complete_validation_output',
+              '--source8',str(private/'source8.parquet'),'--official-day',str(private/'official_day.parquet'),
+              '--current-features',str(private/'current_features.parquet'),
+              '--current-metadata',str(private/'current_metadata.json'),
+              '--current-model',str(private/'current_model.joblib'),
+              '--current-recorded',str(private/'current_recorded.csv'),'--collect-news']
+          subprocess.run(cmd,check=True)
+          PY
+      - name: Save all diagnostics and experimental model privately in a new immutable run
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os,json,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          root=Path('complete_validation_output')
+          r=json.loads((root/'complete_validation_summary.json').read_text())
+          assert r['original_frozen_observations_preserved'] is True
+          assert r['walkforward']['original_corrected_reference_reproduced'] is True
+          assert r['current_snapshot_replay']['original_Oct9_global_observation_reproduced_and_not_overwritten'] is True
+          assert r['acceptance']['production_approved'] is False
+          shutil.copy2('validation_inputs/private/source_archive_revision.json',root/'source_archive_revision.json')
+          api=HfApi(token=os.environ['HF_ARCHIVE_TOKEN']);repo='ayushverma1988/v10-multibagger-archive'
+          head=api.repo_info(repo_id=repo,repo_type='dataset');assert head.private is True
+          dest='v11_4/complete_validation_fixed_robustness_research/run_${{ github.run_id }}'
+          assert not any(p.startswith(dest+'/') for p in api.list_repo_files(repo_id=repo,repo_type='dataset'))
+          api.upload_folder(folder_path=str(root),repo_id=repo,repo_type='dataset',path_in_repo=dest,
+              parent_commit=head.sha,commit_message='Full V11.4 requirement audit and outcome-independent selection validation; fixed tail-bound research not promoted')
+          print('Validation and research diagnostics preserved; existing frozen observations unchanged.')
+          PY
+      - name: Show actual acceptance separately from successful computation
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('complete_validation_output/complete_validation_summary.json')
+          if not p.exists():
+              raise SystemExit('Complete validation did not finish; no success claim.')
+          r=json.loads(p.read_text());a=r['acceptance']
+          print(json.dumps(a,indent=2))
+          if not a['production_approved']:
+              print('::warning::Complete model remains unapproved; failed scientific and source gates are listed explicitly.')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## V11.4 complete validation\n\n')
+              f.write('Research computation completed. Production approval: **'+str(a['production_approved'])+'**.\n\n')
+              f.write('| Required gate | Passed |\n|---|---|\n')
+              for name,passed in a['all_required_gates'].items():f.write('| '+name+' | '+str(passed)+' |\n')
+              f.write('\nPreviously inspected dates remain retrospective evidence.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-complete-validation-aggregate-only
+          path: |
+            complete_validation_output/complete_validation_summary.json
+            complete_validation_output/fixed_validation_recipe.json
+            complete_validation_output/official_RSI_day_price_audit.json
+          retention-days: 90
+          if-no-files-found: warn

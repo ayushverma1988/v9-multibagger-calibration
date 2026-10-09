@@ -1,0 +1,85 @@
+name: V11.4 RSI70 Early Historical Six Month Double Rate Descriptive Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_RSI70_only_pre2025_training_calibration_event_rate.yml
+      - src/v11_4_RSI70_threeFY_earlier_training_only_signal_association.py
+      - tests/test_v11_4_RSI70_threeFY_earlier_training_only_signal_association.py
+permissions:
+  actions: read
+  contents: read
+jobs:
+  strict-RSI70-original-pre2025-matured-ONLY-no-model-selection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install frozen NSE stock cohort scientific association support
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scipy>=1.12' 'huggingface_hub>=0.25,<2'
+      - name: Reject y6 leakage into PIT source, label maturation violations, and future 2025 test tuning
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_RSI70_threeFY_earlier_training_only_signal_association.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_RSI70_threeFY_earlier_training_only_signal_association.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: frozen_original_18fold_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Load strict private official NSE DAY close plus original threeFY RSI70 source and NEVER any 2025 y6 test labels into evaluation
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          repo="ayushverma1988/v10-multibagger-archive"
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          file="v11_4/official_NSE_day_close_reconciled_RSI14_GT70_3FY_NO_OUTCOMES/run_37967849568/PRIVATE_original_8fold_3FY_RSI70_official_DAY_only_no_future_labels.parquet"
+          original=hf_hub_download(repo_id=repo,repo_type="dataset",filename=file,token=token)
+          dst=Path("PRIVATE_original_3FY_RSI70_official_DAY_NO_LABELS.parquet")
+          shutil.copy2(original,dst)
+          print("Source-only original 8fold FY/RSI70 exchange DAY close shadow restored privately; no prior outcomes inside features.")
+          PY
+      - name: Measure already-matured user RSI>70 original 2022/2023 TRAIN and 2024 CALIBRATION fold association only
+        run: |
+          set -euo pipefail
+          FROZEN=$(find frozen_original_18fold_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$FROZEN" && test -s "$FROZEN"
+          PYTHONPATH=src python src/v11_4_RSI70_threeFY_earlier_training_only_signal_association.py \
+            --source PRIVATE_original_3FY_RSI70_official_DAY_NO_LABELS.parquet \
+            --original-mature-labels "$FROZEN" \
+            --out aggregate_only_RSI70_old_training_and_calibration_descriptive_association
+      - name: Assert research results do not misrepresent historical 2025 holdout or four-screen model acceptance
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("aggregate_only_RSI70_old_training_and_calibration_descriptive_association/RSI14_GT70_THREE_FY_early_training_calibration_ONLY_unadjusted_association.json")
+          r=json.loads(p.read_text())
+          assert r["evaluated_only_stock_label_fold_dates"]==["2022-12-30","2023-06-30","2024-06-28"]
+          assert r["no_2025_test_fold_six_month_doublers_used"] is True
+          assert r["this_is_observational_association_not_actual_backtested_model_gain"] is True
+          assert r["no_new_independent_blinded_test_completed"] is True
+          assert r["original_2026_forward_top10_and_fitted_probabilities_untouched"] is True
+          assert r["prospective_or_production_model_promoted"] is False
+          print("RSI>70 original historical early training/calibration association observed. NOT an ML accuracy improvement or fresh blind test.")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-user-RSI70-2x-prior-train-cal-only-EXPLORATORY-aggregate
+          path: aggregate_only_RSI70_old_training_and_calibration_descriptive_association/RSI14_GT70_THREE_FY_early_training_calibration_ONLY_unadjusted_association.json
+          retention-days: 90
+          if-no-files-found: warn
