@@ -7,7 +7,7 @@ def sample():
  doc=[];stock=[]
  for day,meta in m.TARGETS.items():
   for i in range(10):
-   sym=f"SYM{i}"
+   sym=f"{day[:4]}{day[5:7]}SYM{i}"
    stock.append({"date":day,"symbol":sym})
    for yr in meta["fys"]:
     statement="Consolidated"
@@ -38,11 +38,11 @@ class Triage(unittest.TestCase):
   self.assertEqual(result["four_frozen_historical_pre2022_folds"],4)
   self.assertTrue(result["source_link_percent_not_equivalent_to_numeric_coverage"])
  def test_malformed_late_source_not_backfilled_asof(self):
-  self.docs.loc[(self.docs["symbol"]=="SYM0")&(self.docs["fy_end"]=="2021-03-31"),"available_at_utc"]="2022-06-01T07:00:00Z"
+  self.docs.loc[(self.docs["symbol"].str.endswith("SYM0"))&(self.docs["fy_end"]=="2021-03-31"),"available_at_utc"]="2022-06-01T07:00:00Z"
   with self.assertRaisesRegex(ValueError,"index candidate count changed"):
    m.triage(self.docs,self.stocks)
  def test_never_mix_standalone_and_consolidated(self):
-  self.docs.loc[(self.docs["symbol"]=="SYM6")&(self.docs["fy_end"]=="2021-03-31"),"consolidated"]="Standalone"
+  self.docs.loc[(self.docs["symbol"].str.endswith("SYM6"))&(self.docs["fy_end"]=="2021-03-31"),"consolidated"]="Standalone"
   with self.assertRaisesRegex(ValueError,"index candidate count changed"):
    m.triage(self.docs,self.stocks)
  def test_missing_stock_denominator_rejected(self):
@@ -54,7 +54,7 @@ class Triage(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,"No future stock"):
    m.triage(self.docs,x)
  def test_wrong_host_cannot_recover_link(self):
-  self.docs.loc[(self.docs["symbol"]=="SYM1")&(self.docs["fy_end"]=="2021-03-31"),"xbrl_url"]="https://fake-nsearchives.example/invalid.xml"
+  self.docs.loc[(self.docs["symbol"].str.endswith("SYM1"))&(self.docs["fy_end"]=="2021-03-31"),"xbrl_url"]="https://fake-nsearchives.example/invalid.xml"
   with self.assertRaisesRegex(ValueError,"index candidate count changed"):
    m.triage(self.docs,self.stocks)
 if __name__=="__main__":unittest.main()
