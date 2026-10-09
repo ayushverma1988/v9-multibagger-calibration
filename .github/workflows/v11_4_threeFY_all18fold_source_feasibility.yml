@@ -1,0 +1,66 @@
+name: V11.4 18-Fold Three-Fiscal-Year Original NSE Feasibility Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_all18fold_source_feasibility.yml
+      - src/v11_4_threeFY_all18fold_source_feasibility.py
+      - tests/test_v11_4_threeFY_all18fold_source_feasibility.py
+permissions:
+  actions: read
+  contents: read
+jobs:
+  independent-18-fold-source-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original filing index research dependencies
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26'
+      - name: Run source timing / same-reporting-mode regression tests
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_all18fold_source_feasibility.py -v
+      - name: Restore original as-of NSE yearly plus FY2025 integrated Q4 annual source links
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: historical_PIT_filing_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37753978251
+      - name: Restore frozen historical stock universe without future labels
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_unchanged_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore original 18 fold dates
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > original_eighteen_dates.csv
+      - name: Count date-eligible three fiscal annual NSE publication sets for each original fold
+        run: |
+          set -euo pipefail
+          INDEX=$(find historical_PIT_filing_catalog -name NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv -print -quit)
+          SNAP=$(find historical_unchanged_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$SNAP"
+          python src/v11_4_threeFY_all18fold_source_feasibility.py \
+            --annual-index "$INDEX" --snapshot "$SNAP" \
+            --folds original_eighteen_dates.csv \
+            --out original_NSE_all_eighteen_PIT_threeFY_feasibility
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-independent-18-fold-three-FY-original-NSE-coverage-diagnostics
+          path: |
+            original_NSE_all_eighteen_PIT_threeFY_feasibility/all_18_folds_PIT_original_three_fiscal_year_source_inventory.csv
+            original_NSE_all_eighteen_PIT_threeFY_feasibility/all_18_folds_3FY_original_NSE_PIT_source_feasibility_summary.json
+          retention-days: 90
+          if-no-files-found: error
