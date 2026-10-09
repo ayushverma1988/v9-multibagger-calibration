@@ -1,0 +1,84 @@
+name: V11.4 June2022 Original 3FY Historic Annual Source Reopen
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_2022_June_source_reopen.yml
+      - src/v11_4_threeFY_2022_June_bridge.py
+permissions:
+  actions: read
+  contents: read
+jobs:
+  2022_June_original_threeFY:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original annual numeric source dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Restore original NSE financial source clock and regression tests
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_threeFY_2022_June_bridge.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_June_PIT_supplement.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-Dec2022-full-NSE-3FY-2020-2022-strict-numerics
+          path: original_dec2022_verified_threeFY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37939986289
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_June2022_unchanged_stock_symbols_and_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Reject any original FY2020-22 annual report published after June2022 15:30 IST
+        run: |
+          set -euo pipefail
+          FIN=$(find original_dec2022_verified_threeFY -name original_FY2022_fold_verified_FY2020_2021_2022_annual_facts.csv -print -quit)
+          SNAP=$(find original_June2022_unchanged_stock_symbols_and_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$FIN" && test -n "$SNAP"
+          python src/v11_4_threeFY_2022_June_bridge.py \
+            --financial "$FIN" --snapshot "$SNAP" --out original_verified_2022_June_threeFY_private
+      - name: Save original June2022 labels and financial features to private archive only
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          root="original_verified_2022_June_threeFY_private"
+          meta=json.load(open(root+"/original_June2022_3FY_source_audit.json"))
+          assert meta["original_Dec_full_3FY_company_numerics_available"]==831
+          assert meta["2025_June_or_Dec_holdout_NOT_included"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          target="v11_4/historical_source_original_NSE/FY2020_FY2021_FY2022_asof_2022_June/run_${{ github.run_id }}"
+          assert not any(f.startswith(target+"/") for f in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=root,repo_id=repo,repo_type="dataset",path_in_repo=target,
+            parent_commit=head.sha,commit_message="Private original June2022 3FY strict historical investor source clock")
+          print(json.dumps({"saved_original_2022_June_financials_private":True,
+           "verified_source_company_matches":meta["all_3FY_sources_with_original_June_stock_identity"],
+           "original_full_June_stock_universe":meta["original_market_stock_universe"],
+           "June2022_actual_mature_2x_events":meta["eligible_matured_actual_twoX_events"],
+           "private_source_path":target,"new_model_fit":False},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-June2022-original-three-FY-strict-source-clock-aggregates
+          path: original_verified_2022_June_threeFY_private/original_June2022_3FY_source_audit.json
+          retention-days: 90
+          if-no-files-found: warn
