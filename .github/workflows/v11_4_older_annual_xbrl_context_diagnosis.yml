@@ -1,0 +1,50 @@
+name: V11.4 Diagnose Historic FY2022 NSE XBRL Concept and Context Gap
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_older_annual_xbrl_context_diagnosis.yml
+      - src/v11_4_older_annual_xbrl_context_diagnosis.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-source-older-year-diagnosis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3'
+      - name: Restore original archived NSE XBRL parser, no model or label data
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_older_annual_xbrl_context_diagnosis.py
+      - name: Download original FY2023 strict financial extraction evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2023-official-NSE-historic-financial-XBRL-pilot
+          path: older_financial_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37873849356
+      - name: Isolate FY2022/FY2023 source failures, verify raw hashes and inspect contexts
+        run: |
+          set -euo pipefail
+          SRC=$(find older_financial_source -name original_NSE_FY2022_FY2023_XBRL_documents_RESEARCH.csv -print -quit)
+          test -n "$SRC"
+          python src/v11_4_older_annual_xbrl_context_diagnosis.py \
+            --pilot "$SRC" --max-probes 4 --out older_xbrl_filing_context_evidence
+      - name: Save original context diagnostics, not missing invented numerical values
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-original-NSE-2022-2023-context-recovery-diagnosis
+          path: older_xbrl_filing_context_evidence/
+          retention-days: 90
+          if-no-files-found: warn
