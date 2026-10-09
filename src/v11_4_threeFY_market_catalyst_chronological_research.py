@@ -92,6 +92,15 @@ def check_and_join(source,labels):
         raise ValueError("Original immutable turnover feature and outcome-source market disagree")
     join=join.rename(columns={"avg_turnover_63_x":"avg_turnover_63"})
     join=join.drop(columns=["avg_turnover_63_y","_merge"])
+    # Newer source-only sidecars also carry the original closing price.
+    # Reconcile both observations before restoring the canonical field.
+    if "close_x" in join:
+        original_close=pd.to_numeric(join["close_x"],errors="coerce")
+        label_close=pd.to_numeric(join["close_y"],errors="coerce")
+        if (original_close.isna().any() or label_close.isna().any() or
+            not np.allclose(original_close,label_close,rtol=1e-7,atol=1e-5)):
+            raise ValueError("Original immutable close feature and outcome-source market disagree")
+        join=join.rename(columns={"close_x":"close"}).drop(columns=["close_y"])
     return join
 
 def eligible_at(frame,date,maturity_cutoff):

@@ -167,7 +167,8 @@ def execute(args):
             table,coverage=screen_audit(live,config,out/"current_screens")
             overlay=picks.merge(table,on=["date","symbol"],how="left",validate="1:1")
             if len(overlay)!=10:raise ValueError("Current ten-stock identity changed")
-            risks,risk_report=audit_tradability(live,picks,table)
+            four_family_columns=["date","symbol",*[k+"_status" for k in config["conditions"]]]
+            risks,risk_report=audit_tradability(live,picks,table[four_family_columns])
             risks.to_csv(out/"current_tradability_audit_PRIVATE.csv",index=False)
             overlay.to_csv(out/"current_corrected_model_demo_PRIVATE.csv",index=False)
             stages["current_demo"]={"status":"EXECUTED","date":args.live_date,
@@ -199,6 +200,7 @@ def execute(args):
         "active_prediction_target":"ARCHIVED_SIX_MONTH_2X_LABEL_ONLY",
         "full_user_model_ready":False,"production_approved":False,
         "remaining_requirements":["Exact original first-three-screener financial/valuation inputs",
+            "Complete NSE+BSE listed-stock coverage and verified small/midcap classification; current collector is NSE-only",
             "Latest current three-year financial history, including quarterly context",
             "GDELT and Google News with PIT history and primary causal-chain verification",
             "Verified actual promoter purchase direction, not generic filing counts",

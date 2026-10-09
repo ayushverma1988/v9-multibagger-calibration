@@ -81,6 +81,18 @@ class ChronologicalCombined(unittest.TestCase):
         self.b.loc[0,"avg_turnover_63"]=99999999
         with self.assertRaisesRegex(ValueError,"turnover"):
             m.check_and_join(self.a,self.b)
+    def test_source_sidecar_close_is_reconciled_before_eligibility(self):
+        self.a["close"]=self.b["close"].to_numpy()
+        x=m.check_and_join(self.a,self.b)
+        self.assertIn("close",x)
+        self.assertNotIn("close_x",x)
+        self.assertNotIn("close_y",x)
+        self.assertEqual(len(m.eligible_at(x,m.CAL_DATE,m.safe_cutoff("2025-06-30"))),40)
+    def test_conflicting_source_sidecar_close_is_rejected(self):
+        self.a["close"]=self.b["close"].to_numpy()
+        self.a.loc[0,"close"]+=1
+        with self.assertRaisesRegex(ValueError,"close"):
+            m.check_and_join(self.a,self.b)
     def test_training_features_cannot_include_target(self):
         self.a["y6"]=1
         with self.assertRaisesRegex(ValueError,"future stock outcomes"):

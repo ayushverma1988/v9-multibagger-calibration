@@ -17,6 +17,7 @@ that every historical chat message was exported or read verbatim.
 |---|---|
 | Goal: 2x within six months, with 6–12 month emphasis | Archived integrity-checked six-month target; no invented 12/24 month calibration |
 | Focus on small/midcap stocks, prices ₹20–₹2,000 | Price range enforced; complete current market-cap classification remains missing |
+| Complete NSE+BSE listed-stock search | The active collector covers NSE; BSE-only coverage is still missing and cannot be claimed complete |
 | Discover transformation before obvious momentum | Specific primary NSE event fields and separate prior-runup sleeves; complete product→demand→orders/capacity→earnings→timing→not-priced-in chain still requires source verification |
 | Capacity expansion, new production, future products, orders, approvals, promoter buying, corporate changes | Specific NSE categories reported; no inference that generic filings establish buying or material earnings impact |
 | Required GDELT and Google News | Both queried, individually reported; one cannot substitute for the other |
@@ -47,7 +48,7 @@ that every historical chat message was exported or read verbatim.
    present in the standalone runner. They now run with explicit missing or
    blocked status and no silent substitution.
 
-## Two executed model components
+## Two model components to execute
 
 The existing 22-feature standalone model is rerun with its original fixed
 regularization, monotone calibration, twelve perturbation seeds and acceptance

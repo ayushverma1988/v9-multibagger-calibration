@@ -17,8 +17,13 @@ QUERY='("capacity expansion" OR "commercial production" OR "order win" OR "promo
 
 def fetch(url,params,session=requests):
     for attempt in range(2):
-        response=session.get(url,params=params,
-            headers={"User-Agent":"Mozilla/5.0 V11.4-research"},timeout=(10,25))
+        try:
+            response=session.get(url,params=params,
+                headers={"User-Agent":"Mozilla/5.0 V11.4-research"},timeout=(10,40))
+        except (requests.Timeout,requests.ConnectionError):
+            if attempt==0:
+                time.sleep(2);continue
+            raise
         if response.status_code==429 and attempt==0:
             try:delay=float(response.headers.get("Retry-After",5))
             except (TypeError,ValueError):delay=5
