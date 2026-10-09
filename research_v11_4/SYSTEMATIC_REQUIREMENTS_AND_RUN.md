@@ -127,3 +127,62 @@ https://www.nseindia.com/companies-listing/corporate-integrated-filing
 
 Probability calibration uses separate data from model fitting:
 https://scikit-learn.org/stable/modules/calibration.html
+
+## Complete validation, 10 October 2026 IST
+
+Final verified workflow: https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/38006342603
+Model/source commit: `facd2c3897ba6b960fbd4dac146e1ef599cf7d45`.
+All 281 tests passed. Research computation completed; the full requested
+model is still incomplete and unapproved.
+
+`src/v11_4_complete_validation.py` preserves the original source hashes and
+reproduces the corrected 22-input reference exactly. It corrects the fiscal/
+RSI test eligibility defect: select with decision-time features first, then
+evaluate future label availability and integrity. Unassessable selections
+cannot be replaced. Date-only maturity means 15:30 IST, not UTC midnight;
+strict train/calibration cutoffs and explicit aware timestamps are retained.
+
+The single fixed experimental variant bounds market features to base-training
+0.5/99.5 percentiles, drops generic promoter-filing counts as buying evidence,
+and keeps C=.03, twelve seeds, chronological partitions and all gates. It
+reports retraining sensitivity ranges, Top10 inclusion frequency and prior-
+calibration-rate Brier baselines. These are not confidence guarantees.
+
+| Measure | Corrected reference | Fixed experimental variant |
+|---|---:|---:|
+| Fully labelled Top10 dates | 12 | 10 |
+| Hits on the same 10 comparable dates / 100 stocks | 11 | 14 |
+| Mean Jaccard | 0.8851 | 0.8592 |
+| Worst-date p05 Jaccard | 0.1765 | 0.4286 |
+| Historical gate pass | No | No |
+
+Paired date-block 95% sensitivity interval for the +3 percentage-point hit
+rate difference is -2 to +8 points; already examined historical dates do not
+establish superior future performance. The variant has three unassessable
+selections across 130 picks, versus one for the reference. Do not compare
+14/100 with 13/120 as if they used the same dates.
+
+October9 replay: 1,660 eligible companies, original observation unchanged.
+The experimental maximum research probability is 8.98%, with a 1.337x
+Top10-median ratio, versus the reference outlier 33.55% and 8.781x. Both
+global Top10 lists are wholly above the 100% prior-runup sleeve; maintain
+separate early and second-leg views. Zero full-prompt candidates qualify.
+
+Official dual NSE fold-day closes corroborate 9,621/9,912 historical rows;
+all 531 archived RSI>70 cases have this final-close evidence. This does not
+certify every bar of the historical Wilder RSI series. The corrected 29-input
+financial/RSI research remains 0/10 June2025 and 1/10 December2025, with two
+already examined dates and worst p05 Jaccard 0.5385.
+
+Both news providers succeeded in preceding run 38006140949 (81 GDELT,
+63 Google News articles). In final rerun 38006342603 GDELT returned HTTP429,
+while Google News returned 63. Preserve both capture provenance and current
+failure; do not describe the repeat attempt as successful or backfill these
+headlines into October9 or older model decisions. Primary verification and
+historical PIT news remain incomplete.
+
+The acceptance report lists every remaining source/scientific gate. Exact
+financial, valuation and quarterly fields, five additional common checks,
+BSE-only and size classification, primary causal chains, actual promoter
+buying, full historical RSI bars, unseen evaluation and independent 12/24m
+models remain unresolved. No thresholds or frozen observations changed.
