@@ -37,6 +37,9 @@ def normalize(panel,title):
   raise ValueError(f"{title}: historical company and date key missing")
  x["date"]=pd.to_datetime(x["date"],errors="raise").dt.strftime("%Y-%m-%d")
  x["symbol"]=x["symbol"].astype(str).str.upper().str.strip()
+ # Canonical NSE source and frozen market labels contain 18 original folds;
+ # retain exactly our eight preregistered dates BEFORE asserting parity.
+ x=x.loc[x["date"].isin(ORIGINAL_DATES)].copy()
  if x[["date","symbol"]].duplicated().any() or x["symbol"].eq("").any():
   raise ValueError(f"{title}: duplicate historical company-date")
  if set(x["date"])!=set(ORIGINAL_DATES) or len(x)!=sum(ORIGINAL_DATES.values()):
