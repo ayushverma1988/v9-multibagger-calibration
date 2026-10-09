@@ -1,0 +1,75 @@
+name: V11.4 Full 965 Company Strict Three-Fiscal-Year Original NSE Backfill
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_full_three_fy_12shard_numeric.yml
+      - src/v11_4_three_fy_original_numeric_pilot.py
+
+permissions:
+  contents: read
+  actions: read
+jobs:
+  full-fiscal-numeric-source:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE XBRL source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Validate both strict legacy 2021/22 and standard FY2023 original XBRL fiscal contexts
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_legacy_FY2022_FourD.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+          python -m py_compile src/v11_4_three_fy_original_numeric_pilot.py
+      - name: Restore independent historic NSE annual XBRL publication and URLs
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: source_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - name: Restore original 2023 stock identities without outcomes
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_stock_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-three-FY-2021-2023-original-NSE-source-inventory
+          path: three_FY_inventory
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37904782448
+      - name: Recover actual original NSE FY2021 FY2022 and FY2023 revenue and PAT before 2023 cutoff
+        run: |
+          set -euo pipefail
+          INDEX=$(find three_FY_inventory -name three_FY_original_NSE_2021_2022_2023_index_RESEARCH_ONLY.csv -print -quit)
+          test -n "$INDEX"
+          python src/v11_4_three_fy_original_numeric_pilot.py --inventory "$INDEX" --limit 90 \
+            --shard ${{ matrix.shard }} --shards 12 --out full_three_fy_shard_${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-three-FY-original-full-source-shard-${{ matrix.shard }}
+          path: full_three_fy_shard_${{ matrix.shard }}/
+          retention-days: 90
+          if-no-files-found: warn
