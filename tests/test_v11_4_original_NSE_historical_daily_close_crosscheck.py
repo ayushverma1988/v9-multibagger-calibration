@@ -58,4 +58,21 @@ class CheckHistoricClose(unittest.TestCase):
   self.assertEqual(len(frame2),600)
   self.assertEqual(frame.iloc[0]["official_close_INR"],100.)
   self.assertEqual(frame2.iloc[0]["official_close_INR"],100.)
+
+ def test_private_stocklevel_dual_status_does_not_impute_missing_prices(self):
+  b=self.x.copy()
+  b.loc[0,"official_close_INR"]+=5.
+  b=b.iloc[:-1]
+  panel=m.per_stock_exchange_close_verification("2024-12-31",self.a,self.x,b)
+  self.assertEqual(len(panel),10)
+  self.assertEqual(panel["official_dual_day_close_verified"].sum(),9)
+  self.assertEqual(panel.loc[0,"official_close_validation_status"],
+                   "TWO_OFFICIAL_ARCHIVE_FILE_FAMILIES_DISAGREE")
+  self.assertTrue(panel["official_frozen_close_matches_exchange"].all()
+      if "official_frozen_close_matches_exchange" in panel else panel["original_frozen_close_matches_exchange"].all())
+ def test_private_stocklevel_rejects_outcomes_and_rank(self):
+  self.a["p6_double_calibrated"]=.1
+  with self.assertRaisesRegex(ValueError,"No outcomes"):
+   m.per_stock_exchange_close_verification("2024-12-31",self.a,self.x,self.x)
+
 if __name__=="__main__":unittest.main()
