@@ -47,7 +47,7 @@ def eligible_three_fy(filings, snapshot, dates):
    for m in ("consolidated","standalone"):
     if set(g.loc[g["mode"].eq(m),"fy"].dt.year)==set(years):
      valid[sym]=m;break
-  selected=x[x.apply(lambda row:valid.get(row["symbol"])==row["mode"],axis=1)].copy()
+  selected=x.loc[x["symbol"].map(valid).eq(x["mode"])].copy()
   if selected.duplicated(["symbol","fy"]).any() or len(selected)!=len(valid)*3:
    raise ValueError("Original company fiscal-year pairing drift")
   selected["fold"]=str(day.date())
