@@ -1,0 +1,102 @@
+name: V11.4 3FY Momentum NSE Catalyst Chronological Combined Research ML
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_combined_threeFY_NSE_market_catalyst_ML.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  original-pit-multi-feature-research-replication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install fixed statistical and owner-private original source tooling
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scipy>=1.12' 'scikit-learn>=1.5,<2' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Strict combined model regression tests and as-of target-label leakage guards
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_threeFY_market_catalyst_chronological_research.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_market_catalyst_chronological_research.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_frozen_historical_market_and_mature_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore source-only eightfold original NSE financial market and catalyst features PRIVATE
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi,hf_hub_download
+          from pathlib import Path
+          import os,shutil
+          repo="ayushverma1988/v10-multibagger-archive"
+          filename="v11_4/predeclared_eightfold_3FY_price_NSE_catalyst_NO_LABELS/run_37941461746/NSE_original_eightfold_threeFY_PIT_market_and_catalyst_NOLABEL_RESEARCH.parquet"
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          dest=Path("owner_private_verified_original_PIT_source_only");dest.mkdir(exist_ok=True)
+          p=hf_hub_download(repo_id=repo,repo_type="dataset",filename=filename,token=token)
+          shutil.copy2(p,dest/"threeFY_original_NSE_price_catalyst_NO_LABELS.parquet")
+          print("Eight-date NSE no-target financial, price and catalyst source successfully restored privately.")
+          PY
+      - name: Verify historical matured original six-month labels and run predeclared combined 3FY research replication
+        run: |
+          set -euo pipefail
+          SOURCE=owner_private_verified_original_PIT_source_only/threeFY_original_NSE_price_catalyst_NO_LABELS.parquet
+          SNAP=$(find original_frozen_historical_market_and_mature_labels -name snapshot_dataset.parquet -print -quit)
+          test -s "$SOURCE" && test -n "$SNAP" && test -s "$SNAP"
+          python src/v11_4_threeFY_market_catalyst_chronological_research.py \
+            --features "$SOURCE" --original-labels "$SNAP" \
+            --out owner_private_combined_3FY_NSE_catalyst_predeclared_REPLICATION
+      - name: Save private stock rankings and source-audited research statistics
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          root=Path("owner_private_combined_3FY_NSE_catalyst_predeclared_REPLICATION")
+          report=json.loads((root/"combined_three_fiscal_year_market_NSE_catalyst_scientific_REPLICATION_summary.json").read_text())
+          assert report["scope"]=="V11_4_RESEARCH_FROZEN_RECIPE_3FY_MOMENTUM_NSE_CATALYST_COMBINED_2X_HISTORIC_REPLICATION"
+          assert report["not_a_new_blind_independent_test_2025_labels_seen_in_earlier_finance_only_tests"] is True
+          assert report["no_real_money_trading_or_production_approval"] is True
+          assert report["original_October_2026_frozen_V11_4_selections_unchanged"] is True
+          assert len(report["per_historic_fold_research_replication"])==2
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          path="v11_4/combined_3FY_NSE_momentum_catalyst_frozen_recipe_2025_RETROSPECTIVE/run_${{ github.run_id }}"
+          assert not any(p.startswith(path+"/") for p in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(root),repo_id=repo,repo_type="dataset",
+               path_in_repo=path,parent_commit=head.sha,
+               commit_message="Original NSE three-fiscal-year plus momentum and catalyst retrospective research, not blind, not production")
+          print(json.dumps({
+            "private_research_retrospective_scores_saved":True,
+            "original_feature_observations":report["source_only_market_financial_event_matrix_rows"],
+            "source_financial_observations":report["strict_original_3FY_financial_company_date_rows"],
+            "training_2x_events":report["train_actual_2x_6m"],
+            "calibration_2x_events":report["calibration_actual_2x_6m"],
+            "historic_research_test_performance":report["per_historic_fold_research_replication"],
+            "no_new_blinded_test":True,"production_approved":False,
+            "private_path":path},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-combined-3FY-NSE-market-catalyst-replication-aggregate-science
+          path: owner_private_combined_3FY_NSE_catalyst_predeclared_REPLICATION/combined_three_fiscal_year_market_NSE_catalyst_scientific_REPLICATION_summary.json
+          retention-days: 90
+          if-no-files-found: warn
