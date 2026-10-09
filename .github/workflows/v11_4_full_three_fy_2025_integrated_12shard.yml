@@ -1,0 +1,59 @@
+name: V11.4 Full Original FY2023-2025 Integrated Three FY Financials 1029 Companies
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_full_three_fy_2025_integrated_12shard.yml
+      - src/v11_4_three_fy_2025_integrated_numeric_pilot.py
+
+permissions:
+  contents: read
+  actions: read
+jobs:
+  integrated-three-year-fiscal-numerics:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE XBRL source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Validate previous official NSE period parser and anti-quarter guard
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+          python -m py_compile src/v11_4_three_fy_2025_integrated_numeric_pilot.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2025-frozen-fold-three-FY-2023-2025-original-NSE-URLs
+          path: verified_integrated_three_FY_2025_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37906558270
+      - name: Extract actual original FY2023 FY2024 FY2025 annual fiscal numbers from 48 companies
+        run: |
+          set -euo pipefail
+          IDX=$(find verified_integrated_three_FY_2025_catalog -name original_2025_fold_three_FY_2023_2025_PIT_urls_RESEARCH.csv -print -quit)
+          test -n "$IDX"
+          python src/v11_4_three_fy_2025_integrated_numeric_pilot.py \
+            --index "$IDX" --limit 90 --shard ${{ matrix.shard }} --shards 12 \
+            --out strict_three_FY2025_numeric_shard_${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-full-2025-original-3FY-integrated-numeric-shard-${{ matrix.shard }}
+          path: strict_three_FY2025_numeric_shard_${{ matrix.shard }}/
+          retention-days: 90
+          if-no-files-found: warn
