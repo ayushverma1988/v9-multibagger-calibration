@@ -19,8 +19,12 @@ jobs:
           python-version: '3.11'
       - name: Install original NSE annual source reconciliation dependencies
         run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
-      - name: Compile and validate no overwrite of 2024 original results
-        run: python -m py_compile src/v11_4_2024_three_fy_reconcile.py src/v11_4_2024_three_fy_private_archive.py
+      - name: Restore original NSE fiscal parser and compile source reconciliation
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_2024_three_fy_reconcile.py src/v11_4_2024_three_fy_private_archive.py
       - uses: actions/download-artifact@v4
         with:
           name: v11-4-2024-fold-original-three-FY-2022-2024-NSE-annual-index
