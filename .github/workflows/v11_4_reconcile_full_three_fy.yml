@@ -1,6 +1,10 @@
 name: V11.4 Reconcile Full Three Year NSE Company Numerics
 on:
   workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_reconcile_full_three_fy.yml
 permissions:
   contents: read
   actions: read
@@ -18,7 +22,7 @@ jobs:
           set -euo pipefail
           git fetch origin v10-fresh-current --depth 1
           git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
-          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
       - name: Check source-only three FY full market reconciler compiles
         run: |
           set -euo pipefail
@@ -65,6 +69,14 @@ jobs:
             --inventory "$THREE" --shard-dir original_nse_twelve_shards \
             --annual-index "$INDEX" --snapshot "$SNAP" \
             --out reconciled_original_three_FY_financials
+      - name: Save three-FY original NSE numeric research as immutable owner-private long-lived data
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python src/v11_4_archive_three_fy_financial_private.py \
+            --directory reconciled_original_three_FY_financials \
+            --run-id ${{ github.run_id }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
