@@ -1,0 +1,76 @@
+name: V11.4 Reconcile Independent FY2022 FY2023 Historical NSE Source Expansion
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_reconcile_FY2023_original_financials.yml
+      - src/v11_4_reconcile_FY2023_original_financials.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-reconciliation-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original historic stock-universe source dependencies
+        run: |
+          set -euo pipefail
+          pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+          python -m py_compile src/v11_4_reconcile_FY2023_original_financials.py
+      - name: Restore first 24 original annual XBRL numeric source pairs
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-strict-legacy-NSE-2022-2023-original-annual-facts-research
+          path: original_first_24
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37875065460
+      - name: Restore metadata and original hash for the 24 source files
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2023-official-NSE-historic-financial-XBRL-pilot
+          path: pilot_sources
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37873849356
+      - name: Restore 128 independent company original NSE FY2022 FY2023 annual research shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-FY2023-original-NSE-two-year-numeric-independent-shard-*
+          path: independent_source_shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37875228463
+      - name: Restore exact original 2023 stock universe; no labels or model predictions
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: immutable_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Reconcile independent fiscal pairs and preserve all 1276 historical company rows
+        run: |
+          set -euo pipefail
+          FIRST=$(find original_first_24 -name strict_FY2022_FY2023_recovered_filing_pairs_RESEARCH_ONLY.csv -print -quit)
+          FILINGS=$(find pilot_sources -name original_NSE_FY2022_FY2023_XBRL_documents_RESEARCH.csv -print -quit)
+          SNAP=$(find immutable_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$FIRST" && test -n "$FILINGS" && test -n "$SNAP"
+          python src/v11_4_reconcile_FY2023_original_financials.py \
+            --first-24 "$FIRST" --pilot-filings "$FILINGS" \
+            --shards independent_source_shards \
+            --snapshot "$SNAP" --out verified_original_FY2023_annual_research_matrix
+      - name: Archive reconciliation and excluded-error queue without changing V11.4 model
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-reconciled-FY2023-2022-original-annual-151-company-research
+          path: verified_original_FY2023_annual_research_matrix/
+          retention-days: 90
+          if-no-files-found: warn
