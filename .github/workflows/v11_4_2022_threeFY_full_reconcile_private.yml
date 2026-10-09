@@ -1,0 +1,92 @@
+name: V11.4 Reconcile Private Original Dec2022 Three-FY Full Market Facts
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  full-2022-threeFY-strict-fiscal-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install fiscal source and owner-private archive requirements
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Restore immutable historical NSE original file taxonomy and 18 original dates
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > original_18_dates.csv
+          python -m py_compile src/v11_4_2022_threeFY_reconcile_private.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: NSE_original_fiscal_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37753978251
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: immutable_2022_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-2022-NSE-original-FY2020-2022-strict-annual-shard-*
+          path: complete_2022_original_threeFY_filing_shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37939106082
+          merge-multiple: false
+      - name: Reconcile all 12 original FY2020 2021 2022 NSE annual shards and exact as-of sources
+        run: |
+          set -euo pipefail
+          IDX=$(find NSE_original_fiscal_catalog -name NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv -print -quit)
+          SNAP=$(find immutable_2022_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$IDX" && test -n "$SNAP"
+          python src/v11_4_2022_threeFY_reconcile_private.py \
+            --annual-index "$IDX" --snapshot "$SNAP" --folds original_18_dates.csv \
+            --shards complete_2022_original_threeFY_filing_shards \
+            --out reconciled_2022_original_threeFY_numbers
+      - name: Keep all original FY2020 to FY2022 financial source facts in owner private archive
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          root=Path("reconciled_2022_original_threeFY_numbers")
+          summary=json.loads((root/"original_Dec2022_verified_three_FY_numeric_reconciliation_summary.json").read_text())
+          assert summary["original_frozen_2022_stock_universe"]==1123
+          assert summary["strict_source_url_eligible_original_companies"]==836
+          assert summary["no_original_2022_stock_dropped"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          prefix="v11_4/historical_source_original_NSE/FY2020_FY2021_FY2022_asof_2022_12_30/verified_run_${{ github.run_id }}"
+          assert not any(n.startswith(prefix+"/") for n in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          checksum={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in root.iterdir() if p.is_file()}
+          (root/"original_NSE_2022_threeFY_sha256_manifest.json").write_text(json.dumps({"source_SHA256":checksum,"no_model_predictions_modified":True},indent=2))
+          api.upload_folder(folder_path=str(root),repo_id=repo,repo_type="dataset",path_in_repo=prefix,parent_commit=head.sha,
+                            commit_message="Private strictly audited original NSE 2022 FY2020-FY2022 three-year source, zero lookahead")
+          print(json.dumps({"private_archive_success":True,
+             "verified_historical_threeFY_companies":summary["verified_complete_three_FY_annual_revenue_PAT_companies"],
+             "2022_numeric_coverage_percent":summary["original_market_numeric_three_FY_coverage_percent"],
+             "private_source_location":prefix,"predictor_updated":False},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-Dec2022-full-NSE-3FY-2020-2022-strict-numerics
+          path: reconciled_2022_original_threeFY_numbers/
+          retention-days: 90
+          if-no-files-found: warn
