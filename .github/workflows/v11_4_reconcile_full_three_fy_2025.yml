@@ -1,6 +1,10 @@
 name: V11.4 Reconcile Private Full FY2023-FY2025 Integrated Three-FY Data
 on:
   workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_reconcile_full_three_fy_2025.yml
 permissions:
   contents: read
   actions: read
@@ -22,7 +26,7 @@ jobs:
       - name: Check source-only three FY full market reconciler compiles
         run: |
           set -euo pipefail
-          python -m py_compile src/v11_4_reconcile_three_fy_2025_full_market.py
+          python -m py_compile src/v11_4_reconcile_three_fy_2025_full_market.py src/v11_4_archive_three_fy_2025_private.py
       - name: Restore original 2023 stock identities without outcomes
         uses: actions/download-artifact@v4
         with:
