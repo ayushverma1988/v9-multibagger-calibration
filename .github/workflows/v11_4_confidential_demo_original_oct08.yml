@@ -5,6 +5,7 @@ on:
     branches: [v11-4-ownership-backfill-probe]
     paths:
       - .github/workflows/v11_4_confidential_demo_original_oct08.yml
+      - src/v11_4_confidential_demo_packet.py
 permissions:
   contents: read
 concurrency:
