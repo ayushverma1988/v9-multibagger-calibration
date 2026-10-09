@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install original NSE quote parse and audit libraries
-        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
       - name: Test dual NSE official archive source reconciliation and no future labels
         run: |
           set -euo pipefail
@@ -55,6 +55,40 @@ jobs:
           assert r["six_month_multibagger_precision_recomputed"] is False
           assert r["no_training_calibration_or_original_2026_stocks_changed"] is True
           print("NSE official close crosscheck ran. Full 120-day RSI histories not independently certified. No trading approval.")
+          PY
+      - name: Save original company-by-company official close evidence privately, without exposing individual stock history
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          import pandas as pd
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          base=Path("archived_exchange_market_close_readonly_audit")
+          summary=json.loads((base/"original_NSE_eightfold_exchange_day_close_audit.json").read_text())
+          audit=pd.read_parquet(base/"PRIVATE_NSE_original_8fold_cash_full_day_close_dual_source_validation.parquet")
+          assert len(audit)==9912
+          assert audit[["date","symbol"]].duplicated().sum()==0
+          assert audit["official_dual_day_close_verified"].sum()==summary["strict_exchange_bhavcopy_consistent_original_day_stockdates"]
+          assert summary["off_exchange_archive_full_daily_120_bar_provenance_validated"] is False
+          repo="ayushverma1988/v10-multibagger-archive"
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          dest="v11_4/original_8fold_NSE_dual_official_DAY_CLOSE_proof_not_RSI120bars/run_${{ github.run_id }}"
+          assert not any(z.startswith(dest+"/") for z in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(base),repo_id=repo,repo_type="dataset",
+            path_in_repo=dest,parent_commit=head.sha,
+            commit_message="Source-verified original NSE dual Bhavcopy day close; PRIVATE 291 exceptions, no outcomes")
+          print(json.dumps({"private_official_NSE_original_stockday_close_audit_saved":True,
+             "original_historic_stock_day_count":len(audit),
+             "day_close_agrees_official_two_NSE_archive_families":int(audit["official_dual_day_close_verified"].sum()),
+             "day_close_source_unknown":int((~audit["official_dual_day_close_verified"]).sum()),
+             "120_day_RSI_historical_official_NSE_complete_certification":False,
+             "no_picks_models_or_probabilities_changed":True,
+             "owner_private_archive_path":dest},indent=2))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
