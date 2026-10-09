@@ -1,0 +1,30 @@
+name: V11.4 NSE Issued Capital Unit Sense Check
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_issued_capital_units_probe.yml
+permissions:
+  contents: read
+jobs:
+  capital-units:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Compare raw issued-capital magnitude versus nominal capital share price candidate, without approving market cap
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_issued_capital_diagnostics.py
+          python src/v11_4_issued_capital_diagnostics.py \
+            --asof 2026-10-08 --output outputs_v11_4_issuedcapital_original_nse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-nse-issued-capital-units-diagnostic-20261008
+          path: outputs_v11_4_issuedcapital_original_nse/
+          retention-days: 15
