@@ -13,15 +13,16 @@ from v11_4_recover_legacy_FY2022_FourD import extract_2022_legacy_fourd
 from v11_4_strict_annual_numeric_features import strict_annual_facts,fold_close
 FOLD="2023-12-29"
 FY=(2021,2022,2023)
-def strict_three_annual(source,limit,out):
+def strict_three_annual(source,limit,out,shard=0,shards=1):
  z=source.copy()
  required={"symbol","mode","fy","pub","xbrl_url"}
  if not required.issubset(z):raise ValueError("Original 3-year source index missing fields")
  z["fy"]=pd.to_numeric(z["fy"],errors="raise").astype(int)
  if z.duplicated(["symbol","fy"]).any():raise ValueError("Duplicate fiscal observation")
  group=list(z.groupby("symbol",sort=True))
+ if not 0<=shard<shards or shards>24:raise ValueError("Invalid strict annual shard configuration")
  if limit<1 or limit>256:raise ValueError("Bound study sample to 1..256 companies")
- selected=group[:limit]
+ selected=group[shard::shards][:limit]
  if not selected:raise ValueError("Empty three-year source index")
  out=Path(out);out.mkdir(parents=True,exist_ok=True)
  client=Client()
@@ -79,7 +80,8 @@ def strict_three_annual(source,limit,out):
  pd.DataFrame(approved).to_csv(out/"three_FY_FY2021_2023_strict_annual_numeric_RESEARCH_ONLY.csv",index=False)
  pd.DataFrame(rejected).to_csv(out/"three_FY_FY2021_2023_original_source_rejections.csv",index=False)
  summary={"scope":"ORIGINAL_NSE_FY2021_FY2022_FY2023_STRICT_NUMERIC_RESEARCH_NOT_TRAINING",
-   "three_FY_companies_requested":len(selected),
+   "three_FY_companies_requested":len(selected),"shard":shard,"shards":shards,
+   "source_total_three_fy_companies":len(group),
    "three_FY_source_complete_company_count":len(approved),
    "three_FY_source_rejected_company_count":len(rejected),
    "verified_3_FY_revenue_and_PAT_coverage":len(approved)/len(selected),
@@ -100,6 +102,7 @@ def strict_three_annual(source,limit,out):
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--inventory",required=True);p.add_argument("--limit",type=int,default=24);p.add_argument("--out",required=True)
+ p.add_argument("--shard",type=int,default=0);p.add_argument("--shards",type=int,default=1)
  a=p.parse_args()
- strict_three_annual(pd.read_csv(a.inventory,dtype=str).fillna(""),a.limit,a.out)
+ strict_three_annual(pd.read_csv(a.inventory,dtype=str).fillna(""),a.limit,a.out,a.shard,a.shards)
 if __name__=="__main__":main()
