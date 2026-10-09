@@ -73,7 +73,11 @@ def reconcile(pilot,prior_filings,root,snapshot):
         good=path.parent/"independent_original_FY2022_FY2023_PIT_numeric_RESEARCH.csv"
         bad=path.parent/"independent_FY2022_FY2023_PIT_rejected.csv"
         if not good.exists() or not bad.exists():raise ValueError("Absent original research or rejection manifests")
-        ok=pd.read_csv(good);reject=pd.read_csv(bad)
+        ok=pd.read_csv(good)
+        # The independent source pipeline writes a zero-byte CSV for a shard
+        # with no rejected filings; never treat that as an unreported error.
+        reject=(pd.read_csv(bad) if audit["FY2022_FY2023_source_rejected"]>0
+                else pd.DataFrame())
         if len(ok)!=audit["both_original_fiscal_facts_verified"]:
             raise ValueError("Original independent artifact counts inconsistent")
         if len(reject)!=audit["FY2022_FY2023_source_rejected"]:
