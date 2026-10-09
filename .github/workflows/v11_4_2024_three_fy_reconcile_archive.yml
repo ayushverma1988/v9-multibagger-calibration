@@ -1,6 +1,10 @@
 name: V11.4 Reconcile and Save Original NSE FY2022-24 Three-Year Financials
 on:
   workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2024_three_fy_reconcile_archive.yml
 permissions:
   contents: read
   actions: read
