@@ -21,6 +21,11 @@ jobs:
           python-version: '3.11'
       - name: Install original filing index research dependencies
         run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26'
+      - name: Restore original 2022 legacy NSE fiscal parser dependency
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
       - name: Run source timing / same-reporting-mode regression tests
         run: |
           set -euo pipefail
