@@ -1,0 +1,45 @@
+name: V11.4 Verify Original NSE Promoter Signal Source Availability
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_original_promoter_event_source_diagnostic.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  historic-promoter-original-source-presence-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original raw NSE metadata inspection
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26'
+      - name: Ensure original promoter diagnosis parses and cannot inspect targets
+        run: python -m py_compile src/v11_4_promoter_source_only_reliability_diagnostic.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-18fold-NSE-catalyst-market-financial-PIT-research-matrix
+          path: original_eighteen_PIT_NSE_metadata_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763154846
+      - name: Distinguish original promoter metadata absence from missing positive direction without any outcome data
+        run: |
+          set -euo pipefail
+          ORIGINAL=$(find original_eighteen_PIT_NSE_metadata_source -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          test -n "$ORIGINAL" && test -s "$ORIGINAL"
+          python src/v11_4_promoter_source_only_reliability_diagnostic.py \
+            --original-18fold-source "$ORIGINAL" \
+            --out original_NSE_promoter_event_presence_RESEARCH_ONLY.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-NSE-promoter-source-vs-direction-source-only
+          path: original_NSE_promoter_event_presence_RESEARCH_ONLY.json
+          retention-days: 90
+          if-no-files-found: warn
