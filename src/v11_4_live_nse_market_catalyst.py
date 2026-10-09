@@ -276,6 +276,12 @@ def market_features(history,target,min_company_rows=MIN_UNIQUE_MARKET_CANDIDATES
     "date":pd.Timestamp(target),"symbol":symbol,
     "close":float(g["close"].iloc[-1]),
     "avg_turnover_63":float(t.rolling(63,min_periods=40).mean().iloc[-1]),
+    # Reporting-only market-friction facts from original same-date NSE close
+    # and only prior sessions. They are NOT added to frozen model predictors.
+    "last_session_turnover_INR":float(t.iloc[-1]),
+    "median_20_session_turnover_INR":float(t.tail(20).median()),
+    "observed_trading_sessions_last_35d":int(
+      g["date"].ge(pd.Timestamp(target)-pd.Timedelta(days=35)).sum()),
     "ret_20":float(r20.iloc[-1]),"ret_60":float(r60.iloc[-1]),
     "ret_120":float(r120.iloc[-1]),"ret_252":float(r252.iloc[-1]),
     "mom_accel":float((r20-r60/3).iloc[-1]),
