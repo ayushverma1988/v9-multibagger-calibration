@@ -14,6 +14,7 @@ import pandas as pd
 from huggingface_hub import HfApi
 from v11_4_forward_research_release import VERSION,score_prospective,sha256
 from v11_4_four_family_live_screener import analyze
+from v11_4_standalone_train_walkforward import MODEL_FEATURES
 
 HF_REPO="ayushverma1988/v10-multibagger-archive"
 FORWARD_ROOT="v11_4/forward_observations"
@@ -34,7 +35,7 @@ def frozen_package(folder):
  return model,manifest
 
 def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
-                         api=None):
+                         api=None,screening_overlay=None,source_readiness=None):
  if not hf_token:raise ValueError("Private HF_ARCHIVE_TOKEN not configured")
  today=pd.Timestamp.now(tz="Asia/Kolkata").normalize().tz_localize(None)
  asof=pd.Timestamp(asof).normalize()
@@ -66,7 +67,20 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
  dest=Path(out);dest.mkdir(parents=True,exist_ok=True)
  raw_cfg=Path("config/v11_4_four_screener_families.json")
  if not raw_cfg.is_file():raise ValueError("Four previously requested screener families config missing")
- screener=analyze(x,json.loads(raw_cfg.read_text()))
+ # The separate original-XBRL four-rule overlay must NEVER change model
+ # features, stock universe or a previously recorded first-seen probability.
+ overlay=x
+ if screening_overlay:
+  overlay=pd.read_parquet(screening_overlay)
+  core=["date","symbol","close","avg_turnover_63",*MODEL_FEATURES]
+  if len(overlay)!=len(x) or overlay[["date","symbol"]].duplicated().any():
+   raise ValueError("Supplemental financial source changed original eligible universe")
+  left=x.sort_values(["date","symbol"]).reset_index(drop=True)
+  right=overlay.sort_values(["date","symbol"]).reset_index(drop=True)
+  pd.testing.assert_frame_equal(left[core],right[core],check_dtype=False,check_exact=True)
+  if "historical_asof_utc" not in overlay or not overlay["historical_asof_utc"].equals(x["historical_asof_utc"]):
+   raise ValueError("Supplemental financial source changed point-in-time clock")
+ screener=analyze(overlay,json.loads(raw_cfg.read_text()))
  sc=dest/"four_screener_families_audit_ALL_ELIGIBLE.csv"
  screener.to_csv(sc,index=False)
  s4=screener[screener["symbol"].isin(picks["symbol"])].copy()
@@ -91,7 +105,8 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
   "recorded_selection_csv_SHA256":sha256(csv),
   "independent_four_original_screening_conditions_audit_SHA256":sha256(sc),
   "fourth_RSI14_strictly_above_80_in_top10":int(s4["rsi14_gt80"].fillna(False).sum()),
-  "three_original_screening_families_not_yet_fully_sourced":True,
+  "four_family_source_readiness_required_for_full_rule_pass":True,
+  "four_condition_augmented_overlay_in_frozen_rank_inputs":False,
   "frozen_model_ranking_unmodified_by_all_four_screens":True,
   "recorded_stock_count":len(picks),
   "six_month_target_evaluation_due_approximately":str((asof+pd.DateOffset(months=6)).date()),
@@ -100,6 +115,12 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
   "production_approved":False,
   "not_user_investment_instruction":True
  }
+ if source_readiness:
+  readiness=json.loads(Path(source_readiness).read_text())
+  if readiness.get("asof_IST")!=str(asof.date()) or readiness.get("stock_rows")!=len(x):
+   raise ValueError("Four-family original NSE/BSE source audit does not match live score date")
+  manifest["original_NSE_BSE_four_family_data_coverage_summary"]=readiness
+  manifest["original_NSE_BSE_source_audit_SHA256"]=sha256(Path(source_readiness))
  (dest/"forward_observation_manifest.json").write_text(json.dumps(manifest,indent=2))
  # Hugging Face private upload preserves both CSV and source manifests.
  client.upload_folder(repo_id=HF_REPO,repo_type="dataset",
@@ -121,7 +142,11 @@ def main():
  p.add_argument("--frozen",required=True)
  p.add_argument("--output",required=True)
  p.add_argument("--asof",required=True)
+ p.add_argument("--screening-overlay",default="")
+ p.add_argument("--source-readiness",default="")
  a=p.parse_args()
  write_forward_record(a.features,a.metadata,a.frozen,a.asof,a.output,
-                      os.getenv("HF_ARCHIVE_TOKEN","").strip())
+                      os.getenv("HF_ARCHIVE_TOKEN","").strip(),
+                      screening_overlay=a.screening_overlay or None,
+                      source_readiness=a.source_readiness or None)
 if __name__=="__main__":main()
