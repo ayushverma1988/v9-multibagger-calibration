@@ -1,0 +1,56 @@
+name: V11.4 Recover Original NSE FY2022 Annual FourD Financial Facts
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_recover_legacy_FY2022_FourD.yml
+      - src/v11_4_recover_legacy_FY2022_FourD.py
+      - tests/test_v11_4_legacy_FY2022_FourD.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-FY2022-facts-strict-pit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Restore pinned NSE original source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3'
+      - name: Test strictly annual verified INR FourD extraction, refuse invalid fiscal-date substitutions
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_legacy_FY2022_FourD.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+          python -m py_compile src/v11_4_recover_legacy_FY2022_FourD.py
+      - name: Restore 48 previous verified original NSE FY2022/FY2023 source documents index
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2023-official-NSE-historic-financial-XBRL-pilot
+          path: frozen_original_XBRL_sources
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37873849356
+      - name: Parse FY2022 strictly from original Yearly FourD metadata and recheck immutable SHA256
+        run: |
+          set -euo pipefail
+          ORIG=$(find frozen_original_XBRL_sources -name original_NSE_FY2022_FY2023_XBRL_documents_RESEARCH.csv -print -quit)
+          test -n "$ORIG"
+          python src/v11_4_recover_legacy_FY2022_FourD.py \
+            --pilot "$ORIG" --out verified_original_NSE_2022_2023_yearly_FourD_research
+      - name: Save original-source research-only FY2022 numeric pairs and explicit rejection reasons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-strict-legacy-NSE-2022-2023-original-annual-facts-research
+          path: verified_original_NSE_2022_2023_yearly_FourD_research/
+          retention-days: 90
+          if-no-files-found: warn
