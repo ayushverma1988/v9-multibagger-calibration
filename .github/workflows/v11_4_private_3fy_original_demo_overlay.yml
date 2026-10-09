@@ -1,6 +1,10 @@
 name: V11.4 Private Oct8 Top10 Original Three-FY Financial Annotation
 on:
   workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_private_3fy_original_demo_overlay.yml
 permissions:
   contents: read
   actions: read
