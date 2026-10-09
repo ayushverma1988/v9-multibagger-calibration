@@ -23,7 +23,7 @@ jobs:
           set -euo pipefail
           git fetch origin v10-fresh-current --depth 1
           git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
-          pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+          pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
           python -m py_compile src/v11_4_reconcile_FY2023_original_financials.py
       - name: Restore first 24 original annual XBRL numeric source pairs
         uses: actions/download-artifact@v4
