@@ -182,12 +182,12 @@
       ]
     },
     "condition_4_RSI14_high_momentum": {
-      "label": "RSI(14) > 80, Wilder smoothing on close adjusted for split/bonus",
+      "label": "RSI(14) > 70, Wilder smoothing on close adjusted for split/bonus",
       "hard_rules": [
         [
           "rsi14_wilder",
           ">",
-          80
+          70
         ]
       ],
       "caveat": "High RSI may reflect an already overextended stock; assess downside and out-of-sample precision before using for model ranking"
