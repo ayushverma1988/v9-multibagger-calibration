@@ -144,19 +144,76 @@ def validate(date,frozen,primary,secondary):
   "raw_RSI_120_day_history_source_independently_certified":False,
   "no_prediction_accuracy_inference_from_price_source_agreement":True}
 
+
+def per_stock_exchange_close_verification(date,frozen,primary,secondary):
+ """PRIVATE original company-date close verification; NO FUTURE LABELS."""
+ if date not in COUNTS:raise ValueError("Unregistered exchange verification fold")
+ if {"y6","y12","y24","dd30_6m","y6_mature_date",
+     "p6_double_calibrated","research_rank"}&set(frozen):
+  raise ValueError("No outcomes or fitted probabilities in official close source")
+ required={"date","symbol","close"}
+ if not required.issubset(frozen):raise ValueError("Frozen original market closes absent")
+ x=frozen.copy()
+ x["date"]=pd.to_datetime(x["date"],errors="raise").dt.strftime("%Y-%m-%d")
+ x["symbol"]=x["symbol"].astype(str).str.upper().str.strip()
+ x=x.loc[x["date"].eq(date),["date","symbol","close"]].copy()
+ if len(x)!=COUNTS[date] or x["symbol"].duplicated().any():
+  raise ValueError("Original NSE company/date count drift")
+ x["close"]=pd.to_numeric(x["close"],errors="coerce")
+ if x["close"].isna().any() or x["close"].le(0).any():
+  raise ValueError("Original stock close invalid")
+ if primary is None:
+  x["official_primary_close_INR"]=np.nan
+ else:
+  if primary["symbol"].duplicated().any():raise ValueError("Ambiguous original NSE primary market quotes")
+  x=x.merge(primary.rename(columns={"official_close_INR":"official_primary_close_INR"}),
+            on="symbol",how="left",validate="1:1")
+ if secondary is None:
+  x["official_full_close_INR"]=np.nan
+ else:
+  if secondary["symbol"].duplicated().any():raise ValueError("Ambiguous original NSE independent full-market quotes")
+  x=x.merge(secondary.rename(columns={"official_close_INR":"official_full_close_INR"}),
+            on="symbol",how="left",validate="1:1")
+ official_agree=np.isclose(x["official_primary_close_INR"],x["official_full_close_INR"],
+                          rtol=0,atol=.10,equal_nan=False)
+ original_agree=np.isclose(x["close"],x["official_primary_close_INR"],
+                           rtol=.002,atol=.10,equal_nan=False)
+ x["official_two_archive_family_closes_agree"]=official_agree
+ x["original_frozen_close_matches_exchange"]=original_agree
+ x["official_dual_day_close_verified"]=official_agree&original_agree
+ x["official_close_validation_status"]=np.select(
+   [x["official_primary_close_INR"].isna(),
+    x["official_full_close_INR"].isna(),
+    ~official_agree,~original_agree],
+   ["MISSING_OFFICIAL_CASH_BHAVCOPY",
+    "MISSING_OFFICIAL_FULL_BHAVCOPY",
+    "TWO_OFFICIAL_ARCHIVE_FILE_FAMILIES_DISAGREE",
+    "ORIGINAL_HISTORICAL_ARCHIVE_CLOSE_DISAGREES_WITH_NSE"],
+   default="OFFICIAL_NSE_TWO_ARCHIVE_DAY_CLOSE_CONFIRMED")
+ x=x.rename(columns={"close":"original_frozen_close_INR"})
+ if int(x["official_dual_day_close_verified"].sum())!=len(
+      x[x["official_close_validation_status"].eq(
+        "OFFICIAL_NSE_TWO_ARCHIVE_DAY_CLOSE_CONFIRMED")]):
+  raise ValueError("Official daily quote reconciliation status inconsistent")
+ return x
+
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--snapshot",required=True);p.add_argument("--out",required=True)
  a=p.parse_args()
  folder=Path(a.out);folder.mkdir(parents=True,exist_ok=True)
  original=pd.read_parquet(a.snapshot,columns=["date","symbol","close"])
- data=[];details=[]
+ data=[];details=[];private=[]
  with requests.Session() as session:
   for date in DATES:
    primary,secondary,errors=download(date,folder/"raw_archive_SHA256",session)
    psrc=primary[0] if primary is not None else None
    ssrc=secondary[0] if secondary is not None else None
    result=validate(date,original,psrc,ssrc)
+   detailed=per_stock_exchange_close_verification(date,original,psrc,ssrc)
+   if int(detailed["official_dual_day_close_verified"].sum())!=result["strict_two_exchange_file_family_match_count"]:
+    raise ValueError("Stock-level NSE dual-source audited close differs from aggregate")
+   private.append(detailed)
    result.update({"exchange_price_source_URL_primary":primary[1] if primary else None,
      "exchange_secondary_full_URL":secondary[1] if secondary else None,
      "independent_exchange_file_archive_families_retrieved":int(primary is not None)+int(secondary is not None),
@@ -179,6 +236,15 @@ def main():
   "official_NSE_unavailable_day_count":sum(x["independent_exchange_file_archive_families_retrieved"]==0 for x in details),
   "strict_exchange_bhavcopy_consistent_original_day_stockdates":sum(x["strict_two_exchange_file_family_match_count"] for x in details),
   "per_date":details}
+ private_rows=pd.concat(private,ignore_index=True)
+ if private_rows[["date","symbol"]].duplicated().any() or len(private_rows)!=9912:
+  raise ValueError("Private NSE stock-day exchange verification lost original identities")
+ if int(private_rows["official_dual_day_close_verified"].sum())!=out["strict_exchange_bhavcopy_consistent_original_day_stockdates"]:
+  raise ValueError("Official aggregate and privately verified stock flags disagree")
+ private_rows.to_parquet(folder/"PRIVATE_NSE_original_8fold_cash_full_day_close_dual_source_validation.parquet",
+                       compression="zstd",index=False)
+ out["private_original_symbol_date_audit_generated"]=True
+ out["private_audit_all_unmatched_exchange_closes_remain_unknown_not_imputed"]=True
  (folder/"original_NSE_eightfold_exchange_day_close_audit.json").write_text(json.dumps(out,indent=2))
  print(json.dumps({k:v for k,v in out.items() if k!="per_date"},indent=2),flush=True)
 if __name__=="__main__":main()
