@@ -1,0 +1,107 @@
+name: V11.4 Strict RSI70 with Official NSE Original Day Close Evidence
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_NSE_official_day_close_RSI70_source_gate.yml
+      - src/v11_4_exchange_NSE_day_close_RSI70_source_gate.py
+      - tests/test_v11_4_exchange_NSE_day_close_RSI70_source_gate.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-RSI70-source-plus-reconciled-exchange-day-close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install immutable original market and private NSE research sources
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Enforce no future six-month labels, official NSE day quote, strict RSI14 >70 and missing UNKNOWN
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_exchange_NSE_day_close_RSI70_source_gate.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_exchange_NSE_day_close_RSI70_source_gate.py -v
+      - name: Restore private owner-verified original financial+RSI70 and two-NSE-archive company-day close stock identities
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi,hf_hub_download
+          from pathlib import Path
+          import os,shutil
+          repo="ayushverma1988/v10-multibagger-archive"
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          files={
+            "original_3FY_RSI70_NSE_SOURCE_ONLY.parquet":
+              "v11_4/strict_8fold_3FY_RSI70_promoter_source_only_shadow/run_37965973956/eightfold_3FY_market_specificNSEevents_RSI70_source_only_PRIVATE.parquet",
+            "original_OFFICIAL_NSE_DUAL_DAY_CLOSE_ONLY.parquet":
+              "v11_4/original_8fold_NSE_dual_official_DAY_CLOSE_proof_not_RSI120bars/run_37967542684/PRIVATE_NSE_original_8fold_cash_full_day_close_dual_source_validation.parquet"
+          }
+          dest=Path("owner_private_original_8fold_FY_RSI_NSE_publication_source")
+          dest.mkdir(parents=True,exist_ok=True)
+          for name,path in files.items():
+            raw=hf_hub_download(repo_id=repo,repo_type="dataset",filename=path,token=token)
+            shutil.copy2(raw,dest/name)
+            print("Private stock-date source restored as-of: ",name)
+          PY
+      - name: Reconcile original RSI above 70 only where full original day close has two dated official NSE archive proofs
+        run: |
+          set -euo pipefail
+          DIR=owner_private_original_8fold_FY_RSI_NSE_publication_source
+          PYTHONPATH=src python src/v11_4_exchange_NSE_day_close_RSI70_source_gate.py \
+            --source "$DIR/original_3FY_RSI70_NSE_SOURCE_ONLY.parquet" \
+            --official-exchange-day "$DIR/original_OFFICIAL_NSE_DUAL_DAY_CLOSE_ONLY.parquet" \
+            --out original_8fold_official_day_corrob_RSI70_financial_NO_LABELS_PRIVATE
+      - name: Save source quality truth privately, not an unvalidated historical backtest or prediction
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi
+          import os,json
+          from pathlib import Path
+          p=Path("original_8fold_official_day_corrob_RSI70_financial_NO_LABELS_PRIVATE")
+          r=json.loads((p/"original_8fold_NSE_two_archive_close_RSI70_source_ready_aggregate.json").read_text())
+          assert r["total_original_stocks_dates"]==9912
+          assert r["strict_3FY_original_source_company_dates"]==7355
+          assert r["NSE_original_day_close_confirmed_from_dual_exchange_archive_file_families"]==9621
+          assert r["Wilder_RSI_original_daily_archive_available"]==9282
+          assert r["RSI14_GT70_archived_original_source_before_official_day_recheck"]==531
+          assert r["RSI14_GT70_AND_official_original_date_close_reconfirmed"]<=531
+          assert r["original_NSE_daily_archive_120_session_history_independently_certified"] is False
+          assert r["promoter_purchase_document_direction_still_UNKNOWN"] is True
+          assert r["no_model_optimization_or_new_out_of_sample_accuracy_claimed"] is True
+          assert r["original_frozen_V11_4_Oct2026_ranks_unchanged"] is True
+          repo="ayushverma1988/v10-multibagger-archive"
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          remote="v11_4/official_NSE_day_close_reconciled_RSI14_GT70_3FY_NO_OUTCOMES/run_${{ github.run_id }}"
+          assert not any(x.startswith(remote+"/") for x in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(p),repo_id=repo,repo_type="dataset",path_in_repo=remote,parent_commit=head.sha,
+            commit_message="Strict source-only threeFY RSI>70 with official NSE dual archive day close evidence; no future labels or trade approval")
+          print(json.dumps({
+           "strict_NSE_RSI70_source_corroboration_saved_private":True,
+           "eightfold_original_stockdates":r["total_original_stocks_dates"],
+           "official_NSE_two_file_day_close_verified":r["NSE_original_day_close_confirmed_from_dual_exchange_archive_file_families"],
+           "original_market_RSI70_candidates_prior":r["RSI14_GT70_archived_original_source_before_official_day_recheck"],
+           "RSI70_candidates_with_official_day_close_proof":r["RSI14_GT70_AND_official_original_date_close_reconfirmed"],
+           "official_RSI_120day_daily_bar_full_history_verified":False,
+           "research_model_previously_rejected_unchanged":True,
+           "private_archive":remote},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-eightfold-original-3FY-RSI70-official-NSE-fold-day-close-aggregate
+          path: original_8fold_official_day_corrob_RSI70_financial_NO_LABELS_PRIVATE/original_8fold_NSE_two_archive_close_RSI70_source_ready_aggregate.json
+          retention-days: 90
+          if-no-files-found: warn
