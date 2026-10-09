@@ -5,6 +5,7 @@ on:
     branches: [v11-4-ownership-backfill-probe]
     paths:
       - .github/workflows/v11_4_four_screener_source_contract.yml
+      - tests/test_v11_4_rule_input_provenance.py
 permissions:
   contents: read
 jobs:
