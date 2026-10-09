@@ -39,9 +39,11 @@ def context_reasons(raw,fy):
    elif 60<=r["duration"]<=120:counts["quarter_duration_requires_proven_annual_report_FourD"]+=1
    else:counts["unsupported_duration"]+=1
   out[metric]={"matched_tag_count":len(found),"reasons":dict(counts),
+    "candidate_fiscal_end_distribution":dict(collections.Counter(r["end"] for r in found)),
     "examples":[{"tag":r["tag"],"context":r["context"],
-                 "duration":r["duration"],"end_matches":r["end_matches"],
-                 "units":r["units"]} for r in found if r["end_matches"]][:8]}
+                 "duration":r["duration"],"end":r["end"],
+                 "end_matches":r["end_matches"],
+                 "units":r["units"]} for r in found][:8]}
  return out
 
 def main():
@@ -64,8 +66,24 @@ def main():
   raw=client.get(src).content
   if hashlib.sha256(raw).hexdigest()!=r.original_xml_sha256:
    raise ValueError("Historic original NSE XBRL document source bytes differ; cannot diagnose revised file")
-  diagnostics.append({"fy_end":str(r.fy_end),"source_sha256":r.original_xml_sha256,
-                      "context":context_reasons(raw,r.fy_end)})
+  obj={"fy_end":str(r.fy_end),"source_sha256":r.original_xml_sha256,
+       "context":context_reasons(raw,r.fy_end)}
+  # A genuine later annual filing can carry originally filed prior-year
+  # comparatives, known by the later file's broadcast date. Analyze only,
+  # never promote until comparative concepts/units/contexts are verified.
+  later=df[(df["symbol"].eq(r.symbol))&
+           (df["fy_end"].eq("2023-03-31"))&
+           (df["status"].eq("VERIFIED_CORE_REVENUE_PAT"))]
+  if len(later)==1:
+   comparison=later.iloc[0]
+   cmp_url=str(comparison["original_nse_xbrl_url"])
+   if not cmp_url.startswith("https://nsearchives.nseindia.com/"):
+    raise ValueError("Comparison filing not original NSE document")
+   cmp_raw=client.get(cmp_url).content
+   if hashlib.sha256(cmp_raw).hexdigest()!=comparison["original_xml_sha256"]:
+    raise ValueError("Later annual comparison source hash mismatch")
+   obj["FY2023_filing_comparatives_for_FY2022"]=context_reasons(cmp_raw,"2022-03-31")
+  diagnostics.append(obj)
  out=Path(a.out);out.mkdir(parents=True,exist_ok=True)
  tab.to_csv(out/"FY2022_2023_strict_context_coverage.csv",index=False)
  report={"scope":"HISTORICAL_NSE_2022_2023_XBRL_CONTEXT_DIAGNOSTIC_NOT_PREDICTIVE",
