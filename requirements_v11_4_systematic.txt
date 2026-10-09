@@ -1,0 +1,11 @@
+# One environment for a clean checkout and the complete V11.4 regression suite.
+numpy>=2,<3
+pandas>=2.2,<3
+pyarrow>=18,<26
+scikit-learn>=1.5,<2
+scipy>=1.12,<2
+joblib>=1.4,<2
+requests>=2.31,<3
+huggingface_hub>=0.25,<2
+beautifulsoup4>=4.12,<5
+cryptography>=43,<50
