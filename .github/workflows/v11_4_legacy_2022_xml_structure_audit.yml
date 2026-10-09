@@ -30,7 +30,7 @@ jobs:
         with:
           name: v11-4-FY2023-official-NSE-historic-financial-XBRL-pilot
           path: historic_original_sources
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ayushverma1988/v9-multibagger-calibration
           run-id: 37873849356
       - name: Inspect four hashed original FY2022 documents for independently labeled annual-period metadata
