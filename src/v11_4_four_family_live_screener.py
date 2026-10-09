@@ -1,12 +1,12 @@
 """Independent four-family screening overlay for immutable standalone V11.4.
 
 The three original user-defined screening families are preserved exactly as
-earlier V11.4 config, plus RSI(14)>80 as fourth. This is an AUDIT/RESEARCH
+earlier V11.4 config, plus RSI(14)>70 as fourth. This is an AUDIT/RESEARCH
 companion, NOT an input or reranker of the previously frozen predictive
 model. Missing sourced fundamentals are UNKNOWN, never fail/pass by default.
 
 RSI(14) Wilder uses close adjusted for corporate actions, 14 daily changes
-with recursive smoothing; threshold strictly >80. A high RSI is NOT evidence
+with recursive smoothing; threshold strictly >70. A high RSI is NOT evidence
 of future doubling; test false positives and forward 6m outcomes separately.
 """
 import argparse,json
@@ -61,7 +61,7 @@ def analyze(frame,config):
    out[f"{key}_{field}"]=[a[field] for a in assessments]
  out["known_passed_condition_count"]=out[[f"{key}_status" for key in config["conditions"]]].eq("PASS").sum(axis=1)
  out["unknown_condition_count"]=out[[f"{key}_status" for key in config["conditions"]]].eq("UNKNOWN").sum(axis=1)
- out["rsi14_gt80"]=out["rsi14_wilder"].gt(80).where(
+ out["rsi14_gt70"]=out["rsi14_wilder"].gt(70).where(
      out["rsi14_wilder"].notna(),pd.NA).astype("boolean")
  out["immutable_frozen_model_ranking_changed"]=False
  return out
@@ -84,7 +84,7 @@ def main():
            "full_fail":int(table[f"{k}_status"].eq("FAIL").sum()),
            "unknown":int(table[f"{k}_status"].eq("UNKNOWN").sum())}
            for k in keys},
-       "rsi14_over80_stock_count":int(table["rsi14_gt80"].fillna(False).sum()),
+       "rsi14_over70_stock_count":int(table["rsi14_gt70"].fillna(False).sum()),
        "rsi14_available_stock_count":int(table["rsi14_wilder"].notna().sum()),
        "four_family_hard_AND_filter_applied":False,
        "missing_unverified_longterm_fundamentals_reported_unknown":True,
