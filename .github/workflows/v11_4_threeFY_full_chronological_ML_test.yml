@@ -1,0 +1,95 @@
+name: V11.4 Independent Three Fiscal Year Chronological Six Month Double Test
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_full_chronological_ML_test.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  truly-chronological-three-FY-single-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE financial, 6m label and exploratory statistical ML toolkit
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Restore original NSE fiscal source reader and confirm no-lookahead regression guards
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_threeFY_chronological_research_ML.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_chronological_research_ML.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-full-market-strict-three-FY-numeric-2023-reconciled
+          path: source_2023_historical_threeFY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37906034342
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2024-3FY-original-NSE-audited-financials
+          path: source_2024_historical_threeFY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37920687620
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-original-NSE-integrated-full-three-FY-market-financials
+          path: source_2025_historical_threeFY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37907820467
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: source_unmodified_market_six_month_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Train only 2023 fiscal history, calibrate on matured 2024 and test unseen 2025 6m doubles
+        run: |
+          set -euo pipefail
+          F23=$(find source_2023_historical_threeFY -name original_NSE_2021_2023_three_FY_STRICT_FINANCIAL_FACTS.csv -print -quit)
+          F24=$(find source_2024_historical_threeFY -name strict_original_FY2022_2024_annual_facts.csv -print -quit)
+          F25=$(find source_2025_historical_threeFY -name FY2025_original_NSE_full_3FY_2023_2025_annual_financial_facts.csv -print -quit)
+          SNAP=$(find source_unmodified_market_six_month_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$F23" && test -n "$F24" && test -n "$F25" && test -n "$SNAP"
+          python src/v11_4_threeFY_chronological_research_ML.py \
+            --financial-2023 "$F23" --financial-2024 "$F24" --financial-2025 "$F25" \
+            --snapshot "$SNAP" --out source_verified_chronological_three_fiscal_year_historical_ML_test
+      - name: Store historic holdout stocks privately and publish only aggregate evaluation metrics
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          root="source_verified_chronological_three_fiscal_year_historical_ML_test"
+          report=json.load(open(root+"/threeFY_chronological_single_test_fold_summary.json"))
+          assert report["training_rows"]>=600 and report["calibration_rows"]>=600 and report["test_rows"]>=600
+          assert report["only_one_out_of_time_holdout_fold"] is True
+          assert report["model_training_production_approved"] is False
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          info=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert info.private is True
+          path="v11_4/threeFY_chronological_single_holdout_2025/original_2023_train_2024_cal_2025_test"
+          assert not any(k.startswith(path+"/") for k in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=root,repo_id=repo,repo_type="dataset",path_in_repo=path,parent_commit=info.sha,
+            commit_message="Private one-holdout research only 3 fiscal year NSE financial ML: training 2023, calibrate 2024, evaluate 2025")
+          print(json.dumps({"owner_private_research_holdout_saved":True,
+            "chronological_holdout_event_count":report["test_positive_twoX_sixmonth"],
+            "holdout_top10_precision":report["test_top10_precision"],
+            "holdout_calibration_method":report["calibration_method"],
+            "not_production_approved":True,"previous_frozen_live_selection_unchanged":True,
+            "private_archive_path":path},indent=2))
+          PY
