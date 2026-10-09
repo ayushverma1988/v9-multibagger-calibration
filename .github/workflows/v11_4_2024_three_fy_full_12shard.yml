@@ -1,0 +1,55 @@
+name: V11.4 2024 Full Original NSE FY2022-FY2024 Three-FY Numeric Recovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2024_three_fy_full_12shard.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  financial-source-three-FY:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11]
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Load previously source-validated old NSE finance parser
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+          python -m py_compile src/v11_4_2024_three_fy_numeric.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_legacy_FY2022_FourD.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2024-fold-original-three-FY-2022-2024-NSE-annual-index
+          path: historical_2024_three_fy_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37919796655
+      - name: Validate real FY2022-2024 historical NSE annual revenue and PAT for one independent shard
+        run: |
+          set -euo pipefail
+          IDX=$(find historical_2024_three_fy_index -name FY2022_FY2023_FY2024_original_asof_2024_three_filing_index.csv -print -quit)
+          test -n "$IDX"
+          python src/v11_4_2024_three_fy_numeric.py --index "$IDX" \
+            --shard ${{ matrix.shard }} --shards 12 --limit 96 \
+            --out original_2024_three_FY_shard_${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2024-original-three-FY-source-numeric-shard-${{ matrix.shard }}
+          path: original_2024_three_FY_shard_${{ matrix.shard }}/
+          retention-days: 90
+          if-no-files-found: warn
