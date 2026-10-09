@@ -9,6 +9,8 @@ on:
       - src/v11_4_publish_forward_private.py
       - src/v11_4_tradability_risk_overlay.py
       - tests/test_v11_4_tradability_risk_overlay.py
+      - tests/test_v11_4_rule_input_provenance.py
+      - config/v11_4_four_screener_families.json
 permissions:
   contents: read
 jobs:
