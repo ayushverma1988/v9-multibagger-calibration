@@ -1,0 +1,61 @@
+name: V11.4 Daily Private Original NSE Company Valuation Companion
+# 13:40 UTC = 19:10 IST, trading weekdays. A separate provenance-only
+# workflow from immutable V11.4 model predictions and its 15:30 PIT clock.
+on:
+  schedule:
+    - cron: '40 13 * * 1-5'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/v11_4_scheduled_nse_company_PE.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v11-4-company-PE-private-daily
+  cancel-in-progress: false
+jobs:
+  schedule-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify daily PE sidecar policy and separation from original V11.4 predictions
+        run: |
+          echo "At 19:10 IST on trading weekdays, fetch independent original NSE company P/E and two official bhavcopy files."
+          echo "Require same market date, official source SHA256, usable company-level PE rows; no index PE substituted."
+          echo "Market cap and peer/industry PE remain UNKNOWN until corroborated."
+          echo "Archive valuation only under its OWN private immutable HF path. NEVER modify earlier first-seen Top-10."
+  daily-private-original-company-valuation:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: schedule-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout V11.4 research branch without touching production workflow
+        uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official market/PE adapter dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Test no index-as-stock PE substitution, exact positive-company PE and market-series join
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_direct_exchange_pe.py -v
+      - name: Download direct original NSE PE and verify two official NSE cash close reports TODAY
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_direct_exchange_pe_valuation.py \
+            --asof "$TODAY" --output verified_company_PE_valuation
+      - name: Archive one original verification per Indian market date, PRIVATE, never rewrite the original predictions
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_archive_company_pe_private.py \
+            --source verified_company_PE_valuation \
+            --asof "$TODAY" --out temporary_company_PE_private_archive
