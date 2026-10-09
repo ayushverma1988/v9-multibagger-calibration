@@ -1,0 +1,50 @@
+name: V11.4 Verify NSE Legacy FY2022 XML Period Metadata
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_legacy_2022_xml_structure_audit.yml
+      - src/v11_4_legacy_2022_xml_structure_audit.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3'
+      - name: Install unchanged historical NSE source helper
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_legacy_2022_xml_structure_audit.py
+      - name: Fetch previously archived 48 original fiscal-XBRL documents metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2023-official-NSE-historic-financial-XBRL-pilot
+          path: historic_original_sources
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37873849356
+      - name: Inspect four hashed original FY2022 documents for independently labeled annual-period metadata
+        run: |
+          set -euo pipefail
+          SRC=$(find historic_original_sources -name original_NSE_FY2022_FY2023_XBRL_documents_RESEARCH.csv -print -quit)
+          test -n "$SRC"
+          python src/v11_4_legacy_2022_xml_structure_audit.py \
+             --pilot "$SRC" --sample 4 --out original_NSE_FY2022_XML_diagnostic
+      - name: Publish audit only, never fabricated FY2022 amounts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-original-FY2022-NSE-legacy-XBRL-metadata-audit
+          path: original_NSE_FY2022_XML_diagnostic/
+          retention-days: 60
+          if-no-files-found: warn
