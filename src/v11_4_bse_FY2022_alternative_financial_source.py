@@ -125,7 +125,9 @@ def run(out,max_codes=4):
             page=parse_listing(resp.text,code,datetime.now(timezone.utc).isoformat())
             entry.update({k:v for k,v in page.items() if k!="rows"})
             rows.extend({"expected_symbol_unverified":symbol,**z} for z in page["rows"])
-            entry["source_readable"]=True
+            # HTTP 200 from a generic landing page is not a readable filing source.
+            entry["source_readable"]=bool(page["rows_with_fiscal_year"] or page["HTML_has_FY2021_2022_text"])
+            entry["generic_landing_page_HTTP_200_rejected"]=not entry["source_readable"]
         except (requests.RequestException,ValueError) as e:
             entry["source_readable"]=False
             entry["source_error"]=type(e).__name__+": "+str(e)[:250]
