@@ -33,7 +33,7 @@ MAP={
  "interest_coverage":("interestcoverage","interestcoverageratio"),
  "promoter_holding":("promoterholding","promoterholdingpercent"),
  "pledged_pct":("pledgedpercentage","pledgedpct","pledgedpercentageofpromoterholding"),
- "market_cap_crore":("marketcaprscrore","marketcapitalizationrscrore","marketcap"),
+ "market_cap_crore":("marketcaprscr","marketcaprscrore","marketcapitalizationrscrore","marketcap"),
  "pe_ratio":("pe","stockpe","priceearning","priceearningsratio"),
  "peg_ratio":("peg","pegratio"),
 }
