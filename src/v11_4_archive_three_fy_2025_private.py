@@ -15,11 +15,11 @@ def save(out,token,runid,api=None):
  for f in FILES:
   if not (root/f).is_file():raise ValueError("Original 2025 source file missing: "+f)
  meta=json.loads((root/FILES[-1]).read_text())
- if meta.get("original_FY2025_historical_stock_universe")!=1314 or
-    meta.get("original_V11_4_frozen_model_unchanged") is not True:
+ if (meta.get("original_FY2025_historical_stock_universe")!=1314 or
+     meta.get("original_V11_4_frozen_model_unchanged") is not True):
   raise ValueError("Unverified private fiscal source integrity")
- if meta.get("all_original_company_rows_retained") is not True or
-    meta.get("integrated_2025_FourD_only_not_quarter_OneD") is not True:
+ if (meta.get("all_original_company_rows_retained") is not True or
+     meta.get("integrated_2025_FourD_only_not_quarter_OneD") is not True):
   raise ValueError("Source publication/quarter integrity missing")
  client=api or HfApi(token=token)
  info=client.repo_info(repo_id=REPO,repo_type="dataset")
