@@ -95,6 +95,22 @@ def audit_and_encrypt(token):
         "nonce":base64.b64encode(nonce).decode(),"aad":base64.b64encode(aad).decode(),
         "payload":base64.b64encode(ciphertext).decode()}
  print("V11_DEMO_CIPHER="+base64.b64encode(json.dumps(packet,separators=(",",":")).encode()).decode(),flush=True)
+ # Compact independent two-part RSA proofs, no readable tickers in public logs.
+ # Five selected stocks per chunk keep RSA-OAEP plaintext well below 318 bytes.
+ import zlib
+ order=list(factors)
+ for j in range(2):
+  grouped=[]
+  for row in pairs[j*5:(j+1)*5]:
+   coded="".join({"PASS":"P","FAIL":"F","UNKNOWN":"U"}[row["four_screener_family_verdicts"][f.replace("_status","")]] for f in order)
+   grouped.append([row["rank"],row["symbol"],row["source_close_INR"],
+       row["p6_double_research_model_estimate_percent"],row["RSI14_Wilder"],coded])
+  mini=json.dumps({"date":DATE,"factors":[f.replace("_status","") for f in order],"rows":grouped},separators=(",",":")).encode()
+  compressed=zlib.compress(mini,9)
+  if len(compressed)>318:
+   raise ValueError("RSA compressed source-verified demo exceeds OAEP chunk max")
+  rsa_ct=pub.encrypt(compressed,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+  print("V11_DEMO_RSA_PART_"+str(j+1)+"="+base64.b64encode(rsa_ct).decode(),flush=True)
  print("V11_DEMO_PRIVATE_RECORD_AUDITED=True",flush=True)
  return True
 def main():
