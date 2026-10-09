@@ -10,7 +10,7 @@ date="2026-10-08"
 def market():
  base={"date":[date]*3,"symbol":["AAA","BBB","CCC"],
        "historical_asof_utc":["2026-10-08T10:00:00Z"]*3,
-       "rsi14_wilder":[85.,80.,30.],
+       "rsi14_wilder":[85.,70.,30.],
        "price_gt_dma50_prev":[True,False,True],
        "price_lt_dma200_prev":[True,False,True],
        "is_sme":[False]*3,
