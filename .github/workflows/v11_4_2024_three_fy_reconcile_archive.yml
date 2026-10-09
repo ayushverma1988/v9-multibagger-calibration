@@ -1,0 +1,63 @@
+name: V11.4 Reconcile and Save Original NSE FY2022-24 Three-Year Financials
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-2024-three-fy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE annual source reconciliation dependencies
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Compile and validate no overwrite of 2024 original results
+        run: python -m py_compile src/v11_4_2024_three_fy_reconcile.py src/v11_4_2024_three_fy_private_archive.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2024-fold-original-three-FY-2022-2024-NSE-annual-index
+          path: original_2024_fiscal_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37919796655
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_2024_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-2024-original-three-FY-source-numeric-shard-*
+          path: original_2024_financial_shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37919927027
+          merge-multiple: false
+      - name: Reconcile all verified 2024 FY2022-24 12 strict source shards
+        run: |
+          set -euo pipefail
+          IDX=$(find original_2024_fiscal_index -name FY2022_FY2023_FY2024_original_asof_2024_three_filing_index.csv -print -quit)
+          SNAP=$(find original_2024_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$IDX" && test -n "$SNAP"
+          python src/v11_4_2024_three_fy_reconcile.py \
+            --index "$IDX" --shards original_2024_financial_shards \
+            --snapshot "$SNAP" --out verified_2024_three_fy_NSE
+      - name: Private immutable owner annual source archival
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v11_4_2024_three_fy_private_archive.py \
+            --directory verified_2024_three_fy_NSE --run-id ${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2024-3FY-original-NSE-audited-financials
+          path: verified_2024_three_fy_NSE/
+          if-no-files-found: warn
+          retention-days: 90
