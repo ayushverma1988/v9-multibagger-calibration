@@ -1,0 +1,65 @@
+name: V11.4 Full Dec2022 Original NSE FY2020-22 Financial Facts 836 Companies
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2022_threeFY_legacy_full_12shard.yml
+      - src/v11_4_2022_threeFY_legacy_annual_pilot.py
+permissions:
+  actions: read
+  contents: read
+jobs:
+  FY2020-FY2022-original-source-metadata-and-numerics:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install legacy NSE fiscal and parquet dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Restore official original legacy XBRL parser
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > original_eighteen_dates.csv
+          python -m py_compile src/v11_4_2022_threeFY_legacy_annual_pilot.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_legacy_FY2022_FourD.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: all_original_annual_filing_links
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37753978251
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: unchanged_original_fold_stock_symbols
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Download and verify 48 original NSE FY2020 FY2021 FY2022 annual fiscal revenue PAT triples
+        run: |
+          set -euo pipefail
+          INDEX=$(find all_original_annual_filing_links -name NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv -print -quit)
+          SNAP=$(find unchanged_original_fold_stock_symbols -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$SNAP"
+          python src/v11_4_2022_threeFY_legacy_annual_pilot.py \
+            --annual-index "$INDEX" --snapshot "$SNAP" --folds original_eighteen_dates.csv \
+            --limit 75 --shard ${{ matrix.shard }} --shards 12 --out 2022_original_NSE_source_shard_${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2022-NSE-original-FY2020-2022-strict-annual-shard-${{ matrix.shard }}
+          path: 2022_original_NSE_source_shard_${{ matrix.shard }}/
+          retention-days: 90
+          if-no-files-found: warn
