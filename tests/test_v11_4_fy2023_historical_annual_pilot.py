@@ -29,7 +29,7 @@ class OriginalFY2023PairTests(unittest.TestCase):
         self.assertEqual(len(result),1)
         self.assertEqual(result[0][0],"AAA")
         self.assertEqual(result[0][1],"consolidated")
-        self.assertIn("aaa23.xml",result[0][2]["xbrl_url"].tolist())
+        self.assertTrue(any(u.endswith("/aaa23.xml") for u in result[0][2]["xbrl_url"]))
         self.assertFalse(any("revised" in x for x in result[0][2]["xbrl_url"]))
     def test_future_filing_cannot_be_backfilled(self):
         self.assertEqual(len(choose_pairs(data(),{"BBB"},"2023-12-29")),0)
