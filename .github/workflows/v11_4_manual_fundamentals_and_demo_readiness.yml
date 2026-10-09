@@ -1,0 +1,69 @@
+name: V11.4 Third-Party Manual Financials Source Boundary and Demo Readiness
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_manual_fundamentals_and_demo_readiness.yml
+      - src/v11_4_manual_screener_research_import.py
+      - tests/test_v11_4_manual_screener_research_import.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verified-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pandas for original source boundary tests
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3'
+      - name: Check authorized manual Screener source integrity (no automated third-party scraping)
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_manual_screener_research_import.py -v
+          python -m py_compile src/v11_4_manual_screener_research_import.py
+      - name: Verify previously sealed private 2026-10-08 V11.4 research-demo availability
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p ready_V11_4_manual_financials_demo
+          python - <<'PY'
+          import json,os,urllib.request
+          url="https://api.github.com/repos/ayushverma1988/v9-multibagger-calibration/actions/runs/37812061580/jobs?per_page=30"
+          req=urllib.request.Request(url,headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json","User-Agent":"V11.4-Private-Demo-Readiness"})
+          with urllib.request.urlopen(req,timeout=20) as response:
+           source=json.load(response)
+          jobs=source.get("jobs",[])
+          ok=any(j.get("conclusion")=="success" and any(
+           s.get("name","").startswith("Score unmodified frozen standalone V11.4 and seal first-seen private six-month observations")
+           and s.get("conclusion")=="success" for s in j.get("steps",[])) for j in jobs)
+          if not ok:raise SystemExit("Original real prospective research seal not proven")
+          report={
+           "scope":"V11_4_MOBILE_FIRST_RESEARCH_DEMO_READINESS",
+           "research_mode_ready":True,
+           "sealed_observation_trade_date_IST":"2026-10-08",
+           "original_forward_model_job_id":113431161970,
+           "original_successful_forward_job_url":"https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/37812061580",
+           "user_owned_private_10_stock_ledger_url":"https://huggingface.co/datasets/ayushverma1988/v10-multibagger-archive/tree/main/v11_4/forward_observations/2026-10-08",
+           "view_private_predictions_only_when_authenticated_as_owner":True,
+           "manual_source_adapter_contract_tests_passed":True,
+           "realtime_2026_10_09_quote_available_in_this_job":False,
+           "third_party_current_values_can_backfill_pre2026_historical_training":False,
+           "four_fundamental_rule_families_production_approved":False,
+           "standalone_frozen_model_reranked":False,
+           "next_current_session_first_seen_after_2026_10_09_15_30_IST_requires_main_schedule":True
+          }
+          with open("ready_V11_4_manual_financials_demo/DEMO_READINESS.json","w") as f:json.dump(report,f,indent=2)
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-screener-manual-source-contract-and-mobile-demo-readiness
+          path: ready_V11_4_manual_financials_demo/
+          retention-days: 60
+          if-no-files-found: error
