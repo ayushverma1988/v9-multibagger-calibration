@@ -4,3 +4,5 @@ __pycache__/
 systematic_run_output/
 systematic_inputs/
 owner_demo_private_key.pem
+systematic_sleeve_output/
+sleeve_source_inputs/

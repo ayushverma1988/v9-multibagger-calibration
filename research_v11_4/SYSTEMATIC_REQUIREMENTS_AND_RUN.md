@@ -81,6 +81,22 @@ quarterly acceleration, or today's FY2026 financial statements.
 
 ## Run
 
+The corrected global model's October9 demonstration selects only stocks in
+the >100% rerating sleeve. It does not meet the user's early-transformation
+goal on its own. `v11_4_systematic_sleeve_candidates.py` therefore replays
+the exact saved source/model into separate provisional Top10 views for
+pre-obvious <12%, second leg 12–100%, and extended >100% candidates. It does
+not refit probabilities, rewrite the original global observation, promote
+unverified catalysts, or count this source replay as unseen validation.
+The early and second-leg views retain all unknown financial/primary-chain
+verdicts and their own liquidity annotations.
+
+The companion workflow `V11.4 Corrected Early and Second Leg Candidate
+Snapshot Replay` restores only the exact privately archived output of the
+completed full correction run37970837477 and verifies its data hash, model
+identity, date and reproduction of the original global Top10 before replay.
+The source is explicitly October9, not a newly collected later market day.
+
 The workflow `V11.4 Systematic Repair Full Tests Research and Current Demo`
 installs `requirements_v11_4_systematic.txt`, runs all regression tests,
 downloads the existing immutable original sources, and runs one entry point:
