@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install original NSE annual source reconciliation dependencies
-        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2' 'requests>=2.31,<3'
       - name: Restore original NSE fiscal parser and compile source reconciliation
         run: |
           set -euo pipefail
