@@ -5,6 +5,8 @@ on:
     branches: [v11-4-ownership-backfill-probe]
     paths:
       - .github/workflows/v11_4_8fold_original_daily_RSI70_PIT.yml
+      - src/v11_4_eightfold_original_RSI70_daily_source.py
+      - tests/test_v11_4_eightfold_original_RSI70_daily_source.py
 permissions:
   actions: read
   contents: read
