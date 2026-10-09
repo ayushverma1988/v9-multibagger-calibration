@@ -44,6 +44,16 @@ def context_reasons(raw,fy):
                  "duration":r["duration"],"end":r["end"],
                  "end_matches":r["end_matches"],
                  "units":r["units"]} for r in found][:8]}
+ # Include literal source period text to distinguish a parser-format mismatch
+ # from genuinely incorrect fiscal ends. This is metadata, not financial values.
+ observed={}
+ for e in root.iter():
+  if local(e.tag)!="context":continue
+  cid=e.attrib.get("id","")
+  if cid not in ("OneD","FourD"):continue
+  observed[cid]=[{"field":local(n.tag),"raw_period_text":(n.text or "").strip()[:80]}
+                 for n in e.iter() if local(n.tag) in ("startDate","endDate","instant")]
+ out["original_XBRL_context_period_text"]=observed
  return out
 
 def main():
