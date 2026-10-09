@@ -1,0 +1,76 @@
+name: V11.4 Three-Fiscal-Year 2025 Historical Financial Rule Screen Demo
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_three_fy_financial_rule_demo.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-verified-reduced-history-screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install financial-source research dependencies
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Enforce no 2026 outcomes or frozen predictive ML retraining
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_three_fy_financial_rule_demo.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_three_fy_financial_rule_demo.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-original-NSE-integrated-full-three-FY-market-financials
+          path: original_verified_2025_3fy_numeric
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37907820467
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_2025_stock_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Apply strict 3-FY fundamentals screen to original Dec2025 stock universe, not current trades
+        run: |
+          set -euo pipefail
+          FIN=$(find original_verified_2025_3fy_numeric -name FY2025_original_NSE_full_3FY_2023_2025_annual_financial_facts.csv -print -quit)
+          SNAP=$(find original_2025_stock_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$FIN" && test -n "$SNAP"
+          python src/v11_4_three_fy_financial_rule_demo.py \
+            --financial "$FIN" --snapshot "$SNAP" --out original_dec2025_three_fy_research_screen
+      - name: Privately archive actual historical screened companies; print aggregate counts only
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          root="original_dec2025_three_fy_research_screen"
+          meta=json.load(open(root+"/original_2025_three_FY_reduced_history_screen_summary.json"))
+          assert meta["original_market_stock_universe"]==1314
+          assert meta["verified_3FY_financial_company_count"]==1013
+          assert meta["production_approved"] is False
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          info=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert info.private is True,"Do not make historical finance shortlist public"
+          path="v11_4/reduced_history_three_FY_financial_screen_asof_2025_12_31/run_37907820467"
+          existing=api.list_repo_files(repo_id=repo,repo_type="dataset")
+          assert not any(x.startswith(path+"/") for x in existing),"Do not overwrite research screen"
+          api.upload_folder(folder_path=root,repo_id=repo,repo_type="dataset",path_in_repo=path,parent_commit=info.sha,
+             commit_message="Private source-verified 2025 three-FY financial-only screen, research not ML")
+          print(json.dumps({"screened_from_original_dec2025_stocks":meta["original_market_stock_universe"],
+            "verified_three_fy_companies":meta["verified_3FY_financial_company_count"],
+            "rule_pass_count":meta["stocks_passing_all_predeclared_short_history_rules"],
+            "private_HF_path":path,"trained_ML_probability":False,
+            "original_V11_4_forward_2026_research_model_changed":False},indent=2))
+          PY
