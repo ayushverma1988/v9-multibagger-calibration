@@ -1,0 +1,36 @@
+name: V11.4 Seal Official Company PE Matching Archive Privately
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_private_PE_valuation_companion.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  private-companion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'huggingface_hub>=0.25,<2'
+      - name: Download verified company P/E with source hash and dual-NSE market validation, not stock model predictions
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-companyPE-independent-double-market-check-20261008
+          path: verified_pe_original_20261008
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37869428858
+      - name: Seal original NSE 8 Oct company PE in private Hugging Face path without touching Top-10 observations
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python -m py_compile src/v11_4_archive_company_pe_private.py
+          python src/v11_4_archive_company_pe_private.py \
+            --source verified_pe_original_20261008 --asof 2026-10-08 \
+            --out private_PE_research_companion_STAGING
