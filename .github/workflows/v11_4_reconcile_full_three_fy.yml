@@ -1,0 +1,74 @@
+name: V11.4 Reconcile Full Three Year NSE Company Numerics
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-three-year-reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE XBRL source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Check source-only three FY full market reconciler compiles
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_reconcile_three_fy_full_market.py
+      - name: Restore independent historic NSE annual XBRL publication and URLs
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: source_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - name: Restore original 2023 stock identities without outcomes
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_stock_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-three-FY-2021-2023-original-NSE-source-inventory
+          path: verified_three_fy_link_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37904782448
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-three-FY-original-full-source-shard-*
+          path: original_nse_twelve_shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37905297457
+          merge-multiple: false
+      - name: Strictly reconcile 12 source shards to original 1276-stock 2023 universe
+        run: |
+          set -euo pipefail
+          INDEX=$(find source_catalog -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find historical_stock_index -name snapshot_dataset.parquet -print -quit)
+          THREE=$(find verified_three_fy_link_index -name three_FY_original_NSE_2021_2022_2023_index_RESEARCH_ONLY.csv -print -quit)
+          test -n "$INDEX" && test -n "$SNAP" && test -n "$THREE"
+          python src/v11_4_reconcile_three_fy_full_market.py \
+            --inventory "$THREE" --shard-dir original_nse_twelve_shards \
+            --annual-index "$INDEX" --snapshot "$SNAP" \
+            --out reconciled_original_three_FY_financials
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-NSE-full-market-strict-three-FY-numeric-2023-reconciled
+          path: reconciled_original_three_FY_financials/
+          retention-days: 90
+          if-no-files-found: warn
