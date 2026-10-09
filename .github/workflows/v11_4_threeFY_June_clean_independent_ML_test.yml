@@ -1,0 +1,94 @@
+name: V11.4 Clean June 2023 Train 2024 Calibrate 2025 Independent 3FY Test
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_June_clean_independent_ML_test.yml
+      - src/v11_4_threeFY_June_clean_out_of_sample_ML.py
+      - tests/test_v11_4_threeFY_June_clean_out_of_sample_ML.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-June-threeFY-train-calibrate-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original fiscal model and original source validation dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Strictly validate independent historical label maturity at train and calibration decision dates
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_threeFY_June_clean_out_of_sample_ML.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_June_clean_out_of_sample_ML.py -v
+      - name: Fetch only approved 3 immutable June datasets from private source archive, NOT Dec2025 test
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          repo="ayushverma1988/v10-multibagger-archive"
+          api=HfApi(token=token)
+          assert api.repo_info(repo_id=repo,repo_type="dataset").private is True
+          root="v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_37938677845"
+          dest=Path("three_original_fiscal_June_folds");dest.mkdir(exist_ok=True)
+          for year in (2023,2024,2025):
+           n=f"original_NSE_June_{year}_verified_3FY_asof_1530_IST_PRIVATE.parquet"
+           p=hf_hub_download(repo_id=repo,repo_type="dataset",filename=f"{root}/{n}",token=token)
+           shutil.copy2(p,dest/n)
+          print("Original source-vetted June-only financial data downloaded from owner-private archive; no December 2025 original test opened.")
+          PY
+      - name: Fit old predeclared 10 financial predictors on June2023; calibrate June2024; score June2025 unseen
+        run: |
+          set -euo pipefail
+          python src/v11_4_threeFY_June_clean_out_of_sample_ML.py \
+            --june-2023 three_original_fiscal_June_folds/original_NSE_June_2023_verified_3FY_asof_1530_IST_PRIVATE.parquet \
+            --june-2024 three_original_fiscal_June_folds/original_NSE_June_2024_verified_3FY_asof_1530_IST_PRIVATE.parquet \
+            --june-2025 three_original_fiscal_June_folds/original_NSE_June_2025_verified_3FY_asof_1530_IST_PRIVATE.parquet \
+            --out owner_private_June_chronological_one_test_3FY_ML
+      - name: Privately archive first unseen June2025 ranked company outcomes and mark exploratory ONLY
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          root="owner_private_June_chronological_one_test_3FY_ML"
+          summary=json.load(open(root+"/original_threeFY_June_2023fit_2024cal_2025_holdout_scientific_summary.json"))
+          assert summary["original_2025_Dec_test_labels_scores_NEVER_READ"] is True
+          assert summary["training_or_trading_production_approved"] is False
+          client=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          info=client.repo_info(repo_id=repo,repo_type="dataset")
+          assert info.private is True
+          folder="v11_4/threeFY_June_chronological_preregistered_single_test_2025/private_run_${{ github.run_id }}"
+          assert not any(name.startswith(folder+"/") for name in client.list_repo_files(repo_id=repo,repo_type="dataset"))
+          client.upload_folder(folder_path=root,repo_id=repo,repo_type="dataset",path_in_repo=folder,parent_commit=info.sha,
+            commit_message="Strict preregistered June 2023/24/25 three-FY research backtest: one independent holdout only")
+          print(json.dumps({"private_June_test_saved":True,
+           "original_June_train_actual_2X":summary["train_actual_2x_6m_event_count"],
+           "original_June_calibration_actual_2X":summary["calibration_actual_2x_6m_event_count"],
+           "new_June_test_actual_2X":summary["test_actual_2x_6m_event_count"],
+           "new_unseen_June_test_top10_wins":summary["test_top10_actual_doublers"],
+           "new_June_holdout_quality":summary["scientific_status"],
+           "model_deployment_approved":False,"private_path":folder},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-unchanged-financial-logic-June2025-one-holdout-aggregate-metrics
+          path: owner_private_June_chronological_one_test_3FY_ML/original_threeFY_June_2023fit_2024cal_2025_holdout_scientific_summary.json
+          retention-days: 90
+          if-no-files-found: warn
