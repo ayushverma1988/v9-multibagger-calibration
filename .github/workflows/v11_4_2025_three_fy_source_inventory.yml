@@ -27,6 +27,14 @@ jobs:
           pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
       - name: Verify modern three FY inventory has no syntax faults
         run: python -m py_compile src/v11_4_2025_three_fy_source_inventory.py
+      - name: Restore FY2023 FY2024 legacy plus independently audited FY2025 integrated FourD YTD index
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-annual-source-restored-18fold-index
+          path: bridged_three_FY_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37753978251
       - name: Restore independent historic NSE annual XBRL publication and URLs
         uses: actions/download-artifact@v4
         with:
@@ -46,7 +54,7 @@ jobs:
       - name: Count all original 2021-2023 published annual report URLs in unchanged 2023 fold
         run: |
           set -euo pipefail
-          INDEX=$(find source_catalog -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          INDEX=$(find bridged_three_FY_catalog -name NSE_annual_index_plus_FY2025_integrated_Q4_REHEARSAL.csv -print -quit)
           SNAP=$(find historical_stock_index -name snapshot_dataset.parquet -print -quit)
           test -n "$INDEX" && test -n "$SNAP"
           python src/v11_4_2025_three_fy_source_inventory.py \
