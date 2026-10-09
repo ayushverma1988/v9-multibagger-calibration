@@ -1,0 +1,70 @@
+name: V11.4 Independent Original NSE FY2023 Annual Numeric 128-Cohort Expansion
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_independent_FY2023_numeric_expansion.yml
+      - src/v11_4_independent_FY2023_numeric_expansion.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-cohort:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE XBRL source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Reverify original fiscal context, revenue/PAT, mode and unit regression guards
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_legacy_FY2022_FourD.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+          python -m py_compile src/v11_4_independent_FY2023_numeric_expansion.py
+      - name: Restore independent historic NSE annual XBRL publication and URLs
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: source_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - name: Restore original 2023 stock identities without outcomes
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_stock_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Strict independent FY2022 and FY2023 original-file verification on 32 fresh companies
+        run: |
+          set -euo pipefail
+          INDEX=$(find source_catalog -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find historical_stock_index -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$SNAP"
+          python src/v11_4_independent_FY2023_numeric_expansion.py \
+            --annual-index "$INDEX" --snapshot "$SNAP" \
+            --shard ${{ matrix.shard }} --shards 4 --limit 32 \
+            --out results_original_FY2023_numeric_shard_${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-FY2023-original-NSE-two-year-numeric-independent-shard-${{ matrix.shard }}
+          path: results_original_FY2023_numeric_shard_${{ matrix.shard }}/
+          retention-days: 90
+          if-no-files-found: warn
