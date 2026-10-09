@@ -1,0 +1,97 @@
+name: V11.4 All Eight Historic RSI14 Strictly Above 70 Original Daily Source Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_8fold_original_daily_RSI70_PIT.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  eightfold-original-RSI70-price-source-reconstruction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original market validation, daily RSI, and private storage tooling
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scipy>=1.12' 'scikit-learn>=1.5,<2' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2' 'requests>=2.31,<3'
+      - name: Run strict user RSI>70 and historical market source/PIT acceptance tests
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_eightfold_original_RSI70_daily_source.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_four_family_rsi.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_eightfold_original_RSI70_daily_source.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: unchanged_original_18fold_stock_price_reference
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Download public original yearly NSE daily price and corporate action files, authenticated, read-only
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          root=Path("public_original_nse_2021_through_2025")
+          price=root/"market";actions=root/"actions"
+          price.mkdir(parents=True,exist_ok=True);actions.mkdir(parents=True,exist_ok=True)
+          for year in (2021,2022,2023,2024,2025):
+            for path,folder,destination in [
+               (f"nse/year={year}/nse_{year}.parquet",price,f"nse_original_{year}.parquet"),
+               (f"actions/nse_{year}.parquet",actions,f"nse_original_actions_{year}.parquet")]:
+              f=hf_hub_download(repo_id="tejhq/indian-markets",repo_type="dataset",
+                filename=path,token=os.environ["HF_ARCHIVE_TOKEN"])
+              shutil.copy2(f,folder/destination)
+              print(f"Original NSE historical {year} {folder.name}: source bytes {Path(f).stat().st_size}; tickers not disclosed.")
+          PY
+      - name: Compute only as-of original immutable 8 date RSI 14 above 70 with no target/selection labels
+        run: |
+          set -euo pipefail
+          ORIGINAL=$(find unchanged_original_18fold_stock_price_reference -name snapshot_dataset.parquet -print -quit)
+          test -n "$ORIGINAL"
+          python src/v11_4_eightfold_original_RSI70_daily_source.py             --market public_original_nse_2021_through_2025/market/*.parquet             --actions public_original_nse_2021_through_2025/actions/*.parquet             --original-market-snapshot "$ORIGINAL"             --out private_original_market_eightfold_rsi70_no_outcomes
+      - name: Archive audited stock RSI privately; only publish fold totals
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          root=Path("private_original_market_eightfold_rsi70_no_outcomes")
+          report=json.loads((root/"v11_4_8fold_RSI70_strict_daily_source_quality_aggregate.json").read_text())
+          assert report["original_stock_date_rows"]==9912
+          assert report["user_new_strict_threshold"]==70
+          assert report["labels_news_or_future_prices_read"] is False
+          assert report["original_2026_forward_top10_unchanged"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          dest="v11_4/RSI70_corrected_original_daily_8fold_no_future_labels/run_${{ github.run_id }}"
+          assert not any(f.startswith(dest+"/") for f in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(root),repo_id=repo,repo_type="dataset",path_in_repo=dest,
+             parent_commit=head.sha,commit_message="As-of NSE eight historical strict Wilder RSI14 >70 with conservative split/ISIN audit and no labels")
+          print(json.dumps({"RSI70_8fold_original_daily_PIT_saved_private":True,
+            "original_market_date_count":len(report["per_fold"]),
+            "verified_RSI14_stockdate_count":sum(x["120_session_original_RSI14_verified_count"] for x in report["per_fold"]),
+            "strict_RSI14_gt70_stockdate_count":sum(x["strict_RSI14_gt70_count"] for x in report["per_fold"]),
+            "no_new_ML_training":True,"original_frozen_stock_picks_unchanged":True,"private_path":dest},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-eightfold-original-daily-wilder-RSI14-strict-GT70-aggregate
+          path: private_original_market_eightfold_rsi70_no_outcomes/v11_4_8fold_RSI70_strict_daily_source_quality_aggregate.json
+          retention-days: 90
+          if-no-files-found: warn
