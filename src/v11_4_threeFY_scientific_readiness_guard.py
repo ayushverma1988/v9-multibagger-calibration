@@ -37,8 +37,7 @@ def audit(report):
         raise ValueError("Unexpected alteration to frozen independent prospective model")
     if report["model_training_production_approved"] is not False:
         raise ValueError("Unvalidated three-year model claims production approval")
-    if sum(report["test_top10_success_count"]==int(round(report["test_top10_precision"]*10))
-            for _ in [None])!=1:
+    if report["test_top10_success_count"]!=int(round(report["test_top10_precision"]*10)):
         raise ValueError("Model Top10 empirical precision / outcome counts mismatch")
     if (report["train_positive_twoX_sixmonth"]>report["training_rows"] or
         report["calibration_positive_twoX_sixmonth"]>report["calibration_rows"] or
