@@ -1,0 +1,124 @@
+name: V11.4 Eight-Fold Original Financial RSI70 and Promoter Source-Truth Integration
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_eightfold_3FY_RSI70_promoter_source_only.yml
+      - src/v11_4_threeFY_RSI70_promoter_source_ready.py
+      - tests/test_v11_4_threeFY_RSI70_promoter_source_ready.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-threeFY-RSI70-promoter-source-quality-NO-outcomes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE audit and authenticated private archive tools
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Prove no future labels, strict RSI above 70 and unverified promoter purchases not inferred
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_threeFY_RSI70_promoter_source_ready.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_RSI70_promoter_source_ready.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-18fold-NSE-catalyst-market-financial-PIT-research-matrix
+          path: frozen_original_18fold_NSE_source_only
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763154846
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: frozen_original_18fold_snapshot
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Read exact archived two completed original NSE source-only stock-date matrix and RSI70
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi,hf_hub_download
+          from pathlib import Path
+          import os,shutil
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          repo="ayushverma1988/v10-multibagger-archive"
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          paths={
+            "original_8fold_3FY_NSE_market_catalyst_PIT_NO_LABELS.parquet":
+            "v11_4/predeclared_eightfold_3FY_price_NSE_catalyst_NO_LABELS/run_37941461746/NSE_original_eightfold_threeFY_PIT_market_and_catalyst_NOLABEL_RESEARCH.parquet",
+            "original_8fold_Wilder_RSI14_GT70_NO_LABELS.parquet":
+            "v11_4/RSI70_corrected_original_daily_8fold_no_future_labels/run_37965062378/v11_4_strict_8fold_RSI14_gt70_original_source_ONLY_PRIVATE.parquet"
+          }
+          dest=Path("original_pit_source_no_outcomes");dest.mkdir(exist_ok=True)
+          for local,src in paths.items():
+            p=hf_hub_download(repo_id=repo,repo_type="dataset",filename=src,token=token)
+            shutil.copy2(p,dest/local)
+            print("Original immutable source-only archive recovered:",local)
+          PY
+      - name: Join original source-only RSI above 70 and nonfabricated promoter buying with 8 historical 3FY market dates
+        run: |
+          set -euo pipefail
+          DIR=original_pit_source_no_outcomes
+          META=$(find frozen_original_18fold_NSE_source_only -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          FROZEN=$(find frozen_original_18fold_snapshot -name snapshot_dataset.parquet -print -quit)
+          test -n "$META" && test -n "$FROZEN"
+          PYTHONPATH=src python src/v11_4_threeFY_RSI70_promoter_source_ready.py \
+            --features "$DIR/original_8fold_3FY_NSE_market_catalyst_PIT_NO_LABELS.parquet" \
+            --rsi "$DIR/original_8fold_Wilder_RSI14_GT70_NO_LABELS.parquet" \
+            --canonical-NSE "$META" --frozen-original-close "$FROZEN" \
+            --expected-verified-RSI 9282 --expected-GT70 531 \
+            --expected-raw-promoter 20885 \
+            --out verified_source_only_3FY_RSI70_promoter_sidecar_PRIVATE
+      - name: Archive private original source-only RSI70 companion, never publish tickers or historical winners
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi
+          from pathlib import Path
+          import os,json
+          p=Path("verified_source_only_3FY_RSI70_promoter_sidecar_PRIVATE")
+          s=json.loads((p/"eightfold_3FY_RSI70_promoter_source_quality_summary.json").read_text())
+          assert s["historical_original_market_stock_date_rows"]==9912
+          assert s["historical_source_RSI14_verified"]==9282
+          assert s["historical_RSI14_strictly_GT70"]==531
+          assert s["all_RSI14_missing_represented_UNKNOWN_not_0"] is True
+          assert s["promoter_buying_confirmed_stockdate_observations"] is None
+          assert s["not_new_predictive_backtest_no_labels_loaded"] is True
+          assert s["frozen_Oct2026_stock_ranks_and_probabilities_unchanged"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          dest="v11_4/strict_8fold_3FY_RSI70_promoter_source_only_shadow/run_${{ github.run_id }}"
+          assert not any(q.startswith(dest+"/") for q in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(p),repo_id=repo,repo_type="dataset",path_in_repo=dest,parent_commit=head.sha,
+            commit_message="Source-only original eightfold 3FY + NSE price + strict Wilder RSI70 + neutral promoter provenance; no future labels")
+          print(json.dumps({"private_source_only_RS70_archive_saved":True,
+           "original_company_dates":s["historical_original_market_stock_date_rows"],
+           "strict_3FY_source_verified":s["original_three_fiscal_year_verified_stockdates"],
+           "verified_RSI14":s["historical_source_RSI14_verified"],
+           "RSI14_strict_GT70":s["historical_RSI14_strictly_GT70"],
+           "original_generic_promoter_records_NOT_verified_buys":s["promoter_raw_generic_NSE_filing_records_observed"],
+           "no_current_stock_tickers_released":True,
+           "no_model_prediction_changed":True,
+           "new_blinded_accuracy_measured":False,
+           "owner_private_path":dest},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-8fold-original-3FY-RSI70-promoter-source-only-aggregate
+          path: verified_source_only_3FY_RSI70_promoter_sidecar_PRIVATE/eightfold_3FY_RSI70_promoter_source_quality_summary.json
+          retention-days: 90
+          if-no-files-found: warn
