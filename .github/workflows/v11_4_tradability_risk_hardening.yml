@@ -1,0 +1,40 @@
+name: V11.4 Tradability Risk and Confidential Demo Hardening
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_tradability_risk_hardening.yml
+      - src/v11_4_live_nse_market_catalyst.py
+      - src/v11_4_publish_forward_private.py
+      - src/v11_4_tradability_risk_overlay.py
+      - tests/test_v11_4_tradability_risk_overlay.py
+permissions:
+  contents: read
+jobs:
+  private-risk-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original 22-feature frozen forward scorer support
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Confirm liquidity/probability outlier checks do not change original rankings
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_tradability_risk_overlay.py src/v11_4_live_nse_market_catalyst.py src/v11_4_publish_forward_private.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_tradability_risk_overlay.py -v
+      - name: Revalidate complete original NSE live-source and four-screen forward contracts
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_live_nse_sources.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_four_family_rsi.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_forward_freeze_contract.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_rule_input_provenance.py -v
+      - name: Prove new risk feature is annotation only, no retrospective new model
+        run: |
+          echo "Only original NSE last-session turnover, 20-session median, and observed trading sessions added as private post-selection research annotations."
+          echo "22 original model predictors and frozen weights unchanged. Reject missing market/source fields. Never infer low liquidity is sufficient for execution."
