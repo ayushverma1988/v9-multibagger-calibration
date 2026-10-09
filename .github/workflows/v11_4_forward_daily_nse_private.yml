@@ -1,9 +1,8 @@
-name: V11.4 Daily NSE Six-Month Forward Research (Private)
+name: V11.4 Manual NSE Six-Month Forward Research (Private)
+# Daily schedule is owned ONLY by v11_4_scheduled_forward_research.yml.
+# This workflow remains a separate manual read-only validation path.
 on:
   workflow_dispatch:
-  schedule:
-    # NSE 15:30 close is 10:00 UTC. Run at 21:45 IST for published EOD files.
-    - cron: '15 16 * * 1-5'
 permissions:
   actions: read
   contents: read
@@ -11,10 +10,29 @@ concurrency:
   group: v11-4-private-forward-observation
   cancel-in-progress: false
 jobs:
-  standalone-only:
+  verify-manual-IST-session:
     if: github.repository == 'ayushverma1988/v9-multibagger-calibration'
     runs-on: ubuntu-latest
+    outputs:
+      run_live: ${{ steps.ist_guard.outputs.run_live }}
+      market_IST_date: ${{ steps.ist_guard.outputs.market_IST_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - name: Skip weekend, Indian next-day crossover and too-early EOD manual run
+        id: ist_guard
+        run: |
+          set -euo pipefail
+          python src/v11_4_scheduler_session_gate.py --event workflow_dispatch --github-output "$GITHUB_OUTPUT"
+  standalone-only:
+    needs: verify-manual-IST-session
+    if: needs.verify-manual-IST-session.outputs.run_live == 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 55
+    env:
+      NSE_ASOF: ${{ needs.verify-manual-IST-session.outputs.market_IST_date }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,10 +58,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TODAY=$(TZ=Asia/Kolkata date +%F)
+          TODAY="$NSE_ASOF"
           python src/v11_4_live_nse_market_catalyst.py \
             --date "$TODAY" --output verified_live_source
-      - name: Check 3 previous conditions and RSI(14) strictly over 80 independently
+      - name: Check 3 previous conditions and RSI(14) strictly over 70 independently
         shell: bash
         run: |
           set -euo pipefail
@@ -58,7 +76,7 @@ jobs:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: |
           set -euo pipefail
-          TODAY=$(TZ=Asia/Kolkata date +%F)
+          TODAY="$NSE_ASOF"
           python src/v11_4_publish_forward_private.py \
             --features verified_live_source/v11_4_live_NSE_verified_stock_features.parquet \
             --metadata verified_live_source/v11_4_live_source_validation.json \
