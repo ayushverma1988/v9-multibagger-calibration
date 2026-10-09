@@ -1,0 +1,61 @@
+name: V11.4 2025 Historical Three-FY Financial Filing Availability
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2025_three_fy_source_inventory.yml
+      - src/v11_4_2025_three_fy_source_inventory.py
+
+permissions:
+  contents: read
+  actions: read
+jobs:
+  three-year-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE XBRL source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Verify modern three FY inventory has no syntax faults
+        run: python -m py_compile src/v11_4_2025_three_fy_source_inventory.py
+      - name: Restore independent historic NSE annual XBRL publication and URLs
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: source_catalog
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - name: Restore original 2023 stock identities without outcomes
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_stock_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Count all original 2021-2023 published annual report URLs in unchanged 2023 fold
+        run: |
+          set -euo pipefail
+          INDEX=$(find source_catalog -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find historical_stock_index -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$SNAP"
+          python src/v11_4_2025_three_fy_source_inventory.py \
+            --annual-index "$INDEX" --snapshot "$SNAP" \
+            --out three_fy_source_inventory
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2025-frozen-fold-three-FY-2023-2025-original-NSE-URLs
+          path: three_fy_source_inventory/
+          retention-days: 90
+          if-no-files-found: warn
