@@ -88,6 +88,14 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
  s4.to_csv(dest/"four_screener_status_original_top10_NO_RERANK.csv",index=False)
  csv=dest/"verified_forward_top10.csv"
  picks.to_csv(csv,index=False)
+ # Independent risk overlay can annotate trading feasibility / unusual score
+ # concentration, but NEVER change model rankings or the immutable Top 10.
+ from v11_4_tradability_risk_overlay import audit_tradability
+ reviewed,risk_summary=audit_tradability(x,picks,s4)
+ risk_csv=dest/"prospective_top10_market_friction_and_probability_warning_NO_RERANK.csv"
+ reviewed.to_csv(risk_csv,index=False)
+ (dest/"tradability_probability_review_summary.json").write_text(
+     json.dumps(risk_summary,indent=2))
  manifest={
   "scope":"FIRST_SEEN_IMMUTABLE_PROSPECTIVE_RESEARCH_STOCK_SELECTION",
   "model_id":VERSION,
@@ -103,6 +111,9 @@ def write_forward_record(features,source_meta,frozen,asof,out,hf_token,
   "frozen_manifest_SHA256":sha256(Path(frozen)/NEEDED[1]),
   "live_PIT_market_filing_features_SHA256":source["live_features_SHA256"],
   "recorded_selection_csv_SHA256":sha256(csv),
+  "separate_post_selection_tradability_risk_SHA256":sha256(risk_csv),
+  "research_tradability_alert_summary":risk_summary,
+  "risk_overlays_may_not_reorder_frozen_top10":True,
   "independent_four_original_screening_conditions_audit_SHA256":sha256(sc),
   "fourth_RSI14_strictly_above_80_in_top10":int(s4["rsi14_gt80"].fillna(False).sum()),
   "four_family_source_readiness_required_for_full_rule_pass":True,
