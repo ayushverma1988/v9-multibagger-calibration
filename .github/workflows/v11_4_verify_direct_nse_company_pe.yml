@@ -1,0 +1,36 @@
+name: V11.4 Verify Alternative Official NSE Company PE and Market Date Match
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_verify_direct_nse_company_pe.yml
+permissions:
+  contents: read
+jobs:
+  verify-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Check strict company PE versus index PE separation
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_direct_exchange_pe.py -v
+          python -m py_compile src/v11_4_direct_exchange_pe_valuation.py
+      - name: Recover official October 8 NSE company P-E, using two independent market-close files
+        run: |
+          set -euo pipefail
+          python src/v11_4_direct_exchange_pe_valuation.py \
+            --asof 2026-10-08 --output outputs_v11_4_original_nse_PE_crosschecked
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-NSE-companyPE-independent-double-market-check-20261008
+          path: outputs_v11_4_original_nse_PE_crosschecked/
+          retention-days: 30
+          if-no-files-found: warn
