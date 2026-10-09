@@ -1,0 +1,73 @@
+name: V11.4 Reconcile Private Full FY2023-FY2025 Integrated Three-FY Data
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-three-year-reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE XBRL source parser and dependencies
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Check source-only three FY full market reconciler compiles
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_reconcile_three_fy_2025_full_market.py
+      - name: Restore original 2023 stock identities without outcomes
+        uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: historical_stock_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2025-frozen-fold-three-FY-2023-2025-original-NSE-URLs
+          path: verified_three_fy_link_index
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37906558270
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v11-4-full-2025-original-3FY-integrated-numeric-shard-*
+          path: original_nse_twelve_shards
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37907016134
+          merge-multiple: false
+      - name: Strictly reconcile 12 original FY2023-2025 NSE integrated source shards
+        run: |
+          set -euo pipefail
+          SNAP=$(find historical_stock_index -name snapshot_dataset.parquet -print -quit)
+          THREE=$(find verified_three_fy_link_index -name original_2025_fold_three_FY_2023_2025_PIT_urls_RESEARCH.csv -print -quit)
+          test -n "$SNAP" && test -n "$THREE"
+          python src/v11_4_reconcile_three_fy_2025_full_market.py \
+            --index "$THREE" --snapshot "$SNAP" \
+            --shards original_nse_twelve_shards \
+            --out reconciled_original_three_FY_financials
+      - name: Save three-FY original NSE numeric research as immutable owner-private long-lived data
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python src/v11_4_archive_three_fy_2025_private.py \
+            --directory reconciled_original_three_FY_financials \
+            --run-id ${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-FY2025-original-NSE-integrated-full-three-FY-market-financials
+          path: reconciled_original_three_FY_financials/
+          retention-days: 90
+          if-no-files-found: warn
