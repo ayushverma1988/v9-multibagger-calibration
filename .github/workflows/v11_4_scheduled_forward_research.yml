@@ -52,6 +52,7 @@ jobs:
           PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_live_nse_sources.py -v
           PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_four_family_rsi.py -v
           PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_forward_freeze_contract.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_rule_input_provenance.py -v
       - name: Get SHA-verified frozen model, without retraining
         uses: actions/download-artifact@v4
         with:
@@ -66,11 +67,19 @@ jobs:
           TODAY=$(TZ=Asia/Kolkata date +%F)
           echo "As-of Indian exchange date: $TODAY"
           python src/v11_4_live_nse_market_catalyst.py --date "$TODAY" --output private_v11_4_live_input
+      - name: Audit original NSE/BSE XBRL PIT input availability, preserve missing 5Y/7Y and quarterly facts as UNKNOWN
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          python src/v11_4_rule_input_provenance.py \
+            --features private_v11_4_live_input/v11_4_live_NSE_verified_stock_features.parquet \
+            --config config/v11_4_four_screener_families.json \
+            --asof "$TODAY" --output audited_four_family_PIT
       - name: Audit four independent user screening conditions including Wilder RSI14 above 80
         run: |
           set -euo pipefail
           python src/v11_4_four_family_live_screener.py \
-            --features private_v11_4_live_input/v11_4_live_NSE_verified_stock_features.parquet \
+            --features audited_four_family_PIT/v11_4_pit_four_family_research_overlay.parquet \
             --config config/v11_4_four_screener_families.json \
             --output four_family_research_audit
       - name: Record immutable Top-10 predictions and four-condition overlay only in private HF
@@ -84,6 +93,8 @@ jobs:
             --metadata private_v11_4_live_input/v11_4_live_source_validation.json \
             --frozen frozen_verified_model \
             --output private_first_seen_V11_4_predictions \
+            --screening-overlay audited_four_family_PIT/v11_4_pit_four_family_research_overlay.parquet \
+            --source-readiness audited_four_family_PIT/four_family_filing_pit_readiness.json \
             --asof "$TODAY"
       - name: Print only nonsensitive screening statistics
         if: success()
@@ -94,5 +105,9 @@ jobs:
           print(json.dumps({'nse_equity_universe':x['companies'],
             'rsi14_above80':x['rsi14_over80_stock_count'],
             'families':x['families'],'production_approved':False},indent=2))
+          provenance=json.load(open('audited_four_family_PIT/four_family_filing_pit_readiness.json'))
+          print(json.dumps({'verified_unique_screening_metrics':provenance['fields_with_any_verified_observations'],
+            'total_unique_screener_metrics':provenance['distinct_requested_metrics'],
+            'still_missing_metrics':provenance['fields_still_fully_missing']},indent=2))
           print('Actual stock names and probabilities saved in private HF, not public GitHub.')
           PY
