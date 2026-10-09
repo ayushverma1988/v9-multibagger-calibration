@@ -1,0 +1,101 @@
+name: V11.4 Three Historic June FY Source Clock Backfill and Six-Month Label Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_June_source_clock_backfill.yml
+      - src/v11_4_threeFY_June_PIT_supplement.py
+      - tests/test_v11_4_threeFY_June_PIT_supplement.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  fiscal-source-before-real-June-decision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original financial and historical market requirements
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Restore approved original NSE fiscal and timezone code
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_June_PIT_supplement.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-full-market-strict-three-FY-numeric-2023-reconciled
+          path: originally_2023_Dec_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37906034342
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-2024-3FY-original-NSE-audited-financials
+          path: originally_2024_Dec_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37920892862
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-FY2025-original-NSE-integrated-full-three-FY-market-financials
+          path: originally_2025_Dec_3FY
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37907820467
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_market_and_mature_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Recover fiscal facts only if filing arrived before each June 15:30 IST stock decision
+        run: |
+          set -euo pipefail
+          F23=$(find originally_2023_Dec_3FY -name original_NSE_2021_2023_three_FY_STRICT_FINANCIAL_FACTS.csv -print -quit)
+          F24=$(find originally_2024_Dec_3FY -name strict_original_FY2022_2024_annual_facts.csv -print -quit)
+          F25=$(find originally_2025_Dec_3FY -name FY2025_original_NSE_full_3FY_2023_2025_annual_financial_facts.csv -print -quit)
+          SNAP=$(find original_market_and_mature_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$F23" && test -n "$F24" && test -n "$F25" && test -n "$SNAP"
+          python src/v11_4_threeFY_June_PIT_supplement.py \
+            --financial-2023 "$F23" --financial-2024 "$F24" --financial-2025 "$F25" \
+            --snapshot "$SNAP" --out original_June_2023_2024_2025_PIT_financial_research_PRIVATE
+      - name: Save original June fiscal source matched stock identities and matured research labels privately
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          root="original_June_2023_2024_2025_PIT_financial_research_PRIVATE"
+          summary=json.load(open(root+"/June_2023_2024_2025_3FY_source_clock_mature_label_SUMMARY.json"))
+          assert summary["original_June_folds"]==3
+          assert summary["already_evaluated_2025_Dec_holdout_untouched"] is True
+          client=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          info=client.repo_info(repo_id=repo,repo_type="dataset")
+          assert info.private is True
+          path="v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_${{ github.run_id }}"
+          assert not any(x.startswith(path+"/") for x in client.list_repo_files(repo_id=repo,repo_type="dataset"))
+          client.upload_folder(folder_path=root,repo_id=repo,repo_type="dataset",path_in_repo=path,parent_commit=info.sha,
+            commit_message="Archive original as-of June FY2023/24/25 3FY fiscal verified midyear folds; no model trained")
+          print(json.dumps({"private_3_june_folds_saved":True,
+            "June_verified_threeFY_original_stock_date_pairs":summary["all_3FY_preJune_source_unique_stock_matches"],
+            "June_matured_label_rows":summary["all_eligible_matured_research_labels"],
+            "June_matured_2x_positive_events":summary["all_eligible_actual_6month_doublers"],
+            "private_location":path,"2025_Dec_holdout_retained_untouched":True},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-3-historical-June-strict-threeFY-source-clock-coverage
+          path: original_June_2023_2024_2025_PIT_financial_research_PRIVATE/June_2023_2024_2025_3FY_source_clock_mature_label_SUMMARY.json
+          retention-days: 90
+          if-no-files-found: warn
