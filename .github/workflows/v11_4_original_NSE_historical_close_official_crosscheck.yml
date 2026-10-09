@@ -1,0 +1,65 @@
+name: V11.4 Original NSE Eight Historical Decision Closes Official Bhavcopy Crosscheck
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_original_NSE_historical_close_official_crosscheck.yml
+      - src/v11_4_original_NSE_historical_daily_close_crosscheck.py
+      - tests/test_v11_4_original_NSE_historical_daily_close_crosscheck.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-historical-NSE-official-day-close-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original NSE quote parse and audit libraries
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
+      - name: Test dual NSE official archive source reconciliation and no future labels
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_original_NSE_historical_daily_close_crosscheck.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_original_NSE_historical_daily_close_crosscheck.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: immutable_original_nse_historical_stockdate_close
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Check eight point-in-time original daily NSE stock closes against independent NSE official archive file families
+        run: |
+          set -euo pipefail
+          ORIGINAL=$(find immutable_original_nse_historical_stockdate_close -name snapshot_dataset.parquet -print -quit)
+          test -n "$ORIGINAL" && test -s "$ORIGINAL"
+          PYTHONPATH=src python src/v11_4_original_NSE_historical_daily_close_crosscheck.py \
+            --snapshot "$ORIGINAL" \
+            --out archived_exchange_market_close_readonly_audit
+      - name: Verify source success is not confused with 120-session RSI tape certification
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("archived_exchange_market_close_readonly_audit/original_NSE_eightfold_exchange_day_close_audit.json")
+          r=json.loads(p.read_text())
+          assert r["original_8_2022_2025_decision_dates"]==8
+          assert r["original_market_stockdate_total"]==9912
+          assert r["off_exchange_archive_full_daily_120_bar_provenance_validated"] is False
+          assert r["six_month_multibagger_precision_recomputed"] is False
+          assert r["no_training_calibration_or_original_2026_stocks_changed"] is True
+          print("NSE official close crosscheck ran. Full 120-day RSI histories not independently certified. No trading approval.")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-NSE-eightfold-official-bhavcopy-DAY-CLOSE-audit
+          path: archived_exchange_market_close_readonly_audit/original_NSE_eightfold_exchange_day_close_audit.json
+          retention-days: 90
+          if-no-files-found: warn
