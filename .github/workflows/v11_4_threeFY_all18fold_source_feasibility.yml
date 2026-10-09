@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install original filing index research dependencies
-        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26'
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26' 'requests>=2.31,<3'
       - name: Restore original 2022 legacy NSE fiscal parser dependency
         run: |
           set -euo pipefail
