@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Dependencies for no-lookahead three fiscal year research protocol
-        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26'
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26' 'requests>=2.31,<3'
       - name: Enforce no future label training and actual single-fold score audit
         run: |
           set -euo pipefail
