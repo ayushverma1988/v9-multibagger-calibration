@@ -1,0 +1,41 @@
+name: V11.4 Dual Archive Company PE Resilience and Source Integrity
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_nse_source_resilience.yml
+      - src/v11_4_direct_exchange_pe_valuation.py
+      - tests/test_v11_4_nse_archive_fallback.py
+permissions:
+  contents: read
+jobs:
+  provenance-and-fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install parser dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Prove deterministic fallback and strict original per-company PE schema
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_*exchange_pe.py' -v
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_nse_archive_fallback.py' -v
+          python -m py_compile src/v11_4_direct_exchange_pe_valuation.py
+      - name: Confirm real original October 8 NSE file with TWO independently checked market files
+        run: |
+          set -euo pipefail
+          python src/v11_4_direct_exchange_pe_valuation.py \
+             --asof 2026-10-08 --output verified_resilient_company_PE_20261008
+      - name: Save reproducible non-PIT research source report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-official-NSE-companyPE-resilient-same-day-research-20261008
+          path: verified_resilient_company_PE_20261008/
+          retention-days: 30
+          if-no-files-found: warn
