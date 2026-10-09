@@ -103,7 +103,7 @@ def join_no_labels(original,archived_rsi,raw_nse_metadata,frozen_original_close)
   raise ValueError("Invalid/unknown historical source leaked numerical RSI into research")
  passing=rsi_values.gt(70)
  recorded=out["fourth_family_rsi_strictly_gt70"].astype("boolean")
- if not recorded.loc[verified].eq(passing.loc[verified]).all():
+ if recorded.loc[verified].isna().any() or not recorded.loc[verified].eq(passing.loc[verified]).all():
   raise ValueError("Recorded historical RSI screening flag does not apply strict threshold >70")
  if recorded.loc[~verified].notna().any():
   raise ValueError("Unknown RSI historically substituted with FAIL or PASS")
