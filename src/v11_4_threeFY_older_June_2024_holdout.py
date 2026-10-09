@@ -61,6 +61,8 @@ def older_sealed_research_holdout(june22,june23,june24):
   "NO_2025_June_or_Dec_financial_test_loaded":True,
   "historically_earlier_than_2025_prospective_test":True,
   "historically_one_unique_older_holdout_not_12":True,
+  "June2024_labels_seen_as_calibration_in_earlier_candidate":True,
+  "therefore_not_a_new_blinded_independent_test":True,
   "not_independently_sufficient_for_production":True,
   "original_Oct2026_prospective_V11_4_unchanged":True,
   "scientific_status":"OLDER_HISTORICAL_HOLDOUT_ONLY_DO_NOT_PROMOTE_TO_TRADING"
