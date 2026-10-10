@@ -67,18 +67,18 @@ jobs:
         run: |
           set -euo pipefail
           cat > temp_encryption_public_ONLY.pem <<'PUBKEY'
------BEGIN PUBLIC KEY-----
-MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAsIS74WNoDBJgnfa8TWQp
-ZhaObIRk/egJBmY3ybbMCX80Ehzl6YLPZb6ypz9Fdhcnxof+7rptZoJS2/e4NxEE
-g2vORx8SBlcZr5VAm69MJqjzA6e1QXmfD5gUvkFsmbdzo5yQlhzPaqVyYolL0Syf
-UK96DzZNJZVTsytv5kqRo+EOGKXckQapSUomy5zVu85Io6hFllu1Pn7r/JYHGFXD
-yqqFTZPPaZv/+swM4ESmwgDNoC3jv3IMfGaTOk3hq89Tb5VhiVdyBlJxS08su8LB
-roRRDTwhtZCXp4qgijyWNJC9+gmsJsYXRMpSFpjABxVwn0+jLPFT2IHZ/RYWuGq3
-/+02QZxE66ch8lmUOvOJb5T3d+NLUZXS2f3BOEvcIo3cDsHrwtijbeVxKMCr8WNl
-VUEHRz4RwS1CWs4Y/a20O/9d2V1N5jZhWmfoMoLHnZ3fBEZdnVgC7AQ0FgbXBOQp
-pN6OQkkkvKddIj+GwglXaEA6qE3yT1Ftv3p+rw6a/lIRAgMBAAE=
------END PUBLIC KEY-----
-PUBKEY
+          -----BEGIN PUBLIC KEY-----
+          MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAsIS74WNoDBJgnfa8TWQp
+          ZhaObIRk/egJBmY3ybbMCX80Ehzl6YLPZb6ypz9Fdhcnxof+7rptZoJS2/e4NxEE
+          g2vORx8SBlcZr5VAm69MJqjzA6e1QXmfD5gUvkFsmbdzo5yQlhzPaqVyYolL0Syf
+          UK96DzZNJZVTsytv5kqRo+EOGKXckQapSUomy5zVu85Io6hFllu1Pn7r/JYHGFXD
+          yqqFTZPPaZv/+swM4ESmwgDNoC3jv3IMfGaTOk3hq89Tb5VhiVdyBlJxS08su8LB
+          roRRDTwhtZCXp4qgijyWNJC9+gmsJsYXRMpSFpjABxVwn0+jLPFT2IHZ/RYWuGq3
+          /+02QZxE66ch8lmUOvOJb5T3d+NLUZXS2f3BOEvcIo3cDsHrwtijbeVxKMCr8WNl
+          VUEHRz4RwS1CWs4Y/a20O/9d2V1N5jZhWmfoMoLHnZ3fBEZdnVgC7AQ0FgbXBOQp
+          pN6OQkkkvKddIj+GwglXaEA6qE3yT1Ftv3p+rw6a/lIRAgMBAAE=
+          -----END PUBLIC KEY-----
+          PUBKEY
       - name: Re-execute original source-verified calibrated model and separately rank early/second/extended sleeves
         run: |
           set -euo pipefail
