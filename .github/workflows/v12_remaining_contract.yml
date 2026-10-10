@@ -1,0 +1,20 @@
+name: V12 Dated Sources BSE and Prospective Contract
+on:
+  push:
+    branches: [v12-dated-inputs-bse-prospective-20261010]
+  pull_request:
+    paths:
+      - 'src/v12_*.py'
+      - 'tests/test_v12*.py'
+      - '.github/workflows/v12_remaining_contract.yml'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - run: PYTHONPATH=src python -m unittest discover -s tests
