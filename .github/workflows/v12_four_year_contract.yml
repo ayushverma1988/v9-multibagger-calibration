@@ -1,0 +1,39 @@
+name: V12 Four-Year Frozen Model Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [v12-four-year-freeze-20261010]
+    paths: ['src/v12_*.py', 'tests/test_v12_*.py', '.github/workflows/v12_four_year_contract.yml']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements_v11_4_systematic.txt
+      - run: pip install -r requirements_v11_4_systematic.txt
+      - name: Validate source clocks, calibration, targets and frozen inference
+        run: |
+          python - <<'PY'
+          import io, json, pathlib, unittest
+          result = unittest.TextTestRunner(stream=io.StringIO(), verbosity=2).run(unittest.defaultTestLoader.discover('tests'))
+          summary = {'tests_run': result.testsRun, 'failures': len(result.failures), 'errors': len(result.errors), 'successful': result.wasSuccessful()}
+          pathlib.Path('v12_validation_summary.json').write_text(json.dumps(summary, indent=2))
+          print(json.dumps(summary))
+          raise SystemExit(0 if result.wasSuccessful() else 1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: V12-model-contract-validation
+          path: v12_validation_summary.json
