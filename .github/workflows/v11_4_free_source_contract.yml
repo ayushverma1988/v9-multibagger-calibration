@@ -1,0 +1,53 @@
+name: V11.4 Free Source Recovery Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-systematic-sleeve-views-20261009]
+    paths:
+      - .github/workflows/v11_4_free_source_contract.yml
+      - src/v11_4_free_source_fallbacks.py
+      - src/v11_4_free_source_recovery_run.py
+      - src/v11_4_free_financial_current_audit.py
+      - src/v11_4_catalyst_ocr_recovery.py
+      - src/v11_4_discovery_signal_research.py
+      - src/v11_4_BSE_secondary_financial_recovery.py
+      - tests/test_v11_4_free_source_fallbacks.py
+permissions:
+  contents: read
+concurrency:
+  group: v11-4-free-source-contract
+  cancel-in-progress: false
+jobs:
+  validate-source-and-model-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements_v11_4_systematic.txt
+      - name: Validate source identities units basis dates clocks unknowns and fixed model evaluation
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          import io,json,unittest
+          from pathlib import Path
+          stream=io.StringIO()
+          result=unittest.TextTestRunner(stream=stream,verbosity=1).run(unittest.defaultTestLoader.discover('tests'))
+          Path('validation.log').write_text(stream.getvalue())
+          summary={'tests_run':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),'successful':result.wasSuccessful()}
+          Path('validation_summary.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary))
+          raise SystemExit(0 if result.wasSuccessful() else 1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-free-source-contract-validation
+          path: |
+            validation.log
+            validation_summary.json
+          if-no-files-found: error
+          retention-days: 90
