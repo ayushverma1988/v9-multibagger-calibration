@@ -156,17 +156,28 @@ def parse_financial_document(xml, symbol, period_end, reporting_mode, html=None)
             selected = best[0]
             labels = {text_normalize(z) for z in HTML_LABELS[key]}
             values = [v for label, vs in rendered if label in labels for v in vs if v is not None]
-            # Half of one displayed last decimal is the maximum rounding error.
-            # This compares representations of ONE filing, not two providers.
-            tolerance = rounding * .0051 if rounding else 0
-            selected["rendered_statement_agrees"] = bool(rounding and any(
-                abs(v * rounding - selected["value_INR"]) <= max(tolerance, .01) for v in values))
-            selected["render_scale_INR"] = rounding
+            selected["_render_values"] = values
             rows.append(selected)
+    # NSE's older generated HTML displays raw INR values even when the form's
+    # LevelOfRounding says Lakhs. Newer HTML uses the declared display scale.
+    # Resolve the representation across the ENTIRE document using at least
+    # two nonzero, correctly labelled facts; never choose a scale per fact.
+    scales = sorted({1, rounding} - {None})
+    matches = lambda r, scale: any(abs(v * scale - r["value_INR"]) <= max(.0051 * scale, .01)
+                                  for v in r["_render_values"])
+    votes = {scale: sum(matches(r, scale) for r in rows if abs(r["value_INR"]) > 0) for scale in scales}
+    winners = [s for s in scales if votes[s] == max(votes.values(), default=0)]
+    display_scale = winners[0] if len(winners) == 1 and votes[winners[0]] >= 2 else None
+    for r in rows:
+        r["rendered_statement_agrees"] = bool(display_scale and matches(r, display_scale))
+        r["render_scale_INR"] = display_scale
+        r["declared_display_rounding_INR"] = rounding
+        del r["_render_values"]
     return rows, {"document_symbol": declared_symbol, "document_isin": isin,
                   "bse_scrip_code": scalar(root, {"ScripCode"}),
                   "reporting_mode": basis, "ambiguous_facts_rejected": ambiguous,
                   "is_banking_schema": "BANKING" in str(root.tag).upper(),
+                  "render_scale_votes": votes, "render_representation_scale_INR": display_scale,
                   "monetary_values_not_rescaled": True}
 
 
@@ -241,7 +252,9 @@ def derive_metrics(facts):
     prior = latest - pd.DateOffset(years=1)
     bp = instant.get(prior, {})
     if "ppe" in b and "ppe" in bp:
-        put("fixed_assets_up_yoy", b["ppe"] > bp["ppe"])
+        # PPE is only one part of a possible full fixed-assets definition.
+        # Preserve the measured component without passing the broader rule.
+        put("ppe_up_yoy_verified", b["ppe"] > bp["ppe"])
     # No EBITDA-derived operating-margin or estimated-industry-PE substitutes.
     for years in (3, 5, 7):
         chain = [latest - pd.DateOffset(years=j) for j in range(years + 1)]
@@ -262,7 +275,7 @@ def derive_metrics(facts):
         if "revenue" in now and "revenue" in two:
             put("sales_latest_ge_2q_back", now["revenue"] >= two["revenue"])
         if "pat" in now and year.get("pat", 0) > 0:
-            put("profit_latest_q_yoy_growth", now["pat"] / year["pat"] - 1)
+            put("yoy_quarterly_profit_growth", now["pat"] / year["pat"] - 1)
         if "pat" in now and "pat" in before:
             put("pat_latest_gt_preceding", now["pat"] > before["pat"])
         if "pat" in before and "pat" in two:

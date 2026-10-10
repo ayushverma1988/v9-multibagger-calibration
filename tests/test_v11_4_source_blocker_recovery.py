@@ -11,6 +11,9 @@ from v11_4_source_blocker_recovery import current_catalog, select_current_filing
 from v11_4_primary_document_catalysts import classify_document
 from v11_4_independent_evaluation_ledger import (
     freeze_protocol, record_observation, load_protocol, encoded, fingerprint, assess_accessible_event)
+from v11_4_verified_promoter_transactions import parse_transactions
+from v11_4_enriched_current_source_audit import merge_verified_overlay
+from v11_4_robust_research_model import FEATURES
 
 
 def document(extra="", quarter=False):
@@ -37,6 +40,18 @@ class FinancialEvidenceTests(unittest.TestCase):
     def test_render_mismatch_cannot_derive_ratio(self):
         rows, _ = parse_financial_document(document(), "TEST", "2026-03-31", "Consolidated", HTML.replace(b'200.00', b'2.00'))
         self.assertFalse(rows[0]["rendered_statement_agrees"])
+
+    def test_legacy_generated_html_raw_rupees_requires_document_wide_agreement(self):
+        raw_html = HTML.replace(b'200.00', b'20000000').replace(b'30.00', b'3000000')
+        rows, audit = parse_financial_document(document(), "TEST", "2026-03-31", "Consolidated", raw_html)
+        self.assertTrue(all(r['rendered_statement_agrees'] for r in rows))
+        self.assertEqual(audit['render_representation_scale_INR'], 1)
+
+    def test_mixed_html_scales_cannot_choose_convenient_per_fact_scale(self):
+        mixed = HTML.replace(b'200.00', b'20000000')
+        rows, audit = parse_financial_document(document(), "TEST", "2026-03-31", "Consolidated", mixed)
+        self.assertIsNone(audit['render_representation_scale_INR'])
+        self.assertFalse(any(r['rendered_statement_agrees'] for r in rows))
 
     def test_issuer_or_basis_mismatch_rejected(self):
         with self.assertRaisesRegex(ValueError, "symbol"):
@@ -80,6 +95,15 @@ class FinancialEvidenceTests(unittest.TestCase):
                  "reporting_mode": "consolidated", "rendered_statement_agrees": True}
                 for y, v in [(2024, 100), (2025, 120), (2026, 160)]]
         self.assertNotIn("sales_growth_3y", derive_metrics(rows))
+
+    def test_ppe_growth_does_not_substitute_for_complete_fixed_assets_rule(self):
+        rows = [{"metric": k, "value_INR": v, "period_end": end, "period_kind": kind,
+                 "reporting_mode": "consolidated", "rendered_statement_agrees": True}
+                for k,v,end,kind in [('pat',20,'2026-03-31','annual'),
+                                      ('ppe',200,'2026-03-31','instant'),('ppe',100,'2025-03-31','instant')]]
+        metrics = derive_metrics(rows)
+        self.assertTrue(metrics['ppe_up_yoy_verified'])
+        self.assertNotIn('fixed_assets_up_yoy', metrics)
 
     def test_future_exchange_receipt_time_is_excluded(self):
         class Store:
@@ -132,6 +156,54 @@ class ExchangeAndCatalystTests(unittest.TestCase):
         self.assertFalse(r['issuer_identity_read'])
         self.assertEqual(r['quantified_evidence'], [])
 
+    def test_reference_period_bse_only_not_inferred_from_current_master_mismatch(self):
+        amfi = pd.DataFrame([{'isin': 'INE002A01018', 'nse_reference_symbol': 'TEST', 'bse_reference_symbol': 'TEST', 'amfi_size_category': 'SMALL'}])
+        nse = pd.DataFrame([{'isin': 'INE040A01034', 'nse_current_symbol': 'TEST'}])
+        _, report = build_universe(amfi, nse)
+        self.assertEqual(report['AMFI_BSE_symbol_without_NSE_symbol_at_reference'], 0)
+        self.assertEqual(report['BSE_reference_without_current_NSE_ISIN_match'], 1)
+
+
+def insider_document(category='Promoters', kind='Buy', method='Market Purchase', after='120'):
+    return f'''<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:x="http://example">
+      <xbrli:unit id="S"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>
+      <x:NSESymbol contextRef="I">TEST</x:NSESymbol><x:ISIN contextRef="I">INE002A01018</x:ISIN>
+      <x:CategoryOfPerson contextRef="P">{category}</x:CategoryOfPerson>
+      <x:TypeOfInstrument contextRef="P">Equity Shares</x:TypeOfInstrument>
+      <x:SecuritiesAcquiredOrDisposedTransactionType contextRef="P">{kind}</x:SecuritiesAcquiredOrDisposedTransactionType>
+      <x:ModeOfAcquisitionOrDisposal contextRef="P">{method}</x:ModeOfAcquisitionOrDisposal>
+      <x:SecuritiesHeldPriorToAcquisitionOrDisposalNumberOfSecurity contextRef="P" unitRef="S">100</x:SecuritiesHeldPriorToAcquisitionOrDisposalNumberOfSecurity>
+      <x:SecuritiesAcquiredOrDisposedNumberOfSecurity contextRef="P" unitRef="S">20</x:SecuritiesAcquiredOrDisposedNumberOfSecurity>
+      <x:SecuritiesHeldPostAcquistionOrDisposalNumberOfSecurity contextRef="P" unitRef="S">{after}</x:SecuritiesHeldPostAcquistionOrDisposalNumberOfSecurity>
+      <x:DateOfAllotmentAdviceOrAcquisitionOfSharesOrSaleOfSharesSpecifyToDate contextRef="P">2026-06-01</x:DateOfAllotmentAdviceOrAcquisitionOfSharesOrSaleOfSharesSpecifyToDate>
+      </xbrli:xbrl>'''.encode()
+
+
+class PromoterDirectionTests(unittest.TestCase):
+    def test_actual_purchase_requires_matching_holdings_delta(self):
+        rows = parse_transactions(insider_document(), 'TEST', 'INE002A01018')
+        self.assertEqual(rows[0]['direction'], 'BUY')
+        self.assertEqual(rows[0]['quantity_shares'], 20)
+        with self.assertRaisesRegex(ValueError, 'direction'):
+            parse_transactions(insider_document(after='80'), 'TEST', 'INE002A01018')
+
+    def test_sale_is_not_positive_buying(self):
+        row = parse_transactions(insider_document(kind='Sell', method='Market Sale', after='80'), 'TEST', 'INE002A01018')[0]
+        self.assertEqual(row['signed_quantity_shares'], -20)
+
+    def test_director_esop_gift_pledge_not_promoter_market_buys(self):
+        for change in ({'category': 'Director'}, {'method': 'ESOP'}, {'method': 'Gift'}, {'method': 'Pledge Creation'}):
+            self.assertEqual(parse_transactions(insider_document(**change), 'TEST', 'INE002A01018'), [])
+
+    def test_currency_unit_not_counted_as_shares(self):
+        xml = insider_document().replace(b'xbrli:shares', b'iso4217:INR')
+        with self.assertRaisesRegex(ValueError, 'share units'):
+            parse_transactions(xml, 'TEST', 'INE002A01018')
+
+    def test_wrong_isin_cannot_be_renamed_into_buy_evidence(self):
+        with self.assertRaisesRegex(ValueError, 'ISIN'):
+            parse_transactions(insider_document(), 'TEST', 'INE040A01034')
+
 
 class ProspectiveLedgerTests(unittest.TestCase):
     def setUp(self):
@@ -141,7 +213,10 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.model = self.root / 'model.joblib'; self.model.write_bytes(b'test-frozen-weights')
         self.protocol, self.digest = freeze_protocol(self.root / 'ledger', self.model,
             {'feature_names': ['a'], 'source_code_sha256': {'module': 'a'*64}}, '2026-10-10T01:00:00Z')
-        self.candidates = pd.DataFrame({'isin': [f'ISIN{i}' for i in range(11)], 'symbol': [f'TEST{i}' for i in range(11)],
+        def identifier(i):
+            stem = f'INE{i:03d}A0101'
+            return next(stem + str(d) for d in range(10) if isin_valid(stem+str(d)))
+        self.candidates = pd.DataFrame({'isin': [identifier(i) for i in range(11)], 'symbol': [f'TEST{i}' for i in range(11)],
                                         'rank': range(1,12), 'probability': [.20-.005*i for i in range(11)]})
 
     def record(self, **changes):
@@ -176,6 +251,11 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Future outcome'):
             self.record(ranked_candidates=self.candidates.assign(integrity_y6_clean=True))
 
+    def test_invalid_security_identity_cannot_enter_ledger(self):
+        broken = self.candidates.copy();broken.loc[0, 'isin'] = 'BROKEN'
+        with self.assertRaisesRegex(ValueError, 'ISIN checksum'):
+            self.record(ranked_candidates=broken)
+
     def test_protocol_tampering_detected_against_external_receipt(self):
         path = self.root/'ledger'/'protocol.json'
         path.write_bytes(encoded({**self.protocol, 'acceptance_gates': {'mean_top10_jaccard': 0}}))
@@ -199,6 +279,38 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertEqual(assess_accessible_event(100, prices, sessions, sessions[-1])['observed_2x'], 1)
         prices.loc[60:62, 'turnover_INR'] = 1000000
         self.assertEqual(assess_accessible_event(100, prices, sessions, sessions[-1])['observed_2x'], 0)
+
+    def test_infinite_future_price_never_becomes_a_doubler(self):
+        sessions = pd.date_range('2026-10-13', periods=126, freq='B', tz='UTC') + pd.Timedelta(hours=10)
+        prices = pd.DataFrame({'session_close_utc': sessions, 'adjusted_close': 100., 'turnover_INR': 6000000, 'source_verified': True})
+        prices.loc[60:62, 'adjusted_close'] = float('inf')
+        self.assertIsNone(assess_accessible_event(100, prices, sessions, sessions[-1])['observed_2x'])
+
+
+class SameCohortEnrichmentTests(unittest.TestCase):
+    def setUp(self):
+        self.features = pd.DataFrame({'date': ['2026-10-09'], 'symbol': ['TEST'], 'close': [100.],
+                                      'historical_asof_utc': ['2026-10-09T10:00:00Z'],
+                                      **{c: [0.] for c in FEATURES}})
+        self.market = pd.DataFrame({'symbol': ['TEST'], 'isin': ['INE002A01018'], 'close': [100.]})
+        self.universe = pd.DataFrame({'isin': ['INE002A01018'], 'amfi_size_category': ['SMALL'], 'verified_small_or_mid_reference': [True]})
+
+    def test_new_financials_do_not_change_any_model_feature(self):
+        companies = [{'symbol': 'TEST', 'isin': 'INE002A01018', 'financial_metrics': {'operating_cash_flow_INR': 25000000}}]
+        enriched, summary = merge_verified_overlay(self.features, self.market, companies, self.universe)
+        self.assertEqual(enriched.operating_cash_flow_INR.iloc[0], 25000000)
+        self.assertTrue(enriched[list(FEATURES)].equals(self.features[list(FEATURES)]))
+
+    def test_financial_record_for_changed_isin_not_merged(self):
+        companies = [{'symbol': 'TEST', 'isin': 'INE040A01034', 'financial_metrics': {'operating_cash_flow_INR': 25000000}}]
+        enriched, summary = merge_verified_overlay(self.features, self.market, companies, self.universe)
+        self.assertNotIn('operating_cash_flow_INR', enriched)
+        self.assertEqual(summary['mismatched_current_ISINs_rejected'], 1)
+
+    def test_overlay_cannot_overwrite_old_model_input(self):
+        companies = [{'symbol': 'TEST', 'isin': 'INE002A01018', 'financial_metrics': {FEATURES[0]: 999}}]
+        with self.assertRaisesRegex(ValueError, 'overwrite'):
+            merge_verified_overlay(self.features, self.market, companies, self.universe)
 
 
 if __name__ == '__main__':

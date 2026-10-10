@@ -36,6 +36,8 @@ def run(model, source_features, output, public_key):
     source_paths = ["v11_4_independent_evaluation_ledger.py", "v11_4_robust_research_model.py",
                     "v11_4_verified_current_financials.py", "v11_4_primary_document_catalysts.py",
                     "v11_4_exchange_reference_universe.py", "v11_4_source_blocker_recovery.py",
+                    "v11_4_verified_promoter_transactions.py",
+                    "v11_4_enriched_current_source_audit.py",
                     "v11_4_forward_research_release.py", "v11_4_standalone_train_walkforward.py"]
     recipe = {"model_version": VERSION, "feature_names": list(FEATURES), "C": .03,
               "market_training_tail_quantiles": [.005, .995],

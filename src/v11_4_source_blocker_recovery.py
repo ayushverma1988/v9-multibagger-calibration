@@ -16,7 +16,7 @@ import pandas as pd
 import requests
 
 from v11_4_exchange_reference_universe import (
-    AMFI_XLSX, NSE_MASTER, BSE_MASTER, parse_amfi, parse_nse_master, build_universe)
+    AMFI_XLSX, NSE_MASTER, NSE_SME_MASTER, BSE_MASTER, parse_amfi, parse_nse_master, build_universe)
 from v11_4_verified_current_financials import parse_financial_document, parse_promoter_document, derive_metrics, mode
 from v11_4_primary_document_catalysts import classify_document, extract_pdf, CATEGORIES
 from v11_4_longterm_fundamentals import HEADERS
@@ -24,6 +24,7 @@ from v11_4_integrated_2025_source_pilot import ts
 from v11_4_standalone_train_walkforward import fold_close
 from v11_4_four_family_live_screener import evaluate_family
 from v11_4_systematic_run import ADDITIONAL_CHECKS
+from v11_4_verified_promoter_transactions import collect_verified_promoter_transactions
 
 HOSTS = {"www.nseindia.com", "nsearchives.nseindia.com", "archives.nseindia.com",
          "www.bseindia.com", "api.bseindia.com", "portal.amfiindia.com"}
@@ -239,8 +240,18 @@ def execute(args):
     amfi = parse_amfi(raw)
     raw, np = store.get(NSE_MASTER)
     nse = parse_nse_master(raw)
+    nse["nse_master_segment"] = "MAINBOARD"
+    mainboard = nse.copy()
+    raw, sp = store.get(NSE_SME_MASTER)
+    sme = parse_nse_master(raw)
+    sme["nse_master_segment"] = "SME"
+    nse = pd.concat([nse, sme], ignore_index=True)
+    if nse["isin"].duplicated().any() or nse["nse_current_symbol"].duplicated().any():
+        raise ValueError("Mainboard and SME current masters conflict; require migration evidence")
     universe, coverage = build_universe(amfi, nse)
-    coverage["source_sha256"] = {"AMFI": ap["sha256"], "NSE_equity_master": np["sha256"]}
+    coverage["NSE_mainboard_current_master_rows"] = len(mainboard)
+    coverage["NSE_SME_current_master_rows"] = len(sme)
+    coverage["source_sha256"] = {"AMFI": ap["sha256"], "NSE_equity_master": np["sha256"], "NSE_SME_master": sp["sha256"]}
     try:
         raw, bp = store.get(BSE_MASTER, {"Group": "", "Scripcode": "", "segment": "Equity", "status": "Active", "scripName": ""})
         body = json.loads(raw)
@@ -253,12 +264,16 @@ def execute(args):
     records = payload.get("rows", payload) if isinstance(payload, dict) else payload
     symbols = list(dict.fromkeys(str(r["symbol"]).upper().strip() for r in records))
     master = nse.set_index("nse_current_symbol")
+    promoter_rows, promoter_docs, promoter_errors, promoter_summary = collect_verified_promoter_transactions(store, master, cutoff)
+    (out / "verified_promoter_market_transactions_PRIVATE.json").write_text(json.dumps(promoter_rows, indent=2))
+    (out / "promoter_filing_group_net_quantities_PRIVATE.json").write_text(json.dumps(promoter_docs, indent=2))
+    (out / "promoter_direction_source_summary.json").write_text(json.dumps(promoter_summary, indent=2))
     missing = [s for s in symbols if s not in master.index]
     if missing:
         raise ValueError("Saved candidate identity absent from current official NSE master")
-    controls = sorted(set(master.index) - set(symbols), key=lambda s: shas(s.encode()))[:args.controls]
+    controls = sorted(set(mainboard["nse_current_symbol"]) - set(symbols), key=lambda s: shas(s.encode()))[:args.controls]
     chosen = (symbols + controls)[:args.max_companies]
-    company_rows, all_facts, all_docs, all_events, errors = [], [], [], [], []
+    company_rows, all_facts, all_docs, all_events, errors = [], [], [], [], list(promoter_errors)
     for i, symbol in enumerate(chosen, 1):
         identity = master.loc[symbol]
         try:
@@ -280,6 +295,7 @@ def execute(args):
                "amfi_size_category": reference["amfi_size_category"], "financial_metrics": metrics,
                "event_index": event_index, "primary_documents_read": sum(e["issuer_identity_read"] for e in events),
                "quantified_primary_evidence_candidates": sum(len(e["quantified_evidence"]) for e in events),
+               "verified_promoter_purchase_evidence": "PRESENT" if any(r["symbol"] == symbol and r["direction"] == "BUY" for r in promoter_rows) else "UNKNOWN",
                "causal_chain_status": "UNKNOWN", "prospective_observation": False}
         company_rows.append(row)
         (out / "company_enrichment_PRIVATE.json").write_text(json.dumps(company_rows, indent=2, default=str))
@@ -313,6 +329,7 @@ def execute(args):
               "primary_event_documents_read": sum(e["issuer_identity_read"] for e in all_events),
               "quantified_primary_catalyst_candidates": sum(len(e["quantified_evidence"]) for e in all_events),
               "complete_primary_causal_chains_verified": 0, "retrieval_or_semantic_errors": len(errors),
+              "actual_promoter_market_direction": promoter_summary,
               "all_requested_annual_quarterly_valuation_fields_complete": False,
               "full_NSE_BSE_scoring_coverage": False, "unchanged_model_ranking": True,
               "historical_backtest_rebuild_performed": False, "new_blind_outcomes_observed": 0,

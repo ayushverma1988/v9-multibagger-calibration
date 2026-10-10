@@ -11,6 +11,7 @@ import pandas as pd
 AMFI_XLSX = "https://portal.amfiindia.com/spages/AverageMarketCapitalization30Jun2026.xlsx"
 AMFI_PERIOD_END = "2026-06-30"
 NSE_MASTER = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+NSE_SME_MASTER = "https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv"
 BSE_MASTER = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData_new/w"
 
 
@@ -57,7 +58,7 @@ def parse_amfi(raw):
 
 def parse_nse_master(raw):
     x = pd.read_csv(io.BytesIO(raw))
-    x.columns = x.columns.str.strip()
+    x.columns = x.columns.str.strip().str.replace("_", " ")
     cols = {"SYMBOL": "nse_current_symbol", "NAME OF COMPANY": "nse_current_name",
             "SERIES": "nse_current_series", "DATE OF LISTING": "nse_listing_date", "ISIN NUMBER": "isin"}
     if not set(cols).issubset(x):
@@ -67,7 +68,7 @@ def parse_nse_master(raw):
         x[c] = x[c].str.strip().str.upper()
     if not x["isin"].map(isin_valid).all() or x["isin"].duplicated().any() or x["nse_current_symbol"].duplicated().any():
         raise ValueError("Ambiguous current NSE equity identity")
-    x["nse_listing_date"] = pd.to_datetime(x["nse_listing_date"], format="%d-%b-%Y", errors="coerce")
+    x["nse_listing_date"] = pd.to_datetime(x["nse_listing_date"], format="mixed", dayfirst=True, errors="coerce")
     return x
 
 
@@ -79,7 +80,9 @@ def build_universe(amfi, nse, market=None):
     x["present_BSE_AMFI_reference"] = x["bse_reference_symbol"].fillna("").ne("")
     x["bse_current_active_listing_verified"] = False
     x["cross_exchange_reference_ISIN_match"] = x["present_NSE_current_master"] & x["present_BSE_AMFI_reference"]
-    x["reference_BSE_only_ISIN"] = x["present_BSE_AMFI_reference"] & ~x["present_NSE_current_master"]
+    nse_at_reference = x["nse_reference_symbol"].fillna("").ne("")
+    x["reference_BSE_symbol_without_NSE_symbol"] = x["present_BSE_AMFI_reference"] & ~nse_at_reference
+    x["BSE_reference_without_current_NSE_ISIN_match"] = x["present_BSE_AMFI_reference"] & ~x["present_NSE_current_master"]
     x["size_category_known_by_ISIN"] = x["amfi_size_category"].notna()
     x["verified_small_or_mid_reference"] = x["amfi_size_category"].isin(["SMALL", "MID"])
     # Same ticker, new ISIN is a coverage gap, never an implicit identity join.
@@ -91,7 +94,9 @@ def build_universe(amfi, nse, market=None):
               "union_unique_ISINs": len(x),
               "BSE_referenced_ISINs": int(x["present_BSE_AMFI_reference"].sum()),
               "NSE_BSE_reference_overlap_ISINs": int(x["cross_exchange_reference_ISIN_match"].sum()),
-              "BSE_only_reference_ISINs": int(x["reference_BSE_only_ISIN"].sum()),
+              "AMFI_BSE_symbol_without_NSE_symbol_at_reference": int(x["reference_BSE_symbol_without_NSE_symbol"].sum()),
+              "BSE_reference_without_current_NSE_ISIN_match": int(x["BSE_reference_without_current_NSE_ISIN_match"].sum()),
+              "AMFI_NSE_and_BSE_reference_overlap": int((x["present_BSE_AMFI_reference"] & nse_at_reference).sum()),
               "current_NSE_ISINs_with_official_size_category": int((x["present_NSE_current_master"] & x["size_category_known_by_ISIN"]).sum()),
               "current_NSE_small_or_mid_reference": int((x["present_NSE_current_master"] & x["verified_small_or_mid_reference"]).sum()),
               "NSE_same_symbol_changed_ISIN_not_auto_joined": int(x["same_symbol_AMFI_ISIN_changed_requires_action_evidence"].sum()),

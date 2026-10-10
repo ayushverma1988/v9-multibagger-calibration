@@ -9,6 +9,8 @@ on:
       - src/v11_4_exchange_reference_universe.py
       - src/v11_4_primary_document_catalysts.py
       - src/v11_4_source_blocker_recovery.py
+      - src/v11_4_verified_promoter_transactions.py
+      - src/v11_4_enriched_current_source_audit.py
       - src/v11_4_independent_evaluation_ledger.py
       - src/v11_4_evaluation_protocol_run.py
       - tests/test_v11_4_source_blocker_recovery.py

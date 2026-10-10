@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+from v11_4_exchange_reference_universe import isin_valid
 
 HORIZON_SESSIONS = 126
 ACCEPTANCE = {"minimum_fully_assessable_dates": 12, "mean_top10_jaccard": .80,
@@ -98,9 +99,12 @@ def record_observation(folder, protocol, protocol_sha256, model_path, ranked_can
         raise ValueError("Complete source security identity and frozen ranks required")
     if x["isin"].duplicated().any() or x["rank"].duplicated().any():
         raise ValueError("Duplicate selection rank or cross-listed security")
+    if not x['isin'].map(isin_valid).all():
+        raise ValueError("Prospective security ISIN checksum is invalid")
     probabilities = pd.to_numeric(x["probability"], errors="coerce")
     if not probabilities.between(0, 1).all():
         raise ValueError("Invalid prospective model probabilities")
+    x['probability'] = probabilities
     if len(x) < 10 or sorted(x["rank"].tolist()) != list(range(1, len(x) + 1)):
         raise ValueError("Full decision-eligible ranking and at least ten stocks required")
     x = x.sort_values("rank")
