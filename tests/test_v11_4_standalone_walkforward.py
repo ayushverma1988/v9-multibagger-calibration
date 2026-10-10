@@ -4,10 +4,23 @@ import numpy as np
 from v11_4_standalone_train_walkforward import (
     fold_close,keep_train,eligible_asof,top10_similarity,
     safe_featureize,CATALYST_PREFIXES,PRICE_MIN,PRICE_MAX,
-    MODEL_FEATURES,train_once,calibrate_logit,calibration_mode,MIN_CALIBRATION_POSITIVES,STABILITY_SEEDS
+    MODEL_FEATURES,train_once,calibrate_logit,calibration_mode,MIN_CALIBRATION_POSITIVES,STABILITY_SEEDS,
+    partition_train_calibration
 )
 
 class StandaloneV114Tests(unittest.TestCase):
+    def test_training_outcomes_must_be_known_before_calibration_not_only_test(self):
+        data=pd.DataFrame({
+            "date":["2023-12-29"]*4+["2024-06-28"],
+            "y6_mature_date":["2024-06-28T09:59:59Z",
+                              "2024-06-28T10:00:00Z",
+                              "2024-07-01T10:00:00Z",None,
+                              "2024-12-30T10:00:00Z"],
+            "symbol":["KNOWN","AT_CLOSE","LATER","UNKNOWN","CAL"]})
+        base,cal=partition_train_calibration(data,"2024-06-28")
+        self.assertEqual(base["symbol"].tolist(),["KNOWN"])
+        self.assertEqual(cal["symbol"].tolist(),["CAL"])
+
     def test_india_cutoff(self):
         self.assertEqual(fold_close("2020-06-30").isoformat(),"2020-06-30T10:00:00+00:00")
 

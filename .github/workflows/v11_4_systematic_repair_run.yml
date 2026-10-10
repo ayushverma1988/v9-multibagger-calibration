@@ -1,0 +1,139 @@
+name: V11.4 Systematic Repair Full Tests Research and Current Demo
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-systematic-repair-20261009]
+    paths:
+      - .github/workflows/v11_4_systematic_repair_run.yml
+      - src/**
+      - tests/**
+      - requirements_v11_4_systematic.txt
+      - config/v11_4_systematic_owner_public.pem
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v11-4-systematic-repair-owner-research
+  cancel-in-progress: false
+jobs:
+  reproducible-corrected-execution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install one complete environment without mutable cross-branch source imports
+        run: pip install -r requirements_v11_4_systematic.txt
+      - name: Run the complete regression suite including calibration-time leakage tests
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-18fold-NSE-catalyst-market-financial-PIT-research-matrix
+          path: systematic_inputs/features18
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763154846
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: systematic_inputs/labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Recover exact completed eight-date original source-only 3FY RSI70 companion
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          repo="ayushverma1988/v10-multibagger-archive"
+          api=HfApi(token=token)
+          info=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert info.private is True
+          src="v11_4/strict_8fold_3FY_RSI70_promoter_source_only_shadow/run_37965973956/eightfold_3FY_market_specificNSEevents_RSI70_source_only_PRIVATE.parquet"
+          path=hf_hub_download(repo_id=repo,repo_type="dataset",filename=src,revision=info.sha,token=token)
+          dest=Path("systematic_inputs/source8.parquet")
+          dest.parent.mkdir(parents=True,exist_ok=True)
+          shutil.copy2(path,dest)
+          print("Exact source-only eight-date RSI70 financial/catalyst companion recovered.")
+          PY
+      - name: Run corrected chronology, explicit financial screens, mandatory news sources and current NSE demo
+        env:
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          python - <<'PY'
+          import os,subprocess,sys
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          feature=list(Path("systematic_inputs/features18").rglob("v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet"))
+          labels=list(Path("systematic_inputs/labels").rglob("snapshot_dataset.parquet"))
+          assert len(feature)==len(labels)==1
+          today=datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+          subprocess.run([sys.executable,"src/v11_4_systematic_run.py",
+              "--features18",str(feature[0]),"--labels",str(labels[0]),
+              "--source8","systematic_inputs/source8.parquet",
+              "--output","systematic_run_output","--live-date",today,
+              "--owner-public-key","config/v11_4_systematic_owner_public.pem"],check=True)
+          PY
+      - name: Save new private run without overwriting frozen observations
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          root=Path("systematic_run_output")
+          report=json.loads((root/"systematic_run_summary.json").read_text())
+          assert report["production_approved"] is False
+          assert report["original_frozen_Oct8_selections_and_history_not_overwritten"] is True
+          api=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          head=api.repo_info(repo_id=repo,repo_type="dataset")
+          assert head.private is True
+          dest="v11_4/systematic_repair_research/run_${{ github.run_id }}"
+          assert not any(p.startswith(dest+"/") for p in api.list_repo_files(repo_id=repo,repo_type="dataset"))
+          api.upload_folder(folder_path=str(root),repo_id=repo,repo_type="dataset",
+              path_in_repo=dest,parent_commit=head.sha,
+              commit_message="Systematic V11.4 chronology repair, required-source audit and current research demo")
+          print("New run saved privately; prior observations preserved.")
+          PY
+      - name: State scientific readiness separately from execution success
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path("systematic_run_output/systematic_run_summary.json")
+          if not p.exists():
+              print("::warning::Pipeline did not produce a verified run summary.")
+          else:
+              r=json.loads(p.read_text())
+              status={k:v["status"] for k,v in r["stages"].items()}
+              print(json.dumps({"stage_execution_status":status,"full_user_model_ready":r["full_user_model_ready"],
+                  "production_approved":r["production_approved"]},indent=2))
+              print("::warning::Execution results are research; missing requirements and scientific validation remain visible.")
+              with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+                  f.write("## Systematic V11.4 run\n\n")
+                  f.write("Execution and prediction quality are assessed separately.\n\n")
+                  f.write("| Stage | Execution status |\n|---|---|\n")
+                  for k,v in status.items():f.write(f"| {k} | {v} |\n")
+                  f.write("\nFull requested model: **requirements incomplete**. No production promotion.\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-systematic-repair-aggregate-and-encrypted-owner-demo
+          path: |
+            systematic_run_output/systematic_run_summary.json
+            systematic_run_output/owner_demo_encrypted.json
+          retention-days: 90
+          if-no-files-found: warn

@@ -78,6 +78,27 @@ class NSELiveSourceTests(unittest.TestCase):
   self.assertEqual(len(features),1)
   self.assertTrue(features["integrity_feature_clean"].iloc[0])
   self.assertTrue(np.isfinite(features[list(PRICE_COLUMNS)].to_numpy(float)).all())
+  self.assertTrue(features["price_gt_dma200_prev"].iloc[0])
+  self.assertFalse(features["price_lt_dma200_prev"].iloc[0])
+ def test_equal_200dma_is_neither_above_nor_below(self):
+  dates=pd.bdate_range("2025-10-20",periods=260)
+  g=pd.DataFrame({"date":dates,"symbol":["FLAT"]*len(dates),
+    "close":[100.]*len(dates),"adj_close":[100.]*len(dates),
+    "volume":[10000.]*len(dates),"turnover":[1e6]*len(dates)})
+  features=market_features(g,dates[-1],min_company_rows=1)
+  self.assertEqual(features["dma200_prev"].iloc[0],100.)
+  self.assertFalse(features["price_gt_dma200_prev"].iloc[0])
+  self.assertFalse(features["price_lt_dma200_prev"].iloc[0])
+ def test_missing_200_sessions_cannot_become_partial_DMA_or_false(self):
+  dates=pd.bdate_range("2025-10-20",periods=260)
+  prices=np.full(len(dates),100.);prices[-100]=np.nan
+  g=pd.DataFrame({"date":dates,"symbol":["MISSING"]*len(dates),
+    "close":prices,"adj_close":prices,
+    "volume":[10000.]*len(dates),"turnover":[1e6]*len(dates)})
+  features=market_features(g,dates[-1],min_company_rows=1)
+  self.assertTrue(pd.isna(features["dma200_prev"].iloc[0]))
+  self.assertTrue(pd.isna(features["price_gt_dma200_prev"].iloc[0]))
+  self.assertTrue(pd.isna(features["price_lt_dma200_prev"].iloc[0]))
  def test_future_feed_missing_catalog_blocks_scorer(self):
   frame={"date":["2026-10-08"]*10,
    "symbol":[f"C{i}" for i in range(10)],

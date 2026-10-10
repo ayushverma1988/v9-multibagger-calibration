@@ -22,6 +22,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import brier_score_loss,average_precision_score,roc_auc_score
+from v11_4_label_clock import maturity_utc
 
 PRICE_COLUMNS=("ret_20","ret_60","ret_120","ret_252","mom_accel",
                "vol_accel","turnover_accel","off_high_252","above_low_252",
@@ -60,7 +61,7 @@ def fold_close(d):
 
 def keep_train(pit_data, heldout):
     heldout=pd.Timestamp(heldout)
-    maturity=pd.to_datetime(pit_data["y6_mature_date"],utc=True,errors="coerce",format="mixed")
+    maturity=maturity_utc(pit_data["y6_mature_date"])
     return (pit_data["date"].lt(heldout) &
             maturity.notna() & maturity.lt(fold_close(heldout)) &
             pit_data["y6"].isin([0,1]) &
@@ -73,6 +74,21 @@ def eligible_asof(group):
     return (group["integrity_feature_clean"].eq(True)&
             group["close"].between(PRICE_MIN,PRICE_MAX,inclusive="both")&
             pd.to_numeric(group["avg_turnover_63"],errors="coerce").gt(0))
+
+def partition_train_calibration(trainable, calibration_fold):
+    """Fit the base model using labels known BEFORE calibration selection.
+
+    A label that matured before the later test, but after the calibration
+    decision, cannot train the model whose calibration predictions we assess.
+    Keep the latest matured calibration fold disjoint from earlier training.
+    """
+    dates=pd.to_datetime(trainable["date"],errors="raise").dt.normalize()
+    day=pd.Timestamp(calibration_fold).normalize()
+    mature=maturity_utc(trainable["y6_mature_date"])
+    known=mature.notna() & mature.lt(fold_close(day))
+    base=trainable.loc[dates.lt(day) & known].copy()
+    cal=trainable.loc[dates.eq(day)].copy()
+    return base,cal
 
 def safe_featureize(frame):
     x=frame.copy()
@@ -87,7 +103,7 @@ def make_model():
         ("imputer",SimpleImputer(strategy="median")),
         ("scale",StandardScaler()),
         ("lr",LogisticRegression(
-            penalty="l2",C=REGULARIZATION_C,max_iter=1300,
+            C=REGULARIZATION_C,max_iter=1300,
             class_weight=None,solver="lbfgs",random_state=31))
     ])
 
@@ -210,8 +226,7 @@ def main():
                                  "training_fold_count":len(past)})
             continue
         cal_fold=past[-1]
-        base=trainable[trainable["date"]<cal_fold].copy()
-        cal=trainable[trainable["date"]==cal_fold].copy()
+        base,cal=partition_train_calibration(trainable,cal_fold)
         current=training[(training["date"]==td)&eligible_asof(training)].copy()
         if (base["date"].nunique()<MIN_BASE_TRAIN_FOLDS or len(base)<MIN_BASE_TRAIN_ROWS or
             int(base["y6"].sum())<MIN_BASE_POSITIVES or
@@ -221,9 +236,11 @@ def main():
                                  "training_rows":len(base),"calibration_positive":int(cal["y6"].sum())})
             continue
         if len(current)<TOP_K:raise SystemExit("Too few stocks from independent original market/PIT universe")
-        if pd.to_datetime(base["y6_mature_date"],utc=True,errors="coerce").max()>=fold_close(td):
+        if maturity_utc(base["y6_mature_date"]).max()>=fold_close(td):
             raise SystemExit("Six-month training outcome matured AFTER selection cutoff")
-        if pd.to_datetime(cal["y6_mature_date"],utc=True,errors="coerce").max()>=fold_close(td):
+        if maturity_utc(base["y6_mature_date"]).max()>=fold_close(cal_fold):
+            raise SystemExit("Training outcome was not known BEFORE calibration selection")
+        if maturity_utc(cal["y6_mature_date"]).max()>=fold_close(td):
             raise SystemExit("Calibration outcome matured AFTER selection cutoff")
         cal_values=cal["y6"].astype(int).to_numpy()
         pvalues,actual_calibration_method=train_once(base,cal,current,return_mode=True)
@@ -238,7 +255,7 @@ def main():
                 "research_standalone_V11_4":True,
                 # Outcomes never included in saved selection file.
             })
-        labelm=pd.to_datetime(current["y6_mature_date"],utc=True,errors="coerce")
+        labelm=maturity_utc(current["y6_mature_date"])
         outcome_ok=current["y6"].isin([0,1])&current["integrity_y6_clean"].eq(True)&(
             labelm<=pd.Timestamp("2026-10-08T23:59:59Z"))
         assessed=current[outcome_ok]
@@ -247,6 +264,7 @@ def main():
             "date":str(pd.Timestamp(td).date()),"status":"tested",
             "training_folds":int(base["date"].nunique()),"training_rows":len(base),
             "calibration_fold":str(pd.Timestamp(cal_fold).date()),
+            "training_labels_mature_before_calibration_decision":True,
             "calibration_rows":len(cal),
             "calibration_winners":int(cal["y6"].sum()),
             "calibration_method":actual_calibration_method,
@@ -315,6 +333,7 @@ def main():
             .eq("monotone_EB_after_negative_Platt_slope").sum()),
         "fixed_C":REGULARIZATION_C,
         "previous_matured_label_only":True,
+        "training_labels_mature_before_original_calibration_decision":True,
         "training_or_calibration_current_or_future_labels":False,
         "historical_test_folds":int(len(tested)),
         "fully_integrity_clean_10stock_test_folds":int(len(full)),

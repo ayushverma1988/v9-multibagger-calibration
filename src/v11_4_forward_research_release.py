@@ -52,11 +52,11 @@ def strip_pandemic_matured_outcomes(x,enabled=True):
     # Original selection -> observed y6 maturity crossed initial COVID shock.
     return ~((start<=SHOCK_HI)&t.ge(SHOCK_LO))
 
-def fit_calibration_params(cal_prediction,cal_y,train_y):
+def fit_calibration_params(cal_prediction,cal_y,train_y,min_training_rows=core.MIN_BASE_TRAIN_ROWS):
     q=np.clip(np.asarray(cal_prediction,dtype=float),1e-5,1-1e-5)
     y=np.asarray(cal_y,dtype=int)
     prior=np.asarray(train_y,dtype=int)
-    if len(y)<50 or len(prior)<core.MIN_BASE_TRAIN_ROWS:
+    if len(y)<50 or len(prior)<min_training_rows:
         raise ValueError("Insufficient mature calibration/training labels")
     logits=np.log(q/(1-q))
     if core.calibration_mode(y)=="platt":
@@ -135,7 +135,7 @@ def score_prospective(data,package,asof,meta):
     # the close was from the preceding market session.
     output=ranked[["date","symbol","close","p6_double_calibrated"]].copy()
     output.insert(0,"rank",range(1,len(output)+1))
-    output["model_id"]=VERSION
+    output["model_id"]=package.get("model_version",VERSION)
     output["source_cutoff_utc"]=cutoff.isoformat()
     output["six_month_outcome_verified"]=False
     output["research_only_not_investment_advice"]=True
@@ -170,8 +170,7 @@ def freeze(features,snapshot,out,asof=ASOF,exclude_covid=True):
     if len(past)<MIN_HISTORY_FOLDS+1:
         raise SystemExit("Insufficient matured historical training and independent calibration folds")
     caldate=past[-1]
-    base=trainable[trainable["date"]<caldate].copy()
-    cal=trainable[trainable["date"]==caldate].copy()
+    base,cal=core.partition_train_calibration(trainable,caldate)
     if (base["date"].nunique()<MIN_HISTORY_FOLDS or len(base)<core.MIN_BASE_TRAIN_ROWS or
         int(base["y6"].sum())<core.MIN_BASE_POSITIVES or len(cal)<50 or
         cal["y6"].nunique()!=2):
@@ -208,6 +207,7 @@ def freeze(features,snapshot,out,asof=ASOF,exclude_covid=True):
         "training_observation_count":len(base),"training_folds":int(base["date"].nunique()),
         "training_winners":int(base["y6"].sum()),"training_latest_fold":str(base["date"].max().date()),
         "separate_calibration_fold":str(pd.Timestamp(caldate).date()),
+        "training_labels_mature_before_calibration_decision":True,
         "calibration_observation_count":len(cal),
         "calibration_winners":int(cal["y6"].sum()),
         "calibration_method":calibration["method"],

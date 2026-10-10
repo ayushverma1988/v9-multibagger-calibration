@@ -1,0 +1,87 @@
+name: V11.4 Verified Enrichment and Independent Evaluation Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-systematic-sleeve-views-20261009]
+    paths:
+      - .github/workflows/v11_4_source_blocker_contract.yml
+      - src/v11_4_verified_current_financials.py
+      - src/v11_4_exchange_reference_universe.py
+      - src/v11_4_primary_document_catalysts.py
+      - src/v11_4_source_blocker_recovery.py
+      - src/v11_4_verified_promoter_transactions.py
+      - src/v11_4_enriched_current_source_audit.py
+      - src/v11_4_independent_evaluation_ledger.py
+      - src/v11_4_evaluation_protocol_run.py
+      - tests/test_v11_4_source_blocker_recovery.py
+permissions:
+  contents: read
+concurrency:
+  group: v11-4-enrichment-independent-contract
+  cancel-in-progress: false
+jobs:
+  verify-source-contract-and-freeze-actual-research-weights:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements_v11_4_systematic.txt
+      - name: Test exact monetary units periods issuer identity unknown fields and immutable prospective outcomes
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - name: Restore existing tested research weights and source-only reference privately
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os,shutil,json
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          token=os.environ['HF_ARCHIVE_TOKEN'];repo='ayushverma1988/v10-multibagger-archive'
+          api=HfApi(token=token);head=api.repo_info(repo,repo_type='dataset');assert head.private
+          root=Path('private_inputs');root.mkdir()
+          files={
+            'model.joblib':'v11_4/complete_validation_fixed_robustness_research/run_38006342603/current_replay/robust_research_current_model_PRIVATE.joblib',
+            'features.parquet':'v11_4/systematic_repair_research/run_37970837477/current_NSE/v11_4_live_NSE_verified_stock_features.parquet',
+          }
+          for name,path in files.items():
+              original=hf_hub_download(repo_id=repo,repo_type='dataset',filename=path,revision=head.sha,token=token)
+              shutil.copyfile(original,root/name)
+          (root/'source_archive_revision.json').write_text(json.dumps({'revision':head.sha,'files':files},indent=2))
+          print('Previously tested actual weights restored; no label or retrospective selection archive loaded.')
+          PY
+      - name: Freeze actual weights and pin prospective protocol while keeping the observation ledger empty
+        run: |
+          PYTHONPATH=src python src/v11_4_evaluation_protocol_run.py \
+            --model private_inputs/model.joblib --source-features private_inputs/features.parquet \
+            --owner-public-key config/v11_4_systematic_owner_public.pem --output independent_contract_output
+      - name: Append private protocol with no overwriting of existing frozen records
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          token=os.environ['HF_ARCHIVE_TOKEN'];repo='ayushverma1988/v10-multibagger-archive'
+          api=HfApi(token=token);head=api.repo_info(repo,repo_type='dataset');assert head.private
+          prefix='v11_4/independent_evaluation_protocol/run_'+os.environ['GITHUB_RUN_ID']+'_attempt_'+os.environ['GITHUB_RUN_ATTEMPT']
+          existing=api.list_repo_files(repo,repo_type='dataset',revision=head.sha)
+          assert not any(p.startswith(prefix+'/') for p in existing)
+          api.upload_folder(folder_path='independent_contract_output',repo_id=repo,repo_type='dataset',path_in_repo=prefix,
+              parent_commit=head.sha,commit_message='Freeze fixed V11.4 research weights and source-aware independent evaluation protocol; zero future outcomes')
+          print('Independent protocol receipt stored; full model approval remains false.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-independent-protocol-receipt-and-owner-encrypted-bundle
+          path: |
+            independent_contract_output/independent_evaluation_status_summary.json
+            independent_contract_output/owner_evaluation_bundle_ENCRYPTED.json
+          retention-days: 90
+          if-no-files-found: error

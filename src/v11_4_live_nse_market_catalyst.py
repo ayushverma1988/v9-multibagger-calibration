@@ -288,14 +288,16 @@ def market_features(history,target,min_company_rows=MIN_UNIQUE_MARKET_CANDIDATES
     "vol_accel":float(vz.iloc[-1]),"turnover_accel":float(tz.iloc[-1]),
     "off_high_252":float((x/hi252-1).iloc[-1]),
     "above_low_252":float((x/lo252-1).iloc[-1]),
-    "dma50_prev":float(x.shift(1).rolling(50,min_periods=40).mean().iloc[-1]),
-    "dma200_prev":float(x.shift(1).rolling(200,min_periods=160).mean().iloc[-1]),
+    "dma50_prev":float(x.shift(1).rolling(50,min_periods=50).mean().iloc[-1]),
+    "dma200_prev":float(x.shift(1).rolling(200,min_periods=200).mean().iloc[-1]),
     "rsi14_wilder":rsi_wilder_last(x),
     "trend_consistency_60":float((ret>0).rolling(60,min_periods=40).mean().iloc[-1]),
     "volatility_60":float((ret.rolling(60,min_periods=40).std()*np.sqrt(252)).iloc[-1])
   }
-  d["price_gt_dma50_prev"]=bool(d["adj_close"]>d["dma50_prev"]) if "adj_close" in d else bool(x.iloc[-1]>d["dma50_prev"])
-  d["price_lt_dma200_prev"]=bool(x.iloc[-1]<d["dma200_prev"])
+  last=float(x.iloc[-1])
+  d["price_gt_dma50_prev"]=bool(last>d["dma50_prev"]) if np.isfinite([last,d["dma50_prev"]]).all() else pd.NA
+  d["price_lt_dma200_prev"]=bool(last<d["dma200_prev"]) if np.isfinite([last,d["dma200_prev"]]).all() else pd.NA
+  d["price_gt_dma200_prev"]=bool(last>d["dma200_prev"]) if np.isfinite([last,d["dma200_prev"]]).all() else pd.NA
   d["up_from_52w_low"]=float((x/lo252-1).iloc[-1])
   d["down_from_52w_high"]=float((1-x/hi252).iloc[-1])
   d["rsi14_gt70"]=bool(d["rsi14_wilder"]>70)

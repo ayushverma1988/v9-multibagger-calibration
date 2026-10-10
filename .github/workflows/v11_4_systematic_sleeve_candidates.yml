@@ -1,0 +1,91 @@
+name: V11.4 Corrected Early and Second Leg Candidate Snapshot Replay
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-systematic-sleeve-views-20261009]
+    paths:
+      - .github/workflows/v11_4_systematic_sleeve_candidates.yml
+      - src/v11_4_systematic_sleeve_candidates.py
+      - tests/test_v11_4_systematic_sleeve_candidates.py
+permissions:
+  contents: read
+jobs:
+  verify-and-replay-original-corrected-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install the complete original corrected environment
+        run: pip install -r requirements_v11_4_systematic.txt
+      - name: Run all regression tests including separate discovery sleeves
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - name: Restore only the exact original October 9 corrected current source and package
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          token=os.environ['HF_ARCHIVE_TOKEN']
+          repo='ayushverma1988/v10-multibagger-archive'
+          api=HfApi(token=token)
+          info=api.repo_info(repo_id=repo,repo_type='dataset')
+          assert info.private is True
+          prefix='v11_4/systematic_repair_research/run_37970837477'
+          files={
+            'features.parquet':'current_NSE/v11_4_live_NSE_verified_stock_features.parquet',
+            'metadata.json':'current_NSE/v11_4_live_source_validation.json',
+            'model.joblib':'current_model/systematic_corrected_current_model_PRIVATE.joblib',
+            'recorded.csv':'current_corrected_model_demo_PRIVATE.csv'}
+          dest=Path('sleeve_source_inputs');dest.mkdir(exist_ok=True)
+          for name,path in files.items():
+              source=hf_hub_download(repo_id=repo,repo_type='dataset',filename=prefix+'/'+path,
+                  revision=info.sha,token=token)
+              shutil.copy2(source,dest/name)
+          print('Exact original corrected source snapshot and model restored privately; no new market date claimed.')
+          PY
+      - name: Score independent early second-leg and extended views without refitting or changing global observation
+        run: |
+          PYTHONPATH=src python src/v11_4_systematic_sleeve_candidates.py \
+            --features sleeve_source_inputs/features.parquet \
+            --metadata sleeve_source_inputs/metadata.json \
+            --model sleeve_source_inputs/model.joblib \
+            --recorded sleeve_source_inputs/recorded.csv \
+            --output systematic_sleeve_output \
+            --owner-public-key config/v11_4_systematic_owner_public.pem
+      - name: Save new independent research views privately without overwriting originals
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          from huggingface_hub import HfApi
+          root=Path('systematic_sleeve_output')
+          report=json.loads((root/'sleeve_candidate_summary.json').read_text())
+          assert report['original_global_top10_verified_unchanged'] is True
+          assert report['model_refitted'] is False and report['production_approved'] is False
+          api=HfApi(token=os.environ['HF_ARCHIVE_TOKEN'])
+          repo='ayushverma1988/v10-multibagger-archive'
+          head=api.repo_info(repo_id=repo,repo_type='dataset');assert head.private is True
+          dest='v11_4/systematic_sleeve_candidates/run_${{ github.run_id }}'
+          assert not any(p.startswith(dest+'/') for p in api.list_repo_files(repo_id=repo,repo_type='dataset'))
+          api.upload_folder(folder_path=str(root),repo_id=repo,repo_type='dataset',path_in_repo=dest,
+              parent_commit=head.sha,commit_message='Independent early and second-leg research views of original corrected Oct9 source; no refit or production promotion')
+          print('New sleeve-view research results saved privately; original global observation preserved.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-systematic-sleeve-views-aggregate-and-encrypted-owner-rows
+          path: |
+            systematic_sleeve_output/sleeve_candidate_summary.json
+            systematic_sleeve_output/owner_demo_encrypted.json
+          retention-days: 90
+          if-no-files-found: warn

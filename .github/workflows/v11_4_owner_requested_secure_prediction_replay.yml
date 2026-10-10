@@ -1,0 +1,150 @@
+name: V11.4 Owner Requested Secure Oct9 Model Replay and Predictions
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-systematic-sleeve-views-20261009]
+    paths:
+      - .github/workflows/v11_4_owner_requested_secure_prediction_replay.yml
+permissions:
+  contents: read
+concurrency:
+  group: v11-4-owner-secure-oct9-replay
+  cancel-in-progress: false
+jobs:
+  replay-verified-2026-10-09-scoring-and-encrypt-output:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exact predeclared V11.4 scoring dependencies
+        run: pip install -r requirements_v11_4_systematic.txt
+      - name: Verify exact original screener source and trained model replay tests
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_systematic_sleeve_candidates.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_forward_freeze_contract.py -v
+      - name: Restore EXACT validated 9 October 2026 as-of NSE data and fixed originally fitted model privately
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,shutil,json
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          repo='ayushverma1988/v10-multibagger-archive'
+          token=os.environ['HF_ARCHIVE_TOKEN']
+          api=HfApi(token=token)
+          source=api.repo_info(repo_id=repo,repo_type='dataset')
+          assert source.private is True
+          prefix='v11_4/systematic_repair_research/run_37970837477'
+          mapping={
+            'market.parquet':'current_NSE/v11_4_live_NSE_verified_stock_features.parquet',
+            'market_provenance.json':'current_NSE/v11_4_live_source_validation.json',
+            'corrected_model.joblib':'current_model/systematic_corrected_current_model_PRIVATE.joblib',
+            'global_recorded.csv':'current_corrected_model_demo_PRIVATE.csv'}
+          root=Path('temp_PRIVATE_replay_source');root.mkdir(exist_ok=True)
+          for local,remote in mapping.items():
+            p=hf_hub_download(repo_id=repo,repo_type='dataset',filename=prefix+'/'+remote,revision=source.sha,token=token)
+            shutil.copy2(p,root/local)
+            print('Restored read-only original private source type',local)
+          manifest=json.loads((root/'market_provenance.json').read_text())
+          assert manifest['snapshot_date']=='2026-10-09', 'No Saturday or guessed market data'
+          assert manifest['market_source_verified'] and manifest['filing_source_verified']
+          print(json.dumps({'market_asof_IST':manifest['snapshot_date'],
+              'NSE_original_verified_companies':manifest['company_rows'],
+              'dual_official_daily_close_and_NSE_filings_required':True,
+              'private_rankings_never_printed':True,
+              'new_blind_test_or_forward_production_approval':False},indent=2))
+          PY
+      - name: Supply a temporary public encryption key only; PRIVATE decryption key is NEVER in GitHub
+        run: |
+          set -euo pipefail
+          cat > temp_encryption_public_ONLY.pem <<'PUBKEY'
+          -----BEGIN PUBLIC KEY-----
+          MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAsIS74WNoDBJgnfa8TWQp
+          ZhaObIRk/egJBmY3ybbMCX80Ehzl6YLPZb6ypz9Fdhcnxof+7rptZoJS2/e4NxEE
+          g2vORx8SBlcZr5VAm69MJqjzA6e1QXmfD5gUvkFsmbdzo5yQlhzPaqVyYolL0Syf
+          UK96DzZNJZVTsytv5kqRo+EOGKXckQapSUomy5zVu85Io6hFllu1Pn7r/JYHGFXD
+          yqqFTZPPaZv/+swM4ESmwgDNoC3jv3IMfGaTOk3hq89Tb5VhiVdyBlJxS08su8LB
+          roRRDTwhtZCXp4qgijyWNJC9+gmsJsYXRMpSFpjABxVwn0+jLPFT2IHZ/RYWuGq3
+          /+02QZxE66ch8lmUOvOJb5T3d+NLUZXS2f3BOEvcIo3cDsHrwtijbeVxKMCr8WNl
+          VUEHRz4RwS1CWs4Y/a20O/9d2V1N5jZhWmfoMoLHnZ3fBEZdnVgC7AQ0FgbXBOQp
+          pN6OQkkkvKddIj+GwglXaEA6qE3yT1Ftv3p+rw6a/lIRAgMBAAE=
+          -----END PUBLIC KEY-----
+          PUBKEY
+      - name: Re-execute original source-verified calibrated model and separately rank early/second/extended sleeves
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python src/v11_4_systematic_sleeve_candidates.py \
+            --features temp_PRIVATE_replay_source/market.parquet \
+            --metadata temp_PRIVATE_replay_source/market_provenance.json \
+            --model temp_PRIVATE_replay_source/corrected_model.joblib \
+            --recorded temp_PRIVATE_replay_source/global_recorded.csv \
+            --output temp_PRIVATE_replay_score_result \
+            --owner-public-key temp_encryption_public_ONLY.pem
+      - name: Encrypt GLOBAL ranked ten predictions AND separate sleeve details before uploading any artifact
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python - <<'PY'
+          from pathlib import Path
+          import json,pandas as pd
+          from v11_4_systematic_run import encrypt_owner_demo,CURRENT_VERSION
+          root=Path('temp_PRIVATE_replay_source')
+          scored=Path('temp_PRIVATE_replay_score_result')
+          meta=json.loads((root/'market_provenance.json').read_text())
+          orig=pd.read_csv(root/'global_recorded.csv')
+          assert len(orig)==10 and orig['symbol'].is_unique
+          assert meta['snapshot_date']=='2026-10-09'
+          needed=['rank','symbol','close','p6_double_calibrated']
+          assert set(needed).issubset(orig.columns)
+          orig=orig.sort_values('rank')
+          rows=[]
+          for r in orig.to_dict('records'):
+            entry={'rank':int(r['rank']),'symbol':str(r['symbol']),
+              'NSE_last_verified_close_INR':round(float(r['close']),2),
+              'exploratory_six_month_two_X_score_pct':round(100*float(r['p6_double_calibrated']),3)}
+            for c in ('rsi14_wilder','ret_60','ret_120','ret_252','prior_runup_max_60_120_252_sessions','discovery_sleeve'):
+              v=r.get(c)
+              if v is not None and pd.notna(v):
+                entry[c]=str(v) if isinstance(v,str) else round(float(v),4)
+            rows.append(entry)
+          summary=json.loads((scored/'sleeve_candidate_summary.json').read_text())
+          assert summary['original_global_top10_verified_unchanged'] is True
+          assert summary['source_snapshot_date_IST']=='2026-10-09'
+          assert summary['production_approved'] is False
+          encrypt_owner_demo(rows,{
+            'scope':'GITHUB_PRIVATE_HF_ORIGINAL_OCT9_SNAPSHOT_REPLAY_MODEL_REPRODUCTION',
+            'source_asof_IST':'2026-10-09',
+            'frozen_original_recorded_Oct9_global_top10_exactly_reproduced':True,
+            'model_version':CURRENT_VERSION,
+            'date_now_is_Saturday_not_trading':True,
+            'corrected_22_feature_research_only':True,
+            'statistically_validated_probabilities':False,
+            'new_six_month_accuracy_earned':False,
+            'qualifying_complete_user_prompt_candidates':summary['qualified_full_user_model_candidates'],
+            'scored_all_eligible_NSE_companies':summary['eligible_scored_companies'],
+            'model_refit_in_this_replay':False,
+            'Oct8_forward_predictions_not_overwritten':True},
+             'temp_encryption_public_ONLY.pem',scored/'encrypted_global_top10_FOR_OWNER.json')
+          # Never write stock names or actual model probabilities into public workflow logs.
+          print(json.dumps({'global_research_picks_encrypted':len(rows),
+             'independent_early_second_extended_views_encrypted':True,
+             'no_plaintext_picks_in_public_artifact':True},indent=2))
+          PY
+      - name: Upload ONLY RSA-AESGCM encrypted stock predictions and aggregate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: V11-4-Oct9-secure-global-and-discovery-predictions-encrypted
+          path: |
+            temp_PRIVATE_replay_score_result/encrypted_global_top10_FOR_OWNER.json
+            temp_PRIVATE_replay_score_result/owner_demo_encrypted.json
+            temp_PRIVATE_replay_score_result/sleeve_candidate_summary.json
+          retention-days: 7
+          if-no-files-found: error
