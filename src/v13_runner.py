@@ -17,19 +17,8 @@ from v13_lifecycle import register,adjudicate,promotion_gate,paired_observations
 ARCHIVE='ayushverma1988/v10-multibagger-archive'
 
 def restore(root):
-    token=os.environ.get('HF_ARCHIVE_TOKEN')
-    if not token:raise RuntimeError('Required existing private archive credential is unavailable')
-    from huggingface_hub import HfApi,hf_hub_download
-    api=HfApi(token=token);info=api.repo_info(ARCHIVE,repo_type='dataset')
-    if not info.private:raise RuntimeError('Research checkpoint destination must be private')
-    try:path=hf_hub_download(ARCHIVE,'v13/state/latest.tar.gz',repo_type='dataset',token=token)
-    except Exception as e:
-        from huggingface_hub.errors import EntryNotFoundError
-        if isinstance(e,EntryNotFoundError):return False
-        raise RuntimeError('Private state restore failed; do not replace a possibly existing checkpoint') from e
-    root.mkdir(parents=True,exist_ok=True)
-    with tarfile.open(path,'r:gz') as tar:tar.extractall(root,filter='data')
-    verify_manifest(root);return True
+    from v13_checkpoint import restore as restore_incremental
+    return restore_incremental(root)
 
 def verify_manifest(root):
     path=root/'state_manifest.json'
@@ -53,21 +42,8 @@ def initialize(root,seed):
     (root/'active_model.json').write_text(json.dumps({'mode':'PAPER_RESEARCH','accuracy_approved':False,'sha256':manifest['files']['active_heads.joblib'],'version':'V13','initialised_at_utc':datetime.now(timezone.utc).isoformat()},indent=2))
 
 def save(root):
-    files=[p for p in sorted(root.rglob('*')) if p.is_file() and p.name!='state_manifest.json']
-    manifest={'saved_at_utc':datetime.now(timezone.utc).isoformat(),'files':[{'path':str(p.relative_to(root)),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in files]}
-    (root/'state_manifest.json').write_text(json.dumps(manifest,indent=2))
-    target=root.parent/'v13_state.tar.gz'
-    with tarfile.open(target,'w:gz') as tar:
-        for p in sorted(root.rglob('*')):
-            if p.is_file():tar.add(p,arcname=str(p.relative_to(root)))
-    from huggingface_hub import HfApi,CommitOperationAdd
-    token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
-    # One atomic commit writes an immutable snapshot and latest pointer bytes.
-    key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+hashlib.sha256(target.read_bytes()).hexdigest()[:12]
-    api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 research checkpoint '+key,
-      operations=[CommitOperationAdd(path_in_repo='v13/state/snapshots/'+key+'.tar.gz',path_or_fileobj=target),
-                  CommitOperationAdd(path_in_repo='v13/state/latest.tar.gz',path_or_fileobj=target)])
-    return {'archive':ARCHIVE,'snapshot':key,'sha256':hashlib.sha256(target.read_bytes()).hexdigest()}
+    from v13_checkpoint import save as save_incremental
+    return save_incremental(root)
 
 def last_completed_session(root,day):
     errors=[]

@@ -10,6 +10,7 @@ from v12_public_history import bounds,parse_chart
 from v11_4_exchange_reference_universe import NSE_MASTER,NSE_SME_MASTER,parse_nse_master
 from urllib.parse import quote
 import numpy as np
+import time
 
 def financial_wide(extra):
     keys=['symbol','security_isin','reporting_mode','period_kind','period_end','available_at_utc','source_sha256']
@@ -110,8 +111,10 @@ def collect_histories(root,asof,budget=400):
         age=str(pd.read_parquet(path,columns=['date']).date.max().date()) if path.exists() else '0000'
         age=max(age,attempts.get(r['nse_current_symbol'],'0000'))
         queue.append((age,sha(r['nse_current_symbol'].encode()),r))
-    errors=[];count=0
+    errors=[];count=0;started=time.monotonic();attempted=0
     for _,_,r in sorted(queue,key=lambda q:(q[0],q[1]))[:budget]:
+        if time.monotonic()-started>600:break
+        attempted+=1
         symbol=r['nse_current_symbol'];isin=r['isin']
         url='https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol+'.NS',safe='')+f'?interval=1d&period1={int(low.tz_localize("Asia/Kolkata").timestamp())}&period2={int((high+pd.Timedelta(days=1)).tz_localize("Asia/Kolkata").timestamp())}&events=div%2Csplits'
         try:
@@ -119,7 +122,7 @@ def collect_histories(root,asof,budget=400):
         except Exception as e:errors.append({'symbol':symbol,'error':str(e)[:160]})
         attempts[symbol]=asof
     attempt_path.write_text(json.dumps(attempts,indent=2))
-    return {'requested':min(budget,len(queue)),'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet')))}
+    return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet')))}
 
 def collect_financials(root,asof,budget=400):
     root=Path(root);catalog_path=root/'catalog.parquet'
@@ -135,8 +138,10 @@ def collect_financials(root,asof,budget=400):
     # Complete public-cohort queue, newest disclosures first. No query uses
     # private model picks. Accepted URLs keep immutable original-byte hashes.
     queue=queue.sort_values(['last_attempt','available_at_utc','symbol'],ascending=[True,False,True]).head(budget)
-    rows=[];errors=[]
+    rows=[];errors=[];started=time.monotonic();attempted=0
     for r in queue.to_dict('records'):
+        if time.monotonic()-started>600:break
+        attempted+=1
         try:
             store=Store(root/'filing_raw'/sha(r['available_at_utc'].encode()))
             raw,proof=store.get(r['source_url'])
@@ -151,4 +156,4 @@ def collect_financials(root,asof,budget=400):
         combined.to_parquet(path,index=False)
     accepted_path.write_text(json.dumps(sorted(accepted)))
     attempts_path.write_text(json.dumps(attempts))
-    return {'requested':len(queue),'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors}
+    return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors}
