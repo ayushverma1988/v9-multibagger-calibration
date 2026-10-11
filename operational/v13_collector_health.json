@@ -1,0 +1,14 @@
+{
+  "checked_at_utc": "2026-10-11T21:36:45.552Z",
+  "workflow_run": 38176717819,
+  "source_asof": "2026-10-09",
+  "mode": "PAPER_RESEARCH",
+  "job_state": "success",
+  "accuracy_approved": false,
+  "errors": 0,
+  "market_rows": 341,
+  "public_universe_rows": 3182,
+  "financial_errors": 3,
+  "history_errors": 198,
+  "history_usable": 202
+}
