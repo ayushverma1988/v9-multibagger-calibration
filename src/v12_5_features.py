@@ -41,12 +41,15 @@ def source_wide(base,extra):
     return w
 
 def pick(d,kind,period=None):
-    z=d[d.period_kind.eq(kind)]
-    if period is not None:z=z[z.period.eq(period)]
-    if z.empty:return {}
-    z=z[z.period.eq(z.period.max())];z=z[z.available.eq(z.available.max())]
-    if len(z)!=1:return {}
-    return z.iloc[0].to_dict()
+    mask=d.period_kind.to_numpy()==kind
+    periods=d.period.to_numpy()
+    if period is not None:mask&=periods==np.datetime64(period)
+    ix=np.flatnonzero(mask)
+    if not len(ix):return {}
+    ix=ix[periods[ix]==periods[ix].max()]
+    available=d.available.to_numpy();ix=ix[available[ix]==available[ix].max()]
+    if len(ix)!=1:return {}
+    return d.iloc[int(ix[0])].to_dict()
 
 def features(known,date):
     out={c:np.nan for c in (*FINANCIAL,*UNSUPPORTED,*BASE_FIELDS,'four_profitable_quarters')}
