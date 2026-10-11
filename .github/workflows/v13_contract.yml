@@ -1,0 +1,24 @@
+name: V13 NSE Learning Contract
+on:
+  push:
+    branches: [v13-nse-self-learning-20261011]
+    paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_contract.yml']
+  pull_request:
+    paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_contract.yml']
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - run: python -m unittest discover -s tests
