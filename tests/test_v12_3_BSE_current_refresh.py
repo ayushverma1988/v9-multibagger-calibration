@@ -1,9 +1,15 @@
-import json,unittest,hashlib
+import json,unittest,hashlib,tempfile
+from pathlib import Path
 import pandas as pd
-from v12_3_BSE_current_refresh import merge_recent
+from v12_3_BSE_current_refresh import merge_recent,run
 
 
 class BSERefreshTests(unittest.TestCase):
+    def test_previous_normalized_history_cannot_leak_into_a_rerun(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'securities';p.mkdir();(p/'old.parquet').write_bytes(b'old')
+            with self.assertRaises(FileExistsError):run('unused','unused','unused','unused',d,'2026-10-09')
+
     def fixture(self):
         dates=pd.date_range('2026-10-05',periods=5)
         ref={'isin':'INE000000001','provider_symbol':'EXAMPLE.BO','provider_long_name':'Example Limited'}

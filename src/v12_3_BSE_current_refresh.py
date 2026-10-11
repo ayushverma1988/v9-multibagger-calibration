@@ -54,7 +54,13 @@ def merge_recent(raw,receipt,reference,old,asof):
 
 
 def run(reference,history,nse_scores,model,output,asof):
-    out=Path(output);out.mkdir(parents=True,exist_ok=True);(out/'securities').mkdir(exist_ok=True)
+    out=Path(output)
+    if (out/'summary.json').exists() or any((out/'securities').glob('*.parquet')):
+        raise FileExistsError('Use a fresh output directory; never reuse previous normalized histories')
+    out.mkdir(parents=True,exist_ok=True);(out/'securities').mkdir(exist_ok=True)
+    with (out/'run_started.json').open('x') as f:
+        json.dump({'started_at_utc':datetime.now(timezone.utc).isoformat(),'asof':asof,
+                   'code_sha256':sha(Path(__file__).read_bytes()),'production_approved':False},f,indent=2)
     ref=pd.read_parquet(reference);ref.to_parquet(out/'public_request_universe.parquet',index=False)
     if ref.duplicated('isin').any():raise ValueError('Ambiguous public universe')
     store=Store(out/'raw');audit=[];errors=[]

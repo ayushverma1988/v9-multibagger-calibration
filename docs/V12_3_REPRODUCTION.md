@@ -56,4 +56,4 @@ The saved four-year BSE histories ended on 8 October, so their monthly panel did
 python src/v12_3_BSE_current_refresh.py --reference OLD/BSE_four_year_full_public/public_BSE_exclusive_request_universe.parquet --history OLD/BSE_four_year_full_public --nse-scores NEW/evaluation/chronological_development_scores.parquet --model NEW/evaluation/UNPROMOTED_research_heads.joblib --output NEW/BSE_current
 ```
 
-This current inference is separate from the already scored historical BSE comparison. Historical selections and performance remain unchanged. Five additional tests cover current-bar absence, identity, adjustments, volume conflicts and source-preserving appends.
+This current inference is separate from the already scored historical BSE comparison. Historical selections and performance remain unchanged. Six additional tests cover output-directory reuse, current-bar absence, identity, adjustments, volume conflicts and source-preserving appends.
