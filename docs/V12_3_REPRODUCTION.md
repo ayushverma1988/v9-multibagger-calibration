@@ -47,3 +47,13 @@ python src/v12_3_prospective_comparison.py --scores NEW/evaluation/chronological
 ```
 
 `validate_comparison` verifies the stored registration and adjudication-protocol hashes. The separate registration has its own actual UTC decision time; never inherit the earlier V12.1 decision time. The whole-market collection can support both registrations, but collecting raw prices does not supply verified adjustment factors, first-entry proof, or mature future outcomes.
+
+## Current BSE research inference
+
+The saved four-year BSE histories ended on 8 October, so their monthly panel did not contain the 9 October decision. The new adapter fetches recent one-month Yahoo .BO charts for the whole saved public universe. It requires exact provider identity, BSE/INR/timezone, a completed 9 October bar, at least three overlapping sessions, matching OHLC/adjusted-close within ₹0.011 and exact volume. Any unexplained revision rejects that issuer; it is not silently corrected. The adapter appends verified overlapping-source history, computes the original features against the same current NSE reference, and uses the saved unpromoted NSE heads without fitting. All unavailable BSE financial and catalyst fields remain UNKNOWN. This is free end-of-day research coverage, not a primary BSE feed, proof of live latency or independent corporate-action verification.
+
+```bash
+python src/v12_3_BSE_current_refresh.py --reference OLD/BSE_four_year_full_public/public_BSE_exclusive_request_universe.parquet --history OLD/BSE_four_year_full_public --nse-scores NEW/evaluation/chronological_development_scores.parquet --model NEW/evaluation/UNPROMOTED_research_heads.joblib --output NEW/BSE_current
+```
+
+This current inference is separate from the already scored historical BSE comparison. Historical selections and performance remain unchanged. Five additional tests cover current-bar absence, identity, adjustments, volume conflicts and source-preserving appends.
