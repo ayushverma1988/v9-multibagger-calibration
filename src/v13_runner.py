@@ -143,7 +143,14 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             target=root/'challenger_runs'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
             model.run(root/'challenger_matrix.parquet',target,asof,only_current=True)
             if (target/'research_heads.joblib').exists():
-                (root/'challenger').mkdir(exist_ok=True);shutil.copy2(target/'research_heads.joblib',root/'challenger'/'research_heads.joblib')
+                (root/'challenger').mkdir(exist_ok=True)
+                # Keep the formal challenger fixed while its unseen outcomes
+                # mature. Monthly learned heads are archived separately;
+                # replacing the formal head every month would prevent a
+                # valid twelve-month paired comparison from ever finishing.
+                if not (root/'challenger'/'research_heads.joblib').exists():
+                    shutil.copy2(target/'research_heads.joblib',root/'challenger'/'research_heads.joblib')
+                shutil.copy2(target/'research_heads.joblib',root/'latest_learned_heads.joblib')
             marker.write_text(month);report['challenger_refit']=str(target.relative_to(root))
         # Promotion requires independently verified unseen outcomes. Current
         # provider adjustment/action reconciliation is incomplete, so promotion

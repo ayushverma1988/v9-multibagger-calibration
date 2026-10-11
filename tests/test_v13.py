@@ -100,4 +100,15 @@ class V13Contract(unittest.TestCase):
             item['path']='../escape'
             with self.assertRaises(ValueError):materialize_one(item,root/'state',lambda p:source)
 
+    def test_repeated_daily_cohorts_are_not_independent_months(self):
+        rows=[]
+        for date in pd.bdate_range('2024-06-01',periods=8):
+            for j in range(600):
+                y=j%2;rows.append({'date':date,'registered_at_utc':date.tz_localize('UTC'),
+                  'mature_at_utc':date.tz_localize('UTC')+pd.DateOffset(months=12),'y':y,
+                  'champion':.5,'challenger':float(y),'selected_champion':True,
+                  'selected_challenger':True,'independent_outcome_verified':True})
+        r=promotion_gate(pd.DataFrame(rows),'2024-05-01T00:00:00Z',source_complete=True)
+        self.assertFalse(r['promote']);self.assertIn('fewer_than_six_mature_decision_months',r['reasons'])
+
 if __name__=='__main__':unittest.main()

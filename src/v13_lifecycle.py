@@ -5,6 +5,7 @@ from datetime import datetime,timezone
 import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss
+from scipy.stats import t as student_t
 import v12_four_year_model as core
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
@@ -105,16 +106,23 @@ def promotion_gate(paired,registered_after,source_complete=False):
     cutoff=pd.Timestamp(registered_after)
     if cutoff.tzinfo is None:raise ValueError('Challenger freeze clock needs timezone')
     d=d[d.registered_at_utc.gt(cutoff)&d.mature_at_utc.le(pd.Timestamp.now(tz='UTC'))&d.y.isin([0,1])]
+    # A month contributes its first registered decision cohort only. Repeated
+    # daily forecasts of substantially the same names are not six independent
+    # months of evidence. Overlapping horizons still limit inference strength.
+    first_dates=d.groupby(d.date.dt.to_period('M')).date.transform('min')
+    d=d[d.date.eq(first_dates)]
     if not source_complete:reasons.append('source_or_action_coverage_incomplete')
     if not d.independent_outcome_verified.all():reasons.append('unverified_outcomes')
-    if d.date.nunique()<6:reasons.append('fewer_than_six_independent_decision_dates')
+    if d.date.dt.to_period('M').nunique()<6:reasons.append('fewer_than_six_mature_decision_months')
     if len(d)<500:reasons.append('fewer_than_500_mature_paired_rows')
     if d.y.eq(1).sum()<20:reasons.append('fewer_than_20_positive_outcomes')
     for label in ('champion','challenger'):
         if d['selected_'+label].sum()<60:reasons.append('fewer_than_60_selected_'+label)
     if len(d):
         delta=(d.champion-d.y)**2-(d.challenger-d.y)**2
-        means=delta.groupby(d.date).mean();lower=float(means.mean()-1.96*means.std(ddof=1)/np.sqrt(len(means))) if len(means)>1 else -1
+        means=delta.groupby(d.date).mean()
+        critical=student_t.ppf(.975,len(means)-1) if len(means)>1 else np.inf
+        lower=float(means.mean()-critical*means.std(ddof=1)/np.sqrt(len(means))) if len(means)>1 else -1
         if not lower>0:reasons.append('date_clustered_brier_gain_not_positive')
         a=d[d.selected_champion];b=d[d.selected_challenger]
         if a.empty or b.empty or b.y.mean()<a.y.mean()+.02:reasons.append('precision_gain_below_two_percentage_points')
