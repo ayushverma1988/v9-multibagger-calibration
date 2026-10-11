@@ -41,9 +41,12 @@ def valuation(output,market_path,asof='2026-10-09'):
 
 def catalysts(catalog_path,financial_cohort,output):
     out=Path(output);out.mkdir(parents=True,exist_ok=True)
-    events=dated_events(json.loads(Path(catalog_path).read_text()),'2026-10-09')
     # Public source-defined cohort; no model ranking or outcomes determine requests.
     cohort=pd.read_parquet(financial_cohort)
+    symbols=set(cohort.symbol)
+    raw=json.loads(Path(catalog_path).read_text())
+    raw=[r for r in raw if str(r['record'].get('symbol','')).upper() in symbols]
+    events=dated_events(raw,'2026-10-09')
     events=events[events.symbol.isin(cohort.symbol)]
     events.to_parquet(out/'cohort_dated_events.parquet',index=False)
     collect(out/'cohort_dated_events.parquet',out/'documents',per_year=64)
