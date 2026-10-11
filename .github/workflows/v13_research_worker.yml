@@ -1,0 +1,44 @@
+name: V13 NSE Research Collector and Learner
+on:
+  schedule:
+    - cron: '30 16 * * 1-5'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v13_research_worker.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a9b9a64bc50ca21ed8b77dab5b677d058888729c
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Run resumable whole-public-NSE research worker
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_runner --state v13_state --seed v13_seed --history-budget 400 --filing-budget 400
+      - name: Preserve complete restart state even after a failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-private-research-state-${{ github.run_id }}
+          path: |
+            v13_state.tar.gz
+            archive_receipt.json
+            v13_state/latest_run.json
+          retention-days: 30
