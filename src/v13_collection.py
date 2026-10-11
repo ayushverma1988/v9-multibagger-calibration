@@ -102,10 +102,13 @@ def universe(root,asof):
 def collect_histories(root,asof,budget=400):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
     store=Store(root/'sources'/asof/'history_raw');folder=root/'history'/'securities';folder.mkdir(parents=True,exist_ok=True)
+    attempt_path=root/'history_attempts.json'
+    attempts=json.loads(attempt_path.read_text()) if attempt_path.exists() else {}
     queue=[]
     for r in u.to_dict('records'):
         path=folder/(sha(r['nse_current_symbol'].encode())+'.parquet')
         age=str(pd.read_parquet(path,columns=['date']).date.max().date()) if path.exists() else '0000'
+        age=max(age,attempts.get(r['nse_current_symbol'],'0000'))
         queue.append((age,sha(r['nse_current_symbol'].encode()),r))
     errors=[];count=0
     for _,_,r in sorted(queue,key=lambda q:(q[0],q[1]))[:budget]:
@@ -114,6 +117,8 @@ def collect_histories(root,asof,budget=400):
         try:
             raw,receipt=store.get(url);d,_=parse_chart(raw,symbol,isin,asof,receipt);d.to_parquet(folder/(sha(symbol.encode())+'.parquet'),index=False);count+=1
         except Exception as e:errors.append({'symbol':symbol,'error':str(e)[:160]})
+        attempts[symbol]=asof
+    attempt_path.write_text(json.dumps(attempts,indent=2))
     return {'requested':min(budget,len(queue)),'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet')))}
 
 def collect_financials(root,asof,budget=400):

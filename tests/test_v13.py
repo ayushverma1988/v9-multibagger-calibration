@@ -6,6 +6,7 @@ import v13_model as model
 from v13_features import daily_features
 from v13_lifecycle import register,validate_registry,promotion_gate,adjudicate
 from v13_runner import initialize,verify_manifest
+from v13_collection import collect_histories
 import base64,hashlib,json
 
 class V13Contract(unittest.TestCase):
@@ -68,5 +69,15 @@ class V13Contract(unittest.TestCase):
             (root/'state_manifest.json').write_text(json.dumps({'files':[{'path':'forecast.json','sha256':hashlib.sha256(b'immutable').hexdigest()}]}))
             verify_manifest(root);(root/'forecast.json').write_bytes(b'changed')
             with self.assertRaises(ValueError):verify_manifest(root)
+
+    def test_unavailable_history_does_not_starve_public_queue(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t)
+            pd.DataFrame([{'nse_current_symbol':s,'isin':'INE000000001'} for s in ['AAA','BBB','CCC']]).to_parquet(root/'universe.parquet',index=False)
+            with patch('v13_collection.Store.get',side_effect=ValueError('temporarily unavailable')):
+                first=collect_histories(root,'2026-10-09',budget=1)
+                second=collect_histories(root,'2026-10-09',budget=1)
+            self.assertNotEqual(first['errors'][0]['symbol'],second['errors'][0]['symbol'])
+            self.assertEqual(first['requested'],1);self.assertEqual(second['requested'],1)
 
 if __name__=='__main__':unittest.main()
