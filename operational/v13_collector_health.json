@@ -1,6 +1,6 @@
 {
-  "checked_at_utc": "2026-10-12T17:34:29.408Z",
-  "workflow_run": 38284340001,
+  "checked_at_utc": "2026-10-12T17:43:39.969Z",
+  "workflow_run": 38285439167,
   "source_asof": "2026-10-12",
   "mode": "PAPER_RESEARCH",
   "job_state": "failure",
@@ -8,7 +8,7 @@
   "errors": 1,
   "market_rows": 0,
   "public_universe_rows": 0,
-  "financial_errors": 12,
+  "financial_errors": 1,
   "history_errors": 0,
   "history_usable": 0,
   "paired_rows_per_model": 0,
