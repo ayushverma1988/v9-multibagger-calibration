@@ -162,6 +162,13 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
                 report['monthly_research_status']='FAILED_RETAINING_FIXED_MODELS'
         # Commit paired forecasts after initial refitting. Both models score
         # the same immutable inputs at the same actual registration timestamp.
+        initial_experiments=root/'research_experiments_initial.json'
+        if (root/'challenger_matrix.parquet').exists() and not initial_experiments.exists():
+            try:
+                diagnostic=evaluation.experiments(pd.read_parquet(root/'challenger_matrix.parquet'),asof,initial_experiments)
+                report['initial_experiment_folds']=len(diagnostic['folds'])
+            except Exception as exc:
+                report['errors'].append({'phase':'initial_research_experiments','error':str(exc)[:300]})
         challenger_model=root/'challenger'/'research_heads.joblib'
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
