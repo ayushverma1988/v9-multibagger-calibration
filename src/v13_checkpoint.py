@@ -81,3 +81,21 @@ def save(root):
         tar.add(path,arcname='v13_checkpoint_manifest.json')
         if (root/'latest_run.json').exists():tar.add(root/'latest_run.json',arcname='latest_run.json')
     return {'archive':ARCHIVE,'snapshot':key,'manifest_sha256':sha,'new_objects':len(entries),'total_objects':len({r['sha256'] for r in data['files']})}
+
+def restore_review_originals(root):
+    """Fetch only original hashes required by reviewed evidence, using the
+    worker's existing archive connection. No credential is exported or logged.
+    """
+    from huggingface_hub import hf_hub_download
+    root=Path(root);mp=root/'remote_manifest.json'
+    if not mp.exists():return
+    required=set()
+    for rel in ('catalyst_evidence/reviewed_execution.json','action_audit/reviewed_actions.json','action_audit/reviewed_coverage.json','evidence/reviewed_earnings_scenarios.json'):
+        p=root/rel
+        if not p.exists():continue
+        for r in json.loads(p.read_text()):
+            if r.get('source_sha256'):required.add(r['source_sha256'])
+            required.update(r.get('primary_source_hashes',[]));required.update(r.get('input_source_sha256',{}).values())
+    for item in json.loads(mp.read_text())['files']:
+        if item['sha256'] in required and not (root/item['path']).exists():
+            materialize_one(item,root,lambda key:hf_hub_download(ARCHIVE,key,repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN')))

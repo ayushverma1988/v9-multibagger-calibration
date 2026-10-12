@@ -65,7 +65,11 @@ def current_catalogs(root,asof):
         except Exception as e:errors.append({'feed':venue+'_announcements','error':str(e)[:160]})
         try:
             raw,proof=store.get('https://www.nseindia.com/api/corporates-corporateActions',{'index':venue,'from_date':(high-pd.Timedelta(days=28)).strftime('%d-%m-%Y'),'to_date':high.strftime('%d-%m-%Y')})
-            if not isinstance(json.loads(raw),list):raise ValueError('Corporate action catalog schema')
+            actions=json.loads(raw)
+            if not isinstance(actions,list):raise ValueError('Corporate action catalog schema')
+            (folder/(venue+'_actions.json')).write_text(json.dumps({'start':str((high-pd.Timedelta(days=28)).date()),'end':str(high.date()),
+              'catalog_sha256':proof['sha256'],'requested_url':proof['requested_url'],'retrieved_at_utc':proof['first_retrieved_utc'],
+              'venue_index':venue,'records':actions,'absence_is_not_independent_no_action_proof':True},indent=2))
         except Exception as e:errors.append({'feed':venue+'_actions','error':str(e)[:160]})
     folder.mkdir(parents=True,exist_ok=True);(folder/'errors.json').write_text(json.dumps(errors,indent=2))
     if financial:
@@ -91,6 +95,29 @@ def announcement_counts(frame,root,asof):
             d.at[i,'order_disclosure_count90']=int(q.order_disclosure.sum())
             d.at[i,'capacity_disclosure_count90']=int(q.capacity_disclosure.sum())
     return d
+
+def historical_event_backfill(root,asof,budget=2):
+    """Bounded whole-public-venue windows, confined to the trailing four years."""
+    root=Path(root);low,high=bounds(asof);windows=[];end=high
+    while end>=low:
+        start=max(low,end-pd.Timedelta(days=28));windows.append((start,end));end=start-pd.Timedelta(days=1)
+    errors=[];completed=0
+    for start,end in windows:
+        folder=root/'sources'/('backfill_'+str(start.date())+'_'+str(end.date()))
+        if (folder/'complete.json').exists():continue
+        if completed>=budget:break
+        store=Store(folder/'raw');events=[];ok=True
+        for venue in ('equities','sme'):
+            try:
+                raw,proof=store.get('https://www.nseindia.com/api/corporate-announcements',{'index':venue,'from_date':start.strftime('%d-%m-%Y'),'to_date':end.strftime('%d-%m-%Y')})
+                rows=json.loads(raw)
+                if not isinstance(rows,list):raise ValueError('Historical event schema')
+                events.extend({'record':r,'venue_index':venue,'catalog_sha256':proof['sha256']} for r in rows)
+            except Exception as exc:ok=False;errors.append({'start':str(start.date()),'venue':venue,'error':str(exc)[:160]})
+        if events:dated_events(events,asof).to_parquet(folder/'events.parquet',index=False)
+        if ok:(folder/'complete.json').write_text(json.dumps({'start':str(start.date()),'end':str(end.date()),'records':len(events),'absence_does_not_verify_no_catalyst':True}))
+        completed+=1
+    return {'windows_attempted':completed,'total_windows':len(windows),'errors':errors}
 
 def universe(root,asof):
     store=Store(Path(root)/'sources'/asof/'raw');frames=[]
@@ -137,7 +164,9 @@ def collect_financials(root,asof,budget=400):
     queue['last_attempt']=queue.version_key.map(lambda k:attempts.get(k,'0000'))
     # Complete public-cohort queue, newest disclosures first. No query uses
     # private model picks. Accepted URLs keep immutable original-byte hashes.
-    queue=queue.sort_values(['last_attempt','available_at_utc','symbol'],ascending=[True,False,True]).head(budget)
+    from v13_financial_evidence import priority_queue
+    wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
+    queue=priority_queue(queue,wide,asof,budget)
     rows=[];errors=[];started=time.monotonic();attempted=0
     for r in queue.to_dict('records'):
         if time.monotonic()-started>600:break
@@ -145,7 +174,9 @@ def collect_financials(root,asof,budget=400):
         try:
             store=Store(root/'filing_raw'/sha(r['available_at_utc'].encode()))
             raw,proof=store.get(r['source_url'])
-            for f in parse_extra(raw,r,asof):rows.append({**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']})
+            facts=parse_extra(raw,r,asof)
+            if not facts:raise ValueError('No usable exact-identity financial facts; remains queued')
+            for f in facts:rows.append({**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']})
             accepted.add(r['version_key'])
         except Exception as e:errors.append({'source_url':r['source_url'],'error':str(e)[:160]})
         attempts[r['version_key']]=asof

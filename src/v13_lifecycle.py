@@ -10,7 +10,7 @@ import v12_four_year_model as core
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
-def register(frame, model_sha, folder, registered_at=None):
+def register(frame, model_sha, folder, registered_at=None, context=None):
     out=Path(folder);out.mkdir(parents=True,exist_ok=True)
     now=pd.Timestamp(registered_at or datetime.now(timezone.utc))
     if now.tzinfo is None:raise ValueError('Registration needs timezone')
@@ -19,12 +19,17 @@ def register(frame, model_sha, folder, registered_at=None):
     for r in frame.to_dict('records'):
         decision=pd.Timestamp(r['date']).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
         if decision>now:raise ValueError('Future decision')
+        values=[float(r[c]) for c in ('p6','p12','loss12','joint12')]
+        if not all(np.isfinite(v) and 0<=v<=1 for v in values):raise ValueError('Incomplete forecast heads')
+        if values[0]>values[1]+1e-12 or values[3]>values[1]+1e-12 or values[3]+values[2]>1+1e-12:raise ValueError('Incoherent probabilities')
         records.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(pd.Timestamp(r['date']).date()),
           'p6':float(r['p6']),'p12':float(r['p12']),'loss12':float(r['loss12']),'joint12':float(r['joint12']),
-          'selected_verified':bool(r.get('selected_verified',False)),'selected_discovery':bool(r.get('selected_discovery',False))})
+          'selected_verified':bool(r.get('selected_verified',False)),'selected_discovery':bool(r.get('selected_discovery',False)),
+          **{k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256') if k in r}})
     obj={'version':'V13-prospective-research','registered_at_utc':now.isoformat(),'model_sha256':model_sha,
       'first_entry':'FIRST_VERIFIED_NSE_SESSION_OPEN_STRICTLY_AFTER_REGISTRATION',
       'all_scoreable_NSE_names_registered':True,'accuracy_approved':False,'records':sorted(records,key=lambda r:r['isin'])}
+    if context:obj['paired_context']=context
     key=digest(obj);path=out/(key+'.json')
     if not path.exists():path.write_text(json.dumps(obj,indent=2,allow_nan=False))
     elif json.loads(path.read_text())!=obj:raise ValueError('Registry changed')
@@ -35,7 +40,7 @@ def validate_registry(path):
     if Path(path).stem!=digest(obj):raise ValueError('Registry hash mismatch')
     return obj
 
-def adjudicate(registry,official,history,asof):
+def adjudicate(registry,official,history,asof,verification=None):
     """Mature provider labels stay provisional until independent action proof.
 
     Missing sessions/identities are UNKNOWN; a same-day entry is impossible.
@@ -49,12 +54,17 @@ def adjudicate(registry,official,history,asof):
         q=official[official['isin'].eq(item['isin'])].sort_values('date')
         row={**item,'registry_sha256':Path(registry).stem,'model_sha256':r['model_sha256'],
           'registered_at_utc':r['registered_at_utc'],'model_role':Path(registry).parent.name,
+          'cohort_id':r.get('paired_context',{}).get('cohort_id'),
           'status':'UNKNOWN_ENTRY','first_entry_date':None,
           'raw_price_2x_observed':False,'six_month_mature':False,'twelve_month_mature':False,
-          'independent_outcome_verified':False}
+          'independent_outcome_verified':False,'entry_verified':False,
+          'provisional_hit2_6':None,'provisional_hit2_12':None,'provisional_loss30_12':None,
+          'verified_hit2_6':None,'verified_hit2_12':None,'verified_loss30_12':None,
+          'confirmed_early_2x':False,'confirmed_risk_event':False}
         if not q.empty:
             entry=q.iloc[0];row['first_entry_date']=str(entry.date.date());row['status']='TRACKING'
-            row['raw_price_2x_observed']=bool((q.close/entry.open*(1-core.COST_PER_SIDE)/(1+core.COST_PER_SIDE)>=2).any())
+            horizon=q[q.date.le(entry.date+pd.DateOffset(months=12))]
+            row['raw_price_2x_observed']=bool((horizon.close/entry.open*(1-core.COST_PER_SIDE)/(1+core.COST_PER_SIDE)>=2).any())
             source=history.get(item['isin'])
             if source is not None:
                 source=source.sort_values('date').reset_index(drop=True);source['date']=pd.to_datetime(source.date)
@@ -74,28 +84,43 @@ def adjudicate(registry,official,history,asof):
                             if result:
                                 row['six_month_mature' if h==6 else 'twelve_month_mature']=True
                                 row['provisional_hit2_'+str(h)]=result['hit2']
+                                if h==12:row['provisional_loss30_12']=result['loss30']
                         if row['six_month_mature'] or row['twelve_month_mature']:
                             row['status']='PROVISIONAL_MATURE_REQUIRES_INDEPENDENT_ACTION_RECONCILIATION'
+            if verification is not None:
+                proof=verification.get((Path(registry).stem,item['isin']),{})
+                row.update({k:v for k,v in proof.items() if k in {
+                  'entry_verified','independent_outcome_verified','verification_status',
+                  'verified_hit2_6','verified_hit2_12','verified_loss30_12',
+                  'confirmed_early_2x','confirmed_risk_event','action_audit_sha256'}})
         rows.append(row)
     return rows
 
+PAIRED_COLUMNS=['date','isin','cohort_id','registered_at_utc','mature_at_utc','y','champion','challenger',
+ 'selected_champion','selected_challenger','independent_outcome_verified','financial_tier','market_regime','liquidity_tier']
+
 def paired_observations(observations,challenger_sha):
     d=observations.copy()
-    if d.empty:return pd.DataFrame()
-    required={'model_role','model_sha256','registry_sha256','registered_at_utc','source_asof','isin','p12','selected_verified','provisional_hit2_12','twelve_month_mature','first_entry_date','independent_outcome_verified'}
-    if not required.issubset(d):return pd.DataFrame()
+    empty=pd.DataFrame(columns=PAIRED_COLUMNS)
+    if d.empty:return empty
+    required={'cohort_id','model_role','model_sha256','registry_sha256','registered_at_utc','source_asof','isin','p12','selected_verified','verified_hit2_12','twelve_month_mature','first_entry_date','independent_outcome_verified'}
+    if not required.issubset(d):return empty
+    d=d[d.cohort_id.notna()]
     d=d[d.twelve_month_mature.eq(True)&d.status.ne('UNKNOWN_ENTRY_CONFLICT')]
     b=d[d.model_role.eq('challenger')&d.model_sha256.eq(challenger_sha)]
     a=d[d.model_role.eq('champion')]
-    if a.duplicated(['source_asof','isin']).any() or b.duplicated(['source_asof','isin']).any():return pd.DataFrame()
-    x=a.merge(b,on=['source_asof','isin'],suffixes=('_a','_b'),validate='1:1')
-    if x.empty:return pd.DataFrame()
-    x=x[x.first_entry_date_a.eq(x.first_entry_date_b)&x.provisional_hit2_12_a.eq(x.provisional_hit2_12_b)]
-    return pd.DataFrame({'date':x.source_asof,'registered_at_utc':x.registered_at_utc_b,
+    keys=['cohort_id','source_asof','isin']
+    if a.duplicated(keys).any() or b.duplicated(keys).any():raise ValueError('Duplicate paired observation')
+    x=a.merge(b,on=keys,suffixes=('_a','_b'),validate='1:1')
+    if x.empty:return empty
+    x=x[x.registered_at_utc_a.eq(x.registered_at_utc_b)&x.first_entry_date_a.eq(x.first_entry_date_b)&x.verified_hit2_12_a.eq(x.verified_hit2_12_b)&x.independent_outcome_verified_a&x.independent_outcome_verified_b]
+    if x.empty:return empty
+    return pd.DataFrame({'date':x.source_asof,'isin':x['isin'],'cohort_id':x.cohort_id,'registered_at_utc':x.registered_at_utc_b,
       'mature_at_utc':pd.to_datetime(x.first_entry_date_b,utc=True)+pd.DateOffset(months=12),
-      'y':x.provisional_hit2_12_b,'champion':x.p12_a,'challenger':x.p12_b,
+      'y':x.verified_hit2_12_b,'champion':x.p12_a,'challenger':x.p12_b,
       'selected_champion':x.selected_verified_a,'selected_challenger':x.selected_verified_b,
-      'independent_outcome_verified':x.independent_outcome_verified_a&x.independent_outcome_verified_b})
+      'independent_outcome_verified':x.independent_outcome_verified_a&x.independent_outcome_verified_b,
+      **{k:x[k+'_a'] if k+'_a' in x else 'UNKNOWN' for k in ('financial_tier','market_regime','liquidity_tier')}})
 
 def promotion_gate(paired,registered_after,source_complete=False):
     """One untouched, date-clustered prospective comparison, never winner-only."""

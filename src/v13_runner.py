@@ -13,6 +13,11 @@ import v13_collection as collection
 import v13_features as features
 import v13_model as model
 from v13_lifecycle import register,adjudicate,promotion_gate,paired_observations,validate_registry
+from v13_paired_forecasts import scored,register_pair,export_watchlists,promotion_coverage
+import v13_financial_evidence as financial_evidence
+import v13_catalyst_execution as catalyst_execution
+import v13_action_audit as action_audit
+import v13_research_evaluation as evaluation
 
 ARCHIVE='ayushverma1988/v10-multibagger-archive'
 
@@ -80,10 +85,10 @@ def current_frame(root,asof):
         if c not in d:d[c]=np.nan
     # Check raw latest OHLC and volume against whole-market official data.
     o=pd.read_parquet(root/'official'/(asof+'_official_market.parquet'))
-    m=d.merge(o[['isin','symbol','open','high','low','close','volume','source_status']],on='isin',suffixes=('','_official'),validate='1:1')
+    m=d.merge(o[['isin','symbol','series','open','high','low','close','volume','source_status','source_sha256']],on='isin',suffixes=('','_official'),validate='1:1')
     valid=m.symbol.eq(m.symbol_official)&m.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&m.volume.eq(m.volume_official)
     for c in ('open','high','low','close'):valid&=(m[c]-m[c+'_official']).abs().le(.011)
-    d=m.loc[valid].copy();return d,history
+    d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official;return d,history
 
 def forecasts(heads,frame,root,label):
     d=frame.copy()
@@ -105,6 +110,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
     root=Path(root);seed=Path(seed)
     if not local:
         if not restore(root):initialize(root,seed)
+        from v13_checkpoint import restore_review_originals
+        restore_review_originals(root)
     report={'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
     try:
         asof,official,errors=last_completed_session(root,day);report['asof']=asof;report['steps']['official']=official
@@ -113,6 +120,10 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         collection.universe(root,asof)
         report['steps']['catalogs']=collection.current_catalogs(root,asof)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
+        report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
+        report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=40)
+        report['steps']['reviewed_primary_sources']=catalyst_execution.seed_primary_reviews(root,seed.parent/'v13_evidence_seed'/'primary_execution_sources.json')
+        report['steps']['entry_backfill']=action_audit.backfill(root,asof,budget=8)
         if not local:save(root)
         report['steps']['history']=collection.collect_histories(root,asof,history_budget)
         if not local:save(root)
@@ -120,38 +131,74 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         report['current_verified_market_rows']=len(frame)
         # Partial coverage is disclosed, not mistaken for a full-universe scan.
         report['public_universe_rows']=len(pd.read_parquet(root/'universe.parquet'))
-        if not frame.empty:
-            heads=joblib.load(root/'active_heads.joblib');report['champion_registry']=forecasts(heads,frame,root,'champion')
-            if (root/'challenger'/'research_heads.joblib').exists():report['challenger_registry']=forecasts(joblib.load(root/'challenger'/'research_heads.joblib'),frame,root,'challenger')
-        originals=[pd.read_parquet(p) for p in sorted((root/'official').glob('*_official_market.parquet'))]
-        official_all=pd.concat(originals,ignore_index=True);observations=[]
-        for p in sorted((root/'registries').glob('*/*.json')):observations.extend(adjudicate(p,official_all,history,asof))
-        if observations:pd.DataFrame(observations).to_parquet(root/'prospective_observations.parquet',index=False)
-        report['prospective_status_counts']=pd.Series([r['status'] for r in observations],dtype=object).value_counts().to_dict()
-        report['raw_price_2x_alerts']=sum(r['raw_price_2x_observed'] for r in observations)
-        report['independently_verified_mature_outcomes']=0
         # Monthly refresh learns coefficients/blends automatically from the
         # trailing four-year, maturity-purged data. It is a new paper challenger.
         marker=root/'last_retrain_month.txt';month=asof[:7]
         if (retrain or not marker.exists() or marker.read_text()!=month) and len(history)>=500:
-            blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False)
-            market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof)
-            matrix=collection.enrich(market,pd.read_parquet(root/'financial_wide.parquet'))
-            for c in model.FEATURES:
-                if c not in matrix:matrix[c]=np.nan
-            matrix.to_parquet(root/'challenger_matrix.parquet',index=False)
-            target=root/'challenger_runs'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-            model.run(root/'challenger_matrix.parquet',target,asof,only_current=True)
-            if (target/'research_heads.joblib').exists():
-                (root/'challenger').mkdir(exist_ok=True)
-                # Keep the formal challenger fixed while its unseen outcomes
-                # mature. Monthly learned heads are archived separately;
-                # replacing the formal head every month would prevent a
-                # valid twelve-month paired comparison from ever finishing.
-                if not (root/'challenger'/'research_heads.joblib').exists():
-                    shutil.copy2(target/'research_heads.joblib',root/'challenger'/'research_heads.joblib')
-                shutil.copy2(target/'research_heads.joblib',root/'latest_learned_heads.joblib')
-            marker.write_text(month);report['challenger_refit']=str(target.relative_to(root))
+            try:
+                blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False)
+                market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof)
+                matrix=collection.enrich(market,pd.read_parquet(root/'financial_wide.parquet'))
+                for c in model.FEATURES:
+                    if c not in matrix:matrix[c]=np.nan
+                matrix.to_parquet(root/'challenger_matrix.parquet',index=False)
+                target=root/'challenger_runs'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+                model.run(root/'challenger_matrix.parquet',target,asof,only_current=True)
+                report['research_experiments']=str(target.relative_to(root)/'predeclared_experiments.json')
+                evaluation.experiments(matrix,asof,target/'predeclared_experiments.json')
+                if (target/'research_heads.joblib').exists():
+                    if not set(model.TARGETS).issubset(joblib.load(target/'research_heads.joblib')):raise ValueError('Monthly refit missing conditional heads')
+                    (root/'challenger').mkdir(exist_ok=True)
+                    # Keep the formal challenger fixed while its unseen outcomes
+                    # mature. Monthly learned heads are archived separately;
+                    # replacing the formal head every month would prevent a
+                    # valid twelve-month paired comparison from ever finishing.
+                    if not (root/'challenger'/'research_heads.joblib').exists():
+                        shutil.copy2(target/'research_heads.joblib',root/'challenger'/'research_heads.joblib')
+                    shutil.copy2(target/'research_heads.joblib',root/'latest_learned_heads.joblib')
+                marker.write_text(month);report['challenger_refit']=str(target.relative_to(root))
+            except Exception as exc:
+                report['errors'].append({'phase':'monthly_research','error':str(exc)[:300]})
+                report['monthly_research_status']='FAILED_RETAINING_FIXED_MODELS'
+        # Commit paired forecasts after initial refitting. Both models score
+        # the same immutable inputs at the same actual registration timestamp.
+        challenger_model=root/'challenger'/'research_heads.joblib'
+        if not frame.empty:
+            wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
+            frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
+            frame=catalyst_execution.join(frame,root)
+            frame=financial_evidence.apply_scenarios(frame,root)
+            baseline=evaluation.prior_rates(pd.read_parquet(root/'challenger_matrix.parquet'),asof) if (root/'challenger_matrix.parquet').exists() else {}
+            for name,value in baseline.items():
+                if value is not None:frame[name]=value
+            if challenger_model.exists():
+                sha=hashlib.sha256(challenger_model.read_bytes()).hexdigest()
+                freeze_path=root/'challenger'/'freeze.json'
+                freeze=json.loads(freeze_path.read_text()) if freeze_path.exists() else {'sha256':sha,'frozen_at_utc':datetime.now(timezone.utc).isoformat()}
+                if freeze['sha256']!=sha:raise ValueError('Formal challenger changed during prospective evaluation')
+                freeze_path.write_text(json.dumps(freeze,indent=2))
+                a=scored(joblib.load(root/'active_heads.joblib'),frame)
+                b=scored(joblib.load(challenger_model),frame,policy='evidence')
+                pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
+                export_watchlists(root,pair)
+                report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
+                report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
+            else:report['paired_registration']={'status':'BLOCKED_NO_COMPLETE_CHALLENGER'}
+        originals=[pd.read_parquet(p) for p in sorted((root/'official').glob('*_official_market.parquet'))]
+        official_all=pd.concat(originals,ignore_index=True)
+        verification,report['steps']['independent_entry_actions']=action_audit.audit(root,official_all,history,asof)
+        observations=[]
+        committed={r for p in (root/'paired_cohorts').glob('*.json') for r in [json.loads(p.read_text())['champion_registry'],json.loads(p.read_text())['challenger_registry']]}
+        for p in sorted((root/'registries').glob('*/*.json')):
+            reg=validate_registry(p)
+            if 'paired_context' in reg and p.name not in committed:continue
+            observations.extend(adjudicate(p,official_all,history,asof,verification))
+        observed=pd.DataFrame(observations)
+        if observations:observed.to_parquet(root/'prospective_observations.parquet',index=False)
+        report['prospective_status_counts']=pd.Series([r['status'] for r in observations],dtype=object).value_counts().to_dict()
+        report['raw_price_2x_alerts']=sum(r['raw_price_2x_observed'] for r in observations)
+        report['independently_verified_mature_outcomes']=sum(r['independent_outcome_verified'] and r['twelve_month_mature'] for r in observations)
+        (root/'prospective_metrics.json').write_text(json.dumps(evaluation.prospective_report(observed),indent=2))
         # Promotion requires independently verified unseen outcomes. Current
         # provider adjustment/action reconciliation is incomplete, so promotion
         # is deliberately closed rather than silently learning from guesses.
@@ -160,10 +207,11 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             challenger_sha=hashlib.sha256(challenger_model.read_bytes()).hexdigest()
             freeze_path=root/'challenger'/'freeze.json'
             freeze=json.loads(freeze_path.read_text()) if freeze_path.exists() else {'sha256':challenger_sha,'frozen_at_utc':datetime.now(timezone.utc).isoformat()}
-            if freeze['sha256']!=challenger_sha:freeze={'sha256':challenger_sha,'frozen_at_utc':datetime.now(timezone.utc).isoformat()}
+            if freeze['sha256']!=challenger_sha:raise ValueError('Formal challenger freeze changed')
             freeze_path.write_text(json.dumps(freeze,indent=2))
             paired=paired_observations(pd.DataFrame(observations),challenger_sha)
-            report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=False)
+            paired.to_parquet(root/'paired_mature_observations.parquet',index=False)
+            report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha))
             if report['promotion']['promote']:
                 backup=root/'retired_models'/hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest()
                 backup.parent.mkdir(exist_ok=True);shutil.copy2(root/'active_heads.joblib',backup)

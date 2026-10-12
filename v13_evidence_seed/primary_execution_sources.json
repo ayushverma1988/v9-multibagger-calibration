@@ -1,0 +1,27 @@
+[
+  {
+    "isin": "INE024001021",
+    "symbol": "AEROFLEX",
+    "issuer_name": "AEROFLEX INDUSTRIES LIMITED",
+    "attachment_url": "https://www.aeroflexindia.com/uploads/topics/b8e99b18-1e9e-461a-b62c-623d3023bc68.pdf",
+    "source_sha256": "d3f5d06dba4880d43618890f7bf8906c255e5b62af8dfecf2d2a081257914cca",
+    "document_date": "2026-07-01",
+    "published_at_utc": null,
+    "commissioned": true,
+    "capacity_units_per_year": 9000,
+    "utilisation_pct": null,
+    "firm_order": null,
+    "order_id": null,
+    "order_value_INR": null,
+    "order_due": null,
+    "expected_margin_pct": null,
+    "funding_sufficient": null,
+    "approval_completed": null,
+    "material_dilution_pct": null,
+    "field_excerpts": {
+      "commissioned": "has commenced production at the enhanced capacity.",
+      "capacity_units_per_year": "from 6,000 pieces per annum to 9,000 pieces per annum"
+    },
+    "review_note": "The notice reports 1,040 units sold in Q1 FY2026-27. Sales are not production utilisation. Later commissioning plans and future profit remain unknown. Unknown publication time uses actual first retrieval, not the printed document date."
+  }
+]
