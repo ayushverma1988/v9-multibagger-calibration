@@ -6,7 +6,7 @@ from v13_lifecycle import register,validate_registry,adjudicate,paired_observati
 from v13_paired_forecasts import register_pair,export_watchlists,selective
 from v13_financial_evidence import priority_queue,earnings_scenario
 from v13_catalyst_execution import reviewed
-from v13_action_audit import reconstruct,expected_sessions
+from v13_action_audit import reconstruct,expected_sessions,validate_action_notice
 from v13_research_evaluation import experiments,prospective_report
 
 class EvidencePairing(unittest.TestCase):
@@ -102,6 +102,15 @@ class EvidencePairing(unittest.TestCase):
         c={'year':2026,'holidays':['2026-10-13']}
         self.assertEqual(len(expected_sessions('2026-10-12','2026-10-14',c)),2)
         self.assertIsNone(expected_sessions('2026-12-30','2027-01-04',c))
+
+    def test_action_factor_needs_original_issuer_and_excerpts(self):
+        raw=b'Trading Symbol: A. Ex date 13 October 2026. Shares split from 1 to 2.'
+        a={'isin':'INE000000001','symbol':'A','kind':'split','source_sha256':hashlib.sha256(raw).hexdigest(),
+           'field_excerpts':{'ex_date':'Ex date 13 October 2026','share_multiplier':'Shares split from 1 to 2'}}
+        self.assertTrue(validate_action_notice(a,raw));a['symbol']='OTHER'
+        with self.assertRaises(ValueError):validate_action_notice(a,raw)
+        a['symbol']='A';a['field_excerpts']['share_multiplier']='made-up ratio'
+        with self.assertRaises(ValueError):validate_action_notice(a,raw)
 
     def test_weak_evidence_abstains_without_padding(self):
         f=self.frame();f['evidence_status']='MISSING_FINANCIAL_OR_EXECUTION'

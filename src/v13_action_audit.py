@@ -6,11 +6,26 @@ review. A provider factor or a catalogue hash alone cannot certify an outcome.
 """
 from pathlib import Path
 import json,hashlib
+import re
 import numpy as np
 import pandas as pd
 from v12_dated_source_collection import Store
 from v13_lifecycle import validate_registry,digest
 import v12_four_year_model as core
+
+def validate_action_notice(action,raw):
+    """A reviewed factor is bound to an issuer and exact primary excerpts."""
+    from v11_4_primary_document_catalysts import extract_pdf
+    if hashlib.sha256(raw).hexdigest()!=action['source_sha256']:raise ValueError('Action original hash conflict')
+    text=extract_pdf(raw) if raw.startswith(b'%PDF') else raw.decode('utf-8')
+    text=re.sub(r'\s+',' ',text)
+    symbol=action.get('symbol')
+    if not symbol or not (action['isin'] in text or re.search(r'\b'+re.escape(symbol)+r'\b',text,re.I)):raise ValueError('Action original issuer identity not matched')
+    needed=['ex_date','cash_per_old_share' if action['kind']=='dividend' else 'share_multiplier']
+    for field in needed:
+        excerpt=action.get('field_excerpts',{}).get(field)
+        if not excerpt or re.sub(r'\s+',' ',excerpt).strip() not in text:raise ValueError('Unbound action field: '+field)
+    return True
 
 def collect_calendar(root,asof):
     out=Path(root)/'action_audit';out.mkdir(exist_ok=True)
@@ -128,6 +143,9 @@ def audit(root,official,history,asof):
                         if not refs or not set(refs).issubset(originals):raise ValueError('Coverage originals not available')
                         acts=[a for a in reviews if a['isin']==r['isin'] and dates[0]<=pd.Timestamp(a['ex_date'])<=pd.Timestamp(asof)]
                         if any(a.get('source_sha256') not in originals or not str(a.get('source_url','')).startswith('https://nsearchives.nseindia.com/') for a in acts):raise ValueError('Missing original primary action notice')
+                        for a in acts:
+                            original=next(p for p in (out/'raw').rglob('*.bin') if hashlib.sha256(p.read_bytes()).hexdigest()==a['source_sha256'])
+                            validate_action_notice(a,original.read_bytes())
                         if not set(dates).issubset(set(o.date)):raise ValueError('Missing official sessions')
                         if not o.symbol.eq(r['symbol']).all():raise ValueError('Identity transition requires dedicated economic mapping')
                         horizon_end=dates[0]+pd.DateOffset(months=12)

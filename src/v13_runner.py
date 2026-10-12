@@ -216,6 +216,9 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
                 backup=root/'retired_models'/hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest()
                 backup.parent.mkdir(exist_ok=True);shutil.copy2(root/'active_heads.joblib',backup)
                 shutil.copy2(challenger_model,root/'active_heads.joblib')
+                (root/'active_model.json').write_text(json.dumps({'mode':'PAPER_RESEARCH','version':'V13',
+                  'sha256':challenger_sha,'accuracy_approved':False,'promotion_gate_passed':True,
+                  'promoted_at_utc':datetime.now(timezone.utc).isoformat(),'promotion_evidence':report['promotion']},indent=2))
         else:report['promotion']={'promote':False,'reasons':['independent_action_reconciliation_incomplete','insufficient_untouched_mature_paired_outcomes']}
         report['completed_at_utc']=datetime.now(timezone.utc).isoformat()
     except Exception as e:
