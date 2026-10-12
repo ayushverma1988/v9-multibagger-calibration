@@ -162,4 +162,13 @@ class EvidencePairing(unittest.TestCase):
             self.assertEqual(out['reserved_refresh_slots'],1);self.assertEqual(out['cold_expansion_slots'],1)
             self.assertEqual({e['symbol'] for e in out['errors']},{'OLD','NEW'})
 
+    def test_thinner_catalogue_preserves_pending_versions_inside_four_years(self):
+        from v13_collection import merge_catalog
+        old=pd.DataFrame([{'source_url':'https://nsearchives.nseindia.com/a.xml','available_at_utc':'2026-08-01T00:00:00Z','reporting_mode':'standalone','period_end':'2026-06-30'},
+                          {'source_url':'https://nsearchives.nseindia.com/old.xml','available_at_utc':'2021-08-01T00:00:00Z','reporting_mode':'standalone','period_end':'2021-06-30'}])
+        fresh=pd.DataFrame([{'source_url':'https://nsearchives.nseindia.com/b.xml','available_at_utc':'2026-08-02T00:00:00Z','reporting_mode':'standalone','period_end':'2026-06-30'}])
+        merged,audit=merge_catalog(old,fresh,'2026-10-12')
+        self.assertEqual(len(merged),2);self.assertEqual(audit['previous_versions_absent_from_response'],2)
+        self.assertNotIn('https://nsearchives.nseindia.com/old.xml',set(merged.source_url))
+
 if __name__=='__main__':unittest.main()

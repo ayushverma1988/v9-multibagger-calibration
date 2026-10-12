@@ -73,10 +73,28 @@ def current_catalogs(root,asof):
         except Exception as e:errors.append({'feed':venue+'_actions','error':str(e)[:160]})
     folder.mkdir(parents=True,exist_ok=True);(folder/'errors.json').write_text(json.dumps(errors,indent=2))
     if financial:
-        catalog=normalize_financial_catalog(financial,asof);catalog.to_parquet(Path(root)/'catalog.parquet',index=False)
+        catalog=normalize_financial_catalog(financial,asof);path=Path(root)/'catalog.parquet'
+        previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
+        catalog,inventory=merge_catalog(previous,catalog,asof)
+        catalog.to_parquet(path,index=False)
+        (folder/'financial_inventory.json').write_text(json.dumps(inventory,indent=2))
     if events:
         e=dated_events(events,asof);e.to_parquet(folder/'events.parquet',index=False)
     return {'financial_catalog_records':len(financial),'announcement_records':len(events),'errors':errors,'catalog_absence_does_not_verify_no_catalyst':True}
+
+def merge_catalog(previous,fresh,asof):
+    """A transient thinner source response cannot erase pending filing versions."""
+    keys=['source_url','available_at_utc','reporting_mode']
+    low,high=bounds(asof)
+    combined=pd.concat([previous,fresh],ignore_index=True).drop_duplicates(keys,keep='first')
+    period=pd.to_datetime(combined.period_end)
+    available=pd.to_datetime(combined.available_at_utc,utc=True,format='mixed')
+    combined=combined[period.between(low,high)&available.ge(low.tz_localize('Asia/Kolkata'))&available.le(high.tz_localize('Asia/Kolkata')+pd.Timedelta(days=1))]
+    prior_keys=set(map(tuple,previous[keys].to_numpy())) if not previous.empty else set()
+    fresh_keys=set(map(tuple,fresh[keys].to_numpy()))
+    return combined,{'source_asof':asof,'previous_versions':len(previous),'fresh_response_versions':len(fresh),
+      'retained_versions':len(combined),'previous_versions_absent_from_response':len(prior_keys-fresh_keys),
+      'absence_does_not_delete_or_verify_no_filing':True,'outside_four_year_window_retained':False}
 
 def announcement_counts(frame,root,asof):
     paths=list((Path(root)/'sources').glob('*/events.parquet'))
