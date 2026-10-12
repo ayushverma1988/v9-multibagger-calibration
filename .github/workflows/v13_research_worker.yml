@@ -41,6 +41,12 @@ jobs:
             v13_state.tar.gz
             archive_receipt.json
             v13_state/latest_run.json
+            v13_state/champion_latest_watchlist.json
+            v13_state/challenger_latest_watchlist.json
+            v13_state/prospective_observations.parquet
+            v13_state/active_model.json
+            v13_state/challenger_runs/**/summary.json
+            v13_state/challenger_runs/**/learned_weights.json
           retention-days: 30
 
       - name: Publish aggregate collector health
