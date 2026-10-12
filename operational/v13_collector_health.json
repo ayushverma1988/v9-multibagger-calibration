@@ -1,14 +1,19 @@
 {
-  "checked_at_utc": "2026-10-12T01:09:28.122Z",
-  "workflow_run": 38190240198,
-  "source_asof": "2026-10-09",
+  "checked_at_utc": "2026-10-12T17:15:34.798Z",
+  "workflow_run": 38282054663,
+  "source_asof": "2026-10-12",
   "mode": "PAPER_RESEARCH",
   "job_state": "success",
   "accuracy_approved": false,
   "errors": 0,
-  "market_rows": 550,
-  "public_universe_rows": 3199,
-  "financial_errors": 0,
-  "history_errors": 117,
-  "history_usable": 283
+  "market_rows": 82,
+  "public_universe_rows": 3201,
+  "financial_errors": 4,
+  "history_errors": 107,
+  "history_usable": 293,
+  "paired_rows_per_model": 82,
+  "paired_cohort": "88ffeb6e860a66a5d5df1040940fc74a2f0ab2aa829a9dad7688473552f7bfa8",
+  "catalyst_documents": 40,
+  "verified_entries": 67,
+  "independently_verified_mature_outcomes": 0
 }
