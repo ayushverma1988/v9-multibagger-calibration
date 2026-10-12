@@ -1,14 +1,14 @@
 {
-  "checked_at_utc": "2026-10-11T21:36:45.552Z",
-  "workflow_run": 38176717819,
+  "checked_at_utc": "2026-10-12T01:09:28.122Z",
+  "workflow_run": 38190240198,
   "source_asof": "2026-10-09",
   "mode": "PAPER_RESEARCH",
   "job_state": "success",
   "accuracy_approved": false,
   "errors": 0,
-  "market_rows": 341,
-  "public_universe_rows": 3182,
-  "financial_errors": 3,
-  "history_errors": 198,
-  "history_usable": 202
+  "market_rows": 550,
+  "public_universe_rows": 3199,
+  "financial_errors": 0,
+  "history_errors": 117,
+  "history_usable": 283
 }
