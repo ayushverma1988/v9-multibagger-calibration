@@ -151,4 +151,15 @@ class EvidencePairing(unittest.TestCase):
             self.assertEqual(ledger.cohort_id.notna().sum(),4);self.assertFalse(result['promotion']['promote'])
             self.assertNotIn('missing_paired_prospective_schema',result['promotion']['reasons'])
 
+    def test_history_refresh_and_cold_expansion_share_budget(self):
+        from v13_collection import collect_histories,sha
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);folder=root/'history/securities';folder.mkdir(parents=True)
+            pd.DataFrame({'nse_current_symbol':['OLD','NEW'],'isin':['INE000000001','INE000000002']}).to_parquet(root/'universe.parquet')
+            pd.DataFrame({'date':pd.to_datetime(['2026-10-09'])}).to_parquet(folder/(sha(b'OLD')+'.parquet'))
+            with patch('v13_collection.Store.get',side_effect=ValueError('Unavailable')):
+                out=collect_histories(root,'2026-10-12',2)
+            self.assertEqual(out['reserved_refresh_slots'],1);self.assertEqual(out['cold_expansion_slots'],1)
+            self.assertEqual({e['symbol'] for e in out['errors']},{'OLD','NEW'})
+
 if __name__=='__main__':unittest.main()

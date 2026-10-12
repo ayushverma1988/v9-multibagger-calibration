@@ -137,9 +137,15 @@ def collect_histories(root,asof,budget=400):
         path=folder/(sha(r['nse_current_symbol'].encode())+'.parquet')
         age=str(pd.read_parquet(path,columns=['date']).date.max().date()) if path.exists() else '0000'
         age=max(age,attempts.get(r['nse_current_symbol'],'0000'))
-        queue.append((age,sha(r['nse_current_symbol'].encode()),r))
+        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists()))
     errors=[];count=0;started=time.monotonic();attempted=0
-    for _,_,r in sorted(queue,key=lambda q:(q[0],q[1]))[:budget]:
+    ordered=sorted(queue,key=lambda q:(q[0],q[1]))
+    # Keep known usable public-universe histories fresh while expanding cold
+    # coverage. No private ranked/selected stock list enters this queue.
+    refresh=[q for q in ordered if q[3] and q[0]<asof][:budget//2]
+    chosen={q[1] for q in refresh}
+    batch=refresh+[q for q in ordered if q[1] not in chosen][:max(0,budget-len(refresh))]
+    for _,_,r,_ in batch:
         if time.monotonic()-started>600:break
         attempted+=1
         symbol=r['nse_current_symbol'];isin=r['isin']
@@ -149,7 +155,8 @@ def collect_histories(root,asof,budget=400):
         except Exception as e:errors.append({'symbol':symbol,'error':str(e)[:160]})
         attempts[symbol]=asof
     attempt_path.write_text(json.dumps(attempts,indent=2))
-    return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet')))}
+    return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
+      'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh)}
 
 def collect_financials(root,asof,budget=400):
     root=Path(root);catalog_path=root/'catalog.parquet'
@@ -166,7 +173,16 @@ def collect_financials(root,asof,budget=400):
     # private model picks. Accepted URLs keep immutable original-byte hashes.
     from v13_financial_evidence import priority_queue
     wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
-    queue=priority_queue(queue,wide,asof,budget)
+    public_history_symbols=set()
+    for p in (root/'history'/'securities').glob('*.parquet'):
+        h=pd.read_parquet(p,columns=['symbol'])
+        if not h.empty:public_history_symbols.add(h.symbol.iloc[0])
+    # Spend half the bounded budget completing financial periods for the
+    # already collected public history universe; keep the rest for expansion.
+    # Selection/ranking flags are neither read nor sent to a data source.
+    completion=priority_queue(queue[queue.symbol.isin(public_history_symbols)],wide,asof,budget//2)
+    remainder=queue[~queue.version_key.isin(completion.version_key)]
+    queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
     for r in queue.to_dict('records'):
         if time.monotonic()-started>600:break
