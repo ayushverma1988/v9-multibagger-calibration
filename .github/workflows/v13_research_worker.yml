@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 944d14b77f1508498c257cf6a225cc8e40e1170a
+          ref: d2a05577a9a0a7511198cf2b185bc02ff4f334ef
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -48,6 +48,7 @@ jobs:
             v13_state/paired_cohorts/*.json
             v13_state/paired_mature_observations.parquet
             v13_state/prospective_metrics.json
+            v13_state/research_experiments_initial.json
             v13_state/evidence/*.json
             v13_state/catalyst_evidence/*.json
             v13_state/action_audit/*.json
