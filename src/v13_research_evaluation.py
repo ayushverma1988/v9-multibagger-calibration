@@ -62,6 +62,49 @@ def prospective_report(observations):
                   **metrics(known,ycol,'p'+str(h))})
     result['confirmed_early_2x']=int(d.get('confirmed_early_2x',pd.Series(False,index=d.index)).fillna(False).sum())
     result['confirmed_risk_events']=int(d.get('confirmed_risk_event',pd.Series(False,index=d.index)).fillna(False).sum())
+    loss=d[d.twelve_month_mature.eq(True)&d.independent_outcome_verified.eq(True)]
+    result['loss_risk_metrics']={role:metrics(q,'verified_loss30_12','loss12') for role,q in loss.groupby('model_role')} if 'verified_loss30_12' in loss else {}
+    return result
+
+def paired_evaluation_report(observations):
+    """Fair paired clocks/universes and unknown denominator, for both horizons.
+
+    Original unpaired cohorts cannot be made paired retrospectively. Compare
+    verified outcomes only on the same names; report missing and immature
+    pairs alongside results rather than silently shrinking the cohort.
+    """
+    result={'scope':'IMMUTABLE_PAIRED_COHORTS_ALL_SELECTED_AND_UNSELECTED','accuracy_approved':False,'cohorts':[],'comparisons':[]}
+    if observations.empty or 'cohort_id' not in observations:return result
+    d=observations[observations.cohort_id.notna()]
+    keys=['cohort_id','isin']
+    a=d[d.model_role.eq('champion')];b=d[d.model_role.eq('challenger')]
+    if a.duplicated(keys).any() or b.duplicated(keys).any():raise ValueError('Duplicate paired evaluation identity')
+    joined=a.merge(b,on=keys,how='outer',suffixes=('_a','_b'),indicator=True,validate='1:1')
+    for cohort,q in joined.groupby('cohort_id'):
+        clocks=q._merge.eq('both')&q.source_asof_a.eq(q.source_asof_b)&q.registered_at_utc_a.eq(q.registered_at_utc_b)&q.symbol_a.eq(q.symbol_b)
+        result['cohorts'].append({'cohort_id':cohort,'registered_stock_pairs':len(q),'same_clock_same_names':bool(clocks.all()),
+          'source_asof':q.source_asof_a.dropna().iloc[0] if q.source_asof_a.notna().any() else None,
+          'registered_at_utc':q.registered_at_utc_a.dropna().iloc[0] if q.registered_at_utc_a.notna().any() else None,
+          'unpaired_originals_excluded':True})
+        for h in (6,12):
+            yc='verified_hit2_'+str(h);m='six_month_mature' if h==6 else 'twelve_month_mature'
+            good=clocks&q[m+'_a'].eq(True)&q[m+'_b'].eq(True)&q.independent_outcome_verified_a.eq(True)&q.independent_outcome_verified_b.eq(True)
+            good&=q[yc+'_a'].isin([0,1])&q[yc+'_a'].eq(q[yc+'_b'])&q.first_entry_date_a.eq(q.first_entry_date_b)
+            for axis in ('financial_tier','market_regime','liquidity_tier'):
+                col=axis+'_a'
+                if col not in q:q[col]='UNKNOWN'
+                for group,ix in q.groupby(col,dropna=False).groups.items():
+                    z=q.loc[ix];k=z.loc[good.loc[ix]];y=k[yc+'_a'].to_numpy(float)
+                    row={'cohort_id':cohort,'months':h,'axis':axis,'group':str(group),'registered_pairs':len(z),
+                      'verified_pairs':len(k),'unknown_or_immature_pairs':len(z)-len(k)}
+                    for suffix,label in (('a','champion'),('b','challenger')):
+                        pred=k['p'+str(h)+'_'+suffix].to_numpy(float)
+                        selected=z.selected_verified_a.fillna(False)|z.selected_discovery_a.fillna(False) if suffix=='a' else z.selected_verified_b.fillna(False)|z.selected_discovery_b.fillna(False)
+                        selected_known=selected.loc[k.index]
+                        row[label]={'selected_registered':int(selected.sum()),'brier':float(brier_score_loss(y,pred)) if len(k) else None,
+                          'selected_verified_outcomes':int(selected_known.sum()),'selected_precision':float(y[selected_known.to_numpy()].mean()) if selected_known.any() else None}
+                    row['paired_brier_gain']=row['champion']['brier']-row['challenger']['brier'] if len(k) else None
+                    result['comparisons'].append(row)
     return result
 
 def experiments(data,asof,output):

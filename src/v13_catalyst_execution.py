@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 FIELDS=('commissioned','capacity_units_per_year','utilisation_pct','firm_order','order_id',
  'order_value_INR','order_due','expected_margin_pct','funding_sufficient','approval_completed','material_dilution_pct')
+FIELDS=FIELDS+('capacity_quantity','capacity_unit','execution_stage','order_duration_months','order_start_date')
 
 def seed_primary_reviews(root,seed_path):
     """Install reviewed public original documents, hash checked on each source.
@@ -35,12 +36,20 @@ def seed_primary_reviews(root,seed_path):
             response=requests.get(r['attachment_url'],timeout=(8,25));response.raise_for_status()
             if urlparse(response.url).hostname!=u.hostname or sha(response.content)!=r['source_sha256']:raise ValueError('Reviewed original source changed')
             text=extract_pdf(response.content)
-            if r['issuer_name'] not in re.sub(r'\s+',' ',text) or not re.search(r'Trading Symbol\s*:\s*'+re.escape(r['symbol']),text):raise ValueError('Original issuer identity mismatch')
+            if r['issuer_name'].casefold() not in re.sub(r'\s+',' ',text).casefold() or not re.search(r'(?:Trading\s+|NSE\s+)?Symbol\s*:\s*'+re.escape(r['symbol'])+r'\b',text,re.I):raise ValueError('Original issuer identity mismatch')
             now=datetime.now(timezone.utc).isoformat()
-            e={k:r[k] for k in ('isin','symbol','attachment_url','source_sha256')}
-            e.update(issuer_identity_read=True,text_sha256=sha(text.encode()),first_retrieved_utc=now,available_at_utc=now,document_date=r['document_date'],quantified_evidence=[],review_status='REVIEWED_ORIGINAL_SOURCE_FIELDS')
+            existing=next((z for z in docs if z['source_sha256']==r['source_sha256'] and z.get('attachment_url')==r['attachment_url'] and z.get('isin')==r['isin']),None)
+            published=r.get('published_at_utc')
+            if published and (not existing or pd.Timestamp(existing['available_at_utc'])!=pd.Timestamp(published)):
+                raise ValueError('Publication clock must match the saved original exchange catalogue')
+            e={**(existing or {}),**{k:r[k] for k in ('isin','symbol','attachment_url','source_sha256')}}
+            e.update(issuer_identity_read=True,text_sha256=sha(text.encode()),first_retrieved_utc=existing.get('first_retrieved_utc',now) if existing else now,
+              first_reviewed_utc=now,available_at_utc=pd.Timestamp(published).isoformat() if published else now,
+              document_date=r['document_date'],quantified_evidence=existing.get('quantified_evidence',[]) if existing else [],review_status='REVIEWED_ORIGINAL_SOURCE_FIELDS')
             (rawdir/(r['source_sha256']+'.bin')).write_bytes(response.content);(out/(r['source_sha256']+'.txt')).write_text(text)
-            reviewed(r,e,text);docs.append(e);reviews.append(r);count+=1
+            reviewed(r,e,text)
+            if existing:docs=[z for z in docs if z is not existing]
+            docs.append(e);reviews.append(r);count+=1
         except Exception as exc:errors.append({'source_url':r['attachment_url'],'error':str(exc)[:200]})
     dp.write_text(json.dumps(docs,indent=2));rp.write_text(json.dumps(reviews,indent=2));return {'installed':count,'errors':errors}
 
@@ -58,15 +67,22 @@ def reviewed(record,evidence,text):
                     raise ValueError('Announced intent is not completed commissioning')
             if field=='approval_completed' and record[field] is True and (not re.search(r'granted|received|obtained|approved',excerpt,re.I) or re.search(r'pending|subject to|expected',excerpt,re.I)):
                 raise ValueError('Approval has not been completed')
+            if field=='funding_sufficient' and record[field] is True and (not re.search(r'funded|secured|sanctioned|available|financial closure|arranged',excerpt,re.I) or re.search(r'\b(will|plan|planned|proposed|expected|pending)\b|subject to',excerpt,re.I)):
+                raise ValueError('Funding intent is not secured funding')
+            if field=='firm_order' and record[field] is True and (not re.search(r'received|awarded|signed|executed',excerpt,re.I) or re.search(r'\b(will|plan|planned|proposed|expected)\b',excerpt,re.I)):
+                raise ValueError('Order intent is not a received firm contract')
     published=record.get('published_at_utc')
     # Unknown publication times use first retrieval conservatively. Never
     # assign midnight on a document's printed date as a broadcast timestamp.
-    available=pd.Timestamp(published or evidence['first_retrieved_utc'])
+    publication=pd.Timestamp(published or evidence['first_retrieved_utc'])
+    available=max(publication,pd.Timestamp(evidence.get('first_reviewed_utc',publication)))
     if available.tzinfo is None:raise ValueError('Missing catalyst timezone')
     if published and evidence.get('available_at_utc')!=pd.Timestamp(published).isoformat():raise ValueError('Unverified publication time')
-    for k in ('capacity_units_per_year','utilisation_pct','order_value_INR','expected_margin_pct','material_dilution_pct'):
+    for k in ('capacity_units_per_year','capacity_quantity','order_duration_months','utilisation_pct','order_value_INR','material_dilution_pct'):
         if record.get(k) is not None and (not np.isfinite(record[k]) or record[k]<0):raise ValueError('Invalid quantified catalyst')
     if record.get('utilisation_pct') is not None and record['utilisation_pct']>100:raise ValueError('Utilisation unit conflict')
+    if record.get('expected_margin_pct') is not None and not -100<=record['expected_margin_pct']<=100:raise ValueError('Invalid margin units')
+    if record.get('capacity_quantity') is not None and not record.get('capacity_unit'):raise ValueError('Capacity quantity needs explicit physical unit')
     return {**record,'available_at_utc':available.isoformat(),'publication_time_status':'VERIFIED_BROADCAST' if published else 'UNKNOWN_USING_FIRST_RETRIEVAL',
       'unknown_fields':[k for k in FIELDS if record.get(k) is None],'future_profit_verified':False}
 
@@ -134,9 +150,18 @@ def join(frame,root):
         if utilisation:d.at[i,'utilisation_disclosed_pct']=max(utilisation,key=lambda z:z['available_at_utc'])['utilisation_pct']
         # Revenue is unknown here unless original annual revenue exists. Do not
         # substitute PAT, order book or a guessed denominator for sales.
-        if orders:d.at[i,'executable_order_value12_INR']=sum(z['order_value_INR'] for z in orders.values() if z.get('order_value_INR') is not None)
-        if (commissioned or orders) and bool(r.get('financial_complete',False)):
+        valued=[z for z in orders.values() if z.get('order_value_INR') is not None]
+        if valued:
+            value=sum(z['order_value_INR'] for z in valued)
+            d.at[i,'executable_order_value12_INR']=value
+            revenue=r.get('annual_reported_revenue_INR',np.nan)
+            if np.isfinite(revenue) and revenue>0:d.at[i,'disclosed_order_value_due12_to_sales']=value/revenue
+        chain=[z for z in [*commissioned,*valued] if z.get('funding_sufficient') is True and
+          z.get('approval_completed') is True and z.get('expected_margin_pct') is not None and z['expected_margin_pct']>0 and
+          z.get('execution_stage') not in {'ANNOUNCED_INTENT','CERTIFICATE_PENDING'}]
+        if chain and bool(r.get('financial_complete',False)):
             d.at[i,'evidence_status']='FINANCIAL_AND_EXECUTION_SUPPORTED'
-        for z in q:links.append({k:z.get(k) for k in ('isin','symbol','attachment_url','source_sha256','available_at_utc','publication_time_status','unknown_fields')})
+        for z in q:links.append({k:z.get(k) for k in ('isin','symbol','attachment_url','source_sha256','published_at_utc','available_at_utc','publication_time_status','unknown_fields',*FIELDS)})
     out.mkdir(exist_ok=True);(out/'source_links.json').write_text(json.dumps(links,indent=2));(out/'rejected_reviews.json').write_text(json.dumps(rejected,indent=2))
+    (out/'quantified_execution_reviews.json').write_text(json.dumps(records,indent=2))
     return d

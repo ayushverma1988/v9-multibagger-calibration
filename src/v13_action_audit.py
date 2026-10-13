@@ -104,6 +104,14 @@ def reconstruct(official,provider,actions):
     # and independently reconstructed close-ratio agreement, not a guessed split.
     rawfactor=x.close_provider/x.close_official
     if not np.allclose(x.open_provider/x.open_official,rawfactor,rtol=.002,atol=.002):raise ValueError('Provider unadjusted OHLC conflict')
+    expected=[]
+    for date in x.date:
+        factor=1.
+        for action in actions:
+            if action['kind'] in {'split','bonus'} and pd.Timestamp(action['ex_date'])>date:factor/=float(action['share_multiplier'])
+        expected.append(factor)
+    if not (np.allclose(rawfactor,1.,rtol=.002,atol=.002) or np.allclose(rawfactor,expected,rtol=.002,atol=.002)):
+        raise ValueError('Provider raw-price factors are not explained by reviewed share actions')
     return x,independent
 
 def audit(root,official,history,asof):
@@ -114,8 +122,10 @@ def audit(root,official,history,asof):
     rp=out/'reviewed_actions.json';reviews=json.loads(rp.read_text()) if rp.exists() else []
     coverage_path=out/'reviewed_coverage.json';coverage=json.loads(coverage_path.read_text()) if coverage_path.exists() else []
     rows=[];lookup={}
+    committed={z for p in (root/'paired_cohorts').glob('*.json') for z in (json.loads(p.read_text())['champion_registry'],json.loads(p.read_text())['challenger_registry'])}
     for reg in sorted((root/'registries').glob('*/*.json')):
         obj=validate_registry(reg);clock=pd.Timestamp(obj['registered_at_utc'])
+        if 'paired_context' in obj and reg.name not in committed:continue
         for r in obj['records']:
             proof={'registry_sha256':reg.stem,'isin':r['isin'],'entry_verified':False,'independent_outcome_verified':False,
               'verification_status':'UNKNOWN_ENTRY_OR_SOURCE_COVERAGE','confirmed_early_2x':False,'confirmed_risk_event':False}
@@ -128,8 +138,9 @@ def audit(root,official,history,asof):
             if p is not None and dates and not o.empty:
                 q=p.copy();q['date']=pd.to_datetime(q.date)
                 first=q[(q.date.dt.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)).gt(clock)].sort_values('date')
-                if o.date.iloc[0]==dates[0] and not first.empty and first.date.iloc[0]==dates[0] and first.symbol.iloc[0]==r['symbol'] and o.symbol.iloc[0]==r['symbol'] and abs(first.open.iloc[0]-o.open.iloc[0])<=.011 and o.source_status.iloc[0]=='VALID_POSITIVE_VOLUME_SESSION':
-                    proof['entry_verified']=True;proof['entry_date']=str(dates[0].date());proof['entry_open_INR']=float(o.open.iloc[0]);proof['entry_official_sha256']=o.source_sha256.iloc[0]
+                if o.date.iloc[0]==dates[0] and not first.empty and first.date.iloc[0]==dates[0] and first.symbol.iloc[0]==r['symbol'] and o.symbol.iloc[0]==r['symbol'] and o.source_status.iloc[0]=='VALID_POSITIVE_VOLUME_SESSION':
+                    proof['entry_verified']=abs(first.open.iloc[0]-o.open.iloc[0])<=.011
+                    proof['entry_date']=str(dates[0].date());proof['entry_open_INR']=float(o.open.iloc[0]);proof['entry_official_sha256']=o.source_sha256.iloc[0]
                     proof['verification_status']='ENTRY_VERIFIED_ACTION_COVERAGE_UNKNOWN'
                     matched=[z for z in coverage if z.get('isin')==r['isin'] and z.get('symbol')==r['symbol'] and pd.Timestamp(z['start'])<=dates[0] and pd.Timestamp(z['end'])>=pd.Timestamp(asof)]
                     try:
@@ -150,8 +161,8 @@ def audit(root,official,history,asof):
                         if not o.symbol.eq(r['symbol']).all():raise ValueError('Identity transition requires dedicated economic mapping')
                         horizon_end=dates[0]+pd.DateOffset(months=12)
                         o=o[o.date.le(horizon_end)]
-                        acts=[a for a in acts if pd.Timestamp(a['ex_date'])<=horizon_end]
                         x,returns=reconstruct(o,q,acts)
+                        proof['entry_verified']=True
                         ratio=returns*float(x.close_official.iloc[0])/float(x.open_official.iloc[0])*(1-core.COST_PER_SIDE)/(1+core.COST_PER_SIDE)
                         hit=np.flatnonzero(ratio>=2);loss=np.flatnonzero(ratio<=.7)
                         proof['confirmed_early_2x']=bool(len(hit));proof['confirmed_risk_event']=bool(len(loss) and (not len(hit) or loss[0]<hit[0]))
@@ -169,4 +180,7 @@ def audit(root,official,history,asof):
     raw=json.dumps(report,sort_keys=True,indent=2).encode();path=out/(asof+'_audit.json');path.write_bytes(raw)
     audit_sha=hashlib.sha256(raw).hexdigest()
     for proof in lookup.values():proof['action_audit_sha256']=audit_sha
+    backlog=[{**z,'required_checks':['complete_primary_action_interval','original_notices_and_identity_transitions','official_unadjusted_sessions','provider_adjustment_factor_reconciliation']} for z in rows if not z['independent_outcome_verified']]
+    (out/'action_review_backlog.json').write_text(json.dumps({'source_asof':asof,'complete_registered_cohorts':True,
+      'records':backlog,'unknown_is_not_no_action':True},indent=2))
     return lookup,{k:v for k,v in report.items() if k!='records'}

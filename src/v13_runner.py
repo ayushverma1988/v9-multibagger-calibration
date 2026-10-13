@@ -175,6 +175,9 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
             frame=catalyst_execution.join(frame,root)
             frame=financial_evidence.apply_scenarios(frame,root)
+            report['financial_complete_rows']=int(frame.financial_complete.sum())
+            report['execution_chain_supported_rows']=int(frame.evidence_status.eq('FINANCIAL_AND_EXECUTION_SUPPORTED').sum())
+            report['source_bound_earnings_scenario_rows']=int(frame.earnings_scenario_status.eq('SCENARIO_NOT_PROBABILITY').sum())
             baseline=evaluation.prior_rates(pd.read_parquet(root/'challenger_matrix.parquet'),asof) if (root/'challenger_matrix.parquet').exists() else {}
             for name,value in baseline.items():
                 if value is not None:frame[name]=value
@@ -206,6 +209,7 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         report['raw_price_2x_alerts']=sum(r['raw_price_2x_observed'] for r in observations)
         report['independently_verified_mature_outcomes']=sum(r['independent_outcome_verified'] and r['twelve_month_mature'] for r in observations)
         (root/'prospective_metrics.json').write_text(json.dumps(evaluation.prospective_report(observed),indent=2))
+        (root/'paired_evaluation.json').write_text(json.dumps(evaluation.paired_evaluation_report(observed),indent=2))
         # Promotion requires independently verified unseen outcomes. Current
         # provider adjustment/action reconciliation is incomplete, so promotion
         # is deliberately closed rather than silently learning from guesses.

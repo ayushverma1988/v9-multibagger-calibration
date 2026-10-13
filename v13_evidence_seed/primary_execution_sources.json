@@ -23,5 +23,67 @@
       "capacity_units_per_year": "from 6,000 pieces per annum to 9,000 pieces per annum"
     },
     "review_note": "The notice reports 1,040 units sold in Q1 FY2026-27. Sales are not production utilisation. Later commissioning plans and future profit remain unknown. Unknown publication time uses actual first retrieval, not the printed document date."
+  },
+  {
+    "isin": "INE05C901015",
+    "symbol": "JNPR",
+    "issuer_name": "Juniper Green Energy Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/JGEL2025_12102026212707_2026_10_12-_Reg_30-_JGEL_Commissiong_5_MW_Wind.pdf",
+    "source_sha256": "5f820375f1a8a46b98a05e85444b0f407215f300b7ccffd4562e24cceca0a74e",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T15:57:27+00:00",
+    "commissioned": true,
+    "capacity_quantity": 5,
+    "capacity_unit": "MW",
+    "execution_stage": "CERTIFICATE_PENDING",
+    "field_excerpts": {
+      "commissioned": "has fully commissioned its 150 MW Wind Solar Hybrid Power Project",
+      "capacity_quantity": "commissioning of final 5 MW wind turbine at the project site today i.e. October 12, 2026.",
+      "capacity_unit": "commissioning of final 5 MW wind turbine",
+      "execution_stage": "the formal certificate is expected to be issued shortly."
+    },
+    "review_note": "Final 5 MW commissioned physically within the 150 MW project; do not count 150 MW as an incremental addition. Formal certificate, margins, funding, utilisation and incremental profits remain unknown."
+  },
+  {
+    "isin": "INE267I01010",
+    "symbol": "ARSSINFRA",
+    "issuer_name": "ARSS Infrastructure Projects Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ARSSINFRA_12102026184613_work_order_12102026.pdf",
+    "source_sha256": "ef00d831b39b0c8f483be280d751cd2ad080a9202e1040e7e72ddc91cb16cf3b",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T13:16:22+00:00",
+    "firm_order": true,
+    "order_id": "29171/WE",
+    "order_value_INR": 226655719,
+    "order_duration_months": 8,
+    "order_due": null,
+    "order_start_date": null,
+    "field_excerpts": {
+      "firm_order": "we have received a work order of Rs. 22,66,55,719",
+      "order_id": "No. 29171/WE dated 12.08.2026",
+      "order_value_INR": "we have received a work order of Rs. 22,66,55,719",
+      "order_duration_months": "8 Months"
+    },
+    "review_note": "Stated contract duration is eight months; the start date is not specified, so an absolute twelve-month due date is not certified. Orders are not recognised revenue or profit. Margin, funding and approvals remain unknown."
+  },
+  {
+    "isin": "INE245A01013",
+    "symbol": "TATAPOWER",
+    "issuer_name": "Tata Power Company Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/KSTPCL_12102026102915_PR12102026.pdf",
+    "source_sha256": "f7487ca5c247e86a9b1f95852fb7767d17e4c6a47133fb99d55bdb8fd5a1196d",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T05:00:11+00:00",
+    "commissioned": true,
+    "capacity_quantity": 419,
+    "capacity_unit": "MW",
+    "execution_stage": "REPORTED_SUBSIDIARY_PERIOD_COMMISSIONING",
+    "field_excerpts": {
+      "commissioned": "the company successfully commissioned several key projects",
+      "capacity_quantity": "commissioning 419 MW of utility -scale projects",
+      "capacity_unit": "commissioning 419 MW of utility -scale projects",
+      "execution_stage": "delivered a strong execution performance in Q2 FY27"
+    },
+    "review_note": "Subsidiary TPREL reported period commissioning. Own assets and third-party execution must be separated before projecting attributable earnings. Future H2 projects remain plans. Funding, margins and incremental profits unknown."
   }
 ]

@@ -17,10 +17,19 @@ def financial_wide(extra):
     x=extra.drop_duplicates(keys+['metric','value'])
     if (x.groupby(keys+['metric'],dropna=False).value.nunique()>1).any():raise ValueError('Conflicting original facts')
     w=x.pivot(index=keys,columns='metric',values='value').reset_index()
+    # Preserve source URL, explicit economic start and retrieval time through
+    # the pivot; comparative periods retain their original document identity.
+    meta=[c for c in ('period_start','source_url','first_retrieved_utc') if c in x]
+    if meta:
+        m=x[keys+meta].drop_duplicates()
+        if m.duplicated(keys).any():raise ValueError('Conflicting financial source metadata')
+        w=w.merge(m,on=keys,validate='1:1')
     w['period']=pd.to_datetime(w.period_end);w['available']=pd.to_datetime(w.available_at_utc,utc=True,format='mixed')
     return w
 
 def enrich(matrix,wide,only_unknown=False):
+    from v13_financial_evidence import balancing_quarters
+    wide=balancing_quarters(wide)
     d=matrix.copy();groups={k:g for k,g in wide.groupby('security_isin')}
     columns=[*FINANCIAL,*UNSUPPORTED,*BASE_FIELDS,'four_profitable_quarters','expanded_financial_available_at']
     for c in columns:
@@ -183,22 +192,31 @@ def collect_financials(root,asof,budget=400):
     cat=cat[cat.symbol.isin(symbols)&cat.reporting_mode.ne('unknown')]
     accepted_path=root/'accepted_filings.json';accepted=set(json.loads(accepted_path.read_text())) if accepted_path.exists() else set()
     cat['version_key']=cat.source_url+'|'+cat.available_at_utc
+    # Parser upgrades must revisit accepted originals; a successful old
+    # quarter-only extraction does not mean nine-month/annual inputs exist.
+    parsed_path=root/'financial_parser_ytd_v1.json'
+    parsed=set(json.loads(parsed_path.read_text())) if parsed_path.exists() else set()
     attempts_path=root/'filing_attempts.json'
     attempts=json.loads(attempts_path.read_text()) if attempts_path.exists() else {}
-    queue=cat[~cat.version_key.isin(accepted)].copy()
+    queue=cat[~cat.version_key.isin(parsed)].copy()
     queue['last_attempt']=queue.version_key.map(lambda k:attempts.get(k,'0000'))
     # Complete public-cohort queue, newest disclosures first. No query uses
     # private model picks. Accepted URLs keep immutable original-byte hashes.
-    from v13_financial_evidence import priority_queue
+    from v13_financial_evidence import priority_queue,completion_queue,balancing_quarters
     wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
+    expected_hashes={}
+    if not wide.empty:
+        for k,g in wide.groupby(['symbol','reporting_mode','available_at_utc']):expected_hashes[k]=set(g.source_sha256)
+    remote_path=root/'remote_manifest.json'
+    original_hash_by_path={r['path']:r['sha256'] for r in json.loads(remote_path.read_text())['files']} if remote_path.exists() else {}
     public_history_symbols=set()
     for p in (root/'history'/'securities').glob('*.parquet'):
         h=pd.read_parquet(p,columns=['symbol'])
         if not h.empty:public_history_symbols.add(h.symbol.iloc[0])
-    # Spend half the bounded budget completing financial periods for the
-    # already collected public history universe; keep the rest for expansion.
+    # Complete same-basis fiscal bundles, rather than granting one recent
+    # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
-    completion=priority_queue(queue[queue.symbol.isin(public_history_symbols)],wide,asof,budget//2)
+    completion=completion_queue(queue[queue.symbol.isin(public_history_symbols)],balancing_quarters(wide),asof,budget*3//4)
     remainder=queue[~queue.version_key.isin(completion.version_key)]
     queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
@@ -208,17 +226,26 @@ def collect_financials(root,asof,budget=400):
         try:
             store=Store(root/'filing_raw'/sha(r['available_at_utc'].encode()))
             raw,proof=store.get(r['source_url'])
-            facts=parse_extra(raw,r,asof)
+            expected=expected_hashes.get((r['symbol'],r['reporting_mode'],r['available_at_utc']))
+            original_path='filing_raw/'+sha(r['available_at_utc'].encode())+'/'+sha(r['source_url'].encode())+'.bin'
+            if original_path in original_hash_by_path:expected={original_hash_by_path[original_path]}
+            if r['version_key'] in accepted and expected and proof['sha256'] not in expected:
+                raise ValueError('Previously accepted original filing bytes changed; revision review required')
+            facts=parse_extra(raw,r,asof,include_ytd=True)
             if not facts:raise ValueError('No usable exact-identity financial facts; remains queued')
             for f in facts:rows.append({**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']})
             accepted.add(r['version_key'])
+            parsed.add(r['version_key'])
         except Exception as e:errors.append({'source_url':r['source_url'],'error':str(e)[:160]})
         attempts[r['version_key']]=asof
     if rows:
         fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
-        combined=pd.concat([previous,fresh],ignore_index=True).drop_duplicates(['source_sha256','period_kind','period_end','security_isin','reporting_mode'])
+        combined=pd.concat([previous,fresh],ignore_index=True).drop_duplicates(['source_sha256','period_kind','period_end','security_isin','reporting_mode'],keep='last')
         combined.to_parquet(path,index=False)
     accepted_path.write_text(json.dumps(sorted(accepted)))
+    parsed_path.write_text(json.dumps(sorted(parsed)))
     attempts_path.write_text(json.dumps(attempts))
-    return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors}
+    return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
+      'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
+      'parser_ytd_v1_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True}

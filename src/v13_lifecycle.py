@@ -93,6 +93,12 @@ def adjudicate(registry,official,history,asof,verification=None):
                   'entry_verified','independent_outcome_verified','verification_status',
                   'verified_hit2_6','verified_hit2_12','verified_loss30_12',
                   'confirmed_early_2x','confirmed_risk_event','action_audit_sha256'}})
+                if proof.get('entry_verified') is True:
+                    if row['status']=='UNKNOWN_ENTRY_CONFLICT' and proof.get('verification_status')=='INDEPENDENT_PRIMARY_PRICES_ACTIONS_AND_PROVIDER_FACTORS_MATCHED':
+                        row['status']='INDEPENDENT_PRIMARY_ENTRY_PROVIDER_ACTION_RECONCILED'
+                    if proof.get('independent_outcome_verified') is True:
+                        for h in (6,12):
+                            if proof.get('verified_hit2_'+str(h)) in (0,1):row['six_month_mature' if h==6 else 'twelve_month_mature']=True
         rows.append(row)
     return rows
 

@@ -49,7 +49,7 @@ def normalize_financial_catalog(items,asof):
     d=d.sort_values('available_at_utc').drop_duplicates('source_url',keep='last')
     return d
 
-def exact_facts(raw,record,asof):
+def exact_facts(raw,record,asof,allow_empty=False):
     root=ET.fromstring(raw)
     if local(root.tag)!='xbrl':raise ValueError('Not primary XBRL instance')
     if scalar(root,{'Symbol','NSESymbol'}).upper()!=record['symbol']:raise ValueError('XBRL issuer symbol mismatch')
@@ -103,7 +103,7 @@ def exact_facts(raw,record,asof):
             priority=min(tags.index(x['tag']) for x in options);best=[x for x in options if tags.index(x['tag'])==priority]
             if len({x['value_INR'] for x in best})!=1:continue
             rows.append(best[0])
-    if not rows:raise ValueError('No finite exact-period facts inside four-year window')
+    if not rows and not allow_empty:raise ValueError('No finite exact-period facts inside four-year window')
     return rows,{'document_symbol':record['symbol'],'document_isin':document_isin,'security_isin':isin,'identity_source':'DOCUMENT_ISIN' if document_isin else 'ORIGINAL_EXCHANGE_CATALOG_ISIN','reporting_mode':basis,'bse_scrip_code':scalar(root,{'ScripCode'}),'contexts_with_conflicting_economic_dates_rejected':rejected_contexts,'historical_revision_integrity_independently_proven':False}
 
 def collect_financials(catalogs,universe,output,asof,companies=128):
