@@ -160,6 +160,22 @@ class FinancialCompletion(unittest.TestCase):
                 pd.DataFrame([{'symbol':symbol,'isin':isin,'date':pd.Timestamp(date),'close':100.,'volume':10000.}]).to_parquet(root/'history/securities'/(symbol+'.parquet'))
             self.assertEqual(fresh_public_price_symbols(root,'2026-10-12'),{'A'})
 
+    def test_scoreable_public_population_excludes_ineligible_raw_matches(self):
+        from v13_collection import fresh_public_price_symbols
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);(root/'official').mkdir();(root/'history/securities').mkdir(parents=True)
+            rows=[{'isin':'INE000000001','symbol':'A','open':100.,'high':101.,'low':99.,'close':100.,'volume':10000.,'source_status':'VALID_POSITIVE_VOLUME_SESSION'},
+                  {'isin':'INE000000002','symbol':'B','open':100.,'high':101.,'low':99.,'close':100.,'volume':10000.,'source_status':'VALID_POSITIVE_VOLUME_SESSION'}]
+            pd.DataFrame(rows).to_parquet(root/'official/2026-10-12_official_market.parquet')
+            for r in rows:
+                pd.DataFrame([{**r,'date':pd.Timestamp('2026-10-12'),'adj_close':100.}]).to_parquet(root/'history/securities'/(r['symbol']+'.parquet'))
+            def public_features(bars,asof):
+                return pd.DataFrame([{'date':pd.Timestamp(asof),'feature_eligible':bars.symbol.iloc[0]=='A'}])
+            with patch('v13_features.daily_features',side_effect=public_features):
+                self.assertEqual(fresh_public_price_symbols(root,'2026-10-12'),{'A','B'})
+                self.assertEqual(fresh_public_price_symbols(root,'2026-10-12',require_feature_eligible=True),{'A'})
+
     def test_seed_review_reuses_verified_archived_original_without_new_network_fetch(self):
         from v13_catalyst_execution import seed_primary_reviews
         from unittest.mock import patch

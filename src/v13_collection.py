@@ -214,11 +214,14 @@ def collect_financials(root,asof,budget=400):
         h=pd.read_parquet(p,columns=['symbol'])
         if not h.empty:public_history_symbols.add(h.symbol.iloc[0])
     fresh_symbols=fresh_public_price_symbols(root,asof)
+    scoreable_symbols=fresh_public_price_symbols(root,asof,require_feature_eligible=True)
     # Complete same-basis fiscal bundles, rather than granting one recent
     # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
     expanded=balancing_quarters(wide);completion_budget=budget*3//4
-    fresh_completion=completion_queue(queue[queue.symbol.isin(fresh_symbols)],expanded,asof,completion_budget)
+    scoreable_completion=completion_queue(queue[queue.symbol.isin(scoreable_symbols)],expanded,asof,completion_budget)
+    raw_completion=completion_queue(queue[queue.symbol.isin(fresh_symbols)&~queue.version_key.isin(scoreable_completion.version_key)],expanded,asof,max(0,completion_budget-len(scoreable_completion)))
+    fresh_completion=pd.concat([scoreable_completion,raw_completion],ignore_index=True)
     other=queue[queue.symbol.isin(public_history_symbols)&~queue.version_key.isin(fresh_completion.version_key)]
     warm_completion=completion_queue(other,expanded,asof,max(0,completion_budget-len(fresh_completion)))
     completion=pd.concat([fresh_completion,warm_completion],ignore_index=True)
@@ -254,9 +257,10 @@ def collect_financials(root,asof,budget=400):
     return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
+      'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_ytd_v1_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True}
 
-def fresh_public_price_symbols(root,asof):
+def fresh_public_price_symbols(root,asof,require_feature_eligible=False):
     """Unranked public raw-price coverage, never a private prediction list."""
     root=Path(root);path=root/'official'/(asof+'_official_market.parquet')
     if not path.exists():return set()
@@ -264,10 +268,20 @@ def fresh_public_price_symbols(root,asof):
     official=official[official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&official.close.between(20,2000)]
     official=official[~official['isin'].duplicated(keep=False)].set_index('isin');symbols=set()
     for p in (root/'history'/'securities').glob('*.parquet'):
-        h=pd.read_parquet(p,columns=['symbol','isin','date','close','volume'])
+        h=pd.read_parquet(p) if require_feature_eligible else pd.read_parquet(p,columns=['symbol','isin','date','close','volume'])
         if h.empty:continue
         r=h.sort_values('date').iloc[-1]
         if pd.Timestamp(r.date)!=pd.Timestamp(asof) or r['isin'] not in official.index:continue
         o=official.loc[r['isin']]
-        if r.symbol==o.symbol and abs(r.close-o.close)<=.011 and r.volume==o.volume:symbols.add(r.symbol)
+        if not (r.symbol==o.symbol and abs(r.close-o.close)<=.011 and r.volume==o.volume):continue
+        if require_feature_eligible:
+            # Deterministic public price/liquidity/history checks only. No
+            # probability, selection flag, forecast rank or future label.
+            from v13_features import daily_features
+            if not {'open','high','low','adj_close'}.issubset(h.columns):continue
+            if any(abs(r[c]-o[c])>.011 for c in ('open','high','low')):continue
+            bars=h[pd.to_datetime(h.date).ge(bounds(asof)[0])]
+            d=daily_features(bars,asof);current=d[d.date.eq(pd.Timestamp(asof))]
+            if len(current)!=1 or not bool(current.feature_eligible.iloc[0]):continue
+        symbols.add(r.symbol)
     return symbols

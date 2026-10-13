@@ -16,6 +16,13 @@ alone. A nine-month upgrade remains eligible where it is needed to reconstruct
 an absent balancing quarter. Broader parser upgrades continue in the rotated
 remainder. A known zero/negative denominator is not fabricated into a ratio.
 
+Live validation also distinguished raw-price coverage from the actual public
+market-eligible population. Completion now prioritises every stock passing
+the existing public price, liquidity and history eligibility checks before
+other fresh price matches. This includes unselected names and does not read
+model probabilities, rankings or future labels. Raw matches and wider public
+coverage remain in the rotated collection queue.
+
 A bounded public-source engineering probe retrieved 300 older originals
 for 62 issuers in the unranked 163-stock price-matched population. Every
 request was accepted with exact issuer/basis checks and original source
