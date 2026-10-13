@@ -1,6 +1,6 @@
 {
-  "checked_at_utc": "2026-10-13T07:39:19.400Z",
-  "workflow_run": 38362909771,
+  "checked_at_utc": "2026-10-13T08:01:03.971Z",
+  "workflow_run": 38365006135,
   "source_asof": "2026-10-12",
   "mode": "PAPER_RESEARCH",
   "job_state": "success",
@@ -9,14 +9,14 @@
   "market_rows": 164,
   "public_universe_rows": 3186,
   "financial_errors": 8,
-  "financial_complete_rows": 1,
+  "financial_complete_rows": 3,
   "execution_chain_supported_rows": 0,
   "source_bound_earnings_scenario_rows": 0,
-  "history_errors": 115,
-  "history_usable": 285,
+  "history_errors": 340,
+  "history_usable": 60,
   "paired_rows_per_model": 82,
   "paired_cohort": "88ffeb6e860a66a5d5df1040940fc74a2f0ab2aa829a9dad7688473552f7bfa8",
-  "catalyst_documents": 280,
+  "catalyst_documents": 319,
   "verified_entries": 145,
   "independently_verified_mature_outcomes": 0
 }
