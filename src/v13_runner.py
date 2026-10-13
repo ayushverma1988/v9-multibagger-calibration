@@ -122,13 +122,16 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         collection.universe(root,asof)
         report['steps']['catalogs']=collection.current_catalogs(root,asof)
         report['steps']['catalogue_recovery']=collection.recover_public_catalogue(root,seed.parent/'v13_evidence_seed/catalogue_recovery',asof)
+        # Fresh public prices must exist before financial completion chooses
+        # the unranked price/history-eligible population for this source date.
+        # Previously a new session always prioritised yesterday's histories.
+        report['steps']['history']=collection.collect_histories(root,asof,history_budget)
+        if not local:save(root)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
         report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
         report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=40)
         report['steps']['reviewed_primary_sources']=catalyst_execution.seed_primary_reviews(root,seed.parent/'v13_evidence_seed'/'primary_execution_sources.json')
         report['steps']['entry_backfill']=action_audit.backfill(root,asof,budget=8)
-        if not local:save(root)
-        report['steps']['history']=collection.collect_histories(root,asof,history_budget)
         if not local:save(root)
         frame,history=current_frame(root,asof)
         report['current_verified_market_rows']=len(frame)
