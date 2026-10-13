@@ -1,79 +1,50 @@
-# V13 evidence progress — 13 October 2026
+# V13 evidence and paired-evaluation completion audit — 13 October 2026
 
-The [completed worker 38370447460](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/38370447460) succeeded. Computation finished **13 October 2026, 14:20:14 IST**; aggregate health/artifact publication completed at **14:20:24 IST**. Source prices remain the **12 October 2026 NSE close**, not live 13 October quotes. The default worker is pinned to [a6f92a510c5b784c561f6e7794a948d231fc37d6](https://github.com/ayushverma1988/v9-multibagger-calibration/commit/a6f92a510c5b784c561f6e7794a948d231fc37d6) through research PR 14.
+This supersedes the prior offline-artifact status. The workspace recovered, the pending 14:20 IST artifact was rehashed and all 834 original forecast records/watchlists matched. Code `23094aaf838dfacab94d8b3b66bcef55f7bd9e0b` is deployed through PR 14 and the default-branch workflow. **496 regression tests** and four GitHub checks passed: 38405351369, 38405351182, 38405350861, 38405346966.
 
-**493 local regression tests passed**, and all four GitHub contracts passed: 38370450853, 38370450731, 38370450667, 38370444348. No fixed model head was promoted or replaced.
+[Latest completed worker 38405376068](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/38405376068) completed `2026-10-13T13:40:43.283091+00:00` using official unadjusted NSE prices dated **2026-10-13**, source SHA256 `b3aba7f1e20587e4c77a5de2b720cbcd5d8f4c8fe42e1b67f06f0d7deaabbf46`. NSE coverage remains partial; BSE is optional. No trades, messages or credentials were accessed.
 
-## Verified completed-run results
-
-| Evidence | Completed worker result |
+| Evidence | Verified aggregate |
 |---|---|
-| Financial-input completeness | **62 / 164 current price-matched stocks** have all seven required numerical inputs; the preceding run had three complete sets |
-| Financial quality | Completeness is separate from profitability, cash-conversion, leverage and interest-cover checks; no claim that all 62 pass quality or constitute recommendations |
-| Public inventory / current research coverage | **3,186 / 164**; partial NSE coverage |
-| Original financial filings | **4,972** accepted filing versions; 400 requests, 7,311 new facts and two unresolved issuer-symbol mismatches in the final batch |
-| Recovered earlier source inventory | 8,365 public March/June 2025 catalogue records across 2,681 issuers; **7,152 newly recovered versions**, 56,778 retained versions |
-| Remaining financial queue | **49,995** versions; increased inventory reflects recovery of previously omitted originals |
-| Completion priority | 300 completion requests, including **248** for the entire unranked public market-eligible population of 143 names before the history refresh |
-| Stored usable histories | **2,276**; 271 usable / 400 attempted in this batch, with 129 unavailable, insufficient or rejected-identity histories |
-| Catalyst inventory | **399** original issuer-matched documents, 101 extraction/review candidates, six accepted source-bound reviews |
-| Execution / valuation support | Zero current fully funded, approved, positive-margin execution chains; zero fully source-bound forward earnings/sector-valuation scenarios |
-| Paired registration | Same **82 stocks per model**, including unselected stocks; original source date, input hash, registration time and registry hashes reused |
-| Full observation ledger | **834** records: 670 TRACKING and 164 UNKNOWN_ENTRY; **145** independently verified entries |
-| Performance evidence | Zero confirmed early doubles, zero raw-price doubling alerts and zero independently verified mature outcomes |
-| Model approval | **False**; promotion remains rejected for source/action coverage and insufficient mature future evidence |
+| Public universe / matched current scan | 3186 / 160 |
+| Dated financial completeness / seven-check passes | 74 / 31 |
+| Known financial failures, including incomplete issuers | 88 |
+| Source financial versions / new facts | 5709 / 8926 this batch |
+| Completion priority from fresh public data | 300 filing slots; 222 fresh names; 137 eligible names |
+| Remaining filing queue | 49265 versions |
+| Provider histories | 2276 stored; 290 usable/400 attempted this batch |
+| Catalyst documents / fully supported execution rows | 478 / 0 |
+| Source-bound forward earnings/sector-valuation scenarios | 0 |
+| Latest same-clock paired cohort | 75 stocks/model including unselected; registered `2026-10-13T13:25:09.106648+00:00` |
+| Immutable tracked records / originals compared | 984 / 984 |
+| Registered champion / strict challenger selections | 4 financial tier + 2 discovery / zero strict challenger |
+| Independent entry proofs / mature unseen outcomes | 145 / 0 |
+| Model promotion / accuracy approval | false / false |
 
-The seven completeness fields are four profitable-quarter observations, current sales/PAT year-on-year growth, PAT margin, annual CFO/PAT, dated debt/equity and annual EBIT-proxy interest cover. A zero profitability flag or negative ratio can be observed data: completeness alone is not a quality pass. Undefined ratios and absent facts remain unknown.
+The original 82-name-per-model 12 October pair remains frozen and separate from the new 75-name-per-model 13 October contract. Initial 670 unpaired observations remain tracked but cannot be turned into a backdated challenger comparison. All previous forecasts, fixed model heads and active model metadata matched; no original probabilities were adjusted. The final same-source-date collector reuses the already registered cohort, even when broader collection changes current coverage. New data can inform a later source-date forecast. ₹20–₹2,000 is enforced on selected registered source prices. The 13 October evening pair targets the next verified session, expected **14 October**, not the previous close; the official saved calendar has no 14 October holiday. Unverified entries and action intervals remain unknown.
 
-## Repairs made
+## Data repairs
 
-1. An already parsed, available, recent quarter now anchors collection of older missing comparison periods. Issuers no longer disappear from completion simply because their newest filing has been parsed.
-2. Completion requests target missing economic facts before redundant parser-version upgrades. Nine-month inputs remain eligible when needed for source-bound annual-minus-nine-month balancing quarters; EPS, share counts and cash flows are not subtracted.
-3. The full unranked population passing the existing public price, liquidity and history checks is prioritised before other raw-price matches. It includes unselected names and does not use model probabilities, prediction ranks or future outcomes.
-4. Earlier captured primary NSE catalogue metadata restores missing March/June 2025 originals when current dynamic responses omit them. Recovery is hash checked, idempotent and clipped to the trailing four-year window. It contains source URLs/publication metadata, not copied financial numbers, forecasts or outcomes. Originals are retrieved and validated for exact issuer, reporting basis, period, unit and source hash before facts are added.
-5. Quantified catalyst values must match an exact original excerpt and its currency scale. Percentage units are explicit. Original issued share counts must reconcile with allotted shares before derived dilution arithmetic is exported. Share-count arithmetic does not become a provider price-adjustment factor.
+- Recovered 8,365 hash-checked public original-filing catalogue rows for missing March/June 2025 comparisons, spanning 2,681 issuers, adding 7,152 previously missing versions. Metadata recovery does not bypass original-document identity/unit/date validation.
+- Recent parsed quarters remain anchors; missing same-basis fiscal endpoints precede general parser upgrades. Public eligible stocks are prioritised without consulting private forecast ranks.
+- The first new-source run exposed an empty fresh-price financial-priority set because histories refreshed later. Histories now refresh **before** financial bundles; the integration regression verifies ordering while preserving original registries. Intermediate source-13 run 38403082940 succeeded with 75 matched rows, 44 complete and 18 seven-check passes. Different covered populations are not matched-company performance regressions.
+- Completeness, known failure and quality pass are exported separately, together with expanded feature availability. An incomplete issuer with an observed failure is never reported as passing. This is an evidence audit, not future-profitability certification.
+- Exact catalyst quantities/currency scales/percentage units and reconciled share counts are required. Six original-source reviews retain actual review-availability clocks. Announced projects are not completed capacity or profit; orders are not recognised revenue.
 
-A separate earlier 300-original engineering probe completed 42 of its fixed 163-stock input population, with 24 passing the basic financial-quality checks. Those are **probe results**, not a quality count for the final live run, a candidate list, or independent prediction validation. The live source inventory and population were explicitly checked rather than substituted with those probe counts.
+## Remaining evidence
 
-## New quantified source facts
+Financial errors were retained and rejected without relaxing identity checks: `{"Original document/catalog equity ISIN unavailable": 3, "XBRL issuer symbol mismatch": 16}`. Provider missing-history/wrong-identity failures remain unknown. Original issuer/symbol changes require primary notices, not guessed aliases.
 
-| Issuer | Original publication, IST | Verified fact and restriction |
-|---|---|---|
-| SWASTIKAIN | 7 October 2026, 10:29:06 | [Original NSE LOA disclosure](https://nsearchives.nseindia.com/corporate/SWASTIKAINFRA_07102026102824_Disclosure_of_Order_win.pdf): ₹615.76 crore including taxes, with a 24-month execution term from the LOA date. Exact start, phased twelve-month value, margins and sufficient funding remain unknown; full order value is not certified due within twelve months |
-| NAZARA | 12 October 2026, 18:46:42 | [Original NSE allotment notice](https://nsearchives.nseindia.com/corporate/NAZARA_12102026184557_BMOutcomeFinal.pdf): 23,881,711 preferential shares, issued shares 384,696,024 → 408,577,735. Arithmetic gives 6.207943% share-count growth and 5.845084% existing-holder ownership dilution. Listing/trading approval remained pending; planned subsidiary investment is not proof of secured funding or acquisition profit |
+The 12 October 164-stock snapshot had 159 latest-quarter reported continuing diluted-EPS values but zero same-original year-ago comparisons. Numeric EPS parsing works; growth requires a comparable original per-share basis or independent action reconstruction. Reported EPS is not recurring EPS. Expanded field availability in the final scan: `{"accruals_to_average_assets": 123, "annual_CFO_to_revenue": 147, "annual_EBIT_proxy_interest_coverage": 147, "annual_ROCE_proxy": 115, "annual_cash_conversion_change": 109, "exceptional_items_to_abs_PBT": 154, "historical_sector_relative_PE": 0, "incremental_ROCE_proxy": 83, "other_income_to_revenue": 154, "pat_growth_acceleration": 94, "pat_margin_yoy_change": 132, "receivables_to_revenue": 91, "reported_diluted_EPS_yoy_same_document": 0, "reported_share_count_yoy": 126, "sales_growth_acceleration": 119, "sales_yoy_previous_quarter": 119, "verified_recurring_diluted_EPS_growth": 0}`.
 
-Original SHA-256 values: SWASTIKAIN `5c70f0aac068ba5cdbd32b2f4afd6ac3196d51f6336007f26545ebd5acf65125`; NAZARA `f8af6246b57b82d938ae48abbcc79456a502e2b667275869be8880c73aa35655`. These originals were inspected and matched before the workspace disconnected. Accepted review availability is **13 October at 13:04:31–13:04:32 IST**, not backdated to publication.
+SWASTIKAIN's source-verified ₹615.76 crore tax-inclusive LOA spans 24 months; full twelve-month execution, margin, funding and profit remain unknown. NAZARA's original allotment reconciles 23,881,711 new shares: 6.207943% issued-share growth and 5.845084% ownership dilution; listing/trading approval is pending. These reviews first became available on 13 October at 13:04 IST, not backdated to publication. Share-count arithmetic is not a provider action-adjustment proof. An additional direct VIVIANA original retrieval timed out and the web fallback could not access it; no additional quantified fact was independently certified from it.
 
-Earlier accepted JNPR, ARSSINFRA, TATAPOWER and AEROFLEX reviews remain. Physical commissioning, pending certificates, unknown contract starts, subsidiary/third-party scope, unknown margins and unknown funding remain distinct. No announced intent is treated as completed capacity, recognised revenue or profit.
+Forward earnings/sector valuation and complete funding/margin/approval chains remain unsupported where the originals do not establish them. Reverse 2× scenario arithmetic is explicitly conditional and separate from probability. Action checks require official raw sessions, original notices/identity transitions and provider-factor reconciliation. Incomplete outcomes are not certified.
 
-At unchanged valuation, Nazara's reported share-count increase would require approximately 114.55% growth in profit attributable to common shareholders to support a net 2× relative to a pre-allotment share-count baseline after the registered 0.5% cost per side. This is conditional arithmetic, not an earnings forecast, price target or probability. No ≥30% price-loss event is inferred from the allotment.
+Monthly predeclared small feature-group experiments continue against a simple maturity-purged baseline, with time-separated training/calibration/test dates inside four years. Historical diagnostics are already examined development evidence. Tier, observed-cohort market-breadth regime and liquidity metrics retain all unselected/unknown denominators. Immature accuracy metrics remain null, early doubles are separate, and experimental heads cannot replace frozen heads without independently verified future results and all promotion gates.
 
-## Fair comparison and remaining evidence
+## Audit receipts
 
-The newest frozen paired forecast remains sourced to **12 October**, registered **2026-10-12T17:15:26.499188+00:00 / 22:45:26.499188 IST**. Its intended entry is the next verified session open on **13 October**, rather than the preceding close. The final job ran before that session finished; completed primary 13 October prices were not yet available to it.
+Artifact `11819188213`, ZIP SHA256 `d5aa33abf2b13050a0e574bb7ba8a96876539ca4126977bf3266ff02d2caca9b`, matched actual downloaded bytes. Snapshot `20261013T134045Z_ab79899fdc60`; archived manifest SHA256 `ab79899fdc60bd68c40ce8fa2f7c439e2319be198c1c970a7b122db527339e49` matched the receipt, referencing 25262 objects. Referenced private objects were not each independently downloaded/rehashed in this artifact audit. Original record probabilities/clocks/selection flags and both current watchlists were checked against the complete observation ledger. Candidate-level probabilities remain in the user's private monitoring report, not copied into this public code audit.
 
-The price range remains **₹20–₹2,000**, NSE coverage remains partial, and verified/discovery tiers remain separate. Later-collected financial inputs do not retrospectively change an old forecast's tier or probabilities. The latest registered selection remains the previously published discovery cohort; this run reused the old registries and did not register an invented revised forecast.
-
-Both horizons are measured by frozen financial tier, observed-cohort market breadth and liquidity, using complete cohorts and unselected names. Immature Brier, precision and paired gains remain null. Changed input/selection-policy contracts cannot be pooled for promotion. Older unpaired forecasts are not given retrospective challenger predictions.
-
-Monthly experimental refits and small predeclared market, market+financial and market+financial+catalyst comparisons against a maturity-purged prior-rate baseline continue inside the trailing four-year boundary. Previously examined historical diagnostics remain development evidence. The formal champion and challenger stay fixed; replacement requires independently verified future paired outcomes and every promotion gate. The stricter evidence policy can select zero stocks.
-
-Remaining gaps include 102 current stocks without all seven numerical inputs, recurring diluted-EPS definitions, source-bound forward earnings/sector valuation, quantified executable profit/funding, bank-specific definitions, independently verified identity transitions, complete corporate-action intervals and genuine six/twelve-month maturity. Missing data is not interpreted as profitability. BSE is optional. No trades are executed.
-
-## Audit trail and exact local blocker
-
-The following remote results were checked: default worker pin, all four successful CI checks, successful worker/job steps, full worker JSON in the completed job log, aggregate health, reused model/cohort/registry hashes and artifact metadata. Three preceding completed artifacts were downloaded and compared locally: all 834 frozen probability/selection records and both watchlists matched their earlier successful versions.
-
-The final artifact is **11799521587**, with GitHub-reported ZIP SHA-256 `a6523fe12418775305e2c51194400bb370ada0f615837ea42380bc8e37c7de5f`. **The final ZIP has not been independently re-hashed and its checkpoint receipt/manifest has not been compared locally.** The workspace disconnected with `409 Conflict, environment_offline: Environment is not connected`. That also blocks replacement of the original downloadable monitoring report; its last saved version remains unchanged. This Git-backed progress report preserves the new findings without claiming those pending checks succeeded.
-
-Frozen paired identifiers reported by the successful worker:
-- Cohort: `88ffeb6e860a66a5d5df1040940fc74a2f0ab2aa829a9dad7688473552f7bfa8`
-- Input: `9c37dadbf83e4293581d99d9b09d083043d4d52f51e6e5783a84e108d6f2c129`
-- Champion model: `c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571`
-- Challenger model: `f6facda12b9fcc757a15cb9e7cdd54b84ebaabe3dff0213b313f3f6d6471f291`
-- Champion registry: `aef769b131a81c90c099406044ea22a581c666fb466a20b4183b6d6dfe58985b.json`
-- Challenger registry: `4d7ce6938176ed85d49bfc3a58e6f8d88d5cb8b212d71d305bb8bb0f3b1d8973.json`
-
-Public recovery subset SHA-256: `8ce2f124ddd03797d9c26ed2e3782b8ca33de8b095a84f717e4ff13a862d6e15`; original earlier full normalized catalogue SHA-256: `9782c9bacd9433e8b054d04b68934eeb27830427948ea5340d1123c05e0a23fb`. Primary 12 October bhavcopy SHA-256: `818f673b3cdb96ae8ec4e466c7c4fd3a28d035482173a675dd24f9437a3ecd99`.
-
-**Financial data coverage has materially improved; prediction accuracy is not established.** The deployed collector continues independently of the disconnected local workspace.
+The pending original monitoring-report replacement has been completed in this request; the user report preserves all earlier dated sections and frozen cohorts. Data completeness improved; prediction accuracy remains unproven.
