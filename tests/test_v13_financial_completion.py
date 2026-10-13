@@ -87,6 +87,27 @@ class FinancialCompletion(unittest.TestCase):
         facts=parse_extra(raw,r,'2026-10-12',include_ytd=True);self.assertEqual(facts[0]['period_kind'],'ytd')
         with self.assertRaises(ValueError):parse_extra(raw,{**r,'symbol':'OTHER'},'2026-10-12',include_ytd=True)
 
+    def test_missing_economic_period_precedes_current_parser_upgrade(self):
+        w=self.wide().iloc[:1].copy();w['period_kind']='quarter'
+        w['period']=pd.Timestamp('2026-06-30');w['period_end']='2026-06-30'
+        w['available']=pd.Timestamp('2026-08-01',tz='UTC');w['revenue']=100.;w['pat']=10.
+        rows=[{'symbol':'A','period_end':p,'reporting_mode':'consolidated',
+          'available_at_utc':'2026-08-01T00:00:00Z','last_attempt':'0000','filed_period':'Quarterly'}
+          for p in ('2026-06-30','2025-06-30')]
+        out=completion_queue(pd.DataFrame(rows),w,'2026-10-12',1)
+        self.assertEqual(out.period_end.tolist(),['2025-06-30'])
+
+    def test_missing_balancing_quarter_keeps_needed_nine_month_upgrade(self):
+        w=self.wide().iloc[:1].copy()
+        q={**w.iloc[0].to_dict(),'period_kind':'quarter','period':pd.Timestamp('2025-12-31'),
+           'period_end':'2025-12-31','period_start':'2025-10-01','pat':20.,'revenue':200.}
+        latest={**q,'period':pd.Timestamp('2026-06-30'),'period_end':'2026-06-30',
+                'period_start':'2026-04-01','available':pd.Timestamp('2026-08-01',tz='UTC')}
+        w=pd.concat([w,pd.DataFrame([q,latest])],ignore_index=True)
+        queue=pd.DataFrame([{'symbol':'A','period_end':'2025-12-31','reporting_mode':'consolidated',
+          'available_at_utc':'2026-02-01T00:00:00Z','last_attempt':'0000','filed_period':'Quarterly'}])
+        self.assertEqual(len(completion_queue(queue,w,'2026-10-12',1)),1)
+
     def test_provider_split_scaled_entry_needs_reviewed_explanatory_factors(self):
         dates=pd.date_range('2026-10-12',periods=3,freq='B')
         o=pd.DataFrame({'date':dates,'open':[100,50,60],'close':[100,50,60],'source_status':'VALID_POSITIVE_VOLUME_SESSION'})

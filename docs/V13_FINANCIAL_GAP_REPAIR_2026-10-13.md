@@ -8,6 +8,14 @@ not-yet-available quarters cannot anchor a bundle, and one reporting basis
 is preserved. Public fresh-price coverage remains the collection priority;
 forecast ranking and future returns are not used to select requests.
 
+The first deployed run completed successfully but exposed a second queue
+issue: accepted filings awaiting a parser upgrade consumed completion slots
+ahead of missing economic periods. Completion now targets absent revenue/PAT
+quarters and absent annual/balance facts, rather than parser-version status
+alone. A nine-month upgrade remains eligible where it is needed to reconstruct
+an absent balancing quarter. Broader parser upgrades continue in the rotated
+remainder. A known zero/negative denominator is not fabricated into a ratio.
+
 A bounded public-source engineering probe retrieved 300 older originals
 for 62 issuers in the unranked 163-stock price-matched population. Every
 request was accepted with exact issuer/basis checks and original source

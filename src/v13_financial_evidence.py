@@ -84,6 +84,24 @@ def completion_queue(queue,wide,asof,budget):
         # One latest pending version per fiscal endpoint; versions already
         # accepted remain in the immutable wide/provenance store.
         target=target.sort_values('available_at_utc',ascending=False).drop_duplicates('_period')
+        # A parser-version upgrade is not itself a missing economic period.
+        # Complete absent facts first; otherwise accepted current filings can
+        # consume every slot while year-ago originals remain untouched.
+        def economic_gap(period):
+            if w.empty:return True
+            quarter=pick(w,'quarter',period)
+            if not quarter or any(not np.isfinite(number(quarter,k)) for k in ('revenue','pat')):return True
+            if period in set(pd.to_datetime(annual['_period'])):
+                a=pick(w,'annual',period);b=pick(w,'instant',period)
+                if not a or any(not np.isfinite(number(a,k)) for k in ('revenue','pat','cfo','pbt','finance_cost')):return True
+                if not b or any(not np.isfinite(number(b,k)) for k in ('equity','borrowings_current','borrowings_noncurrent')):return True
+            # A parsed annual without its March quarter needs a nine-month
+            # original too, even when December's quarter is already present.
+            for a in w[w.period_kind.eq('annual')].to_dict('records'):
+                if a['period']-pd.offsets.MonthEnd(3)==period and not pick(w,'quarter',a['period']) and not pick(w,'ytd',period):return True
+            return False
+        target=target[[economic_gap(p) for p in target['_period']]]
+        if target.empty:continue
         f,_=features(w,date) if not w.empty else ({},[])
         missing=sum(not np.isfinite(f.get(k,np.nan)) for k in REQUIRED)
         if not missing:continue
