@@ -63,8 +63,13 @@ def completion_queue(queue,wide,asof,budget):
         w=groups.get(symbol,pd.DataFrame())
         if not w.empty:w=w[w.available.le(cut)&w.period.between(low,date)]
         recent=g[g['_period'].ge(date-pd.Timedelta(days=190))]
-        if recent.empty:continue
-        basis='consolidated' if recent.reporting_mode.eq('consolidated').any() else 'standalone'
+        observed_recent=w[w.period_kind.eq('quarter') & (date-w.period).dt.days.between(0,190)] if not w.empty else w
+        # The pending queue no longer contains an already parsed current
+        # filing. Its observed quarter must still anchor older comparison
+        # periods; otherwise completing the newest filing starves its issuer.
+        if recent.empty and observed_recent.empty:continue
+        anchor=observed_recent if not observed_recent.empty else recent
+        basis='consolidated' if anchor.reporting_mode.eq('consolidated').any() else 'standalone'
         g=g[g.reporting_mode.eq(basis)]
         if not w.empty:w=w[w.reporting_mode.eq(basis)]
         endpoints=[g['_period'].max()]

@@ -57,6 +57,25 @@ class FinancialCompletion(unittest.TestCase):
         w=financial_wide(pd.DataFrame(rows));self.assertEqual(w.source_url.iloc[0],rows[0]['source_url'])
         self.assertEqual(w.period_start.iloc[0],'2026-04-01')
 
+    def test_parsed_recent_quarter_still_anchors_missing_year_ago_bundle(self):
+        w=self.wide().iloc[:1].copy()
+        w['period_kind']='quarter';w['period']=pd.Timestamp('2026-06-30')
+        w['period_end']='2026-06-30';w['period_start']='2026-04-01'
+        w['available']=pd.Timestamp('2026-08-01',tz='UTC')
+        rows=[{'symbol':'A','period_end':p,'reporting_mode':basis,
+               'available_at_utc':'2025-08-01T00:00:00Z','last_attempt':'0000','filed_period':'Quarterly'}
+              for p in ('2025-06-30','2025-03-31','2024-12-31')
+              for basis in ('standalone','consolidated')]
+        queue=pd.DataFrame(rows)
+        out=completion_queue(queue,w,'2026-10-12',8)
+        self.assertEqual(set(out.period_end),{'2025-06-30','2025-03-31','2024-12-31'})
+        self.assertEqual(set(out.reporting_mode),{'consolidated'})
+        # A stale or not-yet-available observation cannot anchor completion.
+        stale=w.copy();stale['period']=pd.Timestamp('2025-06-30')
+        self.assertTrue(completion_queue(queue,stale,'2026-10-12',8).empty)
+        future=w.copy();future['available']=pd.Timestamp('2026-10-13',tz='UTC')
+        self.assertTrue(completion_queue(queue,future,'2026-10-12',8).empty)
+
     def test_ytd_is_explicit_opt_in_and_wrong_identity_is_rejected(self):
         raw=b'''<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:f="urn:test">
         <context id="q"><period><startDate>2025-04-01</startDate><endDate>2025-12-31</endDate></period></context>
@@ -201,5 +220,30 @@ class FinancialCompletion(unittest.TestCase):
             f=pd.DataFrame([{'isin':'INE000000001','date':pd.Timestamp('2026-10-13'),'close':100,'ttm_reported_PAT_INR':100,'latest_diluted_shares':10,'earnings_scenario_status':'UNKNOWN'}])
             out=apply_scenarios(f,root);self.assertEqual(out.earnings_scenario_status.iloc[0],'UNKNOWN')
             self.assertEqual(json.loads((root/'evidence/earnings_scenario_audit.json').read_text())[0]['status'],'UNKNOWN_UNBOUND_SCENARIO_INPUTS')
+
+    def test_catalyst_quantities_must_match_exact_excerpt_and_currency_scale(self):
+        import hashlib
+        text='A received an order of INR 615.76 crore including taxes.'
+        e={'isin':'INE000000001','symbol':'A','source_sha256':'a'*64,'attachment_url':'https://nsearchives.nseindia.com/a.pdf',
+           'text_sha256':hashlib.sha256(text.encode()).hexdigest(),'issuer_identity_read':True,'first_retrieved_utc':'2026-10-13T01:00:00Z'}
+        r={k:e[k] for k in ('isin','symbol','source_sha256','attachment_url')}
+        r.update(order_value_INR=6157600000,order_tax_inclusive=True,field_excerpts={'order_value_INR':text,'order_tax_inclusive':text})
+        self.assertEqual(reviewed(r,e,text)['order_value_INR'],6157600000)
+        for value in (615.76,615760000,True):
+            with self.assertRaises(ValueError):reviewed({**r,'order_value_INR':value},e,text)
+
+    def test_original_share_counts_reconcile_before_derived_dilution(self):
+        import hashlib
+        text='Issued shares increased from 1,00,000 to 1,10,000; 10,000 shares allotted.'
+        e={'isin':'INE000000001','symbol':'A','source_sha256':'a'*64,'attachment_url':'https://nsearchives.nseindia.com/a.pdf',
+           'text_sha256':hashlib.sha256(text.encode()).hexdigest(),'issuer_identity_read':True,'first_retrieved_utc':'2026-10-13T01:00:00Z'}
+        r={k:e[k] for k in ('isin','symbol','source_sha256','attachment_url')}
+        r.update(issued_shares_before=100000,issued_shares_after=110000,new_shares_allotted=10000,
+          field_excerpts={k:text for k in ('issued_shares_before','issued_shares_after','new_shares_allotted')})
+        out=reviewed(r,e,text);self.assertAlmostEqual(out['derived_issued_share_count_increase_pct'],10)
+        self.assertAlmostEqual(out['derived_existing_ownership_dilution_pct'],100*10000/110000)
+        self.assertTrue(out['share_count_arithmetic_is_not_provider_price_adjustment'])
+        # All numbers exist in the source, but the reconciliation must agree.
+        with self.assertRaises(ValueError):reviewed({**r,'new_shares_allotted':100000},e,text)
 
 if __name__=='__main__':unittest.main()

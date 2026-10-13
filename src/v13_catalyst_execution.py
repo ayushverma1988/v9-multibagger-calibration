@@ -16,6 +16,20 @@ from urllib.parse import urlparse
 FIELDS=('commissioned','capacity_units_per_year','utilisation_pct','firm_order','order_id',
  'order_value_INR','order_due','expected_margin_pct','funding_sufficient','approval_completed','material_dilution_pct')
 FIELDS=FIELDS+('capacity_quantity','capacity_unit','execution_stage','order_duration_months','order_start_date')
+FIELDS=FIELDS+('order_tax_inclusive','issued_shares_before','issued_shares_after','new_shares_allotted')
+
+def excerpt_numbers(text):
+    """Exact displayed quantities, including explicit Indian currency scales."""
+    numbers=[]
+    for m in re.finditer(r'(?<![\w.])[-+]?\d[\d,]*(?:\.\d+)?',text):
+        value=float(m.group().replace(',',''))
+        suffix=text[m.end():].lstrip()
+        scale=re.match(r'(crores?|cr\b|lakhs?|lacs?|millions?|billions?|thousands?)',suffix,re.I)
+        if scale:
+            unit=scale.group().lower()
+            value*=1e7 if unit.startswith(('cro','cr')) else 1e5 if unit.startswith(('lak','lac')) else 1e6 if unit.startswith('mil') else 1e9 if unit.startswith('bil') else 1e3
+        numbers.append(value)
+    return numbers
 
 def seed_primary_reviews(root,seed_path):
     """Install reviewed public original documents, hash checked on each source.
@@ -68,6 +82,16 @@ def reviewed(record,evidence,text):
         if record.get(field) is not None:
             excerpt=record.get('field_excerpts',{}).get(field)
             if not excerpt or re.sub(r'\s+',' ',excerpt).strip() not in re.sub(r'\s+',' ',text):raise ValueError('Unbound quantified field: '+field)
+            if field in {'capacity_units_per_year','capacity_quantity','order_duration_months','utilisation_pct',
+                         'order_value_INR','material_dilution_pct','expected_margin_pct',
+                         'issued_shares_before','issued_shares_after','new_shares_allotted'}:
+                value=record[field]
+                if isinstance(value,bool) or not isinstance(value,(int,float)) or not np.isfinite(value) or not any(np.isclose(value,n,rtol=1e-9,atol=1e-8) for n in excerpt_numbers(excerpt)):
+                    raise ValueError('Quantified value or unit not present in bound excerpt: '+field)
+                if field in {'utilisation_pct','material_dilution_pct','expected_margin_pct'} and not re.search(r'%|percent|per\s+cent|pct',excerpt,re.I):
+                    raise ValueError('Percentage unit not explicit: '+field)
+            if field=='order_tax_inclusive' and record[field] is True and not re.search(r'includ\w*\s+tax',excerpt,re.I):
+                raise ValueError('Tax-inclusive order amount not explicit')
             if field=='commissioned' and record[field] is True:
                 if not re.search(r'commissioned|commenced|started|operational|commercial production',excerpt,re.I) or re.search(r'\b(will|plan|plans|planned|proposed|expected|target|intend)\b',excerpt,re.I):
                     raise ValueError('Announced intent is not completed commissioning')
@@ -89,7 +113,16 @@ def reviewed(record,evidence,text):
     if record.get('utilisation_pct') is not None and record['utilisation_pct']>100:raise ValueError('Utilisation unit conflict')
     if record.get('expected_margin_pct') is not None and not -100<=record['expected_margin_pct']<=100:raise ValueError('Invalid margin units')
     if record.get('capacity_quantity') is not None and not record.get('capacity_unit'):raise ValueError('Capacity quantity needs explicit physical unit')
-    return {**record,'available_at_utc':available.isoformat(),'publication_time_status':'VERIFIED_BROADCAST' if published else 'UNKNOWN_USING_FIRST_RETRIEVAL',
+    derived={}
+    before=record.get('issued_shares_before');after=record.get('issued_shares_after')
+    if before is not None and after is not None:
+        if before<=0 or after<=0 or before!=int(before) or after!=int(after):raise ValueError('Invalid original issued share counts')
+        allotted=record.get('new_shares_allotted')
+        if allotted is not None and after-before!=allotted:raise ValueError('Allotment does not reconcile original issued share counts')
+        derived={'derived_issued_share_count_increase_pct':100*(after-before)/before,
+          'derived_existing_ownership_dilution_pct':100*(after-before)/after,
+          'share_count_arithmetic_is_not_provider_price_adjustment':True}
+    return {**record,**derived,'available_at_utc':available.isoformat(),'publication_time_status':'VERIFIED_BROADCAST' if published else 'UNKNOWN_USING_FIRST_RETRIEVAL',
       'unknown_fields':[k for k in FIELDS if record.get(k) is None],'future_profit_verified':False}
 
 def collect(root,asof,budget=40):
@@ -167,7 +200,8 @@ def join(frame,root):
           z.get('execution_stage') not in {'ANNOUNCED_INTENT','CERTIFICATE_PENDING'}]
         if chain and bool(r.get('financial_complete',False)):
             d.at[i,'evidence_status']='FINANCIAL_AND_EXECUTION_SUPPORTED'
-        for z in q:links.append({k:z.get(k) for k in ('isin','symbol','attachment_url','source_sha256','published_at_utc','available_at_utc','publication_time_status','unknown_fields',*FIELDS)})
+        for z in q:links.append({k:z.get(k) for k in ('isin','symbol','attachment_url','source_sha256','published_at_utc','available_at_utc','publication_time_status','unknown_fields',
+          'derived_issued_share_count_increase_pct','derived_existing_ownership_dilution_pct','share_count_arithmetic_is_not_provider_price_adjustment',*FIELDS)})
     out.mkdir(exist_ok=True);(out/'source_links.json').write_text(json.dumps(links,indent=2));(out/'rejected_reviews.json').write_text(json.dumps(rejected,indent=2))
     (out/'quantified_execution_reviews.json').write_text(json.dumps(records,indent=2))
     return d

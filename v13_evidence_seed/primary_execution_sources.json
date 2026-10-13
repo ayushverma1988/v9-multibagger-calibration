@@ -85,5 +85,45 @@
       "execution_stage": "delivered a strong execution performance in Q2 FY27"
     },
     "review_note": "Subsidiary TPREL reported period commissioning. Own assets and third-party execution must be separated before projecting attributable earnings. Future H2 projects remain plans. Funding, margins and incremental profits unknown."
+  },
+  {
+    "isin": "INE1QJA01015",
+    "symbol": "SWASTIKAIN",
+    "issuer_name": "Swastika Infra Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/SWASTIKAINFRA_07102026102824_Disclosure_of_Order_win.pdf",
+    "source_sha256": "5c70f0aac068ba5cdbd32b2f4afd6ac3196d51f6336007f26545ebd5acf65125",
+    "document_date": "2026-10-07",
+    "published_at_utc": "2026-10-07T04:59:06+00:00",
+    "firm_order": true,
+    "order_value_INR": 6157600000,
+    "order_duration_months": 24,
+    "order_tax_inclusive": true,
+    "field_excerpts": {
+      "firm_order": "our company has received a Letter of Award (LOA)",
+      "order_value_INR": "an aggregate order value of \u20b9615.76 crore (including taxes).",
+      "order_duration_months": "24 months from the date of LOA",
+      "order_tax_inclusive": "(including taxes)"
+    },
+    "review_note": "Received tax-inclusive LOA spans 24 months, not a fully executable twelve-month order. LOA start date, phased twelve-month value, margins, sufficient funding and incremental profit unknown. Tax-inclusive consideration is not recognised revenue."
+  },
+  {
+    "isin": "INE418L01021",
+    "symbol": "NAZARA",
+    "issuer_name": "Nazara Technologies Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/NAZARA_12102026184557_BMOutcomeFinal.pdf",
+    "source_sha256": "f8af6246b57b82d938ae48abbcc79456a502e2b667275869be8880c73aa35655",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T13:16:42+00:00",
+    "issued_shares_before": 384696024,
+    "issued_shares_after": 408577735,
+    "new_shares_allotted": 23881711,
+    "execution_stage": "ALLOTTED_LISTING_TRADING_APPROVAL_PENDING",
+    "field_excerpts": {
+      "issued_shares_before": "comprising 38,46,96,024 equity shares",
+      "issued_shares_after": "comprising 40,85,77,735 equity shares",
+      "new_shares_allotted": "the Board has approved the allotment of 2,38,81,711 fully paid-up Equity Shares",
+      "execution_stage": "to obtain listing and trading approvals in respect of the equity shares allotted"
+    },
+    "review_note": "Original notice reconciles preferential allotment and issued capital. Derived share-count growth and ownership dilution are arithmetic, not a split/bonus provider adjustment or weighted diluted EPS. Listing/trading approval remains pending; planned subsidiary funding does not prove secured funds or acquisition profit."
   }
 ]
