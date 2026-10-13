@@ -139,7 +139,7 @@ def audit(root,official,history,asof):
                 q=p.copy();q['date']=pd.to_datetime(q.date)
                 first=q[(q.date.dt.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)).gt(clock)].sort_values('date')
                 if o.date.iloc[0]==dates[0] and not first.empty and first.date.iloc[0]==dates[0] and first.symbol.iloc[0]==r['symbol'] and o.symbol.iloc[0]==r['symbol'] and o.source_status.iloc[0]=='VALID_POSITIVE_VOLUME_SESSION':
-                    proof['entry_verified']=abs(first.open.iloc[0]-o.open.iloc[0])<=.011
+                    proof['entry_verified']=bool(abs(first.open.iloc[0]-o.open.iloc[0])<=.011)
                     proof['entry_date']=str(dates[0].date());proof['entry_open_INR']=float(o.open.iloc[0]);proof['entry_official_sha256']=o.source_sha256.iloc[0]
                     proof['verification_status']='ENTRY_VERIFIED_ACTION_COVERAGE_UNKNOWN'
                     matched=[z for z in coverage if z.get('isin')==r['isin'] and z.get('symbol')==r['symbol'] and pd.Timestamp(z['start'])<=dates[0] and pd.Timestamp(z['end'])>=pd.Timestamp(asof)]

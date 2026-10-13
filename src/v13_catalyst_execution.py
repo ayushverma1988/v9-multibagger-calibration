@@ -33,9 +33,15 @@ def seed_primary_reviews(root,seed_path):
         try:
             u=urlparse(r['attachment_url'])
             if u.scheme!='https' or u.hostname not in {'www.aeroflexindia.com','nsearchives.nseindia.com'}:raise ValueError('Unapproved primary company source')
-            response=requests.get(r['attachment_url'],timeout=(8,25));response.raise_for_status()
-            if urlparse(response.url).hostname!=u.hostname or sha(response.content)!=r['source_sha256']:raise ValueError('Reviewed original source changed')
-            text=extract_pdf(response.content)
+            archived=next((p for p in rawdir.glob('*.bin') if sha(p.read_bytes())==r['source_sha256']),None)
+            if archived:raw=archived.read_bytes()
+            elif u.hostname=='nsearchives.nseindia.com':raw,_=Store(rawdir).get(r['attachment_url'])
+            else:
+                response=requests.get(r['attachment_url'],timeout=(8,25));response.raise_for_status()
+                if urlparse(response.url).hostname!=u.hostname:raise ValueError('Reviewed original source redirected')
+                raw=response.content
+            if sha(raw)!=r['source_sha256']:raise ValueError('Reviewed original source changed')
+            text=extract_pdf(raw)
             if r['issuer_name'].casefold() not in re.sub(r'\s+',' ',text).casefold() or not re.search(r'(?:Trading\s+|NSE\s+)?Symbol\s*:\s*'+re.escape(r['symbol'])+r'\b',text,re.I):raise ValueError('Original issuer identity mismatch')
             now=datetime.now(timezone.utc).isoformat()
             existing=next((z for z in docs if z['source_sha256']==r['source_sha256'] and z.get('attachment_url')==r['attachment_url'] and z.get('isin')==r['isin']),None)
@@ -46,7 +52,7 @@ def seed_primary_reviews(root,seed_path):
             e.update(issuer_identity_read=True,text_sha256=sha(text.encode()),first_retrieved_utc=existing.get('first_retrieved_utc',now) if existing else now,
               first_reviewed_utc=now,available_at_utc=pd.Timestamp(published).isoformat() if published else now,
               document_date=r['document_date'],quantified_evidence=existing.get('quantified_evidence',[]) if existing else [],review_status='REVIEWED_ORIGINAL_SOURCE_FIELDS')
-            (rawdir/(r['source_sha256']+'.bin')).write_bytes(response.content);(out/(r['source_sha256']+'.txt')).write_text(text)
+            (rawdir/(r['source_sha256']+'.bin')).write_bytes(raw);(out/(r['source_sha256']+'.txt')).write_text(text)
             reviewed(r,e,text)
             if existing:docs=[z for z in docs if z is not existing]
             docs.append(e);reviews.append(r);count+=1

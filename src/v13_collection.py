@@ -213,10 +213,15 @@ def collect_financials(root,asof,budget=400):
     for p in (root/'history'/'securities').glob('*.parquet'):
         h=pd.read_parquet(p,columns=['symbol'])
         if not h.empty:public_history_symbols.add(h.symbol.iloc[0])
+    fresh_symbols=fresh_public_price_symbols(root,asof)
     # Complete same-basis fiscal bundles, rather than granting one recent
     # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
-    completion=completion_queue(queue[queue.symbol.isin(public_history_symbols)],balancing_quarters(wide),asof,budget*3//4)
+    expanded=balancing_quarters(wide);completion_budget=budget*3//4
+    fresh_completion=completion_queue(queue[queue.symbol.isin(fresh_symbols)],expanded,asof,completion_budget)
+    other=queue[queue.symbol.isin(public_history_symbols)&~queue.version_key.isin(fresh_completion.version_key)]
+    warm_completion=completion_queue(other,expanded,asof,max(0,completion_budget-len(fresh_completion)))
+    completion=pd.concat([fresh_completion,warm_completion],ignore_index=True)
     remainder=queue[~queue.version_key.isin(completion.version_key)]
     queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
@@ -248,4 +253,21 @@ def collect_financials(root,asof,budget=400):
     attempts_path.write_text(json.dumps(attempts))
     return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
+      'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'parser_ytd_v1_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True}
+
+def fresh_public_price_symbols(root,asof):
+    """Unranked public raw-price coverage, never a private prediction list."""
+    root=Path(root);path=root/'official'/(asof+'_official_market.parquet')
+    if not path.exists():return set()
+    official=pd.read_parquet(path)
+    official=official[official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&official.close.between(20,2000)]
+    official=official[~official['isin'].duplicated(keep=False)].set_index('isin');symbols=set()
+    for p in (root/'history'/'securities').glob('*.parquet'):
+        h=pd.read_parquet(p,columns=['symbol','isin','date','close','volume'])
+        if h.empty:continue
+        r=h.sort_values('date').iloc[-1]
+        if pd.Timestamp(r.date)!=pd.Timestamp(asof) or r['isin'] not in official.index:continue
+        o=official.loc[r['isin']]
+        if r.symbol==o.symbol and abs(r.close-o.close)<=.011 and r.volume==o.volume:symbols.add(r.symbol)
+    return symbols

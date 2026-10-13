@@ -92,6 +92,54 @@ class FinancialCompletion(unittest.TestCase):
             self.assertEqual(row['status'],'INDEPENDENT_PRIMARY_ENTRY_PROVIDER_ACTION_RECONCILED')
             self.assertFalse(row['six_month_mature']);self.assertFalse(row['independent_outcome_verified'])
 
+    def test_entry_audit_serializes_numpy_backed_price_comparisons(self):
+        from v13_action_audit import audit
+        from v13_lifecycle import register
+        frame=pd.DataFrame([{'date':pd.Timestamp('2026-10-09'),'isin':'INE000000001','symbol':'A','p6':.1,'p12':.2,'loss12':.3,'joint12':.1}])
+        dates=pd.to_datetime(['2026-10-12','2026-10-13'])
+        official=pd.DataFrame({'date':dates,'symbol':'A','isin':'INE000000001','open':[100.,101.],'close':[100.,101.],
+          'source_status':'VALID_POSITIVE_VOLUME_SESSION','source_sha256':'a'*64})
+        provider=official[['date','symbol','isin','open','close']].copy();provider['adj_close']=provider.close
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);(root/'action_audit').mkdir()
+            (root/'action_audit/calendar.json').write_text(json.dumps({'year':2026,'holidays':[]}))
+            register(frame,'a'*64,root/'registries/champion','2026-10-11T16:00:00Z')
+            proofs,summary=audit(root,official,{'INE000000001':provider},'2026-10-13')
+            self.assertEqual(summary['verified_entries'],1)
+            self.assertIs(next(iter(proofs.values()))['entry_verified'],True)
+            self.assertEqual(len(json.loads((root/'action_audit/action_review_backlog.json').read_text())['records']),1)
+
+    def test_financial_completion_can_prioritize_current_public_price_evidence(self):
+        from v13_collection import fresh_public_price_symbols
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);(root/'official').mkdir();(root/'history/securities').mkdir(parents=True)
+            o=pd.DataFrame([{'isin':'INE000000001','symbol':'A','close':100.,'volume':10000.,'source_status':'VALID_POSITIVE_VOLUME_SESSION'},
+                            {'isin':'INE000000002','symbol':'B','close':101.,'volume':10000.,'source_status':'VALID_POSITIVE_VOLUME_SESSION'}])
+            o.to_parquet(root/'official/2026-10-12_official_market.parquet')
+            for symbol,isin,date in [('A','INE000000001','2026-10-12'),('B','INE000000002','2026-10-09')]:
+                pd.DataFrame([{'symbol':symbol,'isin':isin,'date':pd.Timestamp(date),'close':100.,'volume':10000.}]).to_parquet(root/'history/securities'/(symbol+'.parquet'))
+            self.assertEqual(fresh_public_price_symbols(root,'2026-10-12'),{'A'})
+
+    def test_seed_review_reuses_verified_archived_original_without_new_network_fetch(self):
+        from v13_catalyst_execution import seed_primary_reviews
+        from unittest.mock import patch
+        import hashlib
+        text='Issuer A Limited. Symbol: A. has commissioned 5 MW.'
+        raw=text.encode();digest=hashlib.sha256(raw).hexdigest()
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);out=root/'catalyst_evidence';(out/'raw').mkdir(parents=True)
+            (out/'raw/source.bin').write_bytes(raw)
+            evidence={'isin':'INE000000001','symbol':'A','attachment_url':'https://nsearchives.nseindia.com/a.pdf',
+              'source_sha256':digest,'available_at_utc':'2026-10-12T15:00:00+00:00','first_retrieved_utc':'2026-10-12T16:00:00+00:00'}
+            (out/'document_evidence.json').write_text(json.dumps([evidence]))
+            seed={**evidence,'issuer_name':'Issuer A Limited','document_date':'2026-10-12','published_at_utc':evidence['available_at_utc'],
+              'commissioned':True,'capacity_quantity':5,'capacity_unit':'MW',
+              'field_excerpts':{k:'has commissioned 5 MW' for k in ('commissioned','capacity_quantity','capacity_unit')}}
+            (root/'seed.json').write_text(json.dumps([seed]))
+            with patch('v13_catalyst_execution.extract_pdf',return_value=text),patch('requests.get',side_effect=AssertionError('No unnecessary fetch')):
+                r=seed_primary_reviews(root,root/'seed.json')
+            self.assertEqual(r['installed'],1);self.assertEqual(r['errors'],[])
+
     def test_paired_metrics_keep_unselected_unknown_names_and_exclude_old_unpaired(self):
         rows=[]
         for role,p in [('champion',.2),('challenger',.7)]:

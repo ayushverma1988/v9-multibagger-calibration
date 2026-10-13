@@ -11,6 +11,10 @@ retrospective challenger predictions are manufactured.
   from the public collected-history universe, and 25% for broader rotation.
   Bundle seven recent fiscal endpoints on one reporting basis, prioritising
   issuers closest to complete evidence without consulting forecast ranks.
+  Prioritise the unranked, current public NSE price-matched population before
+  other stored histories; broader financial completeness is not fresh-market
+  coverage. Original-source hashes can be restored from the private checkpoint
+  for catalyst review, avoiding unnecessary blocked repeat PDF downloads.
 - Reparse accepted originals with the explicitly versioned YTD parser. Check
   a previously accepted version against its stored source hashes; changed
   bytes require revision review rather than silent historical replacement.

@@ -96,14 +96,14 @@ def save(root):
         if (root/'latest_run.json').exists():tar.add(root/'latest_run.json',arcname='latest_run.json')
     return {'archive':ARCHIVE,'snapshot':key,'manifest_sha256':sha,'new_objects':len(entries),'total_objects':len({r['sha256'] for r in data['files']})}
 
-def restore_review_originals(root):
+def restore_review_originals(root,additional_hashes=None):
     """Fetch only original hashes required by reviewed evidence, using the
     worker's existing archive connection. No credential is exported or logged.
     """
     from huggingface_hub import hf_hub_download
     root=Path(root);mp=root/'remote_manifest.json'
     if not mp.exists():return
-    required=set()
+    required=set(additional_hashes or [])
     for rel in ('catalyst_evidence/reviewed_execution.json','action_audit/reviewed_actions.json','action_audit/reviewed_coverage.json','evidence/reviewed_earnings_scenarios.json'):
         p=root/rel
         if not p.exists():continue

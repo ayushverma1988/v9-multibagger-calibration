@@ -111,7 +111,9 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
     if not local:
         if not restore(root):initialize(root,seed)
         from v13_checkpoint import restore_review_originals
-        restore_review_originals(root)
+        review_seed=seed.parent/'v13_evidence_seed'/'primary_execution_sources.json'
+        seed_hashes=[r['source_sha256'] for r in json.loads(review_seed.read_text())] if review_seed.exists() else []
+        restore_review_originals(root,additional_hashes=seed_hashes)
     report={'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
     try:
         asof,official,errors=last_completed_session(root,day);report['asof']=asof;report['steps']['official']=official
