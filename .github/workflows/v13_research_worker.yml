@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fbe2fdd957cc457911d4e6ee25ac9e7ddaf8288a
+          ref: a6f92a510c5b784c561f6e7794a948d231fc37d6
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -50,6 +50,7 @@ jobs:
             v13_state/prospective_metrics.json
             v13_state/paired_evaluation.json
             v13_state/financial_wide.parquet
+            v13_state/catalogue_recovery.json
             v13_state/research_experiments_initial.json
             v13_state/evidence/*.json
             v13_state/sources/*/financial_inventory.json
