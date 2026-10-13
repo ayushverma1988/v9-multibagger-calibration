@@ -121,6 +121,7 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         # accepted filing versions and the public-history age queue.
         collection.universe(root,asof)
         report['steps']['catalogs']=collection.current_catalogs(root,asof)
+        report['steps']['catalogue_recovery']=collection.recover_public_catalogue(root,seed.parent/'v13_evidence_seed/catalogue_recovery',asof)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
         report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
         report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=40)

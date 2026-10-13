@@ -105,6 +105,34 @@ def merge_catalog(previous,fresh,asof):
       'retained_versions':len(combined),'previous_versions_absent_from_response':len(prior_keys-fresh_keys),
       'absence_does_not_delete_or_verify_no_filing':True,'outside_four_year_window_retained':False}
 
+def recover_public_catalogue(root,seed_path,asof):
+    """Recover earlier public fiscal metadata; originals still need validation."""
+    import base64,gzip,hashlib,io,re
+    root=Path(root);seed=Path(seed_path);mp=seed/'manifest.json'
+    if not mp.exists():return {'status':'NO_RECOVERY_SNAPSHOT','new_versions':0}
+    m=json.loads(mp.read_text())
+    if m.get('format')!='V13-public-primary-catalogue-recovery-1':raise ValueError('Unknown public catalogue recovery format')
+    parts=m.get('parts',[])
+    if not parts or any(Path(p).name!=p or not re.fullmatch(r'primary_catalog_[0-9]{8}_[0-9]{2}\.b64',p) for p in parts):raise ValueError('Unsafe public recovery part')
+    encoded=''.join((seed/p).read_text() for p in parts)
+    if hashlib.sha256(encoded.encode()).hexdigest()!=m['encoded_sha256']:raise ValueError('Public catalogue recovery encoded hash mismatch')
+    raw=gzip.decompress(base64.b64decode(encoded,validate=True))
+    if len(raw)>12_000_000 or hashlib.sha256(raw).hexdigest()!=m['sha256']:raise ValueError('Public catalogue recovery hash mismatch')
+    d=pd.read_parquet(io.BytesIO(raw))
+    allowed={'symbol','period_end','available_at_utc','broadcast_at_utc','reporting_mode','source_url','catalog_sha256','source_schema','venue_index','catalog_isin','filing_id','filed_period','filing_type'}
+    if set(d.columns)!=allowed or len(d)!=m['rows']:raise ValueError('Public catalogue recovery schema/row count mismatch')
+    if not d.source_url.str.fullmatch(r'https://nsearchives\.nseindia\.com/corporate/xbrl/[^?]+\.xml',case=False).all() or not d.catalog_sha256.str.fullmatch(r'[0-9a-f]{64}').all():raise ValueError('Unapproved recovered primary source')
+    if not d.venue_index.isin(['equities','sme']).all() or not d.source_schema.isin(['legacy','integrated']).all():raise ValueError('Unapproved recovered venue/schema')
+    if not d.available_at_utc.str.contains(r'(?:Z|[+-][0-9]{2}:[0-9]{2})$').all():raise ValueError('Recovered publication clock lacks timezone')
+    available=pd.to_datetime(d.available_at_utc,utc=True,format='mixed');period=pd.to_datetime(d.period_end)
+    if (available<period.dt.tz_localize('Asia/Kolkata')).any():raise ValueError('Recovered publication precedes financial period')
+    path=root/'catalog.parquet';previous=pd.read_parquet(path) if path.exists() else d.iloc[:0].copy()
+    merged,_=merge_catalog(previous,d,asof);merged.to_parquet(path,index=False)
+    report={'status':'PUBLIC_METADATA_RECOVERED','source_asof':asof,'origin':m['origin'],'source_snapshot_sha256':m['sha256'],
+      'public_snapshot_rows':len(d),'new_versions':len(merged)-len(previous),'retained_versions':len(merged),
+      'facts_still_require_original_document_validation':True,'forecasts_or_outcomes_changed':False}
+    (root/'catalogue_recovery.json').write_text(json.dumps(report,indent=2));return report
+
 def announcement_counts(frame,root,asof):
     paths=list((Path(root)/'sources').glob('*/events.parquet'))
     if not paths:return frame

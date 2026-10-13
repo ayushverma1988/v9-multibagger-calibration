@@ -23,6 +23,15 @@ other fresh price matches. This includes unselected names and does not read
 model probabilities, rankings or future labels. Raw matches and wider public
 coverage remain in the rotated collection queue.
 
+The last live check still lacked March/June 2025 originals that were present
+in an earlier captured primary NSE catalogue. A hash-checked recovery seed
+now restores 8,365 public catalogue rows across 2,681 issuers for these fiscal
+periods. It contains source URLs/publication metadata, not numeric financial
+facts, model forecasts or outcomes. Current versions are retained and the
+four-year boundary is enforced. The collector must retrieve the originals
+and pass the existing identity/basis/unit/hash checks before adding facts.
+Recovery is idempotent and survives a thinner later source response.
+
 A bounded public-source engineering probe retrieved 300 older originals
 for 62 issuers in the unranked 163-stock price-matched population. Every
 request was accepted with exact issuer/basis checks and original source

@@ -283,4 +283,26 @@ class FinancialCompletion(unittest.TestCase):
         # All numbers exist in the source, but the reconciliation must agree.
         with self.assertRaises(ValueError):reviewed({**r,'new_shares_allotted':100000},e,text)
 
+    def test_catalogue_recovery_is_hashed_idempotent_and_inside_four_years(self):
+        from v13_collection import recover_public_catalogue
+        import base64,gzip,hashlib,io
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t)/'state';root.mkdir();seed=Path(t)/'seed';seed.mkdir()
+            row={'symbol':'A','period_end':'2025-06-30','available_at_utc':'2025-08-01T00:00:00Z',
+              'broadcast_at_utc':'2025-08-01T00:00:00Z','reporting_mode':'standalone',
+              'source_url':'https://nsearchives.nseindia.com/corporate/xbrl/a.xml','catalog_sha256':'a'*64,
+              'source_schema':'legacy','venue_index':'equities','catalog_isin':'INE000000001',
+              'filing_id':'1','filed_period':'Quarterly','filing_type':'legacy'}
+            d=pd.DataFrame([row,{**row,'period_end':'2021-06-30','available_at_utc':'2021-08-01T00:00:00Z','source_url':row['source_url'].replace('a.xml','b.xml')}])
+            buf=io.BytesIO();d.to_parquet(buf,index=False);raw=buf.getvalue();encoded=base64.b64encode(gzip.compress(raw)).decode()
+            name='primary_catalog_20261009_00.b64';(seed/name).write_text(encoded)
+            meta={'format':'V13-public-primary-catalogue-recovery-1','parts':[name],'origin':'Public primary test source',
+              'encoded_sha256':hashlib.sha256(encoded.encode()).hexdigest(),'sha256':hashlib.sha256(raw).hexdigest(),'rows':2}
+            (seed/'manifest.json').write_text(json.dumps(meta))
+            a=recover_public_catalogue(root,seed,'2026-10-12');self.assertEqual(a['new_versions'],1)
+            self.assertEqual(pd.read_parquet(root/'catalog.parquet').period_end.tolist(),['2025-06-30'])
+            self.assertEqual(recover_public_catalogue(root,seed,'2026-10-12')['new_versions'],0)
+            (seed/name).write_text(encoded[:-1]+'!')
+            with self.assertRaises(ValueError):recover_public_catalogue(root,seed,'2026-10-12')
+
 if __name__=='__main__':unittest.main()
