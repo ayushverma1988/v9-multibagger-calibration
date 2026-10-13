@@ -2,26 +2,40 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime,timezone
 from pathlib import Path
-import hashlib,json,os,shutil,tarfile
+import hashlib,json,os,re,shutil,tarfile
 
 ARCHIVE='ayushverma1988/v10-multibagger-archive'
 
 def is_raw(path):return any(part in {'raw','history_raw','filing_raw'} for part in Path(path).parts)
 
+def object_path(digest):
+    if not isinstance(digest,str) or not re.fullmatch('[0-9a-f]{64}',digest):
+        raise ValueError('Invalid checkpoint object digest')
+    # Separate namespace: even adding a subdirectory to the full legacy
+    # objects directory could exceed the Hub's 10,000 entries limit.
+    return f'v13/object_shards/{digest[:2]}/{digest[2:4]}/{digest}.bin'
+
+def validate_object(item):
+    digest=item['sha256'];sharded=object_path(digest)
+    if item['object_path'] not in {sharded,'v13/objects/'+digest+'.bin'}:
+        raise ValueError('Object identity mismatch')
+
 def manifest(root):
     root=Path(root);old=root/'remote_manifest.json'
     prior=json.loads(old.read_text())['files'] if old.exists() else []
+    for item in prior:validate_object(item)
+    known={r['sha256']:r['object_path'] for r in prior}
     files={r['path']:r for r in prior}
     for p in sorted(root.rglob('*')):
         if not p.is_file() or p.name in {'state_manifest.json','remote_manifest.json'}:continue
         rel=str(p.relative_to(root));digest=hashlib.sha256(p.read_bytes()).hexdigest()
-        files[rel]={'path':rel,'sha256':digest,'bytes':p.stat().st_size,'object_path':'v13/objects/'+digest+'.bin','raw_source':is_raw(rel)}
+        files[rel]={'path':rel,'sha256':digest,'bytes':p.stat().st_size,'object_path':known.get(digest,object_path(digest)),'raw_source':is_raw(rel)}
     return {'format':'V13-content-addressed-checkpoint-1','saved_at_utc':datetime.now(timezone.utc).isoformat(),'files':sorted(files.values(),key=lambda r:r['path'])}
 
 def materialize_one(item,root,fetch):
     rel=Path(item['path'])
     if rel.is_absolute() or '..' in rel.parts:raise ValueError('Unsafe checkpoint path')
-    if item['object_path']!='v13/objects/'+item['sha256']+'.bin':raise ValueError('Object identity mismatch')
+    validate_object(item)
     raw=Path(fetch(item['object_path'])).read_bytes()
     if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Checkpoint object integrity failure')
     target=Path(root)/rel;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
