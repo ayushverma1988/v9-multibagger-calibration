@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 9dd628dcf769eb5cc85f4455a2f2cbeece85ac58
+          ref: 3302550d55af32aa9527e1a30218d639997221b5
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -48,6 +48,8 @@ jobs:
             v13_state/paired_cohorts/*.json
             v13_state/paired_mature_observations.parquet
             v13_state/prospective_metrics.json
+            v13_state/paired_evaluation.json
+            v13_state/financial_wide.parquet
             v13_state/research_experiments_initial.json
             v13_state/evidence/*.json
             v13_state/sources/*/financial_inventory.json
@@ -67,7 +69,7 @@ jobs:
             const path = 'operational/v13_collector_health.json';
             let report = {};
             if (fs.existsSync('v13_state/latest_run.json')) report = JSON.parse(fs.readFileSync('v13_state/latest_run.json', 'utf8'));
-            const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', job_state: '${{ job.status }}', accuracy_approved: false, errors: (report.errors || []).length, market_rows: report.current_verified_market_rows || 0, public_universe_rows: report.public_universe_rows || 0, financial_errors: report.steps?.financials?.errors?.length || 0, history_errors: report.steps?.history?.errors?.length || 0, history_usable: report.steps?.history?.usable || 0, paired_rows_per_model: report.paired_registration?.rows_per_model || 0, paired_cohort: report.paired_registration?.cohort_id || null, catalyst_documents: report.steps?.catalysts?.documents || 0, verified_entries: report.steps?.independent_entry_actions?.verified_entries || 0, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes || 0 };
+            const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', job_state: '${{ job.status }}', accuracy_approved: false, errors: (report.errors || []).length, market_rows: report.current_verified_market_rows || 0, public_universe_rows: report.public_universe_rows || 0, financial_errors: report.steps?.financials?.errors?.length || 0, financial_complete_rows: report.financial_complete_rows ?? null, execution_chain_supported_rows: report.execution_chain_supported_rows ?? null, source_bound_earnings_scenario_rows: report.source_bound_earnings_scenario_rows ?? null, history_errors: report.steps?.history?.errors?.length || 0, history_usable: report.steps?.history?.usable || 0, paired_rows_per_model: report.paired_registration?.rows_per_model || 0, paired_cohort: report.paired_registration?.cohort_id || null, catalyst_documents: report.steps?.catalysts?.documents || 0, verified_entries: report.steps?.independent_entry_actions?.verified_entries || 0, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes || 0 };
             let sha;
             try { const old = await github.rest.repos.getContent({...context.repo, path, ref: 'main'}); sha = old.data.sha; } catch (error) { if (error.status !== 404) throw error; }
             await github.rest.repos.createOrUpdateFileContents({...context.repo, branch: 'main', path, sha, message: 'Record V13 collector health', content: Buffer.from(JSON.stringify(health, null, 2) + '\n').toString('base64')});
