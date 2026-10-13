@@ -83,6 +83,7 @@ def paired_evaluation_report(observations):
     for cohort,q in joined.groupby('cohort_id'):
         clocks=q._merge.eq('both')&q.source_asof_a.eq(q.source_asof_b)&q.registered_at_utc_a.eq(q.registered_at_utc_b)&q.symbol_a.eq(q.symbol_b)
         result['cohorts'].append({'cohort_id':cohort,'registered_stock_pairs':len(q),'same_clock_same_names':bool(clocks.all()),
+          'comparison_contract':q.comparison_contract_a.iloc[0] if 'comparison_contract_a' in q else 'V13_LEGACY_PAIR_20261012',
           'source_asof':q.source_asof_a.dropna().iloc[0] if q.source_asof_a.notna().any() else None,
           'registered_at_utc':q.registered_at_utc_a.dropna().iloc[0] if q.registered_at_utc_a.notna().any() else None,
           'unpaired_originals_excluded':True})

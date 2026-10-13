@@ -55,6 +55,7 @@ def adjudicate(registry,official,history,asof,verification=None):
         row={**item,'registry_sha256':Path(registry).stem,'model_sha256':r['model_sha256'],
           'registered_at_utc':r['registered_at_utc'],'model_role':Path(registry).parent.name,
           'cohort_id':r.get('paired_context',{}).get('cohort_id'),
+          'comparison_contract':r.get('paired_context',{}).get('comparison_contract','V13_LEGACY_PAIR_20261012'),
           'status':'UNKNOWN_ENTRY','first_entry_date':None,
           'raw_price_2x_observed':False,'six_month_mature':False,'twelve_month_mature':False,
           'independent_outcome_verified':False,'entry_verified':False,
@@ -105,13 +106,16 @@ def adjudicate(registry,official,history,asof,verification=None):
 PAIRED_COLUMNS=['date','isin','cohort_id','registered_at_utc','mature_at_utc','y','champion','challenger',
  'selected_champion','selected_challenger','independent_outcome_verified','financial_tier','market_regime','liquidity_tier']
 
-def paired_observations(observations,challenger_sha):
+def paired_observations(observations,challenger_sha,comparison_contract=None):
     d=observations.copy()
     empty=pd.DataFrame(columns=PAIRED_COLUMNS)
     if d.empty:return empty
     required={'cohort_id','model_role','model_sha256','registry_sha256','registered_at_utc','source_asof','isin','p12','selected_verified','verified_hit2_12','twelve_month_mature','first_entry_date','independent_outcome_verified'}
     if not required.issubset(d):return empty
     d=d[d.cohort_id.notna()]
+    if comparison_contract is not None:
+        if 'comparison_contract' not in d:d['comparison_contract']='V13_LEGACY_PAIR_20261012'
+        d=d[d.comparison_contract.eq(comparison_contract)]
     d=d[d.twelve_month_mature.eq(True)&d.status.ne('UNKNOWN_ENTRY_CONFLICT')]
     b=d[d.model_role.eq('challenger')&d.model_sha256.eq(challenger_sha)]
     a=d[d.model_role.eq('champion')]

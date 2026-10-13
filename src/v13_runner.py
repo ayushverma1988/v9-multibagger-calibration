@@ -187,7 +187,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
                 freeze=json.loads(freeze_path.read_text()) if freeze_path.exists() else {'sha256':sha,'frozen_at_utc':datetime.now(timezone.utc).isoformat()}
                 if freeze['sha256']!=sha:raise ValueError('Formal challenger changed during prospective evaluation')
                 freeze_path.write_text(json.dumps(freeze,indent=2))
-                a=scored(joblib.load(root/'active_heads.joblib'),frame)
+                active_meta=json.loads((root/'active_model.json').read_text()) if (root/'active_model.json').exists() else {}
+                a=scored(joblib.load(root/'active_heads.joblib'),frame,policy=active_meta.get('selection_policy','legacy'))
                 b=scored(joblib.load(challenger_model),frame,policy='evidence')
                 pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
                 export_watchlists(root,pair)
@@ -220,7 +221,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             freeze=json.loads(freeze_path.read_text()) if freeze_path.exists() else {'sha256':challenger_sha,'frozen_at_utc':datetime.now(timezone.utc).isoformat()}
             if freeze['sha256']!=challenger_sha:raise ValueError('Formal challenger freeze changed')
             freeze_path.write_text(json.dumps(freeze,indent=2))
-            paired=paired_observations(pd.DataFrame(observations),challenger_sha)
+            from v13_paired_forecasts import COMPARISON_CONTRACT
+            paired=paired_observations(pd.DataFrame(observations),challenger_sha,comparison_contract=COMPARISON_CONTRACT)
             paired.to_parquet(root/'paired_mature_observations.parquet',index=False)
             report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha))
             if report['promotion']['promote']:
@@ -229,6 +231,7 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
                 shutil.copy2(challenger_model,root/'active_heads.joblib')
                 (root/'active_model.json').write_text(json.dumps({'mode':'PAPER_RESEARCH','version':'V13',
                   'sha256':challenger_sha,'accuracy_approved':False,'promotion_gate_passed':True,
+                  'selection_policy':'evidence','comparison_contract':COMPARISON_CONTRACT,
                   'promoted_at_utc':datetime.now(timezone.utc).isoformat(),'promotion_evidence':report['promotion']},indent=2))
         else:report['promotion']={'promote':False,'reasons':['independent_action_reconciliation_incomplete','insufficient_untouched_mature_paired_outcomes']}
         report['completed_at_utc']=datetime.now(timezone.utc).isoformat()

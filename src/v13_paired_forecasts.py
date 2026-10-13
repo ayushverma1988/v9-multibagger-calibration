@@ -6,6 +6,9 @@ import pandas as pd
 import v13_model as model
 from v13_lifecycle import digest,register,validate_registry
 
+COMPARISON_CONTRACT='V13_FINANCIAL_BUNDLES_FUNDED_APPROVED_MARGIN_POLICY_20261013'
+LEGACY_COMPARISON_CONTRACT='V13_LEGACY_PAIR_20261012'
+
 def scored(heads,frame,policy='legacy'):
     d=frame.copy();pred=model.probabilities(heads,d)
     if not {'p6','p12','loss12','joint12'}.issubset(pred):raise ValueError('All four conditional heads required for paired forecasting')
@@ -19,13 +22,14 @@ def scored(heads,frame,policy='legacy'):
         d['selected_'+tier]=d['isin'].isin(picks['isin'])
     return d
 
-def promotion_coverage(root,observations,challenger_sha,now=None):
+def promotion_coverage(root,observations,challenger_sha,now=None,comparison_contract=COMPARISON_CONTRACT):
     """All elapsed paired cohorts count, including missing/delisted outcomes."""
     now=pd.Timestamp(now or datetime.now(timezone.utc));elapsed=[]
     for path in (Path(root)/'paired_cohorts').glob('*.json'):
         obj=json.loads(path.read_text())
         if digest(obj)!=path.stem:raise ValueError('Paired manifest changed')
         if obj['challenger_sha256']!=challenger_sha:continue
+        if obj.get('comparison_contract',LEGACY_COMPARISON_CONTRACT)!=comparison_contract:continue
         if pd.Timestamp(obj['registered_at_utc'])+pd.DateOffset(months=12)>now:continue
         elapsed.append(obj)
         d=observations[observations.cohort_id.eq(obj['cohort_id'])]
@@ -62,8 +66,9 @@ def register_pair(frame,champion,challenger,champion_sha,challenger_sha,root,reg
     if now.tzinfo is None:raise ValueError('Pair clock needs timezone')
     raw=frame.sort_values('isin').to_json(orient='records',date_format='iso',double_precision=15).encode()
     identity={'source_asof':date,'registered_at_utc':now.isoformat(),'input_sha256':hashlib.sha256(raw).hexdigest(),
-      'champion_sha256':champion_sha,'challenger_sha256':challenger_sha,'isins':sorted(frame['isin'].tolist())}
-    cohort_id=digest(identity);context={'cohort_id':cohort_id,'input_sha256':identity['input_sha256'],'comparison':'SAME_CLOCK_SAME_INPUTS_ALL_NAMES'}
+      'champion_sha256':champion_sha,'challenger_sha256':challenger_sha,'isins':sorted(frame['isin'].tolist()),
+      'comparison_contract':COMPARISON_CONTRACT}
+    cohort_id=digest(identity);context={'cohort_id':cohort_id,'input_sha256':identity['input_sha256'],'comparison':'SAME_CLOCK_SAME_INPUTS_ALL_NAMES','comparison_contract':COMPARISON_CONTRACT}
     registries={}
     for label,d in [('champion',champion),('challenger',challenger)]:
         if sorted(d['isin'])!=identity['isins']:raise ValueError('Unequal paired universe')

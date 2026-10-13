@@ -109,6 +109,16 @@ class FinancialCompletion(unittest.TestCase):
         rows[2]['registered_at_utc']='2025-01-02T16:00:00Z'
         self.assertFalse(paired_evaluation_report(pd.DataFrame(rows))['cohorts'][0]['same_clock_same_names'])
 
+    def test_policy_and_input_contracts_cannot_be_pooled_for_promotion(self):
+        from v13_lifecycle import paired_observations
+        base={'cohort_id':'pair','source_asof':'2025-01-01','isin':'INE000000001','registry_sha256':'r',
+          'registered_at_utc':'2025-01-01T16:00:00Z','p12':.2,'selected_verified':False,'verified_hit2_12':1,
+          'twelve_month_mature':True,'first_entry_date':'2025-01-02','status':'TRACKING','independent_outcome_verified':True,
+          'comparison_contract':'OLD_POLICY'}
+        a={**base,'model_role':'champion','model_sha256':'a'*64};b={**base,'model_role':'challenger','model_sha256':'b'*64}
+        d=pd.DataFrame([a,b]);self.assertEqual(len(paired_observations(d,'b'*64,comparison_contract='OLD_POLICY')),1)
+        self.assertTrue(paired_observations(d,'b'*64,comparison_contract='NEW_POLICY').empty)
+
     def test_review_clock_is_not_backdated_to_publication_and_capacity_needs_units(self):
         text='Symbol: A. has commissioned 5 MW. formal certificate is expected shortly.'
         import hashlib

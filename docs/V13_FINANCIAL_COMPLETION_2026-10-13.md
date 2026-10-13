@@ -26,6 +26,10 @@ retrospective challenger predictions are manufactured.
   observed market breadth and liquidity. Include unselected names and the
   unknown denominator; do not report immature accuracy. Risk diagnostics
   continue to require verified loss-before-doubling outcomes.
+- Version the input/selection comparison contract separately from head weights.
+  Older policies remain tracked but cannot be pooled into promotion evidence
+  for a changed policy. A future promotion activates the evaluated selection
+  policy together with its weights, rather than promoting weights alone.
 - Accept provider split-scaled historical OHLC only when original reviewed
   share actions explain the entire scaling sequence, independent total
   returns agree, and official entry/session/identity evidence matches. Bare
