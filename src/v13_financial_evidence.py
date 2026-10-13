@@ -3,11 +3,32 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from v12_5_features import features,pick,number
+from v12_5_features import features,pick,number,FINANCIAL,UNSUPPORTED
 from v12_public_history import bounds
 
 REQUIRED=('four_profitable_quarters','quarter_sales_yoy','quarter_pat_yoy','quarter_pat_margin',
           'annual_CFO_PAT','dated_debt_equity','annual_EBIT_proxy_interest_coverage')
+
+def financial_quality(f):
+    """Audit existing seven-input checks, without changing forecasts or policy.
+
+    Complete data can show a weak issuer. Missing checks are kept distinct from
+    observed failures; a zero denominator remains unknown in source features.
+    This is not a forward-profitability or investment-accuracy certification.
+    """
+    checks={
+      'four_profitable_quarters':lambda x:x==1,
+      'quarter_sales_yoy':lambda x:x>=0,
+      'quarter_pat_yoy':lambda x:x>0,
+      'quarter_pat_margin':lambda x:x>0,
+      'annual_CFO_PAT':lambda x:x>=.4,
+      'dated_debt_equity':lambda x:x<=1.5,
+      'annual_EBIT_proxy_interest_coverage':lambda x:x>=1.5}
+    unknown=[k for k in REQUIRED if not np.isfinite(f.get(k,np.nan))]
+    failed=[k for k,test in checks.items() if k not in unknown and not test(f[k])]
+    status='KNOWN_FINANCIAL_FAILURE' if failed else 'UNKNOWN_FINANCIAL_INPUTS' if unknown else 'PASS_AVAILABLE_SEVEN_CHECKS'
+    return {'status':status,'unknown_fields':unknown,'failed_checks':failed,
+            'complete':not unknown,'quality_pass':not unknown and not failed}
 
 def balancing_quarters(wide):
     """Explicit annual minus nine-month amounts; never subtract EPS/shares.
@@ -138,14 +159,18 @@ def enrich_evidence(frame,wide,root,asof):
     for c in ('ttm_reported_PAT_INR','annual_reported_revenue_INR','latest_issued_shares','latest_diluted_shares','ttm_reported_eps','implied_reported_PE','required_eps_at_current_PE_for_2x','scenario_base_multiple','scenario_net_multiple','historical_sector_relative_PE'):
         if c not in d:d[c]=np.nan
     d['financial_complete']=False;d['financial_unknown_fields']='';d['evidence_status']='MISSING_FINANCIAL_OR_EXECUTION'
+    d['financial_quality_pass']=False;d['financial_quality_status']='UNKNOWN_FINANCIAL_INPUTS'
     d['earnings_scenario_status']='UNKNOWN_FORWARD_EARNINGS_AND_SECTOR_VALUATION'
     for i,r in d.iterrows():
         date=pd.Timestamp(r.date);cut=(date.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
         w=wide[wide.security_isin.eq(r['isin'])&wide.available.le(cut)&wide.period.le(date)&wide.period.ge(low)] if not wide.empty else pd.DataFrame()
         f,used=features(w,date) if not w.empty else ({},[])
-        unknown=[k for k in REQUIRED if not np.isfinite(f.get(k,np.nan))]
+        quality=financial_quality(f);unknown=quality['unknown_fields']
         d.at[i,'financial_complete']=not unknown;d.at[i,'financial_unknown_fields']='|'.join(unknown)
-        coverage.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(date.date()),'unknown_fields':unknown,'financial_complete':not unknown})
+        d.at[i,'financial_quality_pass']=quality['quality_pass'];d.at[i,'financial_quality_status']=quality['status']
+        coverage.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(date.date()),'unknown_fields':unknown,'financial_complete':not unknown,
+          'financial_quality_status':quality['status'],'financial_quality_pass':quality['quality_pass'],'failed_checks':quality['failed_checks'],
+          'expanded_unknown_fields':[k for k in (*FINANCIAL,*UNSUPPORTED) if not np.isfinite(f.get(k,np.nan))]})
         for z in used:
             item={'isin':r['isin'],'source_asof':str(date.date()),'period_end':z['period_end'],
               'reporting_mode':z['reporting_mode'],'available_at_utc':z['available_at_utc'],
@@ -176,7 +201,10 @@ def enrich_evidence(frame,wide,root,asof):
         # history. A reviewed scenario must bind every input to dated sources.
     out=Path(root)/'evidence';out.mkdir(exist_ok=True)
     (out/'financial_completeness.json').write_text(json.dumps({'asof':asof,'rows':len(d),
-      'complete_rows':int(d.financial_complete.sum()),'issuer_backlog':coverage,
+      'complete_rows':int(d.financial_complete.sum()),'quality_pass_rows':int(d.financial_quality_pass.sum()),
+      'known_failure_rows':int(d.financial_quality_status.eq('KNOWN_FINANCIAL_FAILURE').sum()),
+      'expanded_field_nonmissing':{k:sum(k not in z['expanded_unknown_fields'] for z in coverage) for k in (*FINANCIAL,*UNSUPPORTED)},
+      'required_checks':list(REQUIRED),'quality_is_not_future_profitability':True,'issuer_backlog':coverage,
       'reported_EPS_is_not_recurring_EPS':True},indent=2))
     (out/'financial_source_links.json').write_text(json.dumps(links,indent=2,default=str))
     # Reverse arithmetic, explicitly hypothetical; it does not assign a PE,

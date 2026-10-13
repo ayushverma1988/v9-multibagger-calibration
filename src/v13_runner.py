@@ -179,6 +179,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             frame=catalyst_execution.join(frame,root)
             frame=financial_evidence.apply_scenarios(frame,root)
             report['financial_complete_rows']=int(frame.financial_complete.sum())
+            report['financial_quality_pass_rows']=int(frame.financial_quality_pass.sum())
+            report['financial_known_failure_rows']=int(frame.financial_quality_status.eq('KNOWN_FINANCIAL_FAILURE').sum())
             report['execution_chain_supported_rows']=int(frame.evidence_status.eq('FINANCIAL_AND_EXECUTION_SUPPORTED').sum())
             report['source_bound_earnings_scenario_rows']=int(frame.earnings_scenario_status.eq('SCENARIO_NOT_PROBABILITY').sum())
             baseline=evaluation.prior_rates(pd.read_parquet(root/'challenger_matrix.parquet'),asof) if (root/'challenger_matrix.parquet').exists() else {}
