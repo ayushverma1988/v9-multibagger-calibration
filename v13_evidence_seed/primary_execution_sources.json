@@ -100,7 +100,7 @@
     "order_tax_inclusive": true,
     "field_excerpts": {
       "firm_order": "our company has received a Letter of Award (LOA)",
-      "order_value_INR": "an aggregate order value of \u20b9615.76 crore (including taxes).",
+      "order_value_INR": "an aggregate order value of ₹615.76 crore (including taxes).",
       "order_duration_months": "24 months from the date of LOA",
       "order_tax_inclusive": "(including taxes)"
     },
@@ -125,5 +125,67 @@
       "execution_stage": "to obtain listing and trading approvals in respect of the equity shares allotted"
     },
     "review_note": "Original notice reconciles preferential allotment and issued capital. Derived share-count growth and ownership dilution are arithmetic, not a split/bonus provider adjustment or weighted diluted EPS. Listing/trading approval remains pending; planned subsidiary funding does not prove secured funds or acquisition profit."
+  },
+  {
+    "isin": "INE614G01033",
+    "symbol": "RPOWER",
+    "issuer_name": "Reliance Power Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/RPOWER_13102026222340_RPower_Disclosure_Reg_30_Seizure.pdf",
+    "source_sha256": "f3ad4af7d2d0587bfb251358aab831d13a18c7079997fbc82a788d2c7979f8b0",
+    "document_date": "2026-10-13",
+    "published_at_utc": "2026-10-13T16:54:56+00:00",
+    "risk_event_type": "REGULATORY_SEIZURE_NOT_BUSINESS_ORDER",
+    "risk_status": "PROVISIONAL_IMPLICATIONS_UNKNOWN",
+    "risk_shares_amount_INR": 20266500000,
+    "risk_bank_balances_INR": 61600000,
+    "field_excerpts": {
+      "risk_event_type": "Order of Seizure",
+      "risk_status": "The seizure is provisional",
+      "risk_shares_amount_INR": "Rs. 2026.65 crore",
+      "risk_bank_balances_INR": "Rs. 6.16 crore"
+    },
+    "review_note": "Disputed allegations and provisional seizure are not a contract, revenue, forecast accounting loss or confirmed price loss. Financial implications remain unknown."
+  },
+  {
+    "isin": "INE898S01029",
+    "symbol": "AURUM",
+    "issuer_name": "Aurum PropTech Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/AURUM_13102026232106_AllotmentofWarrants13102026.pdf",
+    "source_sha256": "4ae5ad8dc22433c871b84a3d544363dee5b3413e1d81494249e71851346f1fb7",
+    "document_date": "2026-10-13",
+    "published_at_utc": "2026-10-13T17:51:20+00:00",
+    "warrants_allotted": 5100000,
+    "warrant_conversion_ratio": 1,
+    "warrant_exercise_months": 18,
+    "warrant_subscription_total_INR": 1180247100,
+    "warrant_subscription_received_INR": 295061775,
+    "field_excerpts": {
+      "warrants_allotted": "allotted 51,00,000",
+      "warrant_conversion_ratio": "1 (one)",
+      "warrant_exercise_months": "18 (eighteen) months",
+      "warrant_subscription_total_INR": "INR 1,18,02,47,100",
+      "warrant_subscription_received_INR": "INR 29,50,61,775"
+    },
+    "review_note": "Remaining proceeds depend on exercise. Warrants are not issued equity. Conversion date, comparable diluted denominator, project funding sufficiency and profit remain unknown."
+  },
+  {
+    "isin": "INE622W01025",
+    "symbol": "ACMESOLAR",
+    "issuer_name": "ACME Solar Holdings Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ACMECS_01102026001038_IntimationSigmaUrja.pdf",
+    "source_sha256": "9e77c069f054ebadb0b15886c88817aede0c123cc9520a39df42f5feada61ae0",
+    "document_date": "2026-09-30",
+    "published_at_utc": "2026-09-30T18:43:46+00:00",
+    "commissioned": true,
+    "capacity_quantity": 53.73,
+    "capacity_unit": "MW",
+    "execution_stage": "BESS_PHASE_ONLY_COMMERCIAL_OPERATION_UNVERIFIED",
+    "field_excerpts": {
+      "commissioned": "has commissioned",
+      "capacity_quantity": "53.73 MW/222.969 MWh",
+      "capacity_unit": "53.73 MW/222.969 MWh",
+      "execution_stage": "only the BESS component"
+    },
+    "review_note": "Renewable generation remains under development. Future COD is not verified commercial operation. Full project size, utilisation, margins, funding, approvals and profit are not inferred from the commissioned battery phase."
   }
 ]

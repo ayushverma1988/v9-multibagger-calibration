@@ -18,6 +18,7 @@ from v12_public_history import bounds
 from v11_4_verified_current_financials import TAGS,INSTANT,scalar,mode,numeric
 from v11_4_longterm_fundamentals import context_map,local
 from v11_4_strict_annual_numeric_features import parse_units,dimensional_contexts
+from v13_source_quality import business_order_status,capacity_disclosure
 
 FACT_TAGS={**TAGS,'exceptional_items':['ExceptionalItemsBeforeTax','ExceptionalItems'],'other_income':['OtherIncome']}
 
@@ -140,7 +141,8 @@ def dated_events(items,asof):
         av=max(a,b)
         if av<lo.tz_localize('Asia/Kolkata') or av>hi.tz_localize('Asia/Kolkata')+pd.Timedelta(days=1):continue
         text=str(r.get('desc') or '')+' '+str(r.get('attchmntText') or '')
-        rows.append({'symbol':str(r.get('symbol') or '').upper(),'isin':str(r.get('sm_isin') or ''),'available_at_utc':av.isoformat(),'event_id':str(r.get('seq_id') or ''),'headline':str(r.get('desc') or ''),'issuer_name':str(r.get('sm_name') or ''),'text':text,'attachment_url':str(r.get('attchmntFile') or ''),'catalog_sha256':item['catalog_sha256'],'venue_index':item['venue_index'],'order_disclosure':bool(re.search(r'order|contract|award',text,re.I)),'capacity_disclosure':bool(re.search(r'capacity|commission|commercial production',text,re.I)),'earnings_impact_verified':False})
+        status=business_order_status(text,str(r.get('desc') or ''))
+        rows.append({'symbol':str(r.get('symbol') or '').upper(),'isin':str(r.get('sm_isin') or ''),'available_at_utc':av.isoformat(),'event_id':str(r.get('seq_id') or ''),'headline':str(r.get('desc') or ''),'issuer_name':str(r.get('sm_name') or ''),'text':text,'attachment_url':str(r.get('attchmntFile') or ''),'catalog_sha256':item['catalog_sha256'],'venue_index':item['venue_index'],'order_disclosure':status=='BUSINESS_ORDER_DISCLOSURE_NOT_REVENUE','business_order_status':status,'capacity_disclosure':capacity_disclosure(text),'earnings_impact_verified':False})
     x=pd.DataFrame(rows)
     if x.empty:raise ValueError('No dated primary announcements')
     return x.sort_values('available_at_utc').drop_duplicates(['venue_index','event_id'],keep='last')

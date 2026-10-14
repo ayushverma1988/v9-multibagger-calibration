@@ -6,7 +6,7 @@ import pandas as pd
 import v13_model as model
 from v13_lifecycle import digest,register,validate_registry
 
-COMPARISON_CONTRACT='V13_FINANCIAL_BUNDLES_FUNDED_APPROVED_MARGIN_POLICY_20261013'
+COMPARISON_CONTRACT='V13_BUSINESS_ORDER_NUMERIC_BOUND_SCENARIOS_POLICY_20261014'
 LEGACY_COMPARISON_CONTRACT='V13_LEGACY_PAIR_20261012'
 
 def scored(heads,frame,policy='legacy'):

@@ -30,6 +30,36 @@ def financial_quality(f):
     return {'status':status,'unknown_fields':unknown,'failed_checks':failed,
             'complete':not unknown,'quality_pass':not unknown and not failed}
 
+def financial_readiness(known,date,f):
+    """Distinguish missing source data from mathematically undefined ratios.
+
+    Zero interest or a nonpositive comparative PAT must not be fabricated into
+    an interest cover/growth number. Such cases need interpretation, not more
+    downloads of an already observed original. No financial gate is relaxed.
+    """
+    missing=[k for k in REQUIRED if not np.isfinite(f.get(k,np.nan))]
+    reasons={k:'MISSING_OR_AMBIGUOUS_ORIGINAL_PERIOD_OR_FACT' for k in missing}
+    if known.empty:return {'unknown_reasons':reasons,'underlying_required_facts_complete':False,'latest_reported_diluted_EPS_available':False}
+    recent=known[known.period_kind.eq('quarter')&(date-known.period).dt.days.between(0,190)]
+    basis='consolidated' if recent.reporting_mode.eq('consolidated').any() else 'standalone'
+    d=known[known.reporting_mode.eq(basis)];q=pick(d,'quarter')
+    if not q or (date-q['period']).days>190:return {'unknown_reasons':reasons,'underlying_required_facts_complete':False,'latest_reported_diluted_EPS_available':False}
+    previous=pick(d,'quarter',q['period']-pd.DateOffset(years=1));annual=pick(d,'annual');bal=pick(d,'instant')
+    if annual and (date-annual['period']).days>450:annual={}
+    if bal and (date-bal['period']).days>450:bal={}
+    denominator={'quarter_sales_yoy':number(previous,'revenue'),'quarter_pat_yoy':number(previous,'pat'),
+      'quarter_pat_margin':number(q,'revenue'),'annual_CFO_PAT':number(annual,'pat'),
+      'dated_debt_equity':number(bal,'equity'),'annual_EBIT_proxy_interest_coverage':number(annual,'finance_cost')}
+    for k,value in denominator.items():
+        if k in reasons and np.isfinite(value) and value<=0:reasons[k]='OBSERVED_NONPOSITIVE_DENOMINATOR_NOT_MISSING_SOURCE'
+    quarter_pats=[number(pick(d,'quarter',q['period']-pd.offsets.MonthEnd(k)),'pat') for k in (0,3,6,9)]
+    values=[number(q,'revenue'),number(q,'pat'),number(previous,'revenue'),number(previous,'pat'),*quarter_pats,
+      number(annual,'cfo'),number(annual,'pat'),number(annual,'pbt'),number(annual,'finance_cost'),
+      number(bal,'equity'),number(bal,'borrowings_current'),number(bal,'borrowings_noncurrent')]
+    return {'unknown_reasons':reasons,'underlying_required_facts_complete':bool(all(np.isfinite(x) for x in values)),
+      'latest_reported_diluted_EPS_available':bool(np.isfinite(number(q,'eps_diluted_continuing'))),
+      'reported_EPS_is_not_recurring_or_action_reconciled':True}
+
 def balancing_quarters(wide):
     """Explicit annual minus nine-month amounts; never subtract EPS/shares.
 
@@ -156,7 +186,7 @@ def priority_queue(queue,wide,asof,budget):
 def enrich_evidence(frame,wide,root,asof):
     wide=balancing_quarters(wide)
     d=frame.copy();links=[];coverage=[];low,_=bounds(asof)
-    for c in ('ttm_reported_PAT_INR','annual_reported_revenue_INR','latest_issued_shares','latest_diluted_shares','ttm_reported_eps','implied_reported_PE','required_eps_at_current_PE_for_2x','scenario_base_multiple','scenario_net_multiple','historical_sector_relative_PE'):
+    for c in ('ttm_reported_PAT_INR','annual_reported_revenue_INR','latest_issued_shares','latest_diluted_shares','ttm_reported_eps','implied_reported_PE','required_eps_at_current_PE_for_2x','scenario_base_multiple','scenario_net_multiple','historical_sector_relative_PE','total_PAT_divided_by_latest_quarter_weighted_shares_proxy'):
         if c not in d:d[c]=np.nan
     d['financial_complete']=False;d['financial_unknown_fields']='';d['evidence_status']='MISSING_FINANCIAL_OR_EXECUTION'
     d['financial_quality_pass']=False;d['financial_quality_status']='UNKNOWN_FINANCIAL_INPUTS'
@@ -166,11 +196,12 @@ def enrich_evidence(frame,wide,root,asof):
         w=wide[wide.security_isin.eq(r['isin'])&wide.available.le(cut)&wide.period.le(date)&wide.period.ge(low)] if not wide.empty else pd.DataFrame()
         f,used=features(w,date) if not w.empty else ({},[])
         quality=financial_quality(f);unknown=quality['unknown_fields']
+        readiness=financial_readiness(w,date,f)
         d.at[i,'financial_complete']=not unknown;d.at[i,'financial_unknown_fields']='|'.join(unknown)
         d.at[i,'financial_quality_pass']=quality['quality_pass'];d.at[i,'financial_quality_status']=quality['status']
         coverage.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(date.date()),'unknown_fields':unknown,'financial_complete':not unknown,
           'financial_quality_status':quality['status'],'financial_quality_pass':quality['quality_pass'],'failed_checks':quality['failed_checks'],
-          'expanded_unknown_fields':[k for k in (*FINANCIAL,*UNSUPPORTED) if not np.isfinite(f.get(k,np.nan))]})
+          'expanded_unknown_fields':[k for k in (*FINANCIAL,*UNSUPPORTED) if not np.isfinite(f.get(k,np.nan))],**readiness})
         for z in used:
             item={'isin':r['isin'],'source_asof':str(date.date()),'period_end':z['period_end'],
               'reporting_mode':z['reporting_mode'],'available_at_utc':z['available_at_utc'],
@@ -192,16 +223,19 @@ def enrich_evidence(frame,wide,root,asof):
         if all(np.isfinite(x) for x in pats):d.at[i,'ttm_reported_PAT_INR']=sum(pats)
         if all(np.isfinite(x) for x in pats) and shares>0:
             pat=sum(pats);eps=pat/shares
-            d.at[i,'latest_diluted_shares']=shares;d.at[i,'ttm_reported_eps']=eps
-            if eps>0:
-                d.at[i,'implied_reported_PE']=float(r.close)/eps
-                d.at[i,'required_eps_at_current_PE_for_2x']=2*eps*1.005/.995
-                d.at[i,'earnings_scenario_status']='REPORTED_EARNINGS_ONLY_FORWARD_GROWTH_UNKNOWN'
+            d.at[i,'latest_diluted_shares']=shares
+            d.at[i,'total_PAT_divided_by_latest_quarter_weighted_shares_proxy']=eps
+            # Total consolidated PAT may include minority interests, and one
+            # quarter's weighted shares are not a verified TTM denominator.
+            # This arithmetic is not reported diluted EPS or a certified PE.
+            d.at[i,'earnings_scenario_status']='TOTAL_PAT_SHARE_PROXY_NOT_REPORTED_TTM_EPS_OR_VERIFIED_PE'
         # Latest sector memberships or guessed growth are never applied to
         # history. A reviewed scenario must bind every input to dated sources.
     out=Path(root)/'evidence';out.mkdir(exist_ok=True)
     (out/'financial_completeness.json').write_text(json.dumps({'asof':asof,'rows':len(d),
       'complete_rows':int(d.financial_complete.sum()),'quality_pass_rows':int(d.financial_quality_pass.sum()),
+      'underlying_required_facts_complete_rows':sum(z['underlying_required_facts_complete'] for z in coverage),
+      'latest_reported_diluted_EPS_available_rows':sum(z['latest_reported_diluted_EPS_available'] for z in coverage),
       'known_failure_rows':int(d.financial_quality_status.eq('KNOWN_FINANCIAL_FAILURE').sum()),
       'expanded_field_nonmissing':{k:sum(k not in z['expanded_unknown_fields'] for z in coverage) for k in (*FINANCIAL,*UNSUPPORTED)},
       'required_checks':list(REQUIRED),'quality_is_not_future_profitability':True,'issuer_backlog':coverage,
@@ -216,7 +250,17 @@ def enrich_evidence(frame,wide,root,asof):
       'assumptions_not_source_verified':True,'net_return_target':2,'required_growth_grid':stress,
       'reported_TTM_PAT_available':int(d.ttm_reported_PAT_INR.notna().sum()),
       'issued_share_count_is_not_diluted_weighted_share_count':True,
+      'total_PAT_share_proxy_is_not_reported_EPS_or_verified_PE':True,
       'independently_supported_forward_PAT_and_sector_PE_required':True},indent=2))
+    # A per-stock EPS hurdle is helpful even when forward earnings and peer
+    # valuations are undisclosed. Every PE below is a hypothetical sensitivity,
+    # never an asserted sector multiple or a support flag used by selection.
+    hurdles=[{'isin':z['isin'],'symbol':z['symbol'],'source_asof':str(pd.Timestamp(z['date']).date()),
+      'source_close_INR':float(z['close']),'price_basis':'SOURCE_CLOSE_NOT_REGISTERED_NEXT_SESSION_ENTRY',
+      'status':'HYPOTHETICAL_EPS_HURDLES_NOT_PREDICTION','source_sha256':z.get('official_source_sha256'),
+      'assumed_PE_to_required_forward_EPS_INR':{str(pe):float(z['close'])*target/pe for pe in (10,15,20,30)},
+      'assumptions_are_not_source_verified':True} for z in d.to_dict('records') if np.isfinite(z.get('close',np.nan)) and z['close']>0]
+    (out/'earnings_hurdles.json').write_text(json.dumps(hurdles,indent=2))
     return d
 
 def earnings_scenario(price,current_pat,current_shares,forward_pat,forward_shares,sector_pe):
@@ -250,13 +294,24 @@ def apply_scenarios(frame,root):
                 bound=False;break
             excerpt=excerpts[name]
             if not isinstance(excerpt,str) or not excerpt.strip() or re.sub(r'\s+',' ',excerpt).strip() not in re.sub(r'\s+',' ',text):bound=False
+            from v13_source_quality import bound_number
+            value=r.get({'forward_PAT':'forward_PAT_INR','forward_diluted_shares':'forward_diluted_shares','sector_PE':'sector_PE'}[name])
+            if not bound_number(value,excerpt,currency=name=='forward_PAT'):bound=False
+            # A historical PAT number is not proof that forward earnings were
+            # established. Reviewed scenario assumptions still are not facts.
+            if name=='forward_PAT' and not re.search(r'forward|forecast|projected|expected|guidance|scenario',excerpt,re.I):bound=False
         if not bound:
             audit.append({'isin':r.get('isin'),'status':'UNKNOWN_UNBOUND_SCENARIO_EXCERPTS'});continue
+        if r.get('forward_PAT_basis')!='OWNERS_ATTRIBUTABLE' or not re.search(r'owners|shareholders|attributable',excerpts['forward_PAT'],re.I):
+            audit.append({'isin':r.get('isin'),'status':'UNKNOWN_FORWARD_PAT_OWNER_ATTRIBUTION'});continue
         cut=max(cut,reviewed_at)
         for i,row in d[d['isin'].eq(r['isin'])].iterrows():
             decision=pd.Timestamp(row.date).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
             if cut>decision:continue
             z=earnings_scenario(row.close,row.ttm_reported_PAT_INR,row.latest_diluted_shares,r.get('forward_PAT_INR'),r.get('forward_diluted_shares'),r.get('sector_PE'))
+            if 'earnings_growth' in z:
+                z['earnings_growth']=None
+                z['earnings_growth_status']='UNKNOWN_CURRENT_OWNER_ATTRIBUTABLE_BASELINE'
             audit.append({'isin':r['isin'],'source_asof':str(pd.Timestamp(row.date).date()),'available_at_utc':cut.isoformat(),'input_source_sha256':hashes,**z})
             d.at[i,'earnings_scenario_status']=z['status']
             if 'scenario_multiple' in z:

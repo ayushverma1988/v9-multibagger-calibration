@@ -25,6 +25,34 @@ def validate_action_notice(action,raw):
     for field in needed:
         excerpt=action.get('field_excerpts',{}).get(field)
         if not excerpt or re.sub(r'\s+',' ',excerpt).strip() not in text:raise ValueError('Unbound action field: '+field)
+    date_quote=action['field_excerpts']['ex_date']
+    if re.search(r'\bproposed|\bplanned|subject\s+to\s+approval',date_quote+' '+action['field_excerpts'].get('share_multiplier',''),re.I):raise ValueError('Conditional intended action is not certified completed')
+    if not re.search(r'\bex[ -]?date\b',date_quote,re.I):raise ValueError('Record/payment date is not an exchange ex-date')
+    dates=re.findall(r'\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[ -](?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[ ,-]+\d{4}\b',date_quote,re.I)
+    if not action.get('ex_date') or not any(pd.Timestamp(z).date()==pd.Timestamp(action['ex_date']).date() for z in dates):raise ValueError('Action ex-date does not match the original excerpt')
+    from v13_source_quality import bound_number
+    if action['kind']=='dividend':
+        quote=action['field_excerpts']['cash_per_old_share']
+        match=re.search(r'(?:dividend\s*(?:of\s*)?)(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d+)?)',quote,re.I)
+        if not match or not np.isclose(action.get('cash_per_old_share',np.nan),float(match.group(1).replace(',','')),rtol=1e-9,atol=1e-9):raise ValueError('Dividend amount/unit does not match original dividend clause')
+    else:
+        ratio=action.get('source_share_ratio',{});quote=action['field_excerpts']['share_multiplier']
+        if action['kind']=='split':
+            old=ratio.get('old');new=ratio.get('new');kind=ratio.get('kind')
+            if kind not in {'face_value','share_counts'} or not old or not new:raise ValueError('Split needs an explicit original share/face-value ratio')
+            if not re.search(r'split|sub.?division',quote,re.I):raise ValueError('Original does not identify a split')
+            if kind=='face_value' and not re.search(r'face\s+value',quote,re.I):raise ValueError('Face-value ratio not identified')
+            match=re.search(r'from\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d+)?)\s*(?:shares?|each)?\s*(?:to|into)\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d+)?)',quote,re.I)
+            if not match or not np.isclose(old,float(match.group(1).replace(',',''))) or not np.isclose(new,float(match.group(2).replace(',',''))):raise ValueError('Split ratio direction is not unambiguously bound to original')
+            factor=old/new if kind=='face_value' else new/old
+        elif action['kind']=='bonus':
+            new=ratio.get('new');old=ratio.get('old')
+            if new is None or old is None or old<=0 or new<0 or not re.search(r'bonus',quote,re.I):raise ValueError('Bonus needs an explicit new-to-old share ratio')
+            match=re.search(r'bonus\s*(?:shares?\s*)?(?:in\s+(?:the\s+)?ratio\s*(?:of\s*)?)?([\d,]+)\s*:\s*([\d,]+)',quote,re.I)
+            if not match or new!=int(match.group(1).replace(',','')) or old!=int(match.group(2).replace(',','')):raise ValueError('Bonus ratio direction needs an explicit new:old source ratio')
+            factor=1+new/old
+        else:raise ValueError('Unsupported primary action kind')
+        if not bound_number(old,quote) or not bound_number(new,quote) or not np.isclose(action.get('share_multiplier',np.nan),factor,rtol=1e-9,atol=1e-9):raise ValueError('Action factor does not reconcile the original ratio')
     return True
 
 def collect_calendar(root,asof):
@@ -141,7 +169,7 @@ def audit(root,official,history,asof):
                 if o.date.iloc[0]==dates[0] and not first.empty and first.date.iloc[0]==dates[0] and first.symbol.iloc[0]==r['symbol'] and o.symbol.iloc[0]==r['symbol'] and o.source_status.iloc[0]=='VALID_POSITIVE_VOLUME_SESSION':
                     proof['entry_verified']=bool(abs(first.open.iloc[0]-o.open.iloc[0])<=.011)
                     proof['entry_date']=str(dates[0].date());proof['entry_open_INR']=float(o.open.iloc[0]);proof['entry_official_sha256']=o.source_sha256.iloc[0]
-                    proof['verification_status']='ENTRY_VERIFIED_ACTION_COVERAGE_UNKNOWN'
+                    proof['verification_status']='ENTRY_VERIFIED_ACTION_COVERAGE_UNKNOWN' if proof['entry_verified'] else 'ENTRY_PROVIDER_OPEN_MISMATCH_ACTION_PROOF_REQUIRED'
                     matched=[z for z in coverage if z.get('isin')==r['isin'] and z.get('symbol')==r['symbol'] and pd.Timestamp(z['start'])<=dates[0] and pd.Timestamp(z['end'])>=pd.Timestamp(asof)]
                     try:
                         if not matched:raise ValueError('No independently reviewed full action interval')

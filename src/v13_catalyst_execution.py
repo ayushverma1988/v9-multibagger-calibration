@@ -17,6 +17,8 @@ FIELDS=('commissioned','capacity_units_per_year','utilisation_pct','firm_order',
  'order_value_INR','order_due','expected_margin_pct','funding_sufficient','approval_completed','material_dilution_pct')
 FIELDS=FIELDS+('capacity_quantity','capacity_unit','execution_stage','order_duration_months','order_start_date')
 FIELDS=FIELDS+('order_tax_inclusive','issued_shares_before','issued_shares_after','new_shares_allotted')
+FIELDS=FIELDS+('risk_event_type','risk_status','risk_shares_amount_INR','risk_bank_balances_INR',
+ 'warrants_allotted','warrant_conversion_ratio','warrant_exercise_months','warrant_subscription_total_INR','warrant_subscription_received_INR')
 
 def excerpt_numbers(text):
     """Exact displayed quantities, including explicit Indian currency scales."""
@@ -101,6 +103,14 @@ def reviewed(record,evidence,text):
                 raise ValueError('Funding intent is not secured funding')
             if field=='firm_order' and record[field] is True and (not re.search(r'received|awarded|signed|executed',excerpt,re.I) or re.search(r'\b(will|plan|planned|proposed|expected)\b',excerpt,re.I)):
                 raise ValueError('Order intent is not a received firm contract')
+            if field=='firm_order' and record[field] is True:
+                from v13_source_quality import business_order_status
+                if business_order_status(excerpt)=='LEGAL_REGULATORY_NOT_BUSINESS_ORDER':raise ValueError('Legal order is not a business contract')
+            if field in {'risk_shares_amount_INR','risk_bank_balances_INR','warrants_allotted','warrant_conversion_ratio','warrant_exercise_months','warrant_subscription_total_INR','warrant_subscription_received_INR'}:
+                from v13_source_quality import bound_number
+                if not bound_number(record[field],excerpt,currency=field.endswith('_INR')):raise ValueError('Unbound original risk/warrant quantity or currency')
+                if record[field]<0:raise ValueError('Negative risk/warrant quantity')
+            if field=='new_shares_allotted' and re.search(r'warrants?',excerpt,re.I) and not re.search(r'converted|conversion.*allotted',excerpt,re.I):raise ValueError('Unconverted warrants are not issued equity')
     published=record.get('published_at_utc')
     # Unknown publication times use first retrieval conservatively. Never
     # assign midnight on a document's printed date as a broadcast timestamp.
@@ -122,6 +132,13 @@ def reviewed(record,evidence,text):
         derived={'derived_issued_share_count_increase_pct':100*(after-before)/before,
           'derived_existing_ownership_dilution_pct':100*(after-before)/after,
           'share_count_arithmetic_is_not_provider_price_adjustment':True}
+    if record.get('warrants_allotted') is not None:
+        if record['warrants_allotted']<0 or record['warrants_allotted']!=int(record['warrants_allotted']):raise ValueError('Invalid warrant count')
+        total=record.get('warrant_subscription_total_INR');paid=record.get('warrant_subscription_received_INR')
+        if total is not None and paid is not None:
+            if not 0<=paid<=total:raise ValueError('Warrant receipts exceed subscription')
+            derived.update(conditional_unreceived_warrant_subscription_INR=total-paid,
+              warrants_are_not_issued_equity=True,exercise_and_dilution_not_assumed=True)
     return {**record,**derived,'available_at_utc':available.isoformat(),'publication_time_status':'VERIFIED_BROADCAST' if published else 'UNKNOWN_USING_FIRST_RETRIEVAL',
       'unknown_fields':[k for k in FIELDS if record.get(k) is None],'future_profit_verified':False}
 
@@ -153,8 +170,15 @@ def collect(root,asof,budget=40):
             docs.append({**r,**info,'source_sha256':proof['sha256'],'text_sha256':sha(text.encode()),'first_retrieved_utc':proof['first_retrieved_utc'],
               'publication_time_status':'CATALOG_BROADCAST','review_status':'NEEDS_QUANTIFIED_EXECUTION_REVIEW','unknown_fields':list(FIELDS)})
         except Exception as exc:errors.append({'source_url':r['attachment_url'],'error':str(exc)[:200]})
+    from v13_source_quality import business_order_status,capacity_disclosure
+    for item in docs:
+        status=business_order_status(item.get('text',''),item.get('headline',''))
+        item['business_order_status']=status
+        item['order_disclosure']=status=='BUSINESS_ORDER_DISCLOSURE_NOT_REVENUE'
+        item['capacity_disclosure']=capacity_disclosure(item.get('text',''))
     docs_path.write_text(json.dumps(docs,indent=2));attempts_path.write_text(json.dumps(attempts,indent=2))
-    summary={'documents':len(docs),'issuer_matched':sum(r.get('issuer_identity_read') is True for r in docs),
+    legal=sum(business_order_status(z.get('text',''),z.get('headline',''))=='LEGAL_REGULATORY_NOT_BUSINESS_ORDER' for z in docs)
+    summary={'documents':len(docs),'issuer_matched':sum(r.get('issuer_identity_read') is True for r in docs),'legal_regulatory_disclosures_not_business_orders':legal,
       'quantified_review_candidates':sum(len(r.get('quantified_evidence',[])) for r in docs),'backlog':len(e)-len(known),
       'errors':errors,'catalogue_complete':False,'automatic_future_profit_claims':0}
     (out/'coverage.json').write_text(json.dumps(summary,indent=2));return summary

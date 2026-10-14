@@ -105,7 +105,8 @@ class EvidencePairing(unittest.TestCase):
 
     def test_action_factor_needs_original_issuer_and_excerpts(self):
         raw=b'Trading Symbol: A. Ex date 13 October 2026. Shares split from 1 to 2.'
-        a={'isin':'INE000000001','symbol':'A','kind':'split','source_sha256':hashlib.sha256(raw).hexdigest(),
+        a={'isin':'INE000000001','symbol':'A','kind':'split','ex_date':'2026-10-13','share_multiplier':2,
+           'source_share_ratio':{'kind':'share_counts','old':1,'new':2},'source_sha256':hashlib.sha256(raw).hexdigest(),
            'field_excerpts':{'ex_date':'Ex date 13 October 2026','share_multiplier':'Shares split from 1 to 2'}}
         self.assertTrue(validate_action_notice(a,raw));a['symbol']='OTHER'
         with self.assertRaises(ValueError):validate_action_notice(a,raw)

@@ -104,7 +104,7 @@ def adjudicate(registry,official,history,asof,verification=None):
     return rows
 
 PAIRED_COLUMNS=['date','isin','cohort_id','registered_at_utc','mature_at_utc','y','champion','challenger',
- 'selected_champion','selected_challenger','independent_outcome_verified','financial_tier','market_regime','liquidity_tier']
+ 'selected_champion','selected_challenger','independent_outcome_verified','financial_tier','market_regime','liquidity_tier','baseline']
 
 def paired_observations(observations,challenger_sha,comparison_contract=None):
     d=observations.copy()
@@ -128,11 +128,12 @@ def paired_observations(observations,challenger_sha,comparison_contract=None):
     return pd.DataFrame({'date':x.source_asof,'isin':x['isin'],'cohort_id':x.cohort_id,'registered_at_utc':x.registered_at_utc_b,
       'mature_at_utc':pd.to_datetime(x.first_entry_date_b,utc=True)+pd.DateOffset(months=12),
       'y':x.verified_hit2_12_b,'champion':x.p12_a,'challenger':x.p12_b,
+      'baseline':x.baseline_p12_a if 'baseline_p12_a' in x else np.nan,
       'selected_champion':x.selected_verified_a,'selected_challenger':x.selected_verified_b,
       'independent_outcome_verified':x.independent_outcome_verified_a&x.independent_outcome_verified_b,
       **{k:x[k+'_a'] if k+'_a' in x else 'UNKNOWN' for k in ('financial_tier','market_regime','liquidity_tier')}})
 
-def promotion_gate(paired,registered_after,source_complete=False):
+def promotion_gate(paired,registered_after,source_complete=False,require_baseline=False):
     """One untouched, date-clustered prospective comparison, never winner-only."""
     reasons=[];required={'date','registered_at_utc','mature_at_utc','y','champion','challenger','selected_champion','selected_challenger','independent_outcome_verified'}
     if not required.issubset(paired):return {'promote':False,'reasons':['missing_paired_prospective_schema']}
@@ -153,6 +154,13 @@ def promotion_gate(paired,registered_after,source_complete=False):
     if d.y.eq(1).sum()<20:reasons.append('fewer_than_20_positive_outcomes')
     for label in ('champion','challenger'):
         if d['selected_'+label].sum()<60:reasons.append('fewer_than_60_selected_'+label)
+    if require_baseline:
+        if d.empty or 'baseline' not in d or not d.baseline.between(0,1).all():reasons.append('missing_verified_future_frozen_baseline_comparison')
+        else:
+            gain=((d.baseline-d.y)**2-(d.challenger-d.y)**2).groupby(d.date).mean()
+            critical=student_t.ppf(.975,len(gain)-1) if len(gain)>1 else np.inf
+            lower=float(gain.mean()-critical*gain.std(ddof=1)/np.sqrt(len(gain))) if len(gain)>1 else -1
+            if not lower>0:reasons.append('date_clustered_gain_over_simple_baseline_not_positive')
     if len(d):
         delta=(d.champion-d.y)**2-(d.challenger-d.y)**2
         means=delta.groupby(d.date).mean()

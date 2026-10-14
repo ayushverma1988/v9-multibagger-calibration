@@ -145,6 +145,7 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
                 blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False)
                 market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof)
                 matrix=collection.enrich(market,pd.read_parquet(root/'financial_wide.parquet'))
+                matrix=collection.announcement_counts(matrix,root,asof)
                 for c in model.FEATURES:
                     if c not in matrix:matrix[c]=np.nan
                 matrix.to_parquet(root/'challenger_matrix.parquet',index=False)
@@ -186,6 +187,9 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             report['financial_known_failure_rows']=int(frame.financial_quality_status.eq('KNOWN_FINANCIAL_FAILURE').sum())
             report['execution_chain_supported_rows']=int(frame.evidence_status.eq('FINANCIAL_AND_EXECUTION_SUPPORTED').sum())
             report['source_bound_earnings_scenario_rows']=int(frame.earnings_scenario_status.eq('SCENARIO_NOT_PROBABILITY').sum())
+            # A source-bound scenario below the 2x net target is not support
+            # for doubling. Preserve total scenario coverage separately.
+            report['source_bound_2x_scenario_rows']=int((frame.earnings_scenario_status.eq('SCENARIO_NOT_PROBABILITY') & frame.scenario_net_multiple.ge(2)).sum()) if 'scenario_net_multiple' in frame else 0
             baseline=evaluation.prior_rates(pd.read_parquet(root/'challenger_matrix.parquet'),asof) if (root/'challenger_matrix.parquet').exists() else {}
             for name,value in baseline.items():
                 if value is not None:frame[name]=value
@@ -219,6 +223,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         report['independently_verified_mature_outcomes']=sum(r['independent_outcome_verified'] and r['twelve_month_mature'] for r in observations)
         (root/'prospective_metrics.json').write_text(json.dumps(evaluation.prospective_report(observed),indent=2))
         (root/'paired_evaluation.json').write_text(json.dumps(evaluation.paired_evaluation_report(observed),indent=2))
+        from v13_progress import snapshot
+        snapshot(root,report,observed)
         # Promotion requires independently verified unseen outcomes. Current
         # provider adjustment/action reconciliation is incomplete, so promotion
         # is deliberately closed rather than silently learning from guesses.
@@ -232,7 +238,7 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             from v13_paired_forecasts import COMPARISON_CONTRACT
             paired=paired_observations(pd.DataFrame(observations),challenger_sha,comparison_contract=COMPARISON_CONTRACT)
             paired.to_parquet(root/'paired_mature_observations.parquet',index=False)
-            report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha))
+            report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha),require_baseline=True)
             if report['promotion']['promote']:
                 backup=root/'retired_models'/hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest()
                 backup.parent.mkdir(exist_ok=True);shutil.copy2(root/'active_heads.joblib',backup)

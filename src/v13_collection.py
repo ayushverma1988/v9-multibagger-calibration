@@ -137,18 +137,38 @@ def announcement_counts(frame,root,asof):
     paths=list((Path(root)/'sources').glob('*/events.parquet'))
     if not paths:return frame
     e=pd.concat([pd.read_parquet(p) for p in paths],ignore_index=True)
-    e=e.drop_duplicates(['event_id','available_at_utc','symbol','catalog_sha256'])
+    # Repeated daily catalogue snapshots are not independent order wins.
+    identity=[k for k in ('venue_index','event_id','available_at_utc','symbol','attachment_url') if k in e]
+    e=e.drop_duplicates(identity)
     e['available']=pd.to_datetime(e.available_at_utc,utc=True,format='mixed')
     cut=(pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
-    e=e[e.available.le(cut)&e.available.ge(cut-pd.Timedelta(days=90))]
+    e=e[e.available.le(cut)&e.available.ge(bounds(asof)[0].tz_localize('Asia/Kolkata'))]
+    from v13_source_quality import business_order_status,capacity_disclosure
+    # Old stored catalogues retain their original bytes. Recompute the derived
+    # flag in memory so cached broad regex flags cannot revive legal orders.
+    e['business_order_status']=[business_order_status(z.get('text',''),z.get('headline','')) for z in e.to_dict('records')]
+    e['order_disclosure']=e.business_order_status.eq('BUSINESS_ORDER_DISCLOSURE_NOT_REVENUE')
+    e['capacity_disclosure']=[capacity_disclosure(z) for z in e.text]
+    indexed={}
+    for key,g in e.groupby(['isin','symbol']):
+        g=g.sort_values('available');values=g.available.astype('int64').to_numpy()
+        indexed[key]=(values,np.r_[0,np.cumsum(g.order_disclosure.to_numpy(int))],
+          np.r_[0,np.cumsum(g.capacity_disclosure.to_numpy(int))],
+          np.r_[0,np.cumsum(g.business_order_status.eq('LEGAL_REGULATORY_NOT_BUSINESS_ORDER').to_numpy(int))])
     d=frame.copy()
     for i,r in d.iterrows():
-        q=e[e['isin'].eq(r['isin'])&e.symbol.eq(r['symbol'])]
+        rowdate=pd.Timestamp(r.get('date',asof))
+        rowcut=(rowdate.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+        stored=indexed.get((r['isin'],r['symbol']))
+        if stored is None:continue
+        clocks,order,capacity,legal=stored
+        left=np.searchsorted(clocks,(rowcut-pd.Timedelta(days=90)).value,side='left');right=np.searchsorted(clocks,rowcut.value,side='right')
         # Observed counts may be known with incomplete catalogue coverage.
         # Absence cannot be made a synthetic zero.
-        if not q.empty:
-            d.at[i,'order_disclosure_count90']=int(q.order_disclosure.sum())
-            d.at[i,'capacity_disclosure_count90']=int(q.capacity_disclosure.sum())
+        if right>left:
+            d.at[i,'order_disclosure_count90']=int(order[right]-order[left])
+            d.at[i,'observed_legal_regulatory_disclosure_count90']=int(legal[right]-legal[left])
+            d.at[i,'capacity_disclosure_count90']=int(capacity[right]-capacity[left])
     return d
 
 def historical_event_backfill(root,asof,budget=2):

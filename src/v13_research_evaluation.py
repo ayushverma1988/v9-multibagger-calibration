@@ -105,6 +105,13 @@ def paired_evaluation_report(observations):
                         row[label]={'selected_registered':int(selected.sum()),'brier':float(brier_score_loss(y,pred)) if len(k) else None,
                           'selected_verified_outcomes':int(selected_known.sum()),'selected_precision':float(y[selected_known.to_numpy()].mean()) if selected_known.any() else None}
                     row['paired_brier_gain']=row['champion']['brier']-row['challenger']['brier'] if len(k) else None
+                    baseline_col='baseline_p'+str(h)+'_a'
+                    baseline_known=k[baseline_col].notna() if baseline_col in k else pd.Series(False,index=k.index)
+                    base=k.loc[baseline_known]
+                    row['baseline']={'verified_pairs_with_frozen_baseline':len(base),'verified_pairs_missing_baseline':len(k)-len(base),
+                      'brier':float(brier_score_loss(base[yc+'_a'],base[baseline_col])) if len(base) else None,
+                      'status':'FROZEN_PAST_ONLY_BASELINE' if len(base) else 'UNKNOWN_OR_IMMATURE_NOT_INVENTED'}
+                    row['challenger_vs_baseline_brier_gain']=float(brier_score_loss(base[yc+'_a'],base[baseline_col])-brier_score_loss(base[yc+'_a'],base['p'+str(h)+'_b'])) if len(base) else None
                     result['comparisons'].append(row)
     return result
 
