@@ -17,7 +17,9 @@ from v12_public_history import bounds
 GROUPS={
  'market':['relative_strength63','log_ret63','volume_confirmation','volatility63'],
  'market_financial':['relative_strength63','log_ret63','volume_confirmation','quarter_sales_yoy','sales_growth_acceleration','quarter_pat_yoy','annual_CFO_PAT','dated_debt_equity'],
- 'market_financial_catalyst':['relative_strength63','log_ret63','volume_confirmation','quarter_sales_yoy','sales_growth_acceleration','quarter_pat_yoy','annual_CFO_PAT','dated_debt_equity','commissioned_document_count90','utilisation_disclosed_pct','disclosed_order_value_due12_to_sales']}
+ 'market_financial_catalyst':['relative_strength63','log_ret63','volume_confirmation','quarter_sales_yoy','sales_growth_acceleration','quarter_pat_yoy','annual_CFO_PAT','dated_debt_equity','commissioned_document_count90','utilisation_disclosed_pct','disclosed_order_value_due12_to_sales'],
+ 'market_owner_earnings':['relative_strength63','log_ret63','volume_confirmation','owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document','exceptional_items_to_abs_PBT'],
+ 'market_cash_quality':['relative_strength63','log_ret63','volume_confirmation','annual_CFO_PAT','annual_cash_conversion_change','accruals_to_average_assets','incremental_ROCE_proxy','annual_EBIT_proxy_interest_coverage']}
 
 def prior_rates(data,date):
     result={}
@@ -42,9 +44,13 @@ def metrics(q,ycol,pcol):
       'PR_AUC':float(average_precision_score(y,p)) if y.sum() else None,'calibration':calibration(y,p)}
 
 def prospective_report(observations):
-    result={'scope':'ALL_REGISTERED_SELECTED_AND_UNSELECTED','accuracy_approved':False,'groups':[]}
+    result={'scope':'ALL_REGISTERED_SELECTED_AND_UNSELECTED','accuracy_approved':False,'groups':[],
+      'frozen_probability_target':'DIVIDEND_ADJUSTED_CLOSING_2X; DAILY_LOW_LOSS30_BEFORE_2X_OR_DEADLINE',
+      'additional_price_only_and_any_horizon_events_are_not_relabelled_frozen_probabilities':True}
     if observations.empty:return result
     d=observations.copy()
+    for c in ('verified_hit2_6','verified_hit2_12','verified_loss30_12'):
+        if c not in d:d[c]=np.nan
     for c in ('financial_tier','market_regime','liquidity_tier'):
         if c not in d:d[c]='UNKNOWN'
         d[c]=d[c].fillna('UNKNOWN')
@@ -64,7 +70,37 @@ def prospective_report(observations):
     result['confirmed_risk_events']=int(d.get('confirmed_risk_event',pd.Series(False,index=d.index)).fillna(False).sum())
     loss=d[d.twelve_month_mature.eq(True)&d.independent_outcome_verified.eq(True)]
     result['loss_risk_metrics']={role:metrics(q,'verified_loss30_12','loss12') for role,q in loss.groupby('model_role')} if 'verified_loss30_12' in loss else {}
+    result['risk_groups']=[]
+    for axis in ('financial_tier','market_regime','liquidity_tier'):
+        for (role,value),q in d.groupby(['model_role',axis],dropna=False):
+            known=q[q.twelve_month_mature.eq(True)&q.independent_outcome_verified.eq(True)]
+            result['risk_groups'].append({'model_role':role,'axis':axis,'group':str(value),'registered':len(q),
+              'unknown_or_immature':len(q)-len(known),**metrics(known,'verified_loss30_12','loss12')})
+    result['additional_verified_events']={}
+    for field in ('confirmed_price_only_2x','confirmed_price_only_loss30','confirmed_any_horizon_loss30'):
+        values=d[field] if field in d else pd.Series(None,index=d.index,dtype=object)
+        result['additional_verified_events'][field]={'confirmed':int(values.eq(True).sum()),'unknown_records':int(values.isna().sum()),'no_matching_frozen_probability_assigned':True}
+    result['paired_readiness']=paired_readiness(d)
     return result
+
+def paired_readiness(observations):
+    """Expose missing prospective proof now, without invented future outcomes."""
+    if 'cohort_id' not in observations:return []
+    d=observations[observations.cohort_id.notna()]
+    rows=[]
+    for cohort,q in d.groupby('cohort_id'):
+        a=q[q.model_role.eq('champion')].set_index('isin');b=q[q.model_role.eq('challenger')].set_index('isin')
+        both=a.index.intersection(b.index);registered=a.index.union(b.index)
+        aa=a.loc[both];bb=b.loc[both]
+        clock=aa.registered_at_utc.eq(bb.registered_at_utc)&aa.source_asof.eq(bb.source_asof)&aa.symbol.eq(bb.symbol)
+        entry=aa.get('entry_verified',pd.Series(False,index=aa.index)).eq(True)&bb.get('entry_verified',pd.Series(False,index=bb.index)).eq(True)&aa.get('first_entry_date',pd.Series(None,index=aa.index)).eq(bb.get('first_entry_date',pd.Series(None,index=bb.index)))
+        mature=aa.twelve_month_mature.eq(True)&bb.twelve_month_mature.eq(True)&aa.independent_outcome_verified.eq(True)&bb.independent_outcome_verified.eq(True)
+        baseline=aa.baseline_p12.notna() if 'baseline_p12' in aa else pd.Series(False,index=aa.index)
+        rows.append({'cohort_id':cohort,'registered_stock_pairs':len(registered),'missing_partner_records':len(registered)-len(both),
+          'same_clock_same_names_pairs':int(clock.sum()),'verified_same_entry_pairs':int((clock&entry).sum()),
+          'pairs_with_frozen_p12_baseline':int((clock&baseline).sum()),'independently_verified_mature_pairs':int((clock&entry&mature).sum()),
+          'historical_baselines_or_partners_never_retrofitted':True})
+    return rows
 
 def paired_evaluation_report(observations):
     """Fair paired clocks/universes and unknown denominator, for both horizons.
@@ -123,6 +159,7 @@ def experiments(data,asof,output):
     group; they never become zero commissionings or fabricated profitability.
     """
     d=data.copy();low,_=bounds(asof);d=d[d.date.ge(low)]
+    if 'history_start_used' in d:d=d[pd.to_datetime(d.history_start_used,errors='coerce').ge(low)]
     report={'asof':asof,'four_year_start':str(low.date()),'historical_results_previously_examined':True,
       'promotion_evidence':False,'groups_predeclared':GROUPS,'folds':[]}
     for h in (6,12):
@@ -141,6 +178,8 @@ def experiments(data,asof,output):
                 # A catalyst experiment needs measured execution features.
                 if name.endswith('catalyst') and not any(c in usable for c in cols[-3:]):
                     report['folds'].append({'months':h,'date':str(pd.Timestamp(date).date()),'group':name,'status':'BLOCKED_MISSING_QUANTIFIED_CATALYSTS'});continue
+                if name in {'market_owner_earnings','market_cash_quality'} and not any(c in usable for c in cols[3:]):
+                    report['folds'].append({'months':h,'date':str(pd.Timestamp(date).date()),'group':name,'status':'BLOCKED_MISSING_DATED_FINANCIAL_INPUTS'});continue
                 if len(train)<500 or train[y].sum()<10 or not usable:continue
                 pipe=make_pipeline(SimpleImputer(strategy='median',add_indicator=True),StandardScaler(),LogisticRegression(C=.03,max_iter=1000,random_state=31))
                 pipe.fit(train[usable],train[y].astype(int));scored=test.assign(prediction=pipe.predict_proba(test[usable])[:,1])

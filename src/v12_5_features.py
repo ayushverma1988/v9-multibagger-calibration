@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-FINANCIAL=('sales_yoy_previous_quarter','sales_growth_acceleration','pat_growth_acceleration',
+FINANCIAL=('sales_yoy_previous_quarter','sales_growth_acceleration','pat_growth_acceleration','owner_PAT_yoy','owner_PAT_margin',
  'pat_margin_yoy_change','reported_diluted_EPS_yoy_same_document','annual_cash_conversion_change',
  'accruals_to_average_assets','annual_EBIT_proxy_interest_coverage','annual_ROCE_proxy',
  'incremental_ROCE_proxy','reported_share_count_yoy','exceptional_items_to_abs_PBT',
@@ -68,6 +68,8 @@ def features(known,date):
     out['quarter_sales_yoy']=sales
     out['quarter_pat_yoy']=growth(number(q,'pat'),number(old,'pat'))
     out['quarter_pat_margin']=ratio(number(q,'pat'),number(q,'revenue'))
+    out['owner_PAT_yoy']=growth(number(q,'pat_owners'),number(old,'pat_owners'))
+    out['owner_PAT_margin']=ratio(number(q,'pat_owners'),number(q,'revenue'))
     quarters=[pick(d,'quarter',period-pd.offsets.MonthEnd(k)) for k in [0,3,6,9]]
     profits=[number(z,'pat') for z in quarters]
     if all(np.isfinite(v) for v in profits):out['four_profitable_quarters']=float(all(v>0 for v in profits))

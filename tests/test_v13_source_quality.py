@@ -49,6 +49,9 @@ class SourceQuality(unittest.TestCase):
         self.assertFalse(bound_number(10000000,'Expected forward PAT 1 crore',currency=True))
         self.assertFalse(bound_number(1,'Expected forward PAT INR 1 crore',currency=True))
         self.assertFalse(bound_number(True,'1 share'))
+        self.assertTrue(bound_number(480000000,'Rs.48,00,00,000/-',currency=True))
+        self.assertTrue(bound_number(67500000,'Rs.6.75 crores',currency=True))
+        self.assertFalse(bound_number(2027,'Expected PAT INR 100 in 2027',currency=True))
 
     def test_exact_legal_excerpt_cannot_be_a_firm_business_order(self):
         text='Received order of seizure for Rs. 10 crore under FEMA.'

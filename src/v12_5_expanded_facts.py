@@ -21,7 +21,9 @@ TAGS={
  'eps_diluted_continuing':(['DilutedEarningsLossPerShareFromContinuingOperations'],'INR/SHARES','duration'),
  'paidup_equity_capital':(['PaidUpValueOfEquityShareCapital'],'INR','either'),
  'face_value':(['FaceValueOfEquityShareCapital'],'INR/SHARES','either'),
- 'weighted_diluted_shares':(['WeightedAverageNumberOfDilutedSharesOutstanding','WeightedAverageNumberOfEquitySharesOutstandingDiluted'],'SHARES','duration')}
+ 'weighted_diluted_shares':(['WeightedAverageNumberOfDilutedSharesOutstanding','WeightedAverageNumberOfEquitySharesOutstandingDiluted'],'SHARES','duration'),
+ 'pat_owners':(['ProfitOrLossAttributableToOwnersOfParent','ProfitLossForPeriodAttributableToOwnersOfParent','ProfitLossAttributableToOwnersOfParent'],'INR','duration'),
+ 'pat_noncontrolling':(['ProfitOrLossAttributableToNonControllingInterests','ProfitLossForPeriodAttributableToNonControllingInterests','ProfitLossAttributableToNonControllingInterests'],'INR','duration')}
 TAGS={**{k:(v,'INR','instant' if k in INSTANT else 'duration') for k,v in FACT_TAGS.items()},**TAGS}
 
 def unit_types(root):

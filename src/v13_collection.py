@@ -36,7 +36,9 @@ def enrich(matrix,wide,only_unknown=False):
         if c not in d:d[c]=None if c=='expanded_financial_available_at' else np.nan
     mask=d.expanded_financial_available_at.isna() if only_unknown else pd.Series(True,index=d.index)
     for i in d.index[mask]:
-        date=pd.Timestamp(d.at[i,'date']);cut=(date.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+        date=pd.Timestamp(d.at[i,'date'])
+        from v13_information_clock import cutoff
+        cut=cutoff(d.loc[i])
         w=groups.get(d.at[i,'isin'])
         if w is None:continue
         known=w[w.available.le(cut)&w.period.le(date)&w.period.ge(bounds(d.date.max())[0])]
@@ -48,7 +50,12 @@ def enrich(matrix,wide,only_unknown=False):
     return d
 
 def current_catalogs(root,asof):
-    folder=Path(root)/'sources'/asof;store=Store(folder/'raw');low,high=bounds(asof);financial=[];events=[];errors=[]
+    from datetime import datetime,timezone
+    folder=Path(root)/'sources'/asof
+    # Catalogues change within a trade date. Preserve each run's raw response
+    # rather than reusing a morning cache after evening results are published.
+    vintage=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    store=Store(folder/'raw'/vintage);low,high=bounds(asof);financial=[];events=[];errors=[]
     for venue in ('equities','sme'):
         for period in ('Annual','Quarterly'):
             try:
@@ -88,7 +95,9 @@ def current_catalogs(root,asof):
         catalog.to_parquet(path,index=False)
         (folder/'financial_inventory.json').write_text(json.dumps(inventory,indent=2))
     if events:
-        e=dated_events(events,asof);e.to_parquet(folder/'events.parquet',index=False)
+        e=dated_events(events,asof);path=folder/'events.parquet'
+        if path.exists():e=pd.concat([pd.read_parquet(path),e],ignore_index=True).drop_duplicates(['venue_index','event_id','available_at_utc','symbol','attachment_url'],keep='first')
+        e.to_parquet(path,index=False)
     return {'financial_catalog_records':len(financial),'announcement_records':len(events),'errors':errors,'catalog_absence_does_not_verify_no_catalyst':True}
 
 def merge_catalog(previous,fresh,asof):
@@ -141,7 +150,8 @@ def announcement_counts(frame,root,asof):
     identity=[k for k in ('venue_index','event_id','available_at_utc','symbol','attachment_url') if k in e]
     e=e.drop_duplicates(identity)
     e['available']=pd.to_datetime(e.available_at_utc,utc=True,format='mixed')
-    cut=(pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+    from v13_information_clock import cutoff
+    cut=max((cutoff(row,asof) for row in frame.to_dict('records')),default=(pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC'))
     e=e[e.available.le(cut)&e.available.ge(bounds(asof)[0].tz_localize('Asia/Kolkata'))]
     from v13_source_quality import business_order_status,capacity_disclosure
     # Old stored catalogues retain their original bytes. Recompute the derived
@@ -158,7 +168,7 @@ def announcement_counts(frame,root,asof):
     d=frame.copy()
     for i,r in d.iterrows():
         rowdate=pd.Timestamp(r.get('date',asof))
-        rowcut=(rowdate.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+        rowcut=cutoff(r,asof)
         stored=indexed.get((r['isin'],r['symbol']))
         if stored is None:continue
         clocks,order,capacity,legal=stored
@@ -173,9 +183,7 @@ def announcement_counts(frame,root,asof):
 
 def historical_event_backfill(root,asof,budget=2):
     """Bounded whole-public-venue windows, confined to the trailing four years."""
-    root=Path(root);low,high=bounds(asof);windows=[];end=high
-    while end>=low:
-        start=max(low,end-pd.Timedelta(days=28));windows.append((start,end));end=start-pd.Timedelta(days=1)
+    root=Path(root);low,high=bounds(asof);windows=stable_event_windows(asof)
     errors=[];completed=0
     for start,end in windows:
         folder=root/'sources'/('backfill_'+str(start.date())+'_'+str(end.date()))
@@ -192,7 +200,21 @@ def historical_event_backfill(root,asof,budget=2):
         if events:dated_events(events,asof).to_parquet(folder/'events.parquet',index=False)
         if ok:(folder/'complete.json').write_text(json.dumps({'start':str(start.date()),'end':str(end.date()),'records':len(events),'absence_does_not_verify_no_catalyst':True}))
         completed+=1
-    return {'windows_attempted':completed,'total_windows':len(windows),'errors':errors}
+    return {'windows_attempted':completed,'total_windows':len(windows),'errors':errors,'stable_partitions_prevent_daily_backfill_starvation':True}
+
+def stable_event_windows(asof):
+    """Fixed 29-day complete windows first; clipping obeys four-year limits.
+
+    Moving every boundary with asof meant each day started from two new recent
+    windows and never progressed into older history. Current announcements are
+    already collected separately; stable completed blocks are not refetched.
+    """
+    low,high=bounds(asof);anchor=pd.Timestamp('2000-01-03')
+    start=anchor+pd.Timedelta(days=((low-anchor).days//29)*29);full=[];partial=[]
+    while start<=high:
+        end=start+pd.Timedelta(days=28);a=max(low,start);b=min(high,end)
+        (full if a==start and b==end else partial).append((a,b));start=end+pd.Timedelta(days=1)
+    return sorted(full,reverse=True)+sorted(partial,reverse=True)
 
 def universe(root,asof):
     store=Store(Path(root)/'sources'/asof/'raw');frames=[]
@@ -202,7 +224,7 @@ def universe(root,asof):
     if d.nse_current_symbol.duplicated().any():raise ValueError('Public universe symbol conflict')
     d.to_parquet(Path(root)/'universe.parquet',index=False);return d
 
-def collect_histories(root,asof,budget=400):
+def collect_histories(root,asof,budget=800):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
     store=Store(root/'sources'/asof/'history_raw');folder=root/'history'/'securities';folder.mkdir(parents=True,exist_ok=True)
     attempt_path=root/'history_attempts.json'
@@ -210,30 +232,40 @@ def collect_histories(root,asof,budget=400):
     queue=[]
     for r in u.to_dict('records'):
         path=folder/(sha(r['nse_current_symbol'].encode())+'.parquet')
-        age=str(pd.read_parquet(path,columns=['date']).date.max().date()) if path.exists() else '0000'
+        h=pd.read_parquet(path) if path.exists() else pd.DataFrame()
+        age=str(h.date.max().date()) if not h.empty else '0000'
         age=max(age,attempts.get(r['nse_current_symbol'],'0000'))
-        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists()))
+        # Public, unranked execution/history evidence prioritises refreshes;
+        # private forecasts, selections and realised outcomes are not read.
+        liquid=not h.empty and len(h)>=127 and {'close','volume'}.issubset(h) and h.close.iloc[-1]>=20 and h.close.iloc[-1]<=2000 and (h.close*h.volume).tail(63).median()>=2_500_000
+        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid)))
     errors=[];count=0;started=time.monotonic();attempted=0
     ordered=sorted(queue,key=lambda q:(q[0],q[1]))
     # Keep known usable public-universe histories fresh while expanding cold
     # coverage. No private ranked/selected stock list enters this queue.
-    refresh=[q for q in ordered if q[3] and q[0]<asof][:budget//2]
+    refresh=sorted([q for q in ordered if q[3] and q[0]<asof],key=lambda q:(not q[4],q[0],q[1]))[:budget*3//4]
     chosen={q[1] for q in refresh}
     batch=refresh+[q for q in ordered if q[1] not in chosen][:max(0,budget-len(refresh))]
-    for _,_,r,_ in batch:
-        if time.monotonic()-started>600:break
-        attempted+=1
+    def fetch(job):
+        r=job[2]
         symbol=r['nse_current_symbol'];isin=r['isin']
         url='https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol+'.NS',safe='')+f'?interval=1d&period1={int(low.tz_localize("Asia/Kolkata").timestamp())}&period2={int((high+pd.Timedelta(days=1)).tz_localize("Asia/Kolkata").timestamp())}&events=div%2Csplits'
         try:
-            raw,receipt=store.get(url);d,_=parse_chart(raw,symbol,isin,asof,receipt);d.to_parquet(folder/(sha(symbol.encode())+'.parquet'),index=False);count+=1
-        except Exception as e:errors.append({'symbol':symbol,'error':str(e)[:160]})
+            raw,receipt=store.get(url);d,info=parse_chart(raw,symbol,isin,asof,receipt);d.to_parquet(folder/(sha(symbol.encode())+'.parquet'),index=False)
+            return {'info':info}
+        except Exception as e:return {'error':str(e)[:160]}
+    from v13_parallel_collection import bounded_map
+    for job,result in bounded_map(batch,fetch,workers=4,seconds=600):
+        attempted+=1;symbol=job[2]['nse_current_symbol']
+        if result.get('info'):count+=1
+        else:errors.append({'symbol':symbol,'error':result['error']})
         attempts[symbol]=asof
     attempt_path.write_text(json.dumps(attempts,indent=2))
     return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
-      'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh)}
+      'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh),
+      'source_workers':4,'source_rate_limited':True,'partial_coverage_is_not_full_NSE':True}
 
-def collect_financials(root,asof,budget=400):
+def collect_financials(root,asof,budget=800):
     root=Path(root);catalog_path=root/'catalog.parquet'
     if not catalog_path.exists():return {'requested':0,'errors':['financial_catalog_missing']}
     cat=pd.read_parquet(catalog_path);symbols=set(pd.read_parquet(root/'universe.parquet').nse_current_symbol)
@@ -242,7 +274,7 @@ def collect_financials(root,asof,budget=400):
     cat['version_key']=cat.source_url+'|'+cat.available_at_utc
     # Parser upgrades must revisit accepted originals; a successful old
     # quarter-only extraction does not mean nine-month/annual inputs exist.
-    parsed_path=root/'financial_parser_ytd_v1.json'
+    parsed_path=root/'financial_parser_owner_v2.json'
     parsed=set(json.loads(parsed_path.read_text())) if parsed_path.exists() else set()
     attempts_path=root/'filing_attempts.json'
     attempts=json.loads(attempts_path.read_text()) if attempts_path.exists() else {}
@@ -276,9 +308,7 @@ def collect_financials(root,asof,budget=400):
     remainder=queue[~queue.version_key.isin(completion.version_key)]
     queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
-    for r in queue.to_dict('records'):
-        if time.monotonic()-started>600:break
-        attempted+=1
+    def fetch(r):
         try:
             store=Store(root/'filing_raw'/sha(r['available_at_utc'].encode()))
             raw,proof=store.get(r['source_url'])
@@ -289,10 +319,15 @@ def collect_financials(root,asof,budget=400):
                 raise ValueError('Previously accepted original filing bytes changed; revision review required')
             facts=parse_extra(raw,r,asof,include_ytd=True)
             if not facts:raise ValueError('No usable exact-identity financial facts; remains queued')
-            for f in facts:rows.append({**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']})
-            accepted.add(r['version_key'])
-            parsed.add(r['version_key'])
-        except Exception as e:errors.append({'source_url':r['source_url'],'error':str(e)[:160]})
+            return {'facts':[{**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']} for f in facts]}
+        except Exception as e:return {'error':str(e)[:160]}
+    from v13_parallel_collection import bounded_map
+    # A URL/publication is parsed once, avoiding concurrent mode duplicates.
+    for r,result in bounded_map(queue.drop_duplicates('version_key').to_dict('records'),fetch,workers=4,seconds=600):
+        attempted+=1
+        if result.get('facts'):
+            rows.extend(result['facts']);accepted.add(r['version_key']);parsed.add(r['version_key'])
+        else:errors.append({'source_url':r['source_url'],'error':result['error']})
         attempts[r['version_key']]=asof
     if rows:
         fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
@@ -306,7 +341,8 @@ def collect_financials(root,asof,budget=400):
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
-      'parser_ytd_v1_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True}
+      'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,
+      'source_workers':4,'source_rate_limited':True,'owner_PAT_is_not_recurring_EPS':True}
 
 def fresh_public_price_symbols(root,asof,require_feature_eligible=False):
     """Unranked public raw-price coverage, never a private prediction list."""

@@ -77,6 +77,8 @@ def current_frame(root,asof):
     d['trend_regime_interaction']=d.relative_strength63*(d.market_breadth63-.5)
     d['liquidity_volume_interaction']=d.volume_confirmation*d.log_liquidity63
     d['earnings_market_confirmation']=np.nan
+    from v13_information_clock import research_cutoffs
+    d=research_cutoffs(d,datetime.now(timezone.utc))
     if (root/'financial_wide.parquet').exists():d=collection.enrich(d,pd.read_parquet(root/'financial_wide.parquet'))
     d=collection.announcement_counts(d,root,asof)
     for c in model.FEATURES:
@@ -106,7 +108,7 @@ def forecasts(heads,frame,root,label):
     d[d.selected_verified|d.selected_discovery].to_json(root/(label+'_latest_watchlist.json'),orient='records',date_format='iso',indent=2)
     return str(path.name)
 
-def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=False):
+def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=False):
     root=Path(root);seed=Path(seed)
     if not local:
         if not restore(root):initialize(root,seed)
@@ -115,6 +117,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         seed_hashes=[r['source_sha256'] for r in json.loads(review_seed.read_text())] if review_seed.exists() else []
         restore_review_originals(root,additional_hashes=seed_hashes)
     report={'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
+    from v13_frozen_integrity import FrozenGuard
+    guard=FrozenGuard(root)
     try:
         asof,official,errors=last_completed_session(root,day);report['asof']=asof;report['steps']['official']=official
         # Every completed phase is checkpointed. Interrupted work resumes from
@@ -126,13 +130,23 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
         # the unranked price/history-eligible population for this source date.
         # Previously a new session always prioritised yesterday's histories.
         report['steps']['history']=collection.collect_histories(root,asof,history_budget)
-        if not local:save(root)
+        if not local:
+            path=root/'prospective_observations.parquet'
+            guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
+            save(root)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
         report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
-        report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=40)
+        report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=120)
         report['steps']['reviewed_primary_sources']=catalyst_execution.seed_primary_reviews(root,seed.parent/'v13_evidence_seed'/'primary_execution_sources.json')
         report['steps']['entry_backfill']=action_audit.backfill(root,asof,budget=8)
-        if not local:save(root)
+        import v13_action_sources as action_sources
+        report['steps']['action_notice_collection']=action_sources.collect(root,asof,budget=30)
+        import v13_valuation_evidence as valuation_evidence
+        report['steps']['valuation_snapshot']=valuation_evidence.collect(root,asof)
+        if not local:
+            path=root/'prospective_observations.parquet'
+            guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
+            save(root)
         frame,history=current_frame(root,asof)
         report['current_verified_market_rows']=len(frame)
         # Partial coverage is disclosed, not mistaken for a full-universe scan.
@@ -144,6 +158,8 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             try:
                 blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False)
                 market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof)
+                from v13_information_clock import research_cutoffs
+                market=research_cutoffs(market,datetime.now(timezone.utc))
                 matrix=collection.enrich(market,pd.read_parquet(root/'financial_wide.parquet'))
                 matrix=collection.announcement_counts(matrix,root,asof)
                 for c in model.FEATURES:
@@ -177,6 +193,15 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
             except Exception as exc:
                 report['errors'].append({'phase':'initial_research_experiments','error':str(exc)[:300]})
         challenger_model=root/'challenger'/'research_heads.joblib'
+        six_experiments=root/'evidence'/'research_experiments_six_area.json'
+        if (root/'challenger_matrix.parquet').exists() and not six_experiments.exists():
+            try:
+                from v13_information_clock import research_cutoffs
+                diagnostic=research_cutoffs(pd.read_parquet(root/'challenger_matrix.parquet'),datetime.now(timezone.utc))
+                diagnostic=collection.enrich(diagnostic,pd.read_parquet(root/'financial_wide.parquet'))
+                evaluation.experiments(diagnostic,asof,six_experiments)
+                report['six_area_development_experiments']='COMPLETED_PREVIOUSLY_EXAMINED_NOT_PROMOTION_EVIDENCE'
+            except Exception as exc:report['six_area_development_experiments']={'status':'BLOCKED_RETAINING_FIXED_MODELS','error':str(exc)[:200]}
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
@@ -248,16 +273,23 @@ def run(root,seed,day,history_budget=400,filing_budget=400,retrain=False,local=F
                   'selection_policy':'evidence','comparison_contract':COMPARISON_CONTRACT,
                   'promoted_at_utc':datetime.now(timezone.utc).isoformat(),'promotion_evidence':report['promotion']},indent=2))
         else:report['promotion']={'promote':False,'reasons':['independent_action_reconciliation_incomplete','insufficient_untouched_mature_paired_outcomes']}
+        report['steps']['frozen_integrity']=guard.check(observed,promote=report['promotion'].get('promote') is True)
         report['completed_at_utc']=datetime.now(timezone.utc).isoformat()
     except Exception as e:
         report['errors'].append({'phase':'worker','error':str(e)[:400]});raise
     finally:
+        if 'frozen_integrity' not in report['steps']:
+            try:
+                old_path=root/'prospective_observations.parquet'
+                state=pd.read_parquet(old_path) if old_path.exists() else pd.DataFrame()
+                report['steps']['frozen_integrity']=guard.check(state,promote=report.get('promotion',{}).get('promote') is True)
+            except Exception as exc:report['errors'].append({'phase':'frozen_integrity','error':str(exc)[:400]})
         root.mkdir(parents=True,exist_ok=True);(root/'latest_run.json').write_text(json.dumps(report,indent=2))
         if not local:
             receipt=save(root);(root.parent/'archive_receipt.json').write_text(json.dumps(receipt,indent=2))
     return report
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--seed',default='v13_seed');p.add_argument('--day');p.add_argument('--history-budget',type=int,default=400);p.add_argument('--filing-budget',type=int,default=400);p.add_argument('--retrain',action='store_true');p.add_argument('--local',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--seed',default='v13_seed');p.add_argument('--day');p.add_argument('--history-budget',type=int,default=800);p.add_argument('--filing-budget',type=int,default=800);p.add_argument('--retrain',action='store_true');p.add_argument('--local',action='store_true');a=p.parse_args()
     day=a.day or str(pd.Timestamp.now(tz='Asia/Kolkata').date())
     print(json.dumps(run(a.state,a.seed,day,a.history_budget,a.filing_budget,a.retrain,a.local),indent=2))

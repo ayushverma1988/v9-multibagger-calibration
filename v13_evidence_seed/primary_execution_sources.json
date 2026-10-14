@@ -187,5 +187,181 @@
       "execution_stage": "only the BESS component"
     },
     "review_note": "Renewable generation remains under development. Future COD is not verified commercial operation. Full project size, utilisation, margins, funding, approvals and profit are not inferred from the commissioned battery phase."
+  },
+  {
+    "symbol": "AEROFLEX",
+    "isin": "INE024001021",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/AEROFLEXINDIA_14102026112656_outcomesigned.pdf",
+    "issuer_name": "Aeroflex Industries Limited",
+    "source_sha256": "4fd5e50a56c75aff835f63fb193b4e1c4a1cbd384fdf24aae00dad7f29db01f5",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:57:07+00:00",
+    "project_id": "SS Hose & Braiding Division",
+    "physical_capacity_completed": true,
+    "capacity_quantity": 20000000,
+    "capacity_unit": "METERS_PER_ANNUM",
+    "field_excerpts": {
+      "project_id": "SS Hose & Braiding Division",
+      "physical_capacity_completed": "successfully completed capacity enhancement",
+      "capacity_quantity": "20 million meters per annum",
+      "capacity_unit": "meters per annum"
+    },
+    "review_note": "Completed physical capacity 20m metres/year. Planned 30m by March 2028, projected financing and future profits are not completed or secured facts."
+  },
+  {
+    "symbol": "AEROFLEX",
+    "isin": "INE024001021",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/AEROFLEXINDIA_14102026112656_outcomesigned.pdf",
+    "issuer_name": "Aeroflex Industries Limited",
+    "source_sha256": "4fd5e50a56c75aff835f63fb193b4e1c4a1cbd384fdf24aae00dad7f29db01f5",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:57:07+00:00",
+    "project_id": "liquid cooling SFN Skid Assemblies",
+    "physical_capacity_completed": true,
+    "capacity_quantity": 12000,
+    "capacity_unit": "PIECES_PER_ANNUM",
+    "field_excerpts": {
+      "project_id": "liquid cooling SFN Skid Assemblies",
+      "physical_capacity_completed": "successfully completed capacity enhancement",
+      "capacity_quantity": "12,000 pieces per annum",
+      "capacity_unit": "pieces per annum"
+    },
+    "review_note": "Current completed 12000 pieces/year. Additional 3000 by December and further 30000 by March 2028 are future plans; production/utilisation on the new capacity, project margins, secured funding and operating approvals remain unknown."
+  },
+  {
+    "symbol": "RAILTEL",
+    "isin": "INE0DD101019",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/RAILTEL_14102026110115_Railtel_Order_Book_Company_Rep_141026__1_.pdf",
+    "issuer_name": "RailTel Corporation of India Ltd",
+    "source_sha256": "0a96e98505d3e457d65915ad1a198a6581613b37c8101a991ce2b71c0502a755",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:31:26+00:00",
+    "firm_order": true,
+    "order_value_INR": 1971777622,
+    "order_due": "2031-03-31",
+    "order_tax_inclusive": false,
+    "order_economic_basis": "CUSTOMER_REVENUE_CONTRACT",
+    "field_excerpts": {
+      "firm_order": "has received the Purchase Order from State Bank Of India.",
+      "order_value_INR": "Rs. 1,97,17,77,622/-",
+      "order_due": "01-04-2026 to 31- 03-2031",
+      "order_tax_inclusive": "(Excluding Tax)",
+      "order_economic_basis": "Continuation of MPLS Links to SBI"
+    },
+    "review_note": "Five-year service purchase order. No twelve-month allocation or margin is certified; the full amount must not be counted as revenue executable within twelve months."
+  },
+  {
+    "symbol": "NAVKARCORP",
+    "isin": "INE278M01019",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/NAVKARCORP_14102026110519_Intimationsignedfinal.pdf",
+    "issuer_name": "Navkar Corporation Limited",
+    "source_sha256": "13f3614ca5ca3f948a1aed9d9a9a09689fe84239b12e423e5dc464b513b0bf41",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:36:49+00:00",
+    "firm_order": true,
+    "order_value_INR": 480000000,
+    "order_duration_months": 18,
+    "order_economic_basis": "CONCESSION_OR_PROJECT_INVESTMENT",
+    "field_excerpts": {
+      "firm_order": "has received Letter of Acceptance",
+      "order_value_INR": "Rs.48,00,00,000/-",
+      "order_duration_months": "eighteen (18) months",
+      "order_economic_basis": "Contract for Construction & Operation of Gati Shakti Multi-Modal Cargo Terminal"
+    },
+    "review_note": "18 months starts after construction approval or land handover, whichever later; dates unknown. Concession/project consideration is not certified twelve-month customer revenue or profit."
+  },
+  {
+    "symbol": "EIEL",
+    "isin": "INE0LLY01014",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ENVIRO_14102026170948_Intimation_Arie_Energy_228_Cr.pdf",
+    "issuer_name": "Enviro Infra Engineers Limited",
+    "source_sha256": "9eca3c6dcafbc45cd8adb855a8f8633ac38f8c8e5a3b01e95ed4955d456878ed",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T11:44:55+00:00",
+    "project_id": "Ajani Wind Power Project",
+    "firm_order": false,
+    "order_value_INR": 2280000000,
+    "order_tax_inclusive": false,
+    "order_due": "2027-07-31",
+    "execution_stage": "LETTER_OF_INTENT_NOT_FIRM_CONTRACT",
+    "field_excerpts": {
+      "project_id": "Ajani Wind Power Project",
+      "firm_order": "has received a Letter of Intent (LOI)",
+      "order_value_INR": "₹ 228.00 Crores",
+      "order_tax_inclusive": "(excluding GST)",
+      "order_due": "31st July, 2027",
+      "execution_stage": "Letter of Intent (LOI)"
+    },
+    "review_note": "Step-down subsidiary LOI with a stated July 2027 schedule. Binding execution, attributable ownership/profits, margin, funding and approvals remain unknown; LOI not promoted to a firm contract."
+  },
+  {
+    "symbol": "HECPROJECT",
+    "isin": "INE558R01013",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/HECPROJECT_14102026174819_wo_cesc.pdf",
+    "issuer_name": "HEC Infra Projects Limited",
+    "source_sha256": "80880f7ba9d8f68ec363d72eb1a186fecdf7aadc55ac6559de6130c00fe59ed8",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T12:18:42+00:00",
+    "firm_order": true,
+    "order_value_INR": 67500000,
+    "order_duration_months": 6,
+    "field_excerpts": {
+      "firm_order": "had received Workorder",
+      "order_value_INR": "Rs.6.75 crores",
+      "order_duration_months": "6 months"
+    },
+    "review_note": "Six-month duration, but an original contract start/order ID, absolute completion date, tax basis, margin, funding and approvals are not established."
+  },
+  {
+    "symbol": "EMMVEE",
+    "isin": "INE1C6T01020",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/EMMVEE_14102026191431_EPPL_Press_Release_September_2026.pdf",
+    "issuer_name": "Emmvee Photovoltaic Power Limited",
+    "source_sha256": "3398cf1c7c4011518c62ddc377ee254e88e99503eb8a8336b589f95554a8c787",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T13:45:21+00:00",
+    "project_id": "solar cells",
+    "capacity_quantity": 2.94,
+    "capacity_unit": "GW",
+    "capacity_basis": "ANNUAL_NAMEPLATE",
+    "utilisation_pct": 89,
+    "utilisation_scope": "PROJECT_ONLY",
+    "utilisation_period_end": "2026-09-30",
+    "field_excerpts": {
+      "project_id": "solar cells",
+      "capacity_quantity": "2.94 GW in TOPCon solar cells",
+      "capacity_unit": "2.94 GW in TOPCon solar cells",
+      "capacity_basis": "installed annual capacity",
+      "utilisation_pct": "89% for solar cells",
+      "utilisation_scope": "for solar cells",
+      "utilisation_period_end": "30 September 2026"
+    },
+    "review_note": "Existing annual nameplate and Q2 project-specific utilisation; project percentages not collapsed into issuer-wide utilisation. Future 6 GW commissioning and future financing/earnings are not certified."
+  },
+  {
+    "symbol": "EMMVEE",
+    "isin": "INE1C6T01020",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/EMMVEE_14102026191431_EPPL_Press_Release_September_2026.pdf",
+    "issuer_name": "Emmvee Photovoltaic Power Limited",
+    "source_sha256": "3398cf1c7c4011518c62ddc377ee254e88e99503eb8a8336b589f95554a8c787",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T13:45:21+00:00",
+    "project_id": "modules",
+    "capacity_quantity": 10.3,
+    "capacity_unit": "GW",
+    "capacity_basis": "ANNUAL_NAMEPLATE",
+    "utilisation_pct": 44,
+    "utilisation_scope": "PROJECT_ONLY",
+    "utilisation_period_end": "2026-09-30",
+    "field_excerpts": {
+      "project_id": "modules",
+      "capacity_quantity": "10.3 GW in modules",
+      "capacity_unit": "10.3 GW in modules",
+      "capacity_basis": "installed annual capacity",
+      "utilisation_pct": "44% for modules",
+      "utilisation_scope": "for modules",
+      "utilisation_period_end": "30 September 2026"
+    },
+    "review_note": "Existing annual nameplate and Q2 project-specific utilisation; project percentages not collapsed into issuer-wide utilisation. Future 6 GW commissioning and future financing/earnings are not certified."
   }
 ]

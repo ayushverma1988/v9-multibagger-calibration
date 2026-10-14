@@ -28,8 +28,12 @@ def validate_action_notice(action,raw):
     date_quote=action['field_excerpts']['ex_date']
     if re.search(r'\bproposed|\bplanned|subject\s+to\s+approval',date_quote+' '+action['field_excerpts'].get('share_multiplier',''),re.I):raise ValueError('Conditional intended action is not certified completed')
     if not re.search(r'\bex[ -]?date\b',date_quote,re.I):raise ValueError('Record/payment date is not an exchange ex-date')
-    dates=re.findall(r'\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[ -](?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[ ,-]+\d{4}\b',date_quote,re.I)
-    if not action.get('ex_date') or not any(pd.Timestamp(z).date()==pd.Timestamp(action['ex_date']).date() for z in dates):raise ValueError('Action ex-date does not match the original excerpt')
+    date_pattern=r'\d{4}-\d{2}-\d{2}|\d{1,2}(?:st|nd|rd|th)?[ -](?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[ ,-]+\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}'
+    match=re.search(r'\bex[ -]?date\b([^0-9]{0,50})('+date_pattern+r')',date_quote,re.I)
+    if not match or re.search(r'record|payment|book closure',match.group(1),re.I):raise ValueError('Ex-date field is ambiguous or bound to another date label')
+    literal=re.sub(r'(?<=\d)(?:st|nd|rd|th)\b','',match.group(2),flags=re.I)
+    parsed=pd.to_datetime(literal,dayfirst=True) if not re.match(r'^\d{4}-',literal) else pd.Timestamp(literal)
+    if not action.get('ex_date') or parsed.date()!=pd.Timestamp(action['ex_date']).date():raise ValueError('Action ex-date does not match the original ex-date value')
     from v13_source_quality import bound_number
     if action['kind']=='dividend':
         quote=action['field_excerpts']['cash_per_old_share']
@@ -105,7 +109,8 @@ def reconstruct(official,provider,actions):
     """Compare independent total-return ratios with provider adjusted ratios."""
     o=official.sort_values('date').copy();p=provider.sort_values('date').copy()
     if o.empty or o.duplicated('date').any() or p.duplicated('date').any():raise ValueError('Ambiguous price identity')
-    x=o.merge(p[['date','open','close','adj_close']],on='date',suffixes=('_official','_provider'),validate='1:1')
+    columns=['date','open','close','adj_close']+[c for c in ('high','low') if c in p]
+    x=o.merge(p[columns],on='date',suffixes=('_official','_provider'),validate='1:1')
     if len(x)!=len(o):raise ValueError('Missing provider sessions')
     if not np.isfinite(x[['open_official','close_official','open_provider','close_provider','adj_close']].to_numpy(float)).all():raise ValueError('Missing prices')
     if not x.source_status.eq('VALID_POSITIVE_VOLUME_SESSION').all():raise ValueError('Unknown official observations')
@@ -142,6 +147,35 @@ def reconstruct(official,provider,actions):
         raise ValueError('Provider raw-price factors are not explained by reviewed share actions')
     return x,independent
 
+def verified_return_paths(x,total_returns,actions):
+    """Match original model targets and separately track price-only returns.
+
+    The frozen heads predict dividend-adjusted closing-price doubling and a
+    daily-low loss before doubling/deadline. Also expose any-horizon losses
+    separately; never relabel the frozen first-event probability as that risk.
+    """
+    required=['high_official','low_official','high_provider','low_provider']
+    if not set(required).issubset(x):raise ValueError('Original/provider OHLC lows required for loss-risk verification')
+    values=x[required].to_numpy(float)
+    if not np.isfinite(values).all() or not (values>0).all():raise ValueError('Invalid official/provider low or high')
+    factor=x.close_provider/x.close_official
+    for c in ('high','low'):
+        if not np.allclose(x[c+'_provider']/x[c+'_official'],factor,rtol=.002,atol=.002):raise ValueError('Provider '+c+' adjustment not explained by original actions')
+    if not (x.low_official<=x[['open_official','close_official']].min(axis=1)).all() or not (x.high_official>=x[['open_official','close_official']].max(axis=1)).all():raise ValueError('Original OHLC order conflict')
+    cost=(1-core.COST_PER_SIDE)/(1+core.COST_PER_SIDE)
+    total=np.asarray(total_returns)*float(x.close_official.iloc[0])/float(x.open_official.iloc[0])*cost
+    low=total*x.low_official.to_numpy(float)/x.close_official.to_numpy(float)
+    shares=1.;price=[]
+    for index,r in enumerate(x.itertuples()):
+        # Shares are acquired at the ex-date open on the entry date. An entry-
+        # date split/bonus must not grant pre-entry entitlements a second time.
+        if index:
+            for a in actions:
+                if pd.Timestamp(a['ex_date'])==r.date and a['kind'] in {'split','bonus'}:shares*=float(a['share_multiplier'])
+        price.append(shares*float(r.close_official)/float(x.open_official.iloc[0])*cost)
+    price=np.asarray(price);price_low=price*x.low_official.to_numpy(float)/x.close_official.to_numpy(float)
+    return {'total_return_close':total,'total_return_low':low,'price_only_close':price,'price_only_low':price_low}
+
 def audit(root,official,history,asof):
     root=Path(root);out=root/'action_audit';out.mkdir(exist_ok=True)
     cp=out/'calendar.json';calendar=json.loads(cp.read_text()) if cp.exists() else None
@@ -169,6 +203,8 @@ def audit(root,official,history,asof):
                 if o.date.iloc[0]==dates[0] and not first.empty and first.date.iloc[0]==dates[0] and first.symbol.iloc[0]==r['symbol'] and o.symbol.iloc[0]==r['symbol'] and o.source_status.iloc[0]=='VALID_POSITIVE_VOLUME_SESSION':
                     proof['entry_verified']=bool(abs(first.open.iloc[0]-o.open.iloc[0])<=.011)
                     proof['entry_date']=str(dates[0].date());proof['entry_open_INR']=float(o.open.iloc[0]);proof['entry_official_sha256']=o.source_sha256.iloc[0]
+                    proof['entry_provider_sha256']=first.source_sha256.iloc[0] if 'source_sha256' in first else None
+                    proof['entry_evidence_recorded_at_utc']=pd.Timestamp.now(tz='UTC').isoformat()
                     proof['verification_status']='ENTRY_VERIFIED_ACTION_COVERAGE_UNKNOWN' if proof['entry_verified'] else 'ENTRY_PROVIDER_OPEN_MISMATCH_ACTION_PROOF_REQUIRED'
                     matched=[z for z in coverage if z.get('isin')==r['isin'] and z.get('symbol')==r['symbol'] and pd.Timestamp(z['start'])<=dates[0] and pd.Timestamp(z['end'])>=pd.Timestamp(asof)]
                     try:
@@ -191,16 +227,30 @@ def audit(root,official,history,asof):
                         o=o[o.date.le(horizon_end)]
                         x,returns=reconstruct(o,q,acts)
                         proof['entry_verified']=True
-                        ratio=returns*float(x.close_official.iloc[0])/float(x.open_official.iloc[0])*(1-core.COST_PER_SIDE)/(1+core.COST_PER_SIDE)
-                        hit=np.flatnonzero(ratio>=2);loss=np.flatnonzero(ratio<=.7)
-                        proof['confirmed_early_2x']=bool(len(hit));proof['confirmed_risk_event']=bool(len(loss) and (not len(hit) or loss[0]<hit[0]))
+                        paths=verified_return_paths(x,returns,acts)
+                        ratio=paths['total_return_close'];lows=paths['total_return_low']
+                        hit=np.flatnonzero(ratio>=2);loss=np.flatnonzero(lows<=.7)
+                        proof['confirmed_early_2x']=bool(len(hit))
+                        proof['confirmed_risk_event']=bool(len(loss) and (not len(hit) or loss[0]<=hit[0]))
+                        proof['confirmed_any_horizon_loss30']=bool(len(loss))
+                        proof['confirmed_price_only_2x']=bool((paths['price_only_close']>=2).any())
+                        proof['confirmed_price_only_loss30']=bool((paths['price_only_low']<=.7).any())
+                        proof['outcome_target_contract']='FROZEN_DIVIDEND_ADJUSTED_CLOSE_2X_AND_LOW_LOSS30_BEFORE_2X'
                         proof['verification_status']='INDEPENDENT_PRIMARY_PRICES_ACTIONS_AND_PROVIDER_FACTORS_MATCHED'
                         for h in (6,12):
                             end=dates[0]+pd.DateOffset(months=h)
                             if pd.Timestamp(asof)>=end:
                                 mask=x.date.le(end)
                                 proof['verified_hit2_'+str(h)]=int((ratio[mask]>=2).any());proof['independent_outcome_verified']=True
-                                if h==12:proof['verified_loss30_12']=int(proof['confirmed_risk_event']);proof['independent_outcome_verified']=True
+                                proof['verified_price_only_hit2_'+str(h)]=int((paths['price_only_close'][mask]>=2).any())
+                                if h==12:
+                                    period_hits=np.flatnonzero(ratio[mask]>=2);period_losses=np.flatnonzero(lows[mask]<=.7)
+                                    loss_first=bool(len(period_losses) and (not len(period_hits) or period_losses[0]<=period_hits[0]))
+                                    proof['verified_loss30_12']=int(loss_first)
+                                    proof['verified_any_horizon_loss30_12']=int(bool(len(period_losses)))
+                                    proof['verified_price_only_loss30_12']=int((paths['price_only_low'][mask]<=.7).any())
+                                    proof['verified_joint12']=int(bool(len(period_hits)) and not loss_first)
+                                    proof['independent_outcome_verified']=True
                     except Exception as exc:proof['verification_status']='UNKNOWN_ACTION_OR_RETURN_RECONCILIATION: '+str(exc)
             lookup[(reg.stem,r['isin'])]=proof;rows.append(proof)
     report={'asof':asof,'observations':len(rows),'verified_entries':sum(z['entry_verified'] for z in rows),

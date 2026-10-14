@@ -27,8 +27,12 @@ def bound_number(value,excerpt,currency=False):
     """
     if isinstance(value,bool) or not isinstance(value,(int,float)) or not np.isfinite(value):return False
     if currency and not re.search(r'\bINR\b|\bRs\.?|₹|rupees',excerpt,re.I):return False
-    for m in re.finditer(r'(?<![\w.])[-+]?\d[\d,]*(?:\.\d+)?',excerpt):
-        number=float(m.group().replace(',',''));suffix=excerpt[m.end():].lstrip()
+    excerpt=re.sub(r'(\b(?:INR|Rs)\.?|₹)(?=[-+]?\d)',r'\1 ',excerpt,flags=re.I)
+    pattern=r'(?<![\w.])[-+]?\d[\d,]*(?:\.\d+)?'
+    if currency:
+        pattern=r'(?:\bINR\b|\bRs\.?|₹|rupees)\s*([-+]?\d[\d,]*(?:\.\d+)?)'
+    for m in re.finditer(pattern,excerpt,re.I):
+        number=float((m.group(1) if currency else m.group()).replace(',',''));suffix=excerpt[m.end():].lstrip()
         unit=re.match(r'(crores?|cr\b|lakhs?|lacs?|millions?|billions?|thousands?)',suffix,re.I)
         if unit:
             u=unit.group().lower();number*=1e7 if u.startswith(('cro','cr')) else 1e5 if u.startswith(('lak','lac')) else 1e6 if u.startswith('mil') else 1e9 if u.startswith('bil') else 1e3

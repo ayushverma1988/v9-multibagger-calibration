@@ -19,16 +19,21 @@ def register(frame, model_sha, folder, registered_at=None, context=None):
     for r in frame.to_dict('records'):
         decision=pd.Timestamp(r['date']).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
         if decision>now:raise ValueError('Future decision')
+        if r.get('information_cutoff_utc') is not None:
+            from v13_information_clock import cutoff
+            if cutoff(r)>now:raise ValueError('Information cutoff after forecast registration')
         values=[float(r[c]) for c in ('p6','p12','loss12','joint12')]
         if not all(np.isfinite(v) and 0<=v<=1 for v in values):raise ValueError('Incomplete forecast heads')
         if values[0]>values[1]+1e-12 or values[3]>values[1]+1e-12 or values[3]+values[2]>1+1e-12:raise ValueError('Incoherent probabilities')
         records.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(pd.Timestamp(r['date']).date()),
           'p6':float(r['p6']),'p12':float(r['p12']),'loss12':float(r['loss12']),'joint12':float(r['joint12']),
           'selected_verified':bool(r.get('selected_verified',False)),'selected_discovery':bool(r.get('selected_discovery',False)),
-          **{k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256') if k in r}})
+          **{k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256','information_cutoff_utc') if k in r}})
     obj={'version':'V13-prospective-research','registered_at_utc':now.isoformat(),'model_sha256':model_sha,
       'first_entry':'FIRST_VERIFIED_NSE_SESSION_OPEN_STRICTLY_AFTER_REGISTRATION',
-      'all_scoreable_NSE_names_registered':True,'accuracy_approved':False,'records':sorted(records,key=lambda r:r['isin'])}
+      'all_scoreable_NSE_names_registered':True,'accuracy_approved':False,'records':sorted(records,key=lambda r:r['isin']),
+      'probability_target_contract':'DIVIDEND_ADJUSTED_CLOSE_2X_AND_DAILY_LOW_LOSS30_BEFORE_2X_OR_DEADLINE',
+      'price_only_and_any_horizon_loss_probabilities_not_claimed':True}
     if context:obj['paired_context']=context
     key=digest(obj);path=out/(key+'.json')
     if not path.exists():path.write_text(json.dumps(obj,indent=2,allow_nan=False))
@@ -85,7 +90,9 @@ def adjudicate(registry,official,history,asof,verification=None):
                             if result:
                                 row['six_month_mature' if h==6 else 'twelve_month_mature']=True
                                 row['provisional_hit2_'+str(h)]=result['hit2']
-                                if h==12:row['provisional_loss30_12']=result['loss30']
+                                if h==12:
+                                    row['provisional_any_horizon_loss30_12']=result['loss30']
+                                    row['provisional_loss30_12']=int(result['loss30']==1 and result['hit2_before_loss30']==0)
                         if row['six_month_mature'] or row['twelve_month_mature']:
                             row['status']='PROVISIONAL_MATURE_REQUIRES_INDEPENDENT_ACTION_RECONCILIATION'
             if verification is not None:
@@ -93,7 +100,10 @@ def adjudicate(registry,official,history,asof,verification=None):
                 row.update({k:v for k,v in proof.items() if k in {
                   'entry_verified','independent_outcome_verified','verification_status',
                   'verified_hit2_6','verified_hit2_12','verified_loss30_12',
-                  'confirmed_early_2x','confirmed_risk_event','action_audit_sha256'}})
+                  'confirmed_early_2x','confirmed_risk_event','action_audit_sha256',
+                  'confirmed_price_only_2x','confirmed_price_only_loss30','outcome_target_contract',
+                  'verified_price_only_hit2_6','verified_price_only_hit2_12','verified_price_only_loss30_12','verified_joint12',
+                  'confirmed_any_horizon_loss30','verified_any_horizon_loss30_12'}})
                 if proof.get('entry_verified') is True:
                     if row['status']=='UNKNOWN_ENTRY_CONFLICT' and proof.get('verification_status')=='INDEPENDENT_PRIMARY_PRICES_ACTIONS_AND_PROVIDER_FACTORS_MATCHED':
                         row['status']='INDEPENDENT_PRIMARY_ENTRY_PROVIDER_ACTION_RECONCILED'

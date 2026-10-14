@@ -144,6 +144,7 @@ class EvidencePairing(unittest.TestCase):
                     stack.enter_context(patch.object(runner.collection,name,side_effect=lambda *args,name=name,**kw:phases.append(name) or {}))
                 stack.enter_context(patch.object(runner.catalyst_execution,'collect',return_value={}))
                 stack.enter_context(patch.object(runner.action_audit,'backfill',return_value={}))
+                stack.enter_context(patch('v13_valuation_evidence.collect',return_value={}))
                 stack.enter_context(patch.object(runner,'current_frame',return_value=(f,{})))
                 stack.enter_context(patch.object(runner,'scored',side_effect=lambda heads,frame,**kw:frame))
                 result=runner.run(root,seed,'2026-10-12',local=True)

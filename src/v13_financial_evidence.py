@@ -88,7 +88,7 @@ def balancing_quarters(wide):
                   source_url=a.get('source_url'),input_source_sha256=json.dumps([a['source_sha256'],z['source_sha256']]),
                   input_source_urls=json.dumps([a.get('source_url'),z.get('source_url')]),
                   historical_revision_integrity_independently_proven=False)
-                for key in ('revenue','pat','pbt','finance_cost','depreciation','exceptional_items','other_income'):
+                for key in ('revenue','pat','pat_owners','pat_noncontrolling','pbt','finance_cost','depreciation','exceptional_items','other_income'):
                     av=number(a,key);yv=number(z,key)
                     if np.isfinite(av) and np.isfinite(yv):row[key]=av-yv
                 if 'pat' in row or 'revenue' in row:derived.append(row)
@@ -105,7 +105,8 @@ def completion_queue(queue,wide,asof,budget):
     """
     if queue.empty or budget<=0:return queue.iloc[:0].copy()
     date=pd.Timestamp(asof);low,_=bounds(asof)
-    cut=(date.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+    from v13_information_clock import research_cutoffs,cutoff
+    cut=cutoff(research_cutoffs(pd.DataFrame({'date':[date]}),pd.Timestamp.now(tz='UTC')).iloc[0])
     q=queue.copy();q['_period']=pd.to_datetime(q.period_end)
     q=q[q['_period'].between(low,date)&pd.to_datetime(q.available_at_utc,utc=True,format='mixed').le(cut)]
     groups={} if wide.empty else dict(tuple(wide.groupby('symbol')))
@@ -154,7 +155,8 @@ def completion_queue(queue,wide,asof,budget):
         target=target[[economic_gap(p) for p in target['_period']]]
         if target.empty:continue
         f,_=features(w,date) if not w.empty else ({},[])
-        missing=sum(not np.isfinite(f.get(k,np.nan)) for k in REQUIRED)
+        readiness=financial_readiness(w,date,f)
+        missing=sum(reason!='OBSERVED_NONPOSITIVE_DENOMINATOR_NOT_MISSING_SOURCE' for reason in readiness['unknown_reasons'].values())
         if not missing:continue
         target=target.sort_values(['last_attempt','_period'],ascending=[True,False]).head(8)
         bundles.append((missing,str(target.last_attempt.min()),__import__('hashlib').sha256(symbol.encode()).hexdigest(),target))
@@ -186,13 +188,15 @@ def priority_queue(queue,wide,asof,budget):
 def enrich_evidence(frame,wide,root,asof):
     wide=balancing_quarters(wide)
     d=frame.copy();links=[];coverage=[];low,_=bounds(asof)
-    for c in ('ttm_reported_PAT_INR','annual_reported_revenue_INR','latest_issued_shares','latest_diluted_shares','ttm_reported_eps','implied_reported_PE','required_eps_at_current_PE_for_2x','scenario_base_multiple','scenario_net_multiple','historical_sector_relative_PE','total_PAT_divided_by_latest_quarter_weighted_shares_proxy'):
+    for c in ('ttm_reported_PAT_INR','ttm_owner_attributable_PAT_INR','annual_reported_revenue_INR','latest_issued_shares','latest_diluted_shares','ttm_reported_eps','implied_reported_PE','required_eps_at_current_PE_for_2x','scenario_base_multiple','scenario_net_multiple','historical_sector_relative_PE','total_PAT_divided_by_latest_quarter_weighted_shares_proxy'):
         if c not in d:d[c]=np.nan
     d['financial_complete']=False;d['financial_unknown_fields']='';d['evidence_status']='MISSING_FINANCIAL_OR_EXECUTION'
     d['financial_quality_pass']=False;d['financial_quality_status']='UNKNOWN_FINANCIAL_INPUTS'
     d['earnings_scenario_status']='UNKNOWN_FORWARD_EARNINGS_AND_SECTOR_VALUATION'
     for i,r in d.iterrows():
-        date=pd.Timestamp(r.date);cut=(date.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+        date=pd.Timestamp(r.date)
+        from v13_information_clock import cutoff
+        cut=cutoff(r)
         w=wide[wide.security_isin.eq(r['isin'])&wide.available.le(cut)&wide.period.le(date)&wide.period.ge(low)] if not wide.empty else pd.DataFrame()
         f,used=features(w,date) if not w.empty else ({},[])
         quality=financial_quality(f);unknown=quality['unknown_fields']
@@ -220,6 +224,8 @@ def enrich_evidence(frame,wide,root,asof):
         if capital>0 and face>0:d.at[i,'latest_issued_shares']=capital/face
         quarters=[pick(w,'quarter',q['period']-pd.offsets.MonthEnd(k)) for k in (0,3,6,9)]
         pats=[number(z,'pat') for z in quarters];shares=number(q,'weighted_diluted_shares')
+        owner_pats=[number(z,'pat_owners') for z in quarters]
+        if all(np.isfinite(x) for x in owner_pats):d.at[i,'ttm_owner_attributable_PAT_INR']=sum(owner_pats)
         if all(np.isfinite(x) for x in pats):d.at[i,'ttm_reported_PAT_INR']=sum(pats)
         if all(np.isfinite(x) for x in pats) and shares>0:
             pat=sum(pats);eps=pat/shares
@@ -306,12 +312,14 @@ def apply_scenarios(frame,root):
             audit.append({'isin':r.get('isin'),'status':'UNKNOWN_FORWARD_PAT_OWNER_ATTRIBUTION'});continue
         cut=max(cut,reviewed_at)
         for i,row in d[d['isin'].eq(r['isin'])].iterrows():
-            decision=pd.Timestamp(row.date).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
+            from v13_information_clock import cutoff
+            decision=cutoff(row)
             if cut>decision:continue
             z=earnings_scenario(row.close,row.ttm_reported_PAT_INR,row.latest_diluted_shares,r.get('forward_PAT_INR'),r.get('forward_diluted_shares'),r.get('sector_PE'))
             if 'earnings_growth' in z:
-                z['earnings_growth']=None
-                z['earnings_growth_status']='UNKNOWN_CURRENT_OWNER_ATTRIBUTABLE_BASELINE'
+                owner=row.get('ttm_owner_attributable_PAT_INR',np.nan)
+                z['earnings_growth']=r['forward_PAT_INR']/owner-1 if np.isfinite(owner) and owner>0 else None
+                z['earnings_growth_status']='SOURCE_OWNER_PAT_BASELINE_NOT_RECURRING_EARNINGS' if z['earnings_growth'] is not None else 'UNKNOWN_CURRENT_OWNER_ATTRIBUTABLE_BASELINE'
             audit.append({'isin':r['isin'],'source_asof':str(pd.Timestamp(row.date).date()),'available_at_utc':cut.isoformat(),'input_source_sha256':hashes,**z})
             d.at[i,'earnings_scenario_status']=z['status']
             if 'scenario_multiple' in z:

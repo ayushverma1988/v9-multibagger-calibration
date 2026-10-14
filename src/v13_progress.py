@@ -10,7 +10,8 @@ def snapshot(root,report,observations):
     values=[('Financial inputs',int(report.get('financial_complete_rows',0)),rows),
             ('Full execution proof',int(report.get('execution_chain_supported_rows',0)),rows),
             ('2x earnings/valuation',int(report.get('source_bound_2x_scenario_rows',0)),rows),
-            ('Verified entry records',entries,total),('Mature unseen 12m outcomes',mature,total)]
+            ('Verified entry records',entries,total),('Mature unseen 12m outcomes',mature,total),
+            ('NSE listing breadth',rows,int(report.get('public_universe_rows',0)))]
     areas=[{'area':name,'verified':n,'denominator':den,'coverage_percent':round(100*n/den,2) if den else None} for name,n,den in values]
     financial=root/'evidence/financial_completeness.json'
     details=json.loads(financial.read_text()) if financial.exists() else {}
