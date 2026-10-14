@@ -21,6 +21,16 @@ GROUPS={
  'market_owner_earnings':['relative_strength63','log_ret63','volume_confirmation','owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document','exceptional_items_to_abs_PBT'],
  'market_cash_quality':['relative_strength63','log_ret63','volume_confirmation','annual_CFO_PAT','annual_cash_conversion_change','accruals_to_average_assets','incremental_ROCE_proxy','annual_EBIT_proxy_interest_coverage']}
 
+EXPERIMENT_INPUT_CONTRACT='V13_REQUIRED_OWNER_AND_CASH_INPUTS_20261014_V2'
+
+def experiment_group_ready(name,usable):
+    """A named financial experiment must actually contain its named evidence."""
+    usable=set(usable)
+    if name=='market_owner_earnings':return bool(usable&{'owner_PAT_yoy','owner_PAT_margin'})
+    if name=='market_cash_quality':return bool(usable&{'annual_CFO_PAT','annual_cash_conversion_change','accruals_to_average_assets'})
+    if name.endswith('catalyst'):return bool(usable&set(GROUPS[name][-3:]))
+    return True
+
 def prior_rates(data,date):
     result={}
     low,_=bounds(date)
@@ -160,7 +170,7 @@ def experiments(data,asof,output):
     """
     d=data.copy();low,_=bounds(asof);d=d[d.date.ge(low)]
     if 'history_start_used' in d:d=d[pd.to_datetime(d.history_start_used,errors='coerce').ge(low)]
-    report={'asof':asof,'four_year_start':str(low.date()),'historical_results_previously_examined':True,
+    report={'asof':asof,'input_contract':EXPERIMENT_INPUT_CONTRACT,'four_year_start':str(low.date()),'historical_results_previously_examined':True,
       'promotion_evidence':False,'groups_predeclared':GROUPS,'folds':[]}
     for h in (6,12):
         y='hit2_'+str(h);m='mature_date_'+str(h)
@@ -176,9 +186,9 @@ def experiments(data,asof,output):
             for name,cols in GROUPS.items():
                 usable=[c for c in cols if c in train and train[c].notna().sum()>=100]
                 # A catalyst experiment needs measured execution features.
-                if name.endswith('catalyst') and not any(c in usable for c in cols[-3:]):
+                if name.endswith('catalyst') and not experiment_group_ready(name,usable):
                     report['folds'].append({'months':h,'date':str(pd.Timestamp(date).date()),'group':name,'status':'BLOCKED_MISSING_QUANTIFIED_CATALYSTS'});continue
-                if name in {'market_owner_earnings','market_cash_quality'} and not any(c in usable for c in cols[3:]):
+                if name in {'market_owner_earnings','market_cash_quality'} and not experiment_group_ready(name,usable):
                     report['folds'].append({'months':h,'date':str(pd.Timestamp(date).date()),'group':name,'status':'BLOCKED_MISSING_DATED_FINANCIAL_INPUTS'});continue
                 if len(train)<500 or train[y].sum()<10 or not usable:continue
                 pipe=make_pipeline(SimpleImputer(strategy='median',add_indicator=True),StandardScaler(),LogisticRegression(C=.03,max_iter=1000,random_state=31))

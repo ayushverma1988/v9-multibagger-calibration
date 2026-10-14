@@ -10,10 +10,19 @@ from v13_parallel_collection import bounded_map
 from v13_valuation_evidence import peer_hurdles
 from v12_5_expanded_facts import parse_extra
 from v13_collection import stable_event_windows
-from v13_research_evaluation import paired_readiness
+from v13_research_evaluation import paired_readiness,experiment_group_ready
 from v13_information_clock import cutoff,research_cutoffs
 
 class SixAreas(unittest.TestCase):
+    def test_owner_experiment_cannot_run_on_exceptional_items_alone(self):
+        market=['relative_strength63','log_ret63','volume_confirmation']
+        self.assertFalse(experiment_group_ready('market_owner_earnings',market+['exceptional_items_to_abs_PBT']))
+        self.assertTrue(experiment_group_ready('market_owner_earnings',market+['owner_PAT_yoy']))
+
+    def test_cash_experiment_requires_cash_or_accrual_evidence(self):
+        self.assertFalse(experiment_group_ready('market_cash_quality',['incremental_ROCE_proxy','annual_EBIT_proxy_interest_coverage']))
+        self.assertTrue(experiment_group_ready('market_cash_quality',['annual_CFO_PAT']))
+
     def test_after_close_inputs_use_actual_known_cutoff_and_not_future_2200(self):
         frame=pd.DataFrame({'date':pd.to_datetime(['2026-10-13','2026-10-14'])})
         d=research_cutoffs(frame,pd.Timestamp('2026-10-14T14:00:00Z'))

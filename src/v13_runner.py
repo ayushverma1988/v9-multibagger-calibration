@@ -194,6 +194,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 report['errors'].append({'phase':'initial_research_experiments','error':str(exc)[:300]})
         challenger_model=root/'challenger'/'research_heads.joblib'
         six_experiments=root/'evidence'/'research_experiments_six_area.json'
+        if six_experiments.exists() and json.loads(six_experiments.read_text()).get('input_contract')!=evaluation.EXPERIMENT_INPUT_CONTRACT:
+            previous=six_experiments.read_bytes()
+            archive=six_experiments.with_name('research_experiments_six_area_previous_'+hashlib.sha256(previous).hexdigest()+'.json')
+            if not archive.exists():archive.write_bytes(previous)
+            six_experiments.unlink()
         if (root/'challenger_matrix.parquet').exists() and not six_experiments.exists():
             try:
                 from v13_information_clock import research_cutoffs
