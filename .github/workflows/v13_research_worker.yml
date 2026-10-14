@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 759da7f167f2f4f5c057f399c2321fb14b783929
+          ref: 8a5dfaec400b1aa01ef8885491907b519b8ce357
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -31,7 +31,7 @@ jobs:
       - name: Run resumable whole-public-NSE research worker
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
-        run: python -m v13_runner --state v13_state --seed v13_seed --history-budget 400 --filing-budget 400
+        run: python -m v13_runner --state v13_state --seed v13_seed --history-budget 800 --filing-budget 800
       - name: Preserve complete restart state even after a failure
         if: always()
         uses: actions/upload-artifact@v4
