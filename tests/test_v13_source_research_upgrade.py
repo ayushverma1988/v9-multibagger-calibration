@@ -1,0 +1,109 @@
+import hashlib,json,tempfile,unittest
+from pathlib import Path
+import joblib,numpy as np,pandas as pd
+from v13_symbol_identity import parse_changes,parse_mapped,rename_path
+from v13_research_selection import screen
+from v13_prediction_replay import snapshot
+from v13_upgrade_diagnostics import scenario_horizon,execution_diagnostics
+from v13_statement_eps import validate,enrich
+import v13_model as model
+
+class SourceResearchUpgrade(unittest.TestCase):
+    def rename(self):
+        return {'old':'OLD','new':'NEW','effective_date':'2026-01-01','source_sha256':'a'*64,'first_seen_utc':'2026-10-15T13:00:00Z'}
+
+    def xml(self):
+        return b'''<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:f="urn:test">
+        <context id="q"><period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+        <unit id="INR"><measure>iso4217:INR</measure></unit>
+        <f:Symbol>OLD</f:Symbol><f:ISIN>INE000000001</f:ISIN><f:NatureOfReportStandaloneConsolidated>Consolidated</f:NatureOfReportStandaloneConsolidated>
+        <f:RevenueFromOperations contextRef="q" unitRef="INR">100</f:RevenueFromOperations></xbrl>'''
+
+    def test_rename_requires_original_isin_and_unique_effective_path(self):
+        r={'symbol':'NEW','catalog_isin':'INE000000001','reporting_mode':'consolidated','period_end':'2026-06-30','available_at_utc':'2026-08-01T00:00:00Z'}
+        facts=parse_mapped(self.xml(),r,'2026-10-15','INE000000001',[self.rename()])
+        self.assertEqual(facts[0]['available_at_utc'],'2026-10-15T13:00:00+00:00')
+        self.assertEqual(facts[0]['original_document_symbol'],'OLD')
+        for raw,isin,edges,asof in [(self.xml(),'INE000000002',[self.rename()],'2026-10-15'),
+            (self.xml(),'INE000000001',[],'2026-10-15'),
+            (self.xml().replace(b'<f:ISIN>INE000000001</f:ISIN>',b''),'INE000000001',[self.rename()],'2026-10-15'),
+            (self.xml(),'INE000000001',[self.rename()],'2025-12-31')]:
+            with self.assertRaises(ValueError):parse_mapped(raw,r,asof,isin,edges)
+        alternate=[self.rename(),{**self.rename(),'new':'MID'},{**self.rename(),'old':'MID'}]
+        with self.assertRaises(ValueError):rename_path('OLD','NEW',alternate,'2026-10-15')
+
+    def test_official_reference_keeps_first_seen_and_skips_unchanged_notices(self):
+        raw=b'NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nA,OLD,NEW,01-JAN-2026\nB,SAME,SAME,01-JAN-2026\n'
+        p={'sha256':'a'*64,'first_retrieved_utc':'2026-10-15T13:00:00Z'}
+        rows=parse_changes(raw,p);self.assertEqual(len(rows),1)
+        fresh=parse_changes(raw,{**p,'sha256':'b'*64,'first_retrieved_utc':'2026-10-16T13:00:00Z'},rows)
+        self.assertEqual(rows,fresh)
+
+    def frame(self):
+        r={'date':pd.Timestamp('2026-10-15'),'isin':'INE000000001','symbol':'A','close':100.,'distance_ma50':.1,
+          'log_ret63':.1,'quarter_sales_yoy':.1,'quarter_pat_yoy':.1,'quarter_pat_margin':.1,
+          'annual_CFO_PAT':1.,'dated_debt_equity':.2,'annual_EBIT_proxy_interest_coverage':2.,'four_profitable_quarters':1,
+          'financial_quality_pass':True,'rsi14':71.,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
+          'evidence_status':'MISSING_FINANCIAL_OR_EXECUTION','scenario_net_multiple':np.nan}
+        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':70.},
+          {**r,'isin':'INE000000003','symbol':'C','annual_CFO_PAT':.1}])
+
+    def test_research_rsi_boundary_failures_and_zero_strict_remain_visible(self):
+        f=self.frame();original=f.copy(deep=True);d,a=screen(f)
+        self.assertEqual(d.loc[d.research_selected,'symbol'].tolist(),['A'])
+        self.assertEqual(a['gate_counts']['strict_net_2x'],0)
+        pd.testing.assert_frame_equal(f,original)
+        f['rsi14']=np.nan;self.assertEqual(screen(f)[1]['gate_counts']['selected'],0)
+
+    def test_exact_real_head_replay_and_modified_predictions_reject(self):
+        heads={k:{'method':'shrunk_past_event_rate','constant':.2,'calibration':{'slope':1.,'intercept':0.}} for k in model.TARGETS}
+        f=self.frame();scored=f.copy()
+        for k,v in model.probabilities(heads,f).items():scored[k]=v
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);p=root/'heads.joblib';joblib.dump(heads,p)
+            result=snapshot(f,scored,p,root,'champion');self.assertTrue(result['replay_verified'])
+            scored.at[0,'p12']+=.0001
+            with self.assertRaises(ValueError):snapshot(f,scored,p,root,'champion')
+
+    def scenario(self):
+        return {'horizon_months':12,'forecast_period_start':'2026-04-01','forecast_period_end':'2027-03-31',
+          'valuation_target_date':'2027-10-15','forward_share_basis':'FULLY_DILUTED_INCLUDING_REVIEWED_ACTIONS',
+          'input_source_excerpts':{'forward_PAT':'Annual owner forecast from 2026-04-01 to 2027-03-31'}}
+
+    def test_scenario_annual_period_horizon_and_dilution_basis_required(self):
+        r=self.scenario();self.assertTrue(scenario_horizon(r,'2026-10-15'))
+        for k,v in [('horizon_months',6),('valuation_target_date','2028-10-15'),('forecast_period_start','2027-01-01'),
+          ('forward_share_basis','ISSUED_SHARES'),('input_source_excerpts',{'forward_PAT':'Expected profit next year'})]:
+            self.assertFalse(scenario_horizon({**r,k:v},'2026-10-15'))
+
+    def test_missing_execution_is_distinct_from_adverse_update(self):
+        b={'checks':{'source_funding_sufficient':False,'required_operating_approvals':False,'positive_margin_with_profit_basis':True,
+          'not_cancelled_or_certificate_pending':True},'observed_values':{'funding_sufficient':False,'expected_margin_pct':10,'margin_basis':'EBITDA'}}
+        d=execution_diagnostics(b)
+        self.assertIn('source_funding_sufficient',d['research_failed_checks'])
+        self.assertIn('required_operating_approvals',d['research_missing_checks'])
+        self.assertFalse(d['margin_is_owner_net_profit']);self.assertFalse(d['order_value_is_recognised_revenue'])
+
+    def test_statement_original_hash_rejects_and_review_never_backdates(self):
+        with self.assertRaises(ValueError):validate({'statement':{'sha256':'a'*64}},b'wrong',b'',b'')
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t)/'statement_eps';p.mkdir()
+            r={'isin':'INE000000001','available_at_utc':'2026-10-15T13:00:00Z','current_period_end':'2026-06-30',
+              'reported_diluted_EPS_yoy_same_document':-.35,'statement_sha256':'a'*64}
+            (p/'accepted.json').write_text(json.dumps([r]));f=self.frame().iloc[:1].copy()
+            f['information_cutoff_utc']='2026-10-15T12:00:00Z'
+            self.assertNotIn('statement_eps_source_sha256',enrich(f,t))
+            f['information_cutoff_utc']='2026-10-15T14:00:00Z'
+            self.assertEqual(enrich(f,t).reported_diluted_EPS_yoy_same_document.iloc[0],-.35)
+
+    def test_unknown_legacy_cutoff_cannot_be_filled_later(self):
+        from v13_frozen_integrity import FrozenGuard
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);f=self.frame().iloc[:1].copy();f['registry_sha256']='a'*64
+            f['status']='TRACKING';f['information_cutoff_utc']=None
+            path=root/'prospective_observations.parquet';f.to_parquet(path,index=False)
+            guard=FrozenGuard(root);altered=f.copy();altered['information_cutoff_utc']='2026-10-15T13:00:00Z'
+            with self.assertRaises(ValueError):guard.check(altered)
+            self.assertTrue(pd.read_parquet(path).information_cutoff_utc.isna().all())
+
+if __name__=='__main__':unittest.main()

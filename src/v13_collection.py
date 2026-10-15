@@ -19,7 +19,8 @@ def financial_wide(extra):
     w=x.pivot(index=keys,columns='metric',values='value').reset_index()
     # Preserve source URL, explicit economic start and retrieval time through
     # the pivot; comparative periods retain their original document identity.
-    meta=[c for c in ('period_start','source_url','first_retrieved_utc') if c in x]
+    meta=[c for c in ('period_start','source_url','first_retrieved_utc','original_document_symbol',
+      'original_publication_utc','identity_mapping_source_sha256','identity_mapping_first_seen_utc','identity_source') if c in x]
     if meta:
         m=x[keys+meta].drop_duplicates()
         if m.duplicated(keys).any():raise ValueError('Conflicting financial source metadata')
@@ -238,12 +239,20 @@ def collect_histories(root,asof,budget=800):
         # Public, unranked execution/history evidence prioritises refreshes;
         # private forecasts, selections and realised outcomes are not read.
         liquid=not h.empty and len(h)>=127 and {'close','volume'}.issubset(h) and h.close.iloc[-1]>=20 and h.close.iloc[-1]<=2000 and (h.close*h.volume).tail(63).median()>=2_500_000
-        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid)))
+        # Preserve fresh source-aligned, technically usable public coverage.
+        # A high-turnover but persistently invalid history must not displace
+        # previously usable histories merely because its ticker hashes first.
+        eligible=False
+        if liquid and {'open','high','low','adj_close'}.issubset(h):
+            from v13_features import daily_features
+            z=daily_features(h[pd.to_datetime(h.date).ge(low)],asof)
+            eligible=not z.empty and bool(z.feature_eligible.iloc[-1])
+        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid),eligible))
     errors=[];count=0;started=time.monotonic();attempted=0
     ordered=sorted(queue,key=lambda q:(q[0],q[1]))
     # Keep known usable public-universe histories fresh while expanding cold
     # coverage. No private ranked/selected stock list enters this queue.
-    refresh=sorted([q for q in ordered if q[3] and q[0]<asof],key=lambda q:(not q[4],q[0],q[1]))[:budget*3//4]
+    refresh=sorted([q for q in ordered if q[3] and q[0]<asof],key=lambda q:(not q[5],not q[4],q[0],q[1]))[:budget*3//4]
     chosen={q[1] for q in refresh}
     batch=refresh+[q for q in ordered if q[1] not in chosen][:max(0,budget-len(refresh))]
     def fetch(job):
@@ -268,12 +277,19 @@ def collect_histories(root,asof,budget=800):
     attempt_path.write_text(json.dumps(attempts,indent=2))
     return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
       'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh),
+      'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
       'source_workers':4,'source_rate_limited':True,'partial_coverage_is_not_full_NSE':True}
 
 def collect_financials(root,asof,budget=800):
     root=Path(root);catalog_path=root/'catalog.parquet'
     if not catalog_path.exists():return {'requested':0,'errors':['financial_catalog_missing']}
-    cat=pd.read_parquet(catalog_path);symbols=set(pd.read_parquet(root/'universe.parquet').nse_current_symbol)
+    cat=pd.read_parquet(catalog_path);master=pd.read_parquet(root/'universe.parquet');symbols=set(master.nse_current_symbol)
+    master_isins=dict(zip(master.nse_current_symbol,master.isin))
+    from v13_symbol_identity import collect as collect_changes,parse_mapped
+    identity_error=None
+    try:changes=collect_changes(root)
+    except Exception as exc:
+        changes=[];identity_error=str(exc)[:160]
     cat=cat[cat.symbol.isin(symbols)&cat.reporting_mode.ne('unknown')]
     accepted_path=root/'accepted_filings.json';accepted=set(json.loads(accepted_path.read_text())) if accepted_path.exists() else set()
     cat['version_key']=cat.source_url+'|'+cat.available_at_utc
@@ -327,7 +343,7 @@ def collect_financials(root,asof,budget=800):
             if original_path in original_hash_by_path:expected={original_hash_by_path[original_path]}
             if r['version_key'] in accepted and expected and proof['sha256'] not in expected:
                 raise ValueError('Previously accepted original filing bytes changed; revision review required')
-            facts=parse_extra(raw,r,asof,include_ytd=True)
+            facts=parse_mapped(raw,r,asof,master_isins[r['symbol']],changes)
             if not facts:raise ValueError('No usable exact-identity financial facts; remains queued')
             return {'facts':[{**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']} for f in facts]}
         except Exception as e:return {'error':str(e)[:160]}
@@ -353,7 +369,9 @@ def collect_financials(root,asof,budget=800):
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,
-      'source_workers':4,'source_rate_limited':True,'owner_PAT_is_not_recurring_EPS':True}
+      'source_workers':4,'source_rate_limited':True,'owner_PAT_is_not_recurring_EPS':True,
+      'official_rename_reference_error':identity_error,'official_rename_edges':len(changes),
+      'mapped_fact_observations':sum('identity_mapping_source_sha256' in r for r in rows)}
 
 def fresh_public_price_symbols(root,asof,require_feature_eligible=False):
     """Unranked public raw-price coverage, never a private prediction list."""

@@ -63,14 +63,22 @@ def last_completed_session(root,day):
 
 def current_frame(root,asof):
     rows=[];history={};low,_=collection.bounds(asof)
+    funnel={'history_files':0,'empty_after_window':0,'no_source_date_bar':0,'source_date_feature_ineligible':0,'feature_eligible_source_date':0}
     for path in sorted((root/'history'/'securities').glob('*.parquet')):
+        funnel['history_files']+=1
         bars=pd.read_parquet(path);bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
-        if bars.empty:continue
+        if bars.empty:funnel['empty_after_window']+=1;continue
         history[bars['isin'].iloc[0]]=bars
         d=features.daily_features(bars,asof)
         current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
         if len(current)==1:rows.append(current.iloc[0].to_dict())
-    if not rows:return pd.DataFrame(),history
+        elif not d.date.eq(pd.Timestamp(asof)).any():funnel['no_source_date_bar']+=1
+        else:funnel['source_date_feature_ineligible']+=1
+    funnel['feature_eligible_source_date']=len(rows)
+    out=root/'evidence';out.mkdir(exist_ok=True)
+    if not rows:
+        (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':0},indent=2))
+        return pd.DataFrame(),history
     d=pd.DataFrame(rows)
     for source,target in [('log_ret63','relative_strength63'),('log_ret20','relative_strength20'),('momentum126','relative_strength126'),('momentum252_skip21','relative_strength252_skip21')]:d[target]=d[source].rank(pct=True)
     d['market_breadth63']=d.log_ret63.gt(0).mean();d['market_median_ret63']=d.log_ret63.median();d['market_dispersion63']=d.log_ret63.std()
@@ -88,9 +96,17 @@ def current_frame(root,asof):
     # Check raw latest OHLC and volume against whole-market official data.
     o=pd.read_parquet(root/'official'/(asof+'_official_market.parquet'))
     m=d.merge(o[['isin','symbol','series','open','high','low','close','volume','source_status','source_sha256']],on='isin',suffixes=('','_official'),validate='1:1')
+    funnel['official_identity_absent']=len(d)-len(m)
+    funnel['official_invalid_session']=int(m.source_status.ne('VALID_POSITIVE_VOLUME_SESSION').sum())
+    funnel['symbol_mismatch']=int(m.symbol.ne(m.symbol_official).sum())
+    funnel['volume_mismatch']=int(m.volume.ne(m.volume_official).sum())
+    funnel['OHLC_mismatch']=int(pd.concat([(m[c]-m[c+'_official']).abs().gt(.011) for c in ('open','high','low','close')],axis=1).any(axis=1).sum())
     valid=m.symbol.eq(m.symbol_official)&m.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&m.volume.eq(m.volume_official)
     for c in ('open','high','low','close'):valid&=(m[c]-m[c+'_official']).abs().le(.011)
-    d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official;return d,history
+    d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official
+    (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':len(d),
+      'mismatch_counts_overlap':True,'stale_bars_not_advanced_or_filled':True},indent=2))
+    return d,history
 
 def forecasts(heads,frame,root,label):
     d=frame.copy()
@@ -138,6 +154,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             save(root)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
+        import v13_statement_eps as statement_eps
+        report['steps']['reviewed_statement_EPS']=statement_eps.collect(root,seed.parent/'v13_evidence_seed'/'statement_eps_reviews.json')
         report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
         report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=120)
         report['steps']['reviewed_primary_sources']=catalyst_execution.seed_primary_reviews(root,seed.parent/'v13_evidence_seed'/'primary_execution_sources.json')
@@ -215,6 +233,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
+            frame=statement_eps.enrich(frame,root)
             frame=catalyst_execution.join(frame,root)
             frame=financial_evidence.apply_scenarios(frame,root)
             report['financial_complete_rows']=int(frame.financial_complete.sum())
@@ -237,6 +256,12 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 active_meta=json.loads((root/'active_model.json').read_text()) if (root/'active_model.json').exists() else {}
                 a=scored(joblib.load(root/'active_heads.joblib'),frame,policy=active_meta.get('selection_policy','legacy'))
                 b=scored(joblib.load(challenger_model),frame,policy='evidence')
+                from v13_prediction_replay import snapshot as replay_snapshot
+                report['exact_prediction_replay']={
+                  'champion':replay_snapshot(frame,a,root/'active_heads.joblib',root,'champion'),
+                  'challenger':replay_snapshot(frame,b,challenger_model,root,'challenger')}
+                from v13_research_selection import export as export_research
+                report['separate_research_selector']=export_research(a,root)
                 pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
                 export_watchlists(root,pair)
                 report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
