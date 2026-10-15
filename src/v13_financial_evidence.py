@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from v12_5_features import features,pick,number,FINANCIAL,UNSUPPORTED
+from v12_5_features import features,pick,number,owner_pat,owner_profit_status,FINANCIAL,UNSUPPORTED
 from v12_public_history import bounds
 
 REQUIRED=('four_profitable_quarters','quarter_sales_yoy','quarter_pat_yoy','quarter_pat_margin',
@@ -58,7 +58,7 @@ def financial_readiness(known,date,f):
       number(bal,'equity'),number(bal,'borrowings_current'),number(bal,'borrowings_noncurrent')]
     return {'unknown_reasons':reasons,'underlying_required_facts_complete':bool(all(np.isfinite(x) for x in values)),
       'latest_reported_diluted_EPS_available':bool(np.isfinite(number(q,'eps_diluted_continuing'))),
-      'reported_EPS_is_not_recurring_or_action_reconciled':True}
+      'reported_EPS_is_not_recurring_or_action_reconciled':True,'owner_earnings_source_status':owner_profit_status(q)}
 
 def balancing_quarters(wide):
     """Explicit annual minus nine-month amounts; never subtract EPS/shares.
@@ -218,7 +218,7 @@ def owner_completion_queue(queue,wide,asof,budget):
         if not endpoints:continue
         latest=max(endpoints)
         targets=[latest,latest-pd.DateOffset(years=1)]+[latest-pd.offsets.MonthEnd(k) for k in (3,6,9)]
-        missing={period:rank for rank,period in enumerate(targets) if not np.isfinite(number(pick(w,'quarter',period),'pat_owners'))} if not w.empty else dict((p,i) for i,p in enumerate(targets))
+        missing={period:rank for rank,period in enumerate(targets) if not np.isfinite(owner_pat(pick(w,'quarter',period)))} if not w.empty else dict((p,i) for i,p in enumerate(targets))
         target=g[g['_period'].isin(missing)].copy()
         if target.empty:continue
         target=target.sort_values('available_at_utc',ascending=False).drop_duplicates('_period')
@@ -270,7 +270,7 @@ def enrich_evidence(frame,wide,root,asof):
         if capital>0 and face>0:d.at[i,'latest_issued_shares']=capital/face
         quarters=[pick(w,'quarter',q['period']-pd.offsets.MonthEnd(k)) for k in (0,3,6,9)]
         pats=[number(z,'pat') for z in quarters];shares=number(q,'weighted_diluted_shares')
-        owner_pats=[number(z,'pat_owners') for z in quarters]
+        owner_pats=[owner_pat(z) for z in quarters]
         if all(np.isfinite(x) for x in owner_pats):d.at[i,'ttm_owner_attributable_PAT_INR']=sum(owner_pats)
         if all(np.isfinite(x) for x in pats):d.at[i,'ttm_reported_PAT_INR']=sum(pats)
         if all(np.isfinite(x) for x in pats) and shares>0:

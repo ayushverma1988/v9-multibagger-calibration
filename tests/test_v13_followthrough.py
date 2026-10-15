@@ -37,10 +37,20 @@ class Followthrough(unittest.TestCase):
         self.assertTrue(w.pat_owners.isna().all())
 
     def test_observed_zero_owner_is_not_missing_and_standalone_not_substituted(self):
-        q,w=self.owner_inputs();w['pat_owners']=0
+        q,w=self.owner_inputs();w['pat_owners']=0;w['pat_noncontrolling']=0;w['pat']=0
         self.assertTrue(owner_completion_queue(q,w,'2026-10-14',5).empty)
         q['reporting_mode']='standalone';w['reporting_mode']='standalone';w['pat_owners']=np.nan
         self.assertTrue(owner_completion_queue(q,w,'2026-10-14',5).empty)
+
+    def test_owner_profit_placeholders_never_become_verified_zero_or_inferred_owner_pat(self):
+        from v12_5_features import owner_pat,owner_profit_status
+        original={'pat':121500000.,'pat_owners':0.,'pat_noncontrolling':0.}
+        self.assertTrue(np.isnan(owner_pat(original)))
+        self.assertEqual(owner_profit_status(original),'UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT')
+        self.assertEqual(original['pat_owners'],0)
+        self.assertTrue(np.isnan(owner_pat({'pat':100,'pat_owners':100})))
+        self.assertEqual(owner_pat({'pat':-13,'pat_owners':-9,'pat_noncontrolling':-4}),-9)
+        self.assertEqual(owner_pat({'pat':0,'pat_owners':0,'pat_noncontrolling':0}),0)
 
     def test_owner_queue_excludes_future_publications_and_four_year_boundary(self):
         q,w=self.owner_inputs();q['available_at_utc']='2026-10-15T10:00:00Z'

@@ -14,6 +14,13 @@ Data and future accuracy are not declared complete by passing software tests.
    Queue priority uses the unranked public price-eligible population, never
    private model selections. An observed zero owner result is not a missing
    original; standalone or total consolidated PAT cannot replace owner PAT.
+   A live probe found original zero owner/minority fields alongside positive
+   total PAT. Raw facts remain intact, but owner features now require explicit
+   owner plus minority earnings to reconcile total PAT within INR1 plus a
+   1e-8 relative tolerance. Missing/contradictory components remain unknown;
+   no owner profit is inferred by subtraction. V3 development-input diagnostics
+   archive the older V2 bytes before regeneration and remain previously
+   examined research, not promotion evidence.
    Recurring EPS still requires separate evidence.
 2. **Catalyst execution:** add three independently reviewed original company
    notices to the existing source seed. Navin Fluorine explicitly reports
@@ -53,7 +60,8 @@ Data and future accuracy are not declared complete by passing software tests.
 
 ## Verification and completion boundaries
 
-Full local suite: **537 tests passed**, Python 3.12. It covers missing owner
+Full final local suite: **538 tests passed**, Python 3.12, including the
+additional owner/minority accounting-identity guard. It covers missing owner
 facts despite complete total PAT/revenue, zero owner results, reporting basis,
 future publication exclusion, action retry fairness, unequal prices/source
 hashes/cutoffs/baselines, bounded raw-history resume, throttling, and distinct
@@ -62,7 +70,10 @@ updated to mock the newly introduced network phase.
 
 A bounded live probe independently re-downloaded **16 public original XBRL
 documents**, matched every previously saved original hash, and extracted owner
-facts from all 16 without errors. This is source-data evidence in an isolated
+reported facts from all 16 without errors. Three of those documents contain
+owner/minority placeholders that do not reconcile total PAT; thirteen reconcile
+the original owner/minority/total figures. Extraction is
+not independent verification of profitability. This is source-data evidence in an isolated
 copy, not a recalculation of old registered probabilities. All three new
 original catalyst seed records passed the source/issuer/publication/excerpt
 verifier with zero rejections in the isolated probe. Full live worker and

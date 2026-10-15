@@ -28,6 +28,20 @@ def number(row,key):
 def ratio(a,b):return a/b if np.isfinite(a) and np.isfinite(b) and b>0 else np.nan
 def growth(a,b):return ratio(a,b)-1
 
+def owner_profit_status(row):
+    owner=number(row,'pat_owners');minority=number(row,'pat_noncontrolling');total=number(row,'pat')
+    if not all(np.isfinite(x) for x in (owner,minority,total)):
+        return 'UNKNOWN_MISSING_OWNER_MINORITY_OR_TOTAL_PAT'
+    if not np.isclose(owner+minority,total,rtol=1e-8,atol=1.):
+        return 'UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT'
+    return 'ORIGINAL_OWNER_MINORITY_TOTAL_PAT_RECONCILED_NOT_RECURRING_EPS'
+
+def owner_pat(row):
+    # Some original filings put zero in both owner/minority fields alongside
+    # positive total PAT. Preserve raw facts, but never score those placeholders
+    # as verified zero owner profits or infer owner PAT by subtraction.
+    return number(row,'pat_owners') if owner_profit_status(row).startswith('ORIGINAL_') else np.nan
+
 def source_wide(base,extra):
     b=base.rename(columns={'value_INR':'value'})
     x=pd.concat([b,extra],ignore_index=True)
@@ -68,8 +82,8 @@ def features(known,date):
     out['quarter_sales_yoy']=sales
     out['quarter_pat_yoy']=growth(number(q,'pat'),number(old,'pat'))
     out['quarter_pat_margin']=ratio(number(q,'pat'),number(q,'revenue'))
-    out['owner_PAT_yoy']=growth(number(q,'pat_owners'),number(old,'pat_owners'))
-    out['owner_PAT_margin']=ratio(number(q,'pat_owners'),number(q,'revenue'))
+    out['owner_PAT_yoy']=growth(owner_pat(q),owner_pat(old))
+    out['owner_PAT_margin']=ratio(owner_pat(q),number(q,'revenue'))
     quarters=[pick(d,'quarter',period-pd.offsets.MonthEnd(k)) for k in [0,3,6,9]]
     profits=[number(z,'pat') for z in quarters]
     if all(np.isfinite(v) for v in profits):out['four_profitable_quarters']=float(all(v>0 for v in profits))

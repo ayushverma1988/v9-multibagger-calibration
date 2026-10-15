@@ -21,7 +21,7 @@ GROUPS={
  'market_owner_earnings':['relative_strength63','log_ret63','volume_confirmation','owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document','exceptional_items_to_abs_PBT'],
  'market_cash_quality':['relative_strength63','log_ret63','volume_confirmation','annual_CFO_PAT','annual_cash_conversion_change','accruals_to_average_assets','incremental_ROCE_proxy','annual_EBIT_proxy_interest_coverage']}
 
-EXPERIMENT_INPUT_CONTRACT='V13_REQUIRED_OWNER_AND_CASH_INPUTS_20261014_V2'
+EXPERIMENT_INPUT_CONTRACT='V13_REQUIRED_RECONCILED_OWNER_CASH_INPUTS_20261015_V3'
 
 def experiment_group_ready(name,usable):
     """A named financial experiment must actually contain its named evidence."""
