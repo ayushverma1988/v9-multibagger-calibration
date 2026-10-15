@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 62d732215f898b7826dbd1cd1d59e06bad2985a3
+          ref: 4f0ce5d509e498a72ea46318bf5b1dd73b9baaa0
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -87,3 +87,5 @@ jobs:
 # Run the existing frozen model before the requested upgrades, 15 October evening.
 
 # Apply the verified source and research upgrade after posting the frozen baseline.
+
+# Preserve earlier valid financial availability vintages on later identity reviews.
