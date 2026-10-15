@@ -23,13 +23,23 @@ Engineering checks do not establish financial prediction accuracy.
    seed is one original statement review, not general PDF coverage. Changes to
    review instructions receive a new first-review clock. No EPS subtraction or
    recurring-EPS inference is allowed.
-2. Research selector: a separate versioned sidecar uses the unchanged champion
-   probabilities, seven financial quality checks, no observed owner-earnings
-   failure, and RSI strictly above 70. RSI retains the existing simple rolling
-   14-session definition; it is not silently changed to Wilder smoothing.
-   Missing owner earnings are explicitly labelled. Selection ranks by coherent
-   joint12, caps at 20, and may abstain. It does not claim full execution or 2x
-   support, replace formal selections, or constitute model promotion.
+2. Research selector: the current separately versioned available-data policy
+   uses unchanged champion probabilities and RSI strictly above 50. Exactly 50
+   is excluded; RSI retains the simple rolling 14-session definition. Existing
+   market/risk limits and observed seven-check or owner-earnings failures still
+   exclude a row. Missing financial inputs are permitted and explicitly labelled.
+   Missing execution or source-supported net-2x valuation never veto a prediction.
+   The ranking score combines 75% eligible-pool joint12 percentile, 10% fraction
+   of seven financial inputs observed, 5% complete financial/execution support,
+   5% source-supported net-2x scenario, and 5% proximity within inclusive +/-10%
+   of the trailing 200-observation adjusted-close SMA. Missing or outside-band
+   DMA gets no bonus and remains eligible. These are declared preference weights,
+   not fitted weights, calibrated probabilities or evidence of accuracy gains.
+   DMA proximity alone proves neither no prior bull run nor future upside.
+   Selection caps at 20 and may abstain. Ranked records and all-name decisions
+   retain eligibility, financial tier, missing evidence, DMA status, score,
+   actual registration clock, selector hash and original exact replay receipt.
+   Earlier RSI >70 snapshots and all frozen formal forecasts remain unchanged.
 3. Execution: project-level diagnostic sidecars separate UNKNOWN from FAILED,
    retain adverse updates, and distinguish EBITDA/EBIT from owner net profit.
    An order value is not recognised revenue. Existing strict execution checks

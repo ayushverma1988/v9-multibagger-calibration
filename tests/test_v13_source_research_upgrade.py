@@ -63,9 +63,9 @@ class SourceResearchUpgrade(unittest.TestCase):
         r={'date':pd.Timestamp('2026-10-15'),'isin':'INE000000001','symbol':'A','close':100.,'distance_ma50':.1,
           'log_ret63':.1,'quarter_sales_yoy':.1,'quarter_pat_yoy':.1,'quarter_pat_margin':.1,
           'annual_CFO_PAT':1.,'dated_debt_equity':.2,'annual_EBIT_proxy_interest_coverage':2.,'four_profitable_quarters':1,
-          'financial_quality_pass':True,'rsi14':71.,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
+          'financial_quality_pass':True,'rsi14':50.0001,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
           'evidence_status':'MISSING_FINANCIAL_OR_EXECUTION','scenario_net_multiple':np.nan}
-        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':70.},
+        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':50.},
           {**r,'isin':'INE000000003','symbol':'C','annual_CFO_PAT':.1}])
 
     def test_research_rsi_boundary_failures_and_zero_strict_remain_visible(self):
@@ -74,6 +74,44 @@ class SourceResearchUpgrade(unittest.TestCase):
         self.assertEqual(a['gate_counts']['strict_net_2x'],0)
         pd.testing.assert_frame_equal(f,original)
         f['rsi14']=np.nan;self.assertEqual(screen(f)[1]['gate_counts']['selected'],0)
+
+    def test_dma_band_is_inclusive_and_optional_with_unknown_separate(self):
+        r=self.frame().iloc[0].to_dict()
+        f=pd.DataFrame([{**r,'isin':f'INE{i:09d}','distance_ma200':v} for i,v in enumerate([-.1,.1,.10001,-.10001,np.nan])])
+        d,a=screen(f)
+        self.assertEqual(d.research_selected.sum(),5)
+        self.assertEqual(d.research_within_200dma_band.tolist(),[True,True,False,False,False])
+        self.assertEqual(d.research_dma200_status.iloc[-1],'UNKNOWN_200DMA')
+        self.assertEqual(set(d.sort_values('research_rank').head(2).index),{0,1})
+        self.assertAlmostEqual(d.research_ranking_score.iloc[0]-d.research_ranking_score.iloc[2],.05)
+
+    def test_missing_evidence_ranks_without_rewriting_probabilities_or_accepting_observed_failure(self):
+        r=self.frame().iloc[0].to_dict()
+        rows=[r,{**r,'isin':'INE000000004','quarter_sales_yoy':np.nan,'financial_quality_pass':False},
+          {**r,'isin':'INE000000005','quarter_sales_yoy':-.01},
+          {**r,'isin':'INE000000006','quarter_pat_yoy':0}]
+        f=pd.DataFrame(rows);d,a=screen(f)
+        self.assertEqual(d.research_selected.tolist(),[True,True,False,False])
+        self.assertEqual(d.research_financial_tier.iloc[1],'INCOMPLETE_FINANCIAL_INPUTS')
+        self.assertLess(d.research_ranking_score.iloc[1],d.research_ranking_score.iloc[0])
+        pd.testing.assert_frame_equal(d[['p6','p12','joint12','loss12']],f[['p6','p12','joint12','loss12']])
+        self.assertEqual(a['gate_counts']['strict_net_2x'],0)
+        self.assertFalse(a['ranking_score_is_probability'])
+
+    def test_dma_preference_does_not_override_material_probability_advantage(self):
+        r=self.frame().iloc[0].to_dict()
+        f=pd.DataFrame([r,{**r,'isin':'INE000000004','joint12':.18,'distance_ma200':.3}])
+        f.at[0,'distance_ma200']=0
+        d,_=screen(f)
+        self.assertEqual(d.sort_values('research_rank')['isin'].iloc[0],'INE000000004')
+
+    def test_source_scenario_bonus_requires_status_and_target_not_just_hypothetical_multiple(self):
+        r=self.frame().iloc[0].to_dict()
+        f=pd.DataFrame([{**r,'isin':f'INE{i:09d}','scenario_net_multiple':multiple,'earnings_scenario_status':status}
+          for i,(multiple,status) in enumerate([(3,'UNKNOWN'),(1.9,'SCENARIO_NOT_PROBABILITY'),(2,'SCENARIO_NOT_PROBABILITY')])])
+        d,_=screen(f)
+        self.assertEqual(d.research_source_supported_net_2x.tolist(),[False,False,True])
+        self.assertTrue(d.research_selected.all())
 
     def test_exact_real_head_replay_and_modified_predictions_reject(self):
         heads={k:{'method':'shrunk_past_event_rate','constant':.2,'calibration':{'slope':1.,'intercept':0.}} for k in model.TARGETS}
