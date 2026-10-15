@@ -147,3 +147,14 @@ checkpoint hash verification, idempotent recovery and retaining entry proof
 without certifying returns. The full local suite reached **545 tests**; final
 deployment and independent export/checkpoint integrity are required before the
 entry correction is declared operationally verified.
+
+
+## Completed corrective worker and independent audit
+
+Final worker **38698900067** completed **2026-10-15T07:55:38.648598Z**, source **14 October**, zero fatal errors. Operational code remains pinned to **34d116665d1147e43f93a3bbddbb06aac5cf04da** (545 local tests and four GitHub checks passed). ZIP SHA-256 `fe8abc563a0720962917f83fd18df574fef1f4f32b09d093bb7cfe5f2733e364`; checkpoint `20261015T075548Z_c3ed6f269752`, manifest SHA-256 `c3ed6f2697521861bc38987afb0877bf7addb2d508a74b145e634a856bfdf989`. The ZIP, manifest and all **52 exported file lengths/hashes** were independently verified; 47,255 manifest references were not all independently redownloaded.
+
+All **1,442 original frozen forecast records**, fixed heads, active metadata, old pair files and watchlists remain unchanged; no same-source/head forecasts were added. All **936** morning verified entry receipts were recovered/rechecked, **52 history files restored**, and the final ledger has **964 verified entries** (28 additional, **zero regressions**). Earlier pre-fix passes had six, then 102 regressions against the morning verified set; those were detected rather than concealed by net counts. Entry-only receipts do not certify future returns or action intervals.
+
+Latest measured evidence bars: **302/547** financial completeness (140 quality passes), **0/547** complete execution chains, **0/547** source-supported net-2x scenarios, **964/1,442** verified entries, **0/1,442** mature unseen twelve-month outcomes, **547/3,185** NSE breadth. Reconciled owner-PAT growth is available for 52 current rows and owner margin for 73; 27 current owner/minority/total-PAT contradictions remain unknown. Verified recurring diluted EPS growth remains zero. Twenty quantified reviews were accepted, none rejected; 1,271 document records and 169 action notices do not prove complete chains/intervals.
+
+All **386 pairs** retain matching registration clocks/names and both frozen baselines; **148** have matching verified entry dates, opens and source hashes. Only the source-14 **229** pairs have actual information cutoffs under the current contract; older legacy cutoffs remain unknown. Supplemental primary raw references cover **28/127 sessions**; the remaining 99 require at least thirteen successful eight-session batches for the fixed window, approximately fifteen if one new session joins each run. This is not full scored NSE coverage. Earliest full six/twelve-month labels for October entries begin April/October 2027; promotion requires additional mature months and sample/source proof. No accuracy or promotion is approved. Existing schedules are unchanged.
