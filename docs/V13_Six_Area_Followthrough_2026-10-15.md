@@ -63,7 +63,8 @@ Data and future accuracy are not declared complete by passing software tests.
 
 ## Verification and completion boundaries
 
-Full local suite: **539 tests passed**, Python 3.12, including the
+Full six-area suite before the live entry-recovery correction: **539 tests
+passed**, Python 3.12, including the
 additional owner/minority accounting-identity guard. It covers missing owner
 facts despite complete total PAT/revenue, zero owner results, reporting basis,
 future publication exclusion, action retry fairness, unequal prices/source
@@ -112,3 +113,37 @@ retrieved 15 October at 06:49:33.257117 UTC and visually reviewed; SHA-256
 The printed date is not an intraday publication timestamp; that timestamp
 remains unknown. This closes the missing dedicated mapping-notice item, not a
 complete holding-interval corporate-action review or an outcome certification.
+
+## Live audit correction: narrower provider history
+
+The first deployment worker 38694633934 completed with zero fatal errors,
+but independent comparison with the preceding checkpoint found six verified
+entry records (three issuers, both formal roles) had become unknown. The
+provider had returned valid but thinner history omitting the entry session;
+successful parsing had replaced the complete accepted cache. Original frozen
+forecasts and heads remained unchanged. A net increase in entry coverage must
+not hide those regressions.
+
+The correction refuses a history replacement that drops any accepted session
+inside the active four-year window or changes identity without primary review.
+The prior complete history remains, and the thin original response is retained
+as source evidence rather than mixed into a synthetic price series. A one-time
+recovery uses the independently audited older checkpoint manifest and exact
+object lengths/hashes, restores only missing entry histories and quarantines
+replaced derived history. It never restores or overwrites model forecasts or
+heads. Every recovered entry receipt is checked again against the current
+primary exchange open, symbol, ISIN, source hash and actual first session.
+
+Verified entry receipts are then cached separately from current provider
+vintages. Later omissions/rebasings cannot erase that original observation
+when the unchanged primary entry is rechecked. These receipts certify only
+the entry observation: current adjustment factors, complete holding intervals,
+doubling/loss events and mature outcomes remain independently gated.
+The original observation time is retained, not backdated or reconstructed.
+
+Correction tests cover thinner responses, legitimate four-year expiry,
+identity conflicts, tampered receipts, wrong prices/hashes/first dates,
+checkpoint hash verification, idempotent recovery and retaining entry proof
+without certifying returns. The full local suite reached **545 tests**; final
+deployment and independent export/checkpoint integrity are required before the
+entry correction is declared operationally verified.

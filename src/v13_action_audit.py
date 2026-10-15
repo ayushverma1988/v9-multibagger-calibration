@@ -183,7 +183,9 @@ def audit(root,official,history,asof):
     # is absent: incomplete catalogue monitoring is not certification.
     rp=out/'reviewed_actions.json';reviews=json.loads(rp.read_text()) if rp.exists() else []
     coverage_path=out/'reviewed_coverage.json';coverage=json.loads(coverage_path.read_text()) if coverage_path.exists() else []
-    rows=[];lookup={}
+    cache_path=out/'verified_entry_cache.json';entry_cache=json.loads(cache_path.read_text()) if cache_path.exists() else {}
+    from v13_history_integrity import cache_digest,validated_cached_entry
+    rows=[];lookup={};cache_rechecks=0
     committed={z for p in (root/'paired_cohorts').glob('*.json') for z in (json.loads(p.read_text())['champion_registry'],json.loads(p.read_text())['challenger_registry'])}
     for reg in sorted((root/'registries').glob('*/*.json')):
         obj=validate_registry(reg);clock=pd.Timestamp(obj['registered_at_utc'])
@@ -252,8 +254,22 @@ def audit(root,official,history,asof):
                                     proof['verified_joint12']=int(bool(len(period_hits)) and not loss_first)
                                     proof['independent_outcome_verified']=True
                     except Exception as exc:proof['verification_status']='UNKNOWN_ACTION_OR_RETURN_RECONCILIATION: '+str(exc)
+            cache_key=reg.stem+'|'+r['isin']
+            if not proof['entry_verified'] and dates:
+                prior=validated_cached_entry(entry_cache.get(cache_key,{}),o,dates[0],r['symbol'],r['isin'])
+                if prior is not None:
+                    proof.update({k:prior[k] for k in ('entry_date','entry_open_INR','entry_official_sha256','entry_provider_sha256','entry_evidence_recorded_at_utc')})
+                    proof['entry_verified']=True;cache_rechecks+=1
+                    proof['verification_status']='PRIOR_ENTRY_SOURCE_RECEIPT_PRIMARY_RECHECKED_CURRENT_ACTIONS_UNKNOWN'
+            fields=('isin','entry_date','entry_open_INR','entry_official_sha256','entry_provider_sha256','entry_evidence_recorded_at_utc')
+            if proof['entry_verified'] and all(k in proof for k in fields) and all(re.fullmatch('[0-9a-f]{64}',str(proof.get(k,''))) for k in ('entry_official_sha256','entry_provider_sha256')):
+                evidence={k:proof[k] for k in fields};evidence['symbol']=r['symbol']
+                if not dates or validated_cached_entry(entry_cache.get(cache_key,{}),o,dates[0],r['symbol'],r['isin']) is None:
+                    entry_cache[cache_key]={'evidence':evidence,'evidence_sha256':cache_digest(evidence)}
             lookup[(reg.stem,r['isin'])]=proof;rows.append(proof)
+    cache_path.write_text(json.dumps(entry_cache,indent=2))
     report={'asof':asof,'observations':len(rows),'verified_entries':sum(z['entry_verified'] for z in rows),
+      'prior_entry_receipts_primary_rechecked':cache_rechecks,
       'confirmed_early_2x':sum(z['confirmed_early_2x'] for z in rows),'independent_mature_outcomes':sum(z['independent_outcome_verified'] for z in rows),'records':rows}
     raw=json.dumps(report,sort_keys=True,indent=2).encode();path=out/(asof+'_audit.json');path.write_bytes(raw)
     audit_sha=hashlib.sha256(raw).hexdigest()

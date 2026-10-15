@@ -120,6 +120,9 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
     from v13_frozen_integrity import FrozenGuard
     guard=FrozenGuard(root)
     try:
+        if not local:
+            from v13_history_integrity import recover_from_seed
+            report['steps']['entry_history_recovery']=recover_from_seed(root,seed.parent/'v13_evidence_seed/entry_history_recovery.json')
         asof,official,errors=last_completed_session(root,day);report['asof']=asof;report['steps']['official']=official
         # Every completed phase is checkpointed. Interrupted work resumes from
         # accepted filing versions and the public-history age queue.

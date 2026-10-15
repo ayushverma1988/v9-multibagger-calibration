@@ -251,7 +251,12 @@ def collect_histories(root,asof,budget=800):
         symbol=r['nse_current_symbol'];isin=r['isin']
         url='https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol+'.NS',safe='')+f'?interval=1d&period1={int(low.tz_localize("Asia/Kolkata").timestamp())}&period2={int((high+pd.Timedelta(days=1)).tz_localize("Asia/Kolkata").timestamp())}&events=div%2Csplits'
         try:
-            raw,receipt=store.get(url);d,info=parse_chart(raw,symbol,isin,asof,receipt);d.to_parquet(folder/(sha(symbol.encode())+'.parquet'),index=False)
+            raw,receipt=store.get(url);d,info=parse_chart(raw,symbol,isin,asof,receipt)
+            path=folder/(sha(symbol.encode())+'.parquet')
+            if path.exists():
+                from v13_history_integrity import validate_refresh
+                validate_refresh(pd.read_parquet(path),d,asof,symbol,isin)
+            d.to_parquet(path,index=False)
             return {'info':info}
         except Exception as e:return {'error':str(e)[:160]}
     from v13_parallel_collection import bounded_map
