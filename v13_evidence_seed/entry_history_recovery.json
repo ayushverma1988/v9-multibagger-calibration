@@ -1,0 +1,5 @@
+{
+  "snapshot": "20261014T204020Z_446a80457139",
+  "manifest_sha256": "446a80457139a6b1b4f5cc0bc589ce2d363782a3dde7bcae0fc1d83cef6efef4",
+  "purpose": "Restore only source-bound verified entry receipts and lost accepted history; never forecasts, heads or outcome certifications"
+}

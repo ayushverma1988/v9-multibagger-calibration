@@ -21,7 +21,9 @@ TAGS={
  'eps_diluted_continuing':(['DilutedEarningsLossPerShareFromContinuingOperations'],'INR/SHARES','duration'),
  'paidup_equity_capital':(['PaidUpValueOfEquityShareCapital'],'INR','either'),
  'face_value':(['FaceValueOfEquityShareCapital'],'INR/SHARES','either'),
- 'weighted_diluted_shares':(['WeightedAverageNumberOfDilutedSharesOutstanding','WeightedAverageNumberOfEquitySharesOutstandingDiluted'],'SHARES','duration')}
+ 'weighted_diluted_shares':(['WeightedAverageNumberOfDilutedSharesOutstanding','WeightedAverageNumberOfEquitySharesOutstandingDiluted'],'SHARES','duration'),
+ 'pat_owners':(['ProfitOrLossAttributableToOwnersOfParent','ProfitLossForPeriodAttributableToOwnersOfParent','ProfitLossAttributableToOwnersOfParent'],'INR','duration'),
+ 'pat_noncontrolling':(['ProfitOrLossAttributableToNonControllingInterests','ProfitLossForPeriodAttributableToNonControllingInterests','ProfitLossAttributableToNonControllingInterests'],'INR','duration')}
 TAGS={**{k:(v,'INR','instant' if k in INSTANT else 'duration') for k,v in FACT_TAGS.items()},**TAGS}
 
 def unit_types(root):
@@ -36,8 +38,8 @@ def unit_types(root):
             if parts=={'unitNumerator':['INR'],'unitDenominator':['SHARES']}:result[e.get('id')]='INR/SHARES'
     return result
 
-def parse_extra(raw,record,asof):
-    _,identity=exact_facts(raw,record,asof)
+def parse_extra(raw,record,asof,include_ytd=False):
+    _,identity=exact_facts(raw,record,asof,allow_empty=include_ytd)
     root=ET.fromstring(raw);ctx=context_map(root);dims=dimensional_contexts(root);units=unit_types(root)
     bad=set(identity['contexts_with_conflicting_economic_dates_rejected'])
     # Original accepted legacy contexts can be reconstructed only from explicit
@@ -62,7 +64,7 @@ def parse_extra(raw,record,asof):
             period=pd.Timestamp(c['end']);start=pd.Timestamp(c.get('start') or c['end']);days=c.get('duration')
             if not low<=start<=period<=end:continue
             kind='instant' if days is None else 'annual' if 330<=days<=400 else 'quarter' if 60<=days<=120 else 'ytd'
-            if kind=='ytd' or (kind_rule=='instant' and kind!='instant') or (kind_rule=='duration' and kind=='instant'):continue
+            if (kind=='ytd' and not (include_ytd and days is not None and 150<=days<=310)) or (kind_rule=='instant' and kind!='instant') or (kind_rule=='duration' and kind=='instant'):continue
             if metric=='cfo' and kind!='annual':continue
             row={'metric':metric,'value':v,'unit':unit,'tag':local(e.tag),'period_start':str(start.date()),'period_end':str(period.date()),'period_kind':kind,'context':ref,**identity}
             choices.setdefault((metric,str(period.date()),kind),[]).append(row)

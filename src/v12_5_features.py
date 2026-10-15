@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-FINANCIAL=('sales_yoy_previous_quarter','sales_growth_acceleration','pat_growth_acceleration',
+FINANCIAL=('sales_yoy_previous_quarter','sales_growth_acceleration','pat_growth_acceleration','owner_PAT_yoy','owner_PAT_margin',
  'pat_margin_yoy_change','reported_diluted_EPS_yoy_same_document','annual_cash_conversion_change',
  'accruals_to_average_assets','annual_EBIT_proxy_interest_coverage','annual_ROCE_proxy',
  'incremental_ROCE_proxy','reported_share_count_yoy','exceptional_items_to_abs_PBT',
@@ -27,6 +27,20 @@ def number(row,key):
 
 def ratio(a,b):return a/b if np.isfinite(a) and np.isfinite(b) and b>0 else np.nan
 def growth(a,b):return ratio(a,b)-1
+
+def owner_profit_status(row):
+    owner=number(row,'pat_owners');minority=number(row,'pat_noncontrolling');total=number(row,'pat')
+    if not all(np.isfinite(x) for x in (owner,minority,total)):
+        return 'UNKNOWN_MISSING_OWNER_MINORITY_OR_TOTAL_PAT'
+    if not np.isclose(owner+minority,total,rtol=1e-8,atol=1.):
+        return 'UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT'
+    return 'ORIGINAL_OWNER_MINORITY_TOTAL_PAT_RECONCILED_NOT_RECURRING_EPS'
+
+def owner_pat(row):
+    # Some original filings put zero in both owner/minority fields alongside
+    # positive total PAT. Preserve raw facts, but never score those placeholders
+    # as verified zero owner profits or infer owner PAT by subtraction.
+    return number(row,'pat_owners') if owner_profit_status(row).startswith('ORIGINAL_') else np.nan
 
 def source_wide(base,extra):
     b=base.rename(columns={'value_INR':'value'})
@@ -68,6 +82,8 @@ def features(known,date):
     out['quarter_sales_yoy']=sales
     out['quarter_pat_yoy']=growth(number(q,'pat'),number(old,'pat'))
     out['quarter_pat_margin']=ratio(number(q,'pat'),number(q,'revenue'))
+    out['owner_PAT_yoy']=growth(owner_pat(q),owner_pat(old))
+    out['owner_PAT_margin']=ratio(owner_pat(q),number(q,'revenue'))
     quarters=[pick(d,'quarter',period-pd.offsets.MonthEnd(k)) for k in [0,3,6,9]]
     profits=[number(z,'pat') for z in quarters]
     if all(np.isfinite(v) for v in profits):out['four_profitable_quarters']=float(all(v>0 for v in profits))

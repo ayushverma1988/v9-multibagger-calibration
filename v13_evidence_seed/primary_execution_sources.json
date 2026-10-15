@@ -1,0 +1,421 @@
+[
+  {
+    "isin": "INE024001021",
+    "symbol": "AEROFLEX",
+    "issuer_name": "AEROFLEX INDUSTRIES LIMITED",
+    "attachment_url": "https://www.aeroflexindia.com/uploads/topics/b8e99b18-1e9e-461a-b62c-623d3023bc68.pdf",
+    "source_sha256": "d3f5d06dba4880d43618890f7bf8906c255e5b62af8dfecf2d2a081257914cca",
+    "document_date": "2026-07-01",
+    "published_at_utc": null,
+    "commissioned": true,
+    "capacity_units_per_year": 9000,
+    "utilisation_pct": null,
+    "firm_order": null,
+    "order_id": null,
+    "order_value_INR": null,
+    "order_due": null,
+    "expected_margin_pct": null,
+    "funding_sufficient": null,
+    "approval_completed": null,
+    "material_dilution_pct": null,
+    "field_excerpts": {
+      "commissioned": "has commenced production at the enhanced capacity.",
+      "capacity_units_per_year": "from 6,000 pieces per annum to 9,000 pieces per annum"
+    },
+    "review_note": "The notice reports 1,040 units sold in Q1 FY2026-27. Sales are not production utilisation. Later commissioning plans and future profit remain unknown. Unknown publication time uses actual first retrieval, not the printed document date."
+  },
+  {
+    "isin": "INE05C901015",
+    "symbol": "JNPR",
+    "issuer_name": "Juniper Green Energy Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/JGEL2025_12102026212707_2026_10_12-_Reg_30-_JGEL_Commissiong_5_MW_Wind.pdf",
+    "source_sha256": "5f820375f1a8a46b98a05e85444b0f407215f300b7ccffd4562e24cceca0a74e",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T15:57:27+00:00",
+    "commissioned": true,
+    "capacity_quantity": 5,
+    "capacity_unit": "MW",
+    "execution_stage": "CERTIFICATE_PENDING",
+    "field_excerpts": {
+      "commissioned": "has fully commissioned its 150 MW Wind Solar Hybrid Power Project",
+      "capacity_quantity": "commissioning of final 5 MW wind turbine at the project site today i.e. October 12, 2026.",
+      "capacity_unit": "commissioning of final 5 MW wind turbine",
+      "execution_stage": "the formal certificate is expected to be issued shortly."
+    },
+    "review_note": "Final 5 MW commissioned physically within the 150 MW project; do not count 150 MW as an incremental addition. Formal certificate, margins, funding, utilisation and incremental profits remain unknown."
+  },
+  {
+    "isin": "INE267I01010",
+    "symbol": "ARSSINFRA",
+    "issuer_name": "ARSS Infrastructure Projects Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ARSSINFRA_12102026184613_work_order_12102026.pdf",
+    "source_sha256": "ef00d831b39b0c8f483be280d751cd2ad080a9202e1040e7e72ddc91cb16cf3b",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T13:16:22+00:00",
+    "firm_order": true,
+    "order_id": "29171/WE",
+    "order_value_INR": 226655719,
+    "order_duration_months": 8,
+    "order_due": null,
+    "order_start_date": null,
+    "field_excerpts": {
+      "firm_order": "we have received a work order of Rs. 22,66,55,719",
+      "order_id": "No. 29171/WE dated 12.08.2026",
+      "order_value_INR": "we have received a work order of Rs. 22,66,55,719",
+      "order_duration_months": "8 Months"
+    },
+    "review_note": "Stated contract duration is eight months; the start date is not specified, so an absolute twelve-month due date is not certified. Orders are not recognised revenue or profit. Margin, funding and approvals remain unknown."
+  },
+  {
+    "isin": "INE245A01013",
+    "symbol": "TATAPOWER",
+    "issuer_name": "Tata Power Company Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/KSTPCL_12102026102915_PR12102026.pdf",
+    "source_sha256": "f7487ca5c247e86a9b1f95852fb7767d17e4c6a47133fb99d55bdb8fd5a1196d",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T05:00:11+00:00",
+    "commissioned": true,
+    "capacity_quantity": 419,
+    "capacity_unit": "MW",
+    "execution_stage": "REPORTED_SUBSIDIARY_PERIOD_COMMISSIONING",
+    "field_excerpts": {
+      "commissioned": "the company successfully commissioned several key projects",
+      "capacity_quantity": "commissioning 419 MW of utility -scale projects",
+      "capacity_unit": "commissioning 419 MW of utility -scale projects",
+      "execution_stage": "delivered a strong execution performance in Q2 FY27"
+    },
+    "review_note": "Subsidiary TPREL reported period commissioning. Own assets and third-party execution must be separated before projecting attributable earnings. Future H2 projects remain plans. Funding, margins and incremental profits unknown."
+  },
+  {
+    "isin": "INE1QJA01015",
+    "symbol": "SWASTIKAIN",
+    "issuer_name": "Swastika Infra Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/SWASTIKAINFRA_07102026102824_Disclosure_of_Order_win.pdf",
+    "source_sha256": "5c70f0aac068ba5cdbd32b2f4afd6ac3196d51f6336007f26545ebd5acf65125",
+    "document_date": "2026-10-07",
+    "published_at_utc": "2026-10-07T04:59:06+00:00",
+    "firm_order": true,
+    "order_value_INR": 6157600000,
+    "order_duration_months": 24,
+    "order_tax_inclusive": true,
+    "field_excerpts": {
+      "firm_order": "our company has received a Letter of Award (LOA)",
+      "order_value_INR": "an aggregate order value of ₹615.76 crore (including taxes).",
+      "order_duration_months": "24 months from the date of LOA",
+      "order_tax_inclusive": "(including taxes)"
+    },
+    "review_note": "Received tax-inclusive LOA spans 24 months, not a fully executable twelve-month order. LOA start date, phased twelve-month value, margins, sufficient funding and incremental profit unknown. Tax-inclusive consideration is not recognised revenue."
+  },
+  {
+    "isin": "INE418L01021",
+    "symbol": "NAZARA",
+    "issuer_name": "Nazara Technologies Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/NAZARA_12102026184557_BMOutcomeFinal.pdf",
+    "source_sha256": "f8af6246b57b82d938ae48abbcc79456a502e2b667275869be8880c73aa35655",
+    "document_date": "2026-10-12",
+    "published_at_utc": "2026-10-12T13:16:42+00:00",
+    "issued_shares_before": 384696024,
+    "issued_shares_after": 408577735,
+    "new_shares_allotted": 23881711,
+    "execution_stage": "ALLOTTED_LISTING_TRADING_APPROVAL_PENDING",
+    "field_excerpts": {
+      "issued_shares_before": "comprising 38,46,96,024 equity shares",
+      "issued_shares_after": "comprising 40,85,77,735 equity shares",
+      "new_shares_allotted": "the Board has approved the allotment of 2,38,81,711 fully paid-up Equity Shares",
+      "execution_stage": "to obtain listing and trading approvals in respect of the equity shares allotted"
+    },
+    "review_note": "Original notice reconciles preferential allotment and issued capital. Derived share-count growth and ownership dilution are arithmetic, not a split/bonus provider adjustment or weighted diluted EPS. Listing/trading approval remains pending; planned subsidiary funding does not prove secured funds or acquisition profit."
+  },
+  {
+    "isin": "INE614G01033",
+    "symbol": "RPOWER",
+    "issuer_name": "Reliance Power Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/RPOWER_13102026222340_RPower_Disclosure_Reg_30_Seizure.pdf",
+    "source_sha256": "f3ad4af7d2d0587bfb251358aab831d13a18c7079997fbc82a788d2c7979f8b0",
+    "document_date": "2026-10-13",
+    "published_at_utc": "2026-10-13T16:54:56+00:00",
+    "risk_event_type": "REGULATORY_SEIZURE_NOT_BUSINESS_ORDER",
+    "risk_status": "PROVISIONAL_IMPLICATIONS_UNKNOWN",
+    "risk_shares_amount_INR": 20266500000,
+    "risk_bank_balances_INR": 61600000,
+    "field_excerpts": {
+      "risk_event_type": "Order of Seizure",
+      "risk_status": "The seizure is provisional",
+      "risk_shares_amount_INR": "Rs. 2026.65 crore",
+      "risk_bank_balances_INR": "Rs. 6.16 crore"
+    },
+    "review_note": "Disputed allegations and provisional seizure are not a contract, revenue, forecast accounting loss or confirmed price loss. Financial implications remain unknown."
+  },
+  {
+    "isin": "INE898S01029",
+    "symbol": "AURUM",
+    "issuer_name": "Aurum PropTech Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/AURUM_13102026232106_AllotmentofWarrants13102026.pdf",
+    "source_sha256": "4ae5ad8dc22433c871b84a3d544363dee5b3413e1d81494249e71851346f1fb7",
+    "document_date": "2026-10-13",
+    "published_at_utc": "2026-10-13T17:51:20+00:00",
+    "warrants_allotted": 5100000,
+    "warrant_conversion_ratio": 1,
+    "warrant_exercise_months": 18,
+    "warrant_subscription_total_INR": 1180247100,
+    "warrant_subscription_received_INR": 295061775,
+    "field_excerpts": {
+      "warrants_allotted": "allotted 51,00,000",
+      "warrant_conversion_ratio": "1 (one)",
+      "warrant_exercise_months": "18 (eighteen) months",
+      "warrant_subscription_total_INR": "INR 1,18,02,47,100",
+      "warrant_subscription_received_INR": "INR 29,50,61,775"
+    },
+    "review_note": "Remaining proceeds depend on exercise. Warrants are not issued equity. Conversion date, comparable diluted denominator, project funding sufficiency and profit remain unknown."
+  },
+  {
+    "isin": "INE622W01025",
+    "symbol": "ACMESOLAR",
+    "issuer_name": "ACME Solar Holdings Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ACMECS_01102026001038_IntimationSigmaUrja.pdf",
+    "source_sha256": "9e77c069f054ebadb0b15886c88817aede0c123cc9520a39df42f5feada61ae0",
+    "document_date": "2026-09-30",
+    "published_at_utc": "2026-09-30T18:43:46+00:00",
+    "commissioned": true,
+    "capacity_quantity": 53.73,
+    "capacity_unit": "MW",
+    "execution_stage": "BESS_PHASE_ONLY_COMMERCIAL_OPERATION_UNVERIFIED",
+    "field_excerpts": {
+      "commissioned": "has commissioned",
+      "capacity_quantity": "53.73 MW/222.969 MWh",
+      "capacity_unit": "53.73 MW/222.969 MWh",
+      "execution_stage": "only the BESS component"
+    },
+    "review_note": "Renewable generation remains under development. Future COD is not verified commercial operation. Full project size, utilisation, margins, funding, approvals and profit are not inferred from the commissioned battery phase."
+  },
+  {
+    "symbol": "AEROFLEX",
+    "isin": "INE024001021",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/AEROFLEXINDIA_14102026112656_outcomesigned.pdf",
+    "issuer_name": "Aeroflex Industries Limited",
+    "source_sha256": "4fd5e50a56c75aff835f63fb193b4e1c4a1cbd384fdf24aae00dad7f29db01f5",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:57:07+00:00",
+    "project_id": "SS Hose & Braiding Division",
+    "physical_capacity_completed": true,
+    "capacity_quantity": 20000000,
+    "capacity_unit": "METERS_PER_ANNUM",
+    "field_excerpts": {
+      "project_id": "SS Hose & Braiding Division",
+      "physical_capacity_completed": "successfully completed capacity enhancement",
+      "capacity_quantity": "20 million meters per annum",
+      "capacity_unit": "meters per annum"
+    },
+    "review_note": "Completed physical capacity 20m metres/year. Planned 30m by March 2028, projected financing and future profits are not completed or secured facts."
+  },
+  {
+    "symbol": "AEROFLEX",
+    "isin": "INE024001021",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/AEROFLEXINDIA_14102026112656_outcomesigned.pdf",
+    "issuer_name": "Aeroflex Industries Limited",
+    "source_sha256": "4fd5e50a56c75aff835f63fb193b4e1c4a1cbd384fdf24aae00dad7f29db01f5",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:57:07+00:00",
+    "project_id": "liquid cooling SFN Skid Assemblies",
+    "physical_capacity_completed": true,
+    "capacity_quantity": 12000,
+    "capacity_unit": "PIECES_PER_ANNUM",
+    "field_excerpts": {
+      "project_id": "liquid cooling SFN Skid Assemblies",
+      "physical_capacity_completed": "successfully completed capacity enhancement",
+      "capacity_quantity": "12,000 pieces per annum",
+      "capacity_unit": "pieces per annum"
+    },
+    "review_note": "Current completed 12000 pieces/year. Additional 3000 by December and further 30000 by March 2028 are future plans; production/utilisation on the new capacity, project margins, secured funding and operating approvals remain unknown."
+  },
+  {
+    "symbol": "RAILTEL",
+    "isin": "INE0DD101019",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/RAILTEL_14102026110115_Railtel_Order_Book_Company_Rep_141026__1_.pdf",
+    "issuer_name": "RailTel Corporation of India Ltd",
+    "source_sha256": "0a96e98505d3e457d65915ad1a198a6581613b37c8101a991ce2b71c0502a755",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:31:26+00:00",
+    "firm_order": true,
+    "order_value_INR": 1971777622,
+    "order_due": "2031-03-31",
+    "order_tax_inclusive": false,
+    "order_economic_basis": "CUSTOMER_REVENUE_CONTRACT",
+    "field_excerpts": {
+      "firm_order": "has received the Purchase Order from State Bank Of India.",
+      "order_value_INR": "Rs. 1,97,17,77,622/-",
+      "order_due": "01-04-2026 to 31- 03-2031",
+      "order_tax_inclusive": "(Excluding Tax)",
+      "order_economic_basis": "Continuation of MPLS Links to SBI"
+    },
+    "review_note": "Five-year service purchase order. No twelve-month allocation or margin is certified; the full amount must not be counted as revenue executable within twelve months."
+  },
+  {
+    "symbol": "NAVKARCORP",
+    "isin": "INE278M01019",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/NAVKARCORP_14102026110519_Intimationsignedfinal.pdf",
+    "issuer_name": "Navkar Corporation Limited",
+    "source_sha256": "13f3614ca5ca3f948a1aed9d9a9a09689fe84239b12e423e5dc464b513b0bf41",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T05:36:49+00:00",
+    "firm_order": true,
+    "order_value_INR": 480000000,
+    "order_duration_months": 18,
+    "order_economic_basis": "CONCESSION_OR_PROJECT_INVESTMENT",
+    "field_excerpts": {
+      "firm_order": "has received Letter of Acceptance",
+      "order_value_INR": "Rs.48,00,00,000/-",
+      "order_duration_months": "eighteen (18) months",
+      "order_economic_basis": "Contract for Construction & Operation of Gati Shakti Multi-Modal Cargo Terminal"
+    },
+    "review_note": "18 months starts after construction approval or land handover, whichever later; dates unknown. Concession/project consideration is not certified twelve-month customer revenue or profit."
+  },
+  {
+    "symbol": "EIEL",
+    "isin": "INE0LLY01014",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ENVIRO_14102026170948_Intimation_Arie_Energy_228_Cr.pdf",
+    "issuer_name": "Enviro Infra Engineers Limited",
+    "source_sha256": "9eca3c6dcafbc45cd8adb855a8f8633ac38f8c8e5a3b01e95ed4955d456878ed",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T11:44:55+00:00",
+    "project_id": "Ajani Wind Power Project",
+    "firm_order": false,
+    "order_value_INR": 2280000000,
+    "order_tax_inclusive": false,
+    "order_due": "2027-07-31",
+    "execution_stage": "LETTER_OF_INTENT_NOT_FIRM_CONTRACT",
+    "field_excerpts": {
+      "project_id": "Ajani Wind Power Project",
+      "firm_order": "has received a Letter of Intent (LOI)",
+      "order_value_INR": "₹ 228.00 Crores",
+      "order_tax_inclusive": "(excluding GST)",
+      "order_due": "31st July, 2027",
+      "execution_stage": "Letter of Intent (LOI)"
+    },
+    "review_note": "Step-down subsidiary LOI with a stated July 2027 schedule. Binding execution, attributable ownership/profits, margin, funding and approvals remain unknown; LOI not promoted to a firm contract."
+  },
+  {
+    "symbol": "HECPROJECT",
+    "isin": "INE558R01013",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/HECPROJECT_14102026174819_wo_cesc.pdf",
+    "issuer_name": "HEC Infra Projects Limited",
+    "source_sha256": "80880f7ba9d8f68ec363d72eb1a186fecdf7aadc55ac6559de6130c00fe59ed8",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T12:18:42+00:00",
+    "firm_order": true,
+    "order_value_INR": 67500000,
+    "order_duration_months": 6,
+    "field_excerpts": {
+      "firm_order": "had received Workorder",
+      "order_value_INR": "Rs.6.75 crores",
+      "order_duration_months": "6 months"
+    },
+    "review_note": "Six-month duration, but an original contract start/order ID, absolute completion date, tax basis, margin, funding and approvals are not established."
+  },
+  {
+    "symbol": "EMMVEE",
+    "isin": "INE1C6T01020",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/EMMVEE_14102026191431_EPPL_Press_Release_September_2026.pdf",
+    "issuer_name": "Emmvee Photovoltaic Power Limited",
+    "source_sha256": "3398cf1c7c4011518c62ddc377ee254e88e99503eb8a8336b589f95554a8c787",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T13:45:21+00:00",
+    "project_id": "solar cells",
+    "capacity_quantity": 2.94,
+    "capacity_unit": "GW",
+    "capacity_basis": "ANNUAL_NAMEPLATE",
+    "utilisation_pct": 89,
+    "utilisation_scope": "PROJECT_ONLY",
+    "utilisation_period_end": "2026-09-30",
+    "field_excerpts": {
+      "project_id": "solar cells",
+      "capacity_quantity": "2.94 GW in TOPCon solar cells",
+      "capacity_unit": "2.94 GW in TOPCon solar cells",
+      "capacity_basis": "installed annual capacity",
+      "utilisation_pct": "89% for solar cells",
+      "utilisation_scope": "for solar cells",
+      "utilisation_period_end": "30 September 2026"
+    },
+    "review_note": "Existing annual nameplate and Q2 project-specific utilisation; project percentages not collapsed into issuer-wide utilisation. Future 6 GW commissioning and future financing/earnings are not certified."
+  },
+  {
+    "symbol": "EMMVEE",
+    "isin": "INE1C6T01020",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/EMMVEE_14102026191431_EPPL_Press_Release_September_2026.pdf",
+    "issuer_name": "Emmvee Photovoltaic Power Limited",
+    "source_sha256": "3398cf1c7c4011518c62ddc377ee254e88e99503eb8a8336b589f95554a8c787",
+    "document_date": "2026-10-14",
+    "published_at_utc": "2026-10-14T13:45:21+00:00",
+    "project_id": "modules",
+    "capacity_quantity": 10.3,
+    "capacity_unit": "GW",
+    "capacity_basis": "ANNUAL_NAMEPLATE",
+    "utilisation_pct": 44,
+    "utilisation_scope": "PROJECT_ONLY",
+    "utilisation_period_end": "2026-09-30",
+    "field_excerpts": {
+      "project_id": "modules",
+      "capacity_quantity": "10.3 GW in modules",
+      "capacity_unit": "10.3 GW in modules",
+      "capacity_basis": "installed annual capacity",
+      "utilisation_pct": "44% for modules",
+      "utilisation_scope": "for modules",
+      "utilisation_period_end": "30 September 2026"
+    },
+    "review_note": "Existing annual nameplate and Q2 project-specific utilisation; project percentages not collapsed into issuer-wide utilisation. Future 6 GW commissioning and future financing/earnings are not certified."
+  },
+  {
+    "isin": "INE048G01018",
+    "symbol": "NAVINFLUOR",
+    "issuer_name": "Navin Fluorine International Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/NAVINFLUOR_29092026153201_Intimationreg30.pdf",
+    "source_sha256": "8bbf3e0697418395b9413281fbd71241978c839795e034f621c1edf1a07e344d",
+    "document_date": "2026-09-29",
+    "published_at_utc": "2026-09-29T10:02:17+00:00",
+    "project_id": "Multi Purpose Plant facility at Dahej site",
+    "commissioned": true,
+    "commercial_operation_verified": true,
+    "field_excerpts": {
+      "project_id": "Multi Purpose Plant facility at Dahej site",
+      "commissioned": "has successfully commissioned the debottlenecking capacity",
+      "commercial_operation_verified": "commercial production and dispatch of the product commencing from today."
+    },
+    "review_note": "Commercial start reported 29 September; review is first observed on actual installation, never backdated into older cohorts. Prior board-approved capex of INR75 crore is not secured-funding proof. Incremental capacity, utilisation, margin, all operating approvals and future owner earnings remain unknown."
+  },
+  {
+    "isin": "INE0H9P01028",
+    "symbol": "ARIS",
+    "issuer_name": "Arisinfra Solutions Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ARISINFRA2024_29092026155827_Exchange_Intimation_Order_AUPL_-.pdf",
+    "source_sha256": "e40a07f98b37ec1fb666f09a6c44e137c5c663411f3c1d332196ba6252f661e7",
+    "document_date": "2026-09-29",
+    "published_at_utc": "2026-09-29T10:29:34+00:00",
+    "project_id": "Transcon UNO",
+    "firm_order": true,
+    "order_duration_months": 18,
+    "order_start_date": "2026-09-29",
+    "field_excerpts": {
+      "project_id": "Transcon UNO",
+      "firm_order": "A Service Order has been received by",
+      "order_duration_months": "for an initial term of 18 months, extendable by mutual consent.",
+      "order_start_date": "The engagement commences September 29, 2026, for an initial term of 18 months, extendable by mutual consent."
+    },
+    "review_note": "INR400 crore is project GDV, NOT contract fees, ARIS revenue or profit; deliberately no order_value_INR. Extendable 18-month engagement does not prove a twelve-month allocation. Margin, funding, approvals, recurring attributable earnings and fixed due date remain unknown."
+  },
+  {
+    "isin": "INE299N01021",
+    "symbol": "WAAREERTL",
+    "issuer_name": "Waaree Renewable Technologies Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/WAAREERTL_28092026183112_Intimation-s.pdf",
+    "source_sha256": "8ce6be0be6c6d7a3afb335759b611a15b6cf9570611fef6a9f9a5717a29d6ec5",
+    "document_date": "2026-09-28",
+    "published_at_utc": "2026-09-28T13:01:31+00:00",
+    "project_id": "2012.47 MWp",
+    "firm_order": true,
+    "field_excerpts": {
+      "project_id": "2012.47 MWp",
+      "firm_order": "has received a further revised scope of work under the existing contract"
+    },
+    "review_note": "INR14.79 crore is an incremental consideration revision, NOT total award revenue or another 2012.47 MWp project. Deliberately no additive order_value_INR or commissioned capacity. FY2026-27 completion target does not prove remaining twelve-month revenue, tax basis, margin, funding or secured profit."
+  }
+]

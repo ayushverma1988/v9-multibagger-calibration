@@ -1,0 +1,9 @@
+{
+  "version": "V13-paper-research",
+  "files": {
+    "active_heads.joblib": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
+    "financial_wide.parquet": "f01f4d9997776b948951245111293652837497d6439aae82a4e6f278695af41e",
+    "universe.parquet": "6173601f758b2d511f44c0a4c37f64ae743c892ac0bddd1533fd4c390337d994",
+    "initial_predictors.parquet": "9963b073825a32fd6a37b9a245f2b534f23b904fbc9eab8fae880c874de5581f"
+  }
+}
