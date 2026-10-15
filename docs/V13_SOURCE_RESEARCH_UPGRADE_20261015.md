@@ -24,7 +24,7 @@ Engineering checks do not establish financial prediction accuracy.
    review instructions receive a new first-review clock. No EPS subtraction or
    recurring-EPS inference is allowed.
 2. Research selector: the current separately versioned available-data policy
-   uses unchanged champion probabilities and RSI strictly above 50. Exactly 50
+   uses unchanged champion probabilities and RSI strictly above 70. Exactly 70
    is excluded; RSI retains the simple rolling 14-session definition. Existing
    market/risk limits and observed seven-check or owner-earnings failures still
    exclude a row. Missing financial inputs are permitted and explicitly labelled.
@@ -39,7 +39,10 @@ Engineering checks do not establish financial prediction accuracy.
    Selection caps at 20 and may abstain. Ranked records and all-name decisions
    retain eligibility, financial tier, missing evidence, DMA status, score,
    actual registration clock, selector hash and original exact replay receipt.
-   Earlier RSI >70 snapshots and all frozen formal forecasts remain unchanged.
+   The 16 October restoration supersedes the RSI >50 preference experiment.
+   Both earlier RSI >70 and RSI >50 snapshots remain immutable. Raising RSI
+   alone does not prevent buying an extended trend; run-up diagnostics must be
+   reviewed separately before declaring an early-stage discovery model.
 3. Execution: project-level diagnostic sidecars separate UNKNOWN from FAILED,
    retain adverse updates, and distinguish EBITDA/EBIT from owner net profit.
    An order value is not recognised revenue. Existing strict execution checks

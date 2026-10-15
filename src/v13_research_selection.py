@@ -12,10 +12,11 @@ import pandas as pd
 import v13_model as model
 from v13_financial_evidence import REQUIRED,financial_quality
 
-POLICY='V13_AVAILABLE_DATA_RSI_GT50_DMA200_SOFT_RESEARCH_20261015'
+POLICY='V13_AVAILABLE_DATA_RSI_GT70_DMA200_SOFT_RESEARCH_20261016'
 WEIGHTS={'joint12_percentile':.75,'financial_input_fraction':.10,
          'complete_execution':.05,'source_supported_net_2x':.05,'within_200dma_band':.05}
 DMA_BAND=.10
+RSI_MIN=70
 
 def screen(scored):
     d=scored.copy();verified,discovery,_=model.gates(d)
@@ -32,14 +33,15 @@ def screen(scored):
       &(col('joint12')+col('loss12')).le(1+1e-12)&col('loss12').between(0,model.RISK_CEILING))
     masks={'all_fresh_scored':pd.Series(True,index=d.index),'market_and_no_observed_financial_failure':market&~known_failure}
     masks['no_observed_owner_earnings_failure']=masks['market_and_no_observed_financial_failure']&~owner_bad
-    masks['RSI_above_50']=masks['no_observed_owner_earnings_failure']&col('rsi14').gt(50)
-    masks['finite_risk_and_probabilities']=masks['RSI_above_50']&probability_ok
+    masks['RSI_above_70']=masks['no_observed_owner_earnings_failure']&col('rsi14').gt(RSI_MIN)
+    masks['finite_risk_and_probabilities']=masks['RSI_above_70']&probability_ok
     eligible=masks['finite_risk_and_probabilities']
     dma=col('distance_ma200');dma_known=np.isfinite(dma)&dma.gt(-1)
     within=dma_known&dma.abs().le(DMA_BAND+1e-12)
     execution=d.get('evidence_status',pd.Series('',index=d.index)).eq('FINANCIAL_AND_EXECUTION_SUPPORTED')
     valuation=d.get('earnings_scenario_status',pd.Series('',index=d.index)).eq('SCENARIO_NOT_PROBABILITY')&col('scenario_net_multiple').ge(2)
     d['research_eligible']=eligible
+    d['research_prior_return63']=np.expm1(col('log_ret63'))
     d['research_financial_input_fraction']=np.isfinite(financial).mean(axis=1)
     d['research_financial_tier']=np.where(known_failure,'OBSERVED_FINANCIAL_FAILURE',
       np.where(complete,'PASS_AVAILABLE_SEVEN_CHECKS','INCOMPLETE_FINANCIAL_INPUTS'))
@@ -60,7 +62,7 @@ def screen(scored):
     d['research_owner_evidence']=np.where(col('owner_PAT_yoy').ge(0)&col('owner_PAT_margin').gt(0),
       'OWNER_PAT_GROWTH_AND_MARGIN_OBSERVED_NOT_RECURRING_EPS','UNKNOWN_OWNER_PAT_GROWTH_OR_MARGIN')
     reasons={'MARKET_OR_EXISTING_FINANCIAL_GATE':~market,'OBSERVED_FINANCIAL_FAILURE':known_failure,
-      'OBSERVED_OWNER_EARNINGS_FAILURE_OR_CONFLICT':owner_bad,'RSI_NOT_STRICTLY_ABOVE_50':~col('rsi14').gt(50),
+      'OBSERVED_OWNER_EARNINGS_FAILURE_OR_CONFLICT':owner_bad,'RSI_NOT_STRICTLY_ABOVE_70':~col('rsi14').gt(RSI_MIN),
       'INVALID_PROBABILITIES_OR_RISK_LIMIT':~probability_ok}
     d['research_exclusion_reasons']=[json.dumps([k for k,v in reasons.items() if v.loc[i]]) for i in d.index]
     counts={k:int(v.sum()) for k,v in masks.items()}
@@ -68,7 +70,7 @@ def screen(scored):
       eligible_incomplete_financial=int((eligible&~complete).sum()),eligible_within_200dma_band=int((eligible&within).sum()),
       selected_within_200dma_band=int((d.research_selected&within).sum()),eligible_unknown_200dma=int((eligible&~dma_known).sum()),
       strict_complete_execution=int((eligible&execution).sum()),strict_net_2x=int((eligible&execution&valuation).sum()))
-    return d,{'policy':POLICY,'RSI_definition':'simple rolling 14 session gains/losses; strict >50',
+    return d,{'policy':POLICY,'RSI_definition':'simple rolling 14 session gains/losses; strict >70',
       'DMA_definition':'adjusted close / trailing 200-observation adjusted-close mean - 1; inclusive +/-10%; optional bonus only',
       'ranking_weights':WEIGHTS.copy(),'ranking_score_is_probability':False,'weights_fitted_to_outcomes':False,
       'gate_counts':counts,'accuracy_approved':False,'formal_selection_changed':False,

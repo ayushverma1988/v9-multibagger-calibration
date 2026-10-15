@@ -63,9 +63,9 @@ class SourceResearchUpgrade(unittest.TestCase):
         r={'date':pd.Timestamp('2026-10-15'),'isin':'INE000000001','symbol':'A','close':100.,'distance_ma50':.1,
           'log_ret63':.1,'quarter_sales_yoy':.1,'quarter_pat_yoy':.1,'quarter_pat_margin':.1,
           'annual_CFO_PAT':1.,'dated_debt_equity':.2,'annual_EBIT_proxy_interest_coverage':2.,'four_profitable_quarters':1,
-          'financial_quality_pass':True,'rsi14':50.0001,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
+          'financial_quality_pass':True,'rsi14':70.0001,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
           'evidence_status':'MISSING_FINANCIAL_OR_EXECUTION','scenario_net_multiple':np.nan}
-        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':50.},
+        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':70.},
           {**r,'isin':'INE000000003','symbol':'C','annual_CFO_PAT':.1}])
 
     def test_research_rsi_boundary_failures_and_zero_strict_remain_visible(self):
