@@ -76,3 +76,5 @@ jobs:
             await github.rest.repos.createOrUpdateFileContents({...context.repo, branch: 'main', path, sha, message: 'Record V13 collector health', content: Buffer.from(JSON.stringify(health, null, 2) + '\n').toString('base64')});
 
 # Additional bounded six-area evidence pass requested 15 October 2026.
+
+# Run the existing frozen model before the requested upgrades, 15 October evening.
