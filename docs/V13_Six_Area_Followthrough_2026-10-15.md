@@ -46,7 +46,10 @@ Data and future accuracy are not declared complete by passing software tests.
    matching entry evidence. Paired evaluation requires both verified flags,
    positive matching official opens (INR0.011 tolerance) and identical valid
    primary/provider hashes. Comparison contracts and information cutoffs must
-   match. A frozen baseline must be present and equal on both sides before
+   match for eligible outcome comparisons. Actual matching registration clocks
+   remain distinct from unknown legacy information cutoffs; the latter are
+   separately flagged, never backfilled or reported as unequal registration.
+   A frozen baseline must be present and equal on both sides before
    baseline comparisons; missing entries/baselines remain unknown. These
    requirements apply to promotion too. Old missing proof is not invented or
    retroactively inserted into registered forecasts. Monthly refits remain
@@ -60,7 +63,7 @@ Data and future accuracy are not declared complete by passing software tests.
 
 ## Verification and completion boundaries
 
-Full final local suite: **538 tests passed**, Python 3.12, including the
+Full local suite: **539 tests passed**, Python 3.12, including the
 additional owner/minority accounting-identity guard. It covers missing owner
 facts despite complete total PAT/revenue, zero owner results, reporting basis,
 future publication exclusion, action retry fairness, unequal prices/source
@@ -76,7 +79,9 @@ the original owner/minority/total figures. Extraction is
 not independent verification of profitability. This is source-data evidence in an isolated
 copy, not a recalculation of old registered probabilities. All three new
 original catalyst seed records passed the source/issuer/publication/excerpt
-verifier with zero rejections in the isolated probe. Full live worker and
+verifier with zero rejections in the isolated probe. Eight complete official
+NSE raw-price sessions also downloaded and validated with zero errors.
+Full live worker and
 checkpoint/export/forecast-integrity audit are required before reporting
 deployed evidence gains.
 
@@ -96,3 +101,14 @@ For October 2026 entries these begin in April/October 2027. Promotion also
 requires six mature decision months, sample/positive/selected counts and
 independent source-complete paired and baseline evidence; it has no promised
 date. Existing schedules remain unchanged; BSE stays optional.
+
+## Additional original identity notice
+
+The original [NSE/CML/76711 circular](https://nsearchives.nseindia.com/content/circulars/CML76711.pdf),
+dated 5 October 2026, confirms BUILDPRO's new ISIN INE24OJ01029 and ex-date
+8 October 2026 for subdivision from INR10 to INR2 face value. The original was
+retrieved 15 October at 06:49:33.257117 UTC and visually reviewed; SHA-256
+`5f6586d5f0c8edafa3c24a494f6df152a5c5a1cbacde863b7134e740fbbf48e9`.
+The printed date is not an intraday publication timestamp; that timestamp
+remains unknown. This closes the missing dedicated mapping-notice item, not a
+complete holding-interval corporate-action review or an outcome certification.

@@ -103,16 +103,18 @@ def paired_readiness(observations):
         both=a.index.intersection(b.index);registered=a.index.union(b.index)
         aa=a.loc[both];bb=b.loc[both]
         from v13_pair_proof import entry_match,same_metadata,baseline_match
-        clock=aa.registered_at_utc.eq(bb.registered_at_utc)&aa.source_asof.eq(bb.source_asof)&aa.symbol.eq(bb.symbol)&same_metadata(aa,bb)
+        clock=aa.registered_at_utc.eq(bb.registered_at_utc)&aa.source_asof.eq(bb.source_asof)&aa.symbol.eq(bb.symbol)
+        metadata=same_metadata(aa,bb)
         date_entry=aa.get('entry_verified',pd.Series(False,index=aa.index)).eq(True)&bb.get('entry_verified',pd.Series(False,index=bb.index)).eq(True)&aa.get('first_entry_date',pd.Series(None,index=aa.index)).notna()&aa.get('first_entry_date',pd.Series(None,index=aa.index)).eq(bb.get('first_entry_date',pd.Series(None,index=bb.index)))
         entry=entry_match(aa,bb)
         mature=aa.twelve_month_mature.eq(True)&bb.twelve_month_mature.eq(True)&aa.independent_outcome_verified.eq(True)&bb.independent_outcome_verified.eq(True)
         baseline=baseline_match(aa,bb,12)
         rows.append({'cohort_id':cohort,'registered_stock_pairs':len(registered),'missing_partner_records':len(registered)-len(both),
           'same_clock_same_names_pairs':int(clock.sum()),'verified_same_entry_pairs':int((clock&entry).sum()),
+          'verified_matching_policy_and_information_cutoff_pairs':int((clock&metadata).sum()),
           'verified_same_entry_date_pairs':int((clock&date_entry).sum()),
           'entry_price_and_both_source_hashes_required':True,
-          'pairs_with_frozen_p12_baseline':int((clock&baseline).sum()),'independently_verified_mature_pairs':int((clock&entry&mature).sum()),
+          'pairs_with_frozen_p12_baseline':int((clock&baseline).sum()),'independently_verified_mature_pairs':int((clock&metadata&entry&mature).sum()),
           'historical_baselines_or_partners_never_retrofitted':True})
     return rows
 
@@ -134,15 +136,17 @@ def paired_evaluation_report(observations):
         from v13_pair_proof import entry_match,same_metadata,baseline_match,sides
         aa,bb=sides(q)
         entries=entry_match(aa,bb)
-        clocks=q._merge.eq('both')&q.source_asof_a.eq(q.source_asof_b)&q.registered_at_utc_a.eq(q.registered_at_utc_b)&q.symbol_a.eq(q.symbol_b)&same_metadata(aa,bb)
+        clocks=q._merge.eq('both')&q.source_asof_a.eq(q.source_asof_b)&q.registered_at_utc_a.eq(q.registered_at_utc_b)&q.symbol_a.eq(q.symbol_b)
+        metadata=same_metadata(aa,bb)
         result['cohorts'].append({'cohort_id':cohort,'registered_stock_pairs':len(q),'same_clock_same_names':bool(clocks.all()),
+          'matching_policy_and_information_cutoff_verified':bool((clocks&metadata).all()),
           'comparison_contract':q.comparison_contract_a.iloc[0] if 'comparison_contract_a' in q else 'V13_LEGACY_PAIR_20261012',
           'source_asof':q.source_asof_a.dropna().iloc[0] if q.source_asof_a.notna().any() else None,
           'registered_at_utc':q.registered_at_utc_a.dropna().iloc[0] if q.registered_at_utc_a.notna().any() else None,
           'unpaired_originals_excluded':True})
         for h in (6,12):
             yc='verified_hit2_'+str(h);m='six_month_mature' if h==6 else 'twelve_month_mature'
-            good=clocks&entries&q[m+'_a'].eq(True)&q[m+'_b'].eq(True)&q.independent_outcome_verified_a.eq(True)&q.independent_outcome_verified_b.eq(True)
+            good=clocks&metadata&entries&q[m+'_a'].eq(True)&q[m+'_b'].eq(True)&q.independent_outcome_verified_a.eq(True)&q.independent_outcome_verified_b.eq(True)
             good&=q[yc+'_a'].isin([0,1])&q[yc+'_a'].eq(q[yc+'_b'])&q.first_entry_date_a.eq(q.first_entry_date_b)
             for axis in ('financial_tier','market_regime','liquidity_tier'):
                 col=axis+'_a'

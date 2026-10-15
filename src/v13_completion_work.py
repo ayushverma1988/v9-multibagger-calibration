@@ -65,6 +65,7 @@ def completion_plan(root,report,observations):
           'owner_PAT_yoy','owner_PAT_margin','verified_recurring_diluted_EPS_growth','reported_diluted_EPS_yoy_same_document'})
         if missing:requests.append({'isin':r['isin'],'symbol':r['symbol'],'missing_fields':sorted(missing),
           'requires_compatible_original_periods_and_basis':True,'unknown_reasons':r.get('unknown_reasons',{}),
+          'owner_earnings_source_status':r.get('owner_earnings_source_status','UNKNOWN_OWNER_SOURCE_NOT_REVIEWED'),
           'cannot_infer_profitability_or_backdate_into_prior_forecasts':True})
     verified=observations[observations.get('entry_verified',pd.Series(False,index=observations.index)).eq(True)] if not observations.empty else observations
     entries=pd.to_datetime(verified['first_entry_date'],errors='coerce').dropna() if 'first_entry_date' in verified else pd.Series(dtype='datetime64[ns]')

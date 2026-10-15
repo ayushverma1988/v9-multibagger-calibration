@@ -81,6 +81,19 @@ class Followthrough(unittest.TestCase):
         b.at[0,'baseline_p12']=.2;self.assertFalse(baseline_match(a,b,12).iloc[0])
         b.at[0,'information_cutoff_utc']='2026-10-09T10:00:00Z';self.assertFalse(same_metadata(a,b).iloc[0])
 
+    def test_unknown_legacy_input_cutoff_is_not_falsely_a_registration_clock_mismatch(self):
+        from v13_research_evaluation import paired_readiness
+        a,b=self.pair();a['information_cutoff_utc']=None;b['information_cutoff_utc']=None
+        rows=[]
+        for role,q in [('champion',a),('challenger',b)]:
+            rows.append({**q.iloc[0].to_dict(),'model_role':role,'cohort_id':'old','isin':'INE000000001','symbol':'A',
+              'registered_at_utc':'2026-10-09T16:00:00Z','source_asof':'2026-10-09','twelve_month_mature':False,'independent_outcome_verified':False})
+        result=paired_readiness(pd.DataFrame(rows))[0]
+        self.assertEqual(result['same_clock_same_names_pairs'],1)
+        self.assertEqual(result['verified_matching_policy_and_information_cutoff_pairs'],0)
+        self.assertEqual(result['pairs_with_frozen_p12_baseline'],1)
+        self.assertEqual(result['independently_verified_mature_pairs'],0)
+
     def test_completion_plan_separates_queue_pass_from_evidence_and_market_time(self):
         with tempfile.TemporaryDirectory() as t:
             p=Path(t);(p/'evidence').mkdir()
