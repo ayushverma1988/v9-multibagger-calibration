@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 34d116665d1147e43f93a3bbddbb06aac5cf04da
+          ref: 62d732215f898b7826dbd1cd1d59e06bad2985a3
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -50,6 +50,13 @@ jobs:
             v13_state/prospective_metrics.json
             v13_state/paired_evaluation.json
             v13_state/financial_wide.parquet
+            v13_state/research_selection/*.json
+            v13_state/statement_eps/*.json
+            v13_state/identity/symbol_changes.json
+            v13_state/prediction_replay/**/*.json
+            v13_state/prediction_replay/**/*.parquet
+            v13_state/active_heads.joblib
+            v13_state/challenger/research_heads.joblib
             v13_state/catalogue_recovery.json
             v13_state/research_experiments_initial.json
             v13_state/evidence/*.json
@@ -78,3 +85,5 @@ jobs:
 # Additional bounded six-area evidence pass requested 15 October 2026.
 
 # Run the existing frozen model before the requested upgrades, 15 October evening.
+
+# Apply the verified source and research upgrade after posting the frozen baseline.
