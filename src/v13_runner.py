@@ -273,7 +273,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                   'champion':replay_snapshot(frame,a,root/'active_heads.joblib',root,'champion'),
                   'challenger':replay_snapshot(frame,b,challenger_model,root,'challenger')}
                 from v13_research_selection import export as export_research
-                report['separate_research_selector']=export_research(a,root)
+                report['separate_research_selector']=export_research(a,root,report['exact_prediction_replay']['champion'])
                 pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
                 export_watchlists(root,pair)
                 report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}

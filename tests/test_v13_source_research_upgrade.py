@@ -3,7 +3,7 @@ from pathlib import Path
 import joblib,numpy as np,pandas as pd
 from unittest.mock import patch
 from v13_symbol_identity import parse_changes,parse_mapped,rename_path
-from v13_research_selection import screen
+from v13_research_selection import screen,export
 from v13_prediction_replay import snapshot
 from v13_upgrade_diagnostics import scenario_horizon,execution_diagnostics
 from v13_statement_eps import validate,enrich
@@ -65,6 +65,15 @@ class SourceResearchUpgrade(unittest.TestCase):
             result=snapshot(f,scored,p,root,'champion');self.assertTrue(result['replay_verified'])
             scored.at[0,'p12']+=.0001
             with self.assertRaises(ValueError):snapshot(f,scored,p,root,'champion')
+
+    def test_zero_research_selection_still_keeps_all_names_clock_and_replay_link(self):
+        f=self.frame();f['rsi14']=np.nan;f['information_cutoff_utc']='2026-10-15T13:00:00Z'
+        with tempfile.TemporaryDirectory() as t:
+            receipt={'replay_verified':True,'rows':len(f),'input_parquet_sha256':'a'*64,'model_sha256':'b'*64}
+            export(f,t,receipt);obj=json.loads((Path(t)/'research_selection/latest.json').read_text())
+            self.assertEqual(len(obj['all_names_selection']),len(f));self.assertEqual(obj['records'],[])
+            self.assertEqual(obj['prediction_replay'],receipt);self.assertTrue(obj['registered_at_utc'])
+            self.assertEqual(obj['information_cutoffs_utc'],['2026-10-15T13:00:00Z'])
 
     def scenario(self):
         return {'horizon_months':12,'forecast_period_start':'2026-04-01','forecast_period_end':'2027-03-31',
