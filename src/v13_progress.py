@@ -1,4 +1,4 @@
-"""Measured five-area evidence coverage; no subjective completion percentages."""
+"""Measured six-area evidence coverage; no subjective completion percentages."""
 import json
 from pathlib import Path
 from datetime import datetime,timezone

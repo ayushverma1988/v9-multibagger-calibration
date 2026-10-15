@@ -185,6 +185,52 @@ def priority_queue(queue,wide,asof,budget):
     q['issuer_round']=q.groupby('symbol').cumcount()
     return q.sort_values(['last_attempt','issuer_round','recent_period','missing_period','available_at_utc','symbol'],ascending=[True,True,False,False,False,True]).head(budget)
 
+def owner_completion_queue(queue,wide,asof,budget):
+    """Reserve original-filing work for owner earnings after basic readiness.
+
+    Only pending originals are requested. Missing owner facts stay missing;
+    total PAT, a standalone result and a zero minority entry are not substituted.
+    Current and year-ago owners are prioritised, followed by the TTM quarters.
+    Nothing depends on model ranks, selections or realised outcomes.
+    """
+    if queue.empty or budget<=0:return queue.iloc[:0].copy()
+    from v13_information_clock import research_cutoffs,cutoff
+    date=pd.Timestamp(asof);low,_=bounds(asof)
+    cut=cutoff(research_cutoffs(pd.DataFrame({'date':[date]}),pd.Timestamp.now(tz='UTC')).iloc[0])
+    q=queue.copy();q['_period']=pd.to_datetime(q.period_end)
+    q=q[q['_period'].between(low,date)&pd.to_datetime(q.available_at_utc,utc=True,format='mixed').le(cut)]
+    groups={} if wide.empty else dict(tuple(wide.groupby('symbol')))
+    bundles=[]
+    for symbol,g in q.groupby('symbol'):
+        w=groups.get(symbol,pd.DataFrame())
+        if not w.empty:w=w[w.available.le(cut)&w.period.between(low,date)]
+        recent=g[g['_period'].ge(date-pd.Timedelta(days=190))]
+        observed=w[w.period_kind.eq('quarter')&(date-w.period).dt.days.between(0,190)] if not w.empty else w
+        if recent.empty and observed.empty:continue
+        anchor=observed if not observed.empty else recent
+        # Parent-attributable consolidated earnings cannot be inferred from
+        # standalone PAT. No consolidated publication means an explicit gap.
+        if not anchor.reporting_mode.eq('consolidated').any():continue
+        g=g[g.reporting_mode.eq('consolidated')]
+        if not w.empty:w=w[w.reporting_mode.eq('consolidated')]
+        endpoints=list(recent.loc[recent.reporting_mode.eq('consolidated'),'_period'])
+        if not observed.empty:endpoints.extend(observed.loc[observed.reporting_mode.eq('consolidated'),'period'])
+        if not endpoints:continue
+        latest=max(endpoints)
+        targets=[latest,latest-pd.DateOffset(years=1)]+[latest-pd.offsets.MonthEnd(k) for k in (3,6,9)]
+        missing={period:rank for rank,period in enumerate(targets) if not np.isfinite(number(pick(w,'quarter',period),'pat_owners'))} if not w.empty else dict((p,i) for i,p in enumerate(targets))
+        target=g[g['_period'].isin(missing)].copy()
+        if target.empty:continue
+        target=target.sort_values('available_at_utc',ascending=False).drop_duplicates('_period')
+        target['_owner_priority']=target['_period'].map(missing)
+        target=target.sort_values(['last_attempt','_owner_priority']).head(5)
+        bundles.append((str(target.last_attempt.min()),__import__('hashlib').sha256(symbol.encode()).hexdigest(),target))
+    chosen=[];count=0
+    for _,_,bundle in sorted(bundles,key=lambda z:z[:2]):
+        if count>=budget:break
+        selected=bundle.head(budget-count);chosen.append(selected);count+=len(selected)
+    return pd.concat(chosen,ignore_index=True).drop(columns=['_period','_owner_priority']) if chosen else queue.iloc[:0].copy()
+
 def enrich_evidence(frame,wide,root,asof):
     wide=balancing_quarters(wide)
     d=frame.copy();links=[];coverage=[];low,_=bounds(asof)

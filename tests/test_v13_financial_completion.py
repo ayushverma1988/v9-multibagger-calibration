@@ -201,6 +201,7 @@ class FinancialCompletion(unittest.TestCase):
         for role,p in [('champion',.2),('challenger',.7)]:
             for isin,known in [('INE000000001',True),('INE000000002',False)]:
                 rows.append({'cohort_id':'pair','isin':isin,'symbol':'A','model_role':role,'source_asof':'2025-01-01',
+                  'entry_verified':True,'entry_open_INR':100,'entry_official_sha256':'c'*64,'entry_provider_sha256':'d'*64,
                   'registered_at_utc':'2025-01-01T16:00:00Z','first_entry_date':'2025-01-02','p6':p,'p12':p,
                   'selected_verified':False,'selected_discovery':False,'financial_tier':'discovery','market_regime':'MIXED','liquidity_tier':'LOW',
                   'six_month_mature':True,'twelve_month_mature':True,'independent_outcome_verified':known,
@@ -216,6 +217,7 @@ class FinancialCompletion(unittest.TestCase):
     def test_policy_and_input_contracts_cannot_be_pooled_for_promotion(self):
         from v13_lifecycle import paired_observations
         base={'cohort_id':'pair','source_asof':'2025-01-01','isin':'INE000000001','registry_sha256':'r',
+          'entry_verified':True,'entry_open_INR':100,'entry_official_sha256':'c'*64,'entry_provider_sha256':'d'*64,
           'registered_at_utc':'2025-01-01T16:00:00Z','p12':.2,'selected_verified':False,'verified_hit2_12':1,
           'twelve_month_mature':True,'first_entry_date':'2025-01-02','status':'TRACKING','independent_outcome_verified':True,
           'comparison_contract':'OLD_POLICY'}

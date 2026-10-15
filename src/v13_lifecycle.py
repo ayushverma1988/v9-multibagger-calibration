@@ -99,6 +99,7 @@ def adjudicate(registry,official,history,asof,verification=None):
                 proof=verification.get((Path(registry).stem,item['isin']),{})
                 row.update({k:v for k,v in proof.items() if k in {
                   'entry_verified','independent_outcome_verified','verification_status',
+                  'entry_open_INR','entry_official_sha256','entry_provider_sha256','entry_evidence_recorded_at_utc',
                   'verified_hit2_6','verified_hit2_12','verified_loss30_12',
                   'confirmed_early_2x','confirmed_risk_event','action_audit_sha256',
                   'confirmed_price_only_2x','confirmed_price_only_loss30','outcome_target_contract',
@@ -133,12 +134,18 @@ def paired_observations(observations,challenger_sha,comparison_contract=None):
     if a.duplicated(keys).any() or b.duplicated(keys).any():raise ValueError('Duplicate paired observation')
     x=a.merge(b,on=keys,suffixes=('_a','_b'),validate='1:1')
     if x.empty:return empty
-    x=x[x.registered_at_utc_a.eq(x.registered_at_utc_b)&x.first_entry_date_a.eq(x.first_entry_date_b)&x.verified_hit2_12_a.eq(x.verified_hit2_12_b)&x.independent_outcome_verified_a&x.independent_outcome_verified_b]
+    from v13_pair_proof import entry_match,same_metadata,baseline_match,sides
+    aa,bb=sides(x)
+    valid=entry_match(aa,bb)&same_metadata(aa,bb)
+    valid&=x.registered_at_utc_a.eq(x.registered_at_utc_b)&x.verified_hit2_12_a.isin([0,1])&x.verified_hit2_12_a.eq(x.verified_hit2_12_b)&x.independent_outcome_verified_a.eq(True)&x.independent_outcome_verified_b.eq(True)
+    if 'symbol' in aa and 'symbol' in bb:valid&=aa.symbol.eq(bb.symbol)
+    baseline_ok=baseline_match(aa,bb,12)
+    x=x[valid]
     if x.empty:return empty
     return pd.DataFrame({'date':x.source_asof,'isin':x['isin'],'cohort_id':x.cohort_id,'registered_at_utc':x.registered_at_utc_b,
       'mature_at_utc':pd.to_datetime(x.first_entry_date_b,utc=True)+pd.DateOffset(months=12),
       'y':x.verified_hit2_12_b,'champion':x.p12_a,'challenger':x.p12_b,
-      'baseline':x.baseline_p12_a if 'baseline_p12_a' in x else np.nan,
+      'baseline':x.baseline_p12_a.where(baseline_ok.loc[x.index]) if 'baseline_p12_a' in x else np.nan,
       'selected_champion':x.selected_verified_a,'selected_challenger':x.selected_verified_b,
       'independent_outcome_verified':x.independent_outcome_verified_a&x.independent_outcome_verified_b,
       **{k:x[k+'_a'] if k+'_a' in x else 'UNKNOWN' for k in ('financial_tier','market_regime','liquidity_tier')}})

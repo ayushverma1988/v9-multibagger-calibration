@@ -50,6 +50,7 @@ class EvidencePairing(unittest.TestCase):
 
     def test_pair_requires_same_actual_clock_and_verified_outcome(self):
         base={'cohort_id':'x','source_asof':'2025-01-01','isin':'INE000000001','registry_sha256':'r','registered_at_utc':'2025-01-01T16:00:00Z','p12':.2,'selected_verified':False,'verified_hit2_12':1,'twelve_month_mature':True,'first_entry_date':'2025-01-02','status':'TRACKING','independent_outcome_verified':True}
+        base.update(entry_verified=True,entry_open_INR=100,entry_official_sha256='c'*64,entry_provider_sha256='d'*64)
         a={**base,'model_role':'champion','model_sha256':'a'*64};b={**base,'model_role':'challenger','model_sha256':'b'*64}
         self.assertEqual(len(paired_observations(pd.DataFrame([a,b]),'b'*64)),1)
         b['registered_at_utc']='2025-01-02T16:00:00Z';self.assertTrue(paired_observations(pd.DataFrame([a,b]),'b'*64).empty)
@@ -144,6 +145,7 @@ class EvidencePairing(unittest.TestCase):
                     stack.enter_context(patch.object(runner.collection,name,side_effect=lambda *args,name=name,**kw:phases.append(name) or {}))
                 stack.enter_context(patch.object(runner.catalyst_execution,'collect',return_value={}))
                 stack.enter_context(patch.object(runner.action_audit,'backfill',return_value={}))
+                stack.enter_context(patch('v13_completion_work.primary_history_backfill',return_value={}))
                 stack.enter_context(patch('v13_valuation_evidence.collect',return_value={}))
                 stack.enter_context(patch.object(runner,'current_frame',return_value=(f,{})))
                 stack.enter_context(patch.object(runner,'scored',side_effect=lambda heads,frame,**kw:frame))

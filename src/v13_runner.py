@@ -139,6 +139,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=120)
         report['steps']['reviewed_primary_sources']=catalyst_execution.seed_primary_reviews(root,seed.parent/'v13_evidence_seed'/'primary_execution_sources.json')
         report['steps']['entry_backfill']=action_audit.backfill(root,asof,budget=8)
+        from v13_completion_work import primary_history_backfill
+        report['steps']['primary_history_backfill']=primary_history_backfill(root,asof,budget=8)
         import v13_action_sources as action_sources
         report['steps']['action_notice_collection']=action_sources.collect(root,asof,budget=30)
         import v13_valuation_evidence as valuation_evidence
@@ -255,6 +257,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         (root/'paired_evaluation.json').write_text(json.dumps(evaluation.paired_evaluation_report(observed),indent=2))
         from v13_progress import snapshot
         snapshot(root,report,observed)
+        from v13_completion_work import completion_plan
+        completion_plan(root,report,observed)
         # Promotion requires independently verified unseen outcomes. Current
         # provider adjustment/action reconciliation is incomplete, so promotion
         # is deliberately closed rather than silently learning from guesses.

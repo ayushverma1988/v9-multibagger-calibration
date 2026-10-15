@@ -10,6 +10,13 @@ from v12_dated_source_collection import Store,sha
 from v13_parallel_collection import bounded_map
 from v11_4_primary_document_catalysts import extract_pdf
 
+def notice_queue(events,attempts,budget):
+    """Rotate failed originals so an oversized PDF cannot occupy every run."""
+    q=events.copy()
+    if q.empty:return q
+    q['_last_attempt']=q.attachment_url.map(lambda s:attempts.get(s,'0000'))
+    return q.sort_values(['_last_attempt','available_at_utc','symbol'],ascending=[True,False,True]).head(max(0,budget)).drop(columns='_last_attempt')
+
 def collect(root,asof,budget=30):
     root=Path(root);out=root/'action_audit';out.mkdir(exist_ok=True)
     paths=list((root/'sources').glob('*/events.parquet'))
@@ -24,7 +31,9 @@ def collect(root,asof,budget=30):
     e=e[e.attachment_url.str.match(r'https://nsearchives\.nseindia\.com/.*\.pdf$',case=False)].drop_duplicates(['attachment_url','available_at_utc'])
     known={(z['attachment_url'],z['available_at_utc']) for z in old}
     e=e[[(r.attachment_url,r.available_at_utc) not in known for r in e.itertuples()]]
-    queue=e.sort_values(['available_at_utc','symbol'],ascending=[False,True]).head(budget);errors=[];added=0
+    attempts_path=out/'notice_attempts.json'
+    attempts=json.loads(attempts_path.read_text()) if attempts_path.exists() else {}
+    queue=notice_queue(e,attempts,budget);errors=[];added=0
     store=Store(out/'raw'/'notices'/asof)
     def fetch(r):
         try:
@@ -36,9 +45,11 @@ def collect(root,asof,budget=30):
               'ex_date_not_inferred_from_record_date':True,'all_primary_notices_reviewed':False}}
         except Exception as exc:return {'error':str(exc)[:200]}
     for r,result in bounded_map(queue.to_dict('records'),fetch,workers=4,seconds=150):
+        attempts[r['attachment_url']]=asof
         if result.get('notice'):old.append(result['notice']);added+=1
         else:errors.append({'source_url':r['attachment_url'],'error':result['error']})
     docs_path.write_text(json.dumps(old,indent=2))
+    attempts_path.write_text(json.dumps(attempts,indent=2))
     summary={'source_asof':asof,'notices':len(old),'new_notices':added,'remaining_public_notices':len(e)-added,
       'errors':errors,'complete_intervals_certified':0,'absence_is_not_no_action_proof':True,'private_forecasts_used_in_requests':False}
     (out/'notice_collection.json').write_text(json.dumps(summary,indent=2));return summary

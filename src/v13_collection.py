@@ -282,7 +282,7 @@ def collect_financials(root,asof,budget=800):
     queue['last_attempt']=queue.version_key.map(lambda k:attempts.get(k,'0000'))
     # Complete public-cohort queue, newest disclosures first. No query uses
     # private model picks. Accepted URLs keep immutable original-byte hashes.
-    from v13_financial_evidence import priority_queue,completion_queue,balancing_quarters
+    from v13_financial_evidence import priority_queue,completion_queue,owner_completion_queue,balancing_quarters
     wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
     expected_hashes={}
     if not wide.empty:
@@ -298,13 +298,18 @@ def collect_financials(root,asof,budget=800):
     # Complete same-basis fiscal bundles, rather than granting one recent
     # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
-    expanded=balancing_quarters(wide);completion_budget=budget*3//4
+    expanded=balancing_quarters(wide)
+    owner_public=queue[queue.symbol.isin(scoreable_symbols)]
+    owner_completion=owner_completion_queue(owner_public,expanded,asof,budget//4)
+    owner_keys=set(owner_completion.version_key)
+    queue=queue[~queue.version_key.isin(owner_keys)]
+    completion_budget=budget*3//4-len(owner_completion)
     scoreable_completion=completion_queue(queue[queue.symbol.isin(scoreable_symbols)],expanded,asof,completion_budget)
     raw_completion=completion_queue(queue[queue.symbol.isin(fresh_symbols)&~queue.version_key.isin(scoreable_completion.version_key)],expanded,asof,max(0,completion_budget-len(scoreable_completion)))
     fresh_completion=pd.concat([scoreable_completion,raw_completion],ignore_index=True)
     other=queue[queue.symbol.isin(public_history_symbols)&~queue.version_key.isin(fresh_completion.version_key)]
     warm_completion=completion_queue(other,expanded,asof,max(0,completion_budget-len(fresh_completion)))
-    completion=pd.concat([fresh_completion,warm_completion],ignore_index=True)
+    completion=pd.concat([owner_completion,fresh_completion,warm_completion],ignore_index=True)
     remainder=queue[~queue.version_key.isin(completion.version_key)]
     queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
@@ -339,6 +344,7 @@ def collect_financials(root,asof,budget=800):
     attempts_path.write_text(json.dumps(attempts))
     return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
+      'reserved_owner_earnings_filings':len(owner_completion),'owner_queue_does_not_infer_recurring_EPS':True,
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,

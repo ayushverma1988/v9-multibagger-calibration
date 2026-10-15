@@ -102,12 +102,16 @@ def paired_readiness(observations):
         a=q[q.model_role.eq('champion')].set_index('isin');b=q[q.model_role.eq('challenger')].set_index('isin')
         both=a.index.intersection(b.index);registered=a.index.union(b.index)
         aa=a.loc[both];bb=b.loc[both]
-        clock=aa.registered_at_utc.eq(bb.registered_at_utc)&aa.source_asof.eq(bb.source_asof)&aa.symbol.eq(bb.symbol)
-        entry=aa.get('entry_verified',pd.Series(False,index=aa.index)).eq(True)&bb.get('entry_verified',pd.Series(False,index=bb.index)).eq(True)&aa.get('first_entry_date',pd.Series(None,index=aa.index)).eq(bb.get('first_entry_date',pd.Series(None,index=bb.index)))
+        from v13_pair_proof import entry_match,same_metadata,baseline_match
+        clock=aa.registered_at_utc.eq(bb.registered_at_utc)&aa.source_asof.eq(bb.source_asof)&aa.symbol.eq(bb.symbol)&same_metadata(aa,bb)
+        date_entry=aa.get('entry_verified',pd.Series(False,index=aa.index)).eq(True)&bb.get('entry_verified',pd.Series(False,index=bb.index)).eq(True)&aa.get('first_entry_date',pd.Series(None,index=aa.index)).notna()&aa.get('first_entry_date',pd.Series(None,index=aa.index)).eq(bb.get('first_entry_date',pd.Series(None,index=bb.index)))
+        entry=entry_match(aa,bb)
         mature=aa.twelve_month_mature.eq(True)&bb.twelve_month_mature.eq(True)&aa.independent_outcome_verified.eq(True)&bb.independent_outcome_verified.eq(True)
-        baseline=aa.baseline_p12.notna() if 'baseline_p12' in aa else pd.Series(False,index=aa.index)
+        baseline=baseline_match(aa,bb,12)
         rows.append({'cohort_id':cohort,'registered_stock_pairs':len(registered),'missing_partner_records':len(registered)-len(both),
           'same_clock_same_names_pairs':int(clock.sum()),'verified_same_entry_pairs':int((clock&entry).sum()),
+          'verified_same_entry_date_pairs':int((clock&date_entry).sum()),
+          'entry_price_and_both_source_hashes_required':True,
           'pairs_with_frozen_p12_baseline':int((clock&baseline).sum()),'independently_verified_mature_pairs':int((clock&entry&mature).sum()),
           'historical_baselines_or_partners_never_retrofitted':True})
     return rows
@@ -127,7 +131,10 @@ def paired_evaluation_report(observations):
     if a.duplicated(keys).any() or b.duplicated(keys).any():raise ValueError('Duplicate paired evaluation identity')
     joined=a.merge(b,on=keys,how='outer',suffixes=('_a','_b'),indicator=True,validate='1:1')
     for cohort,q in joined.groupby('cohort_id'):
-        clocks=q._merge.eq('both')&q.source_asof_a.eq(q.source_asof_b)&q.registered_at_utc_a.eq(q.registered_at_utc_b)&q.symbol_a.eq(q.symbol_b)
+        from v13_pair_proof import entry_match,same_metadata,baseline_match,sides
+        aa,bb=sides(q)
+        entries=entry_match(aa,bb)
+        clocks=q._merge.eq('both')&q.source_asof_a.eq(q.source_asof_b)&q.registered_at_utc_a.eq(q.registered_at_utc_b)&q.symbol_a.eq(q.symbol_b)&same_metadata(aa,bb)
         result['cohorts'].append({'cohort_id':cohort,'registered_stock_pairs':len(q),'same_clock_same_names':bool(clocks.all()),
           'comparison_contract':q.comparison_contract_a.iloc[0] if 'comparison_contract_a' in q else 'V13_LEGACY_PAIR_20261012',
           'source_asof':q.source_asof_a.dropna().iloc[0] if q.source_asof_a.notna().any() else None,
@@ -135,7 +142,7 @@ def paired_evaluation_report(observations):
           'unpaired_originals_excluded':True})
         for h in (6,12):
             yc='verified_hit2_'+str(h);m='six_month_mature' if h==6 else 'twelve_month_mature'
-            good=clocks&q[m+'_a'].eq(True)&q[m+'_b'].eq(True)&q.independent_outcome_verified_a.eq(True)&q.independent_outcome_verified_b.eq(True)
+            good=clocks&entries&q[m+'_a'].eq(True)&q[m+'_b'].eq(True)&q.independent_outcome_verified_a.eq(True)&q.independent_outcome_verified_b.eq(True)
             good&=q[yc+'_a'].isin([0,1])&q[yc+'_a'].eq(q[yc+'_b'])&q.first_entry_date_a.eq(q.first_entry_date_b)
             for axis in ('financial_tier','market_regime','liquidity_tier'):
                 col=axis+'_a'
@@ -152,7 +159,7 @@ def paired_evaluation_report(observations):
                           'selected_verified_outcomes':int(selected_known.sum()),'selected_precision':float(y[selected_known.to_numpy()].mean()) if selected_known.any() else None}
                     row['paired_brier_gain']=row['champion']['brier']-row['challenger']['brier'] if len(k) else None
                     baseline_col='baseline_p'+str(h)+'_a'
-                    baseline_known=k[baseline_col].notna() if baseline_col in k else pd.Series(False,index=k.index)
+                    baseline_known=baseline_match(aa,bb,h).loc[k.index]
                     base=k.loc[baseline_known]
                     row['baseline']={'verified_pairs_with_frozen_baseline':len(base),'verified_pairs_missing_baseline':len(k)-len(base),
                       'brier':float(brier_score_loss(base[yc+'_a'],base[baseline_col])) if len(base) else None,

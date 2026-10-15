@@ -363,5 +363,59 @@
       "utilisation_period_end": "30 September 2026"
     },
     "review_note": "Existing annual nameplate and Q2 project-specific utilisation; project percentages not collapsed into issuer-wide utilisation. Future 6 GW commissioning and future financing/earnings are not certified."
+  },
+  {
+    "isin": "INE048G01018",
+    "symbol": "NAVINFLUOR",
+    "issuer_name": "Navin Fluorine International Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/NAVINFLUOR_29092026153201_Intimationreg30.pdf",
+    "source_sha256": "8bbf3e0697418395b9413281fbd71241978c839795e034f621c1edf1a07e344d",
+    "document_date": "2026-09-29",
+    "published_at_utc": "2026-09-29T10:02:17+00:00",
+    "project_id": "Multi Purpose Plant facility at Dahej site",
+    "commissioned": true,
+    "commercial_operation_verified": true,
+    "field_excerpts": {
+      "project_id": "Multi Purpose Plant facility at Dahej site",
+      "commissioned": "has successfully commissioned the debottlenecking capacity",
+      "commercial_operation_verified": "commercial production and dispatch of the product commencing from today."
+    },
+    "review_note": "Commercial start reported 29 September; review is first observed on actual installation, never backdated into older cohorts. Prior board-approved capex of INR75 crore is not secured-funding proof. Incremental capacity, utilisation, margin, all operating approvals and future owner earnings remain unknown."
+  },
+  {
+    "isin": "INE0H9P01028",
+    "symbol": "ARIS",
+    "issuer_name": "Arisinfra Solutions Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/ARISINFRA2024_29092026155827_Exchange_Intimation_Order_AUPL_-.pdf",
+    "source_sha256": "e40a07f98b37ec1fb666f09a6c44e137c5c663411f3c1d332196ba6252f661e7",
+    "document_date": "2026-09-29",
+    "published_at_utc": "2026-09-29T10:29:34+00:00",
+    "project_id": "Transcon UNO",
+    "firm_order": true,
+    "order_duration_months": 18,
+    "order_start_date": "2026-09-29",
+    "field_excerpts": {
+      "project_id": "Transcon UNO",
+      "firm_order": "A Service Order has been received by",
+      "order_duration_months": "for an initial term of 18 months, extendable by mutual consent.",
+      "order_start_date": "The engagement commences September 29, 2026, for an initial term of 18 months, extendable by mutual consent."
+    },
+    "review_note": "INR400 crore is project GDV, NOT contract fees, ARIS revenue or profit; deliberately no order_value_INR. Extendable 18-month engagement does not prove a twelve-month allocation. Margin, funding, approvals, recurring attributable earnings and fixed due date remain unknown."
+  },
+  {
+    "isin": "INE299N01021",
+    "symbol": "WAAREERTL",
+    "issuer_name": "Waaree Renewable Technologies Limited",
+    "attachment_url": "https://nsearchives.nseindia.com/corporate/WAAREERTL_28092026183112_Intimation-s.pdf",
+    "source_sha256": "8ce6be0be6c6d7a3afb335759b611a15b6cf9570611fef6a9f9a5717a29d6ec5",
+    "document_date": "2026-09-28",
+    "published_at_utc": "2026-09-28T13:01:31+00:00",
+    "project_id": "2012.47 MWp",
+    "firm_order": true,
+    "field_excerpts": {
+      "project_id": "2012.47 MWp",
+      "firm_order": "has received a further revised scope of work under the existing contract"
+    },
+    "review_note": "INR14.79 crore is an incremental consideration revision, NOT total award revenue or another 2012.47 MWp project. Deliberately no additive order_value_INR or commissioned capacity. FY2026-27 completion target does not prove remaining twelve-month revenue, tax basis, margin, funding or secured profit."
   }
 ]
