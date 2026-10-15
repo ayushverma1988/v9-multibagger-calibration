@@ -227,7 +227,11 @@ def universe(root,asof):
 
 def collect_histories(root,asof,budget=800):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
-    store=Store(root/'sources'/asof/'history_raw');folder=root/'history'/'securities';folder.mkdir(parents=True,exist_ok=True)
+    from datetime import datetime,timezone
+    vintage=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    store=Store(root/'sources'/asof/'history_raw'/vintage);folder=root/'history'/'securities';folder.mkdir(parents=True,exist_ok=True)
+    official_path=root/'official'/(asof+'_official_market.parquet')
+    official=pd.read_parquet(official_path) if official_path.exists() else pd.DataFrame()
     attempt_path=root/'history_attempts.json'
     attempts=json.loads(attempt_path.read_text()) if attempt_path.exists() else {}
     queue=[]
@@ -247,14 +251,15 @@ def collect_histories(root,asof,budget=800):
             from v13_features import daily_features
             z=daily_features(h[pd.to_datetime(h.date).ge(low)],asof)
             eligible=not z.empty and bool(z.feature_eligible.iloc[-1])
-        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid),eligible))
+        needs_refresh=history_needs_refresh(h,official,asof,r['nse_current_symbol'],r['isin'])
+        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid),eligible,needs_refresh))
     errors=[];count=0;started=time.monotonic();attempted=0
     ordered=sorted(queue,key=lambda q:(q[0],q[1]))
     # Keep known usable public-universe histories fresh while expanding cold
     # coverage. No private ranked/selected stock list enters this queue.
-    refresh=sorted([q for q in ordered if q[3] and q[0]<asof],key=lambda q:(not q[5],not q[4],q[0],q[1]))[:budget*3//4]
+    refresh=sorted([q for q in ordered if q[3] and q[6]],key=lambda q:(not q[5],not q[4],q[0],q[1]))[:budget*3//4]
     chosen={q[1] for q in refresh}
-    batch=refresh+[q for q in ordered if q[1] not in chosen][:max(0,budget-len(refresh))]
+    batch=refresh+[q for q in ordered if q[1] not in chosen and q[6]][:max(0,budget-len(refresh))]
     def fetch(job):
         r=job[2]
         symbol=r['nse_current_symbol'];isin=r['isin']
@@ -273,12 +278,26 @@ def collect_histories(root,asof,budget=800):
         attempted+=1;symbol=job[2]['nse_current_symbol']
         if result.get('info'):count+=1
         else:errors.append({'symbol':symbol,'error':result['error']})
-        attempts[symbol]=asof
+        attempts[symbol]=datetime.now(timezone.utc).isoformat()
     attempt_path.write_text(json.dumps(attempts,indent=2))
     return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
       'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh),
       'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
+      'already_source_aligned_histories_not_refetched':sum(not q[6] for q in queue),
+      'same_day_unreconciled_bars_can_be_retried':True,'raw_response_vintage':vintage,
       'source_workers':4,'source_rate_limited':True,'partial_coverage_is_not_full_NSE':True}
+
+def history_needs_refresh(history,official,asof,symbol,isin):
+    """Only exact current official matches establish a completed refresh."""
+    if history.empty or official.empty:return True
+    latest=history.sort_values('date').iloc[-1]
+    if pd.Timestamp(latest.date)!=pd.Timestamp(asof):return True
+    rows=official[official['isin'].eq(isin)]
+    if len(rows)!=1:return True
+    row=rows.iloc[0]
+    if latest.get('symbol')!=symbol or row.symbol!=symbol or latest.get('isin')!=isin:return True
+    if row.source_status!='VALID_POSITIVE_VOLUME_SESSION' or latest.volume!=row.volume:return True
+    return any(not np.isfinite(latest.get(c,np.nan)) or abs(latest[c]-row[c])>.011 for c in ('open','high','low','close'))
 
 def collect_financials(root,asof,budget=800):
     root=Path(root);catalog_path=root/'catalog.parquet'

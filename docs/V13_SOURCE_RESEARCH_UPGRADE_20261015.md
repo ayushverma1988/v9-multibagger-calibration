@@ -47,6 +47,10 @@ Engineering checks do not establish financial prediction accuracy.
    model selections or realised outcomes enter the source queue. A coverage
    funnel reports stale bars, technical exclusions, missing official identity,
    symbol, volume and OHLC conflicts without filling stale prices forward.
+   Same-day unreconciled bars can be retried with a new immutable raw-response
+   vintage; the first response of the day no longer prevents later provider
+   finalisation from being observed. Already exact source-aligned bars skip
+   another request, and timestamped attempts rotate remaining public work.
 
 ## Validation and operational use
 

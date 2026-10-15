@@ -106,4 +106,15 @@ class SourceResearchUpgrade(unittest.TestCase):
             with self.assertRaises(ValueError):guard.check(altered)
             self.assertTrue(pd.read_parquet(path).information_cutoff_utc.isna().all())
 
+    def test_same_day_stale_volume_or_prices_retry_without_filling(self):
+        from v13_collection import history_needs_refresh
+        h=pd.DataFrame([{'date':pd.Timestamp('2026-10-15'),'isin':'INE000000001','symbol':'A',
+          'open':100.,'high':102.,'low':99.,'close':101.,'volume':10000}])
+        official=h.copy();official['source_status']='VALID_POSITIVE_VOLUME_SESSION'
+        self.assertFalse(history_needs_refresh(h,official,'2026-10-15','A','INE000000001'))
+        for key,val in [('volume',9999),('close',100.5),('date',pd.Timestamp('2026-10-14')),('symbol','OTHER')]:
+            changed=h.copy();changed.at[0,key]=val
+            self.assertTrue(history_needs_refresh(changed,official,'2026-10-15','A','INE000000001'))
+        pd.testing.assert_frame_equal(h[official.columns[:-1]],official.drop(columns='source_status'))
+
 if __name__=='__main__':unittest.main()
