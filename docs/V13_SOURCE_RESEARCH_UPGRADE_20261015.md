@@ -15,6 +15,8 @@ Engineering checks do not establish financial prediction accuracy.
    ISINs and issuer typos fail closed. Newly recovered facts become available
    at the later original publication or first observed identity-proof clock.
    A rename does not prove economic comparability or adjusted price returns.
+   An already valid earlier ISIN-bound fact retains its availability vintage
+   when a later identity review of the same original is added.
    Reviewed PDF cells can supply same-statement reported diluted EPS comparisons
    only after original hashes, company identity, consolidated basis, quarter
    headers, column geometry and the current XBRL EPS anchor reconcile. The first

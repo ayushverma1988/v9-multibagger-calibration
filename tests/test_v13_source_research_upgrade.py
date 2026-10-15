@@ -40,6 +40,15 @@ class SourceResearchUpgrade(unittest.TestCase):
         fresh=parse_changes(raw,{**p,'sha256':'b'*64,'first_retrieved_utc':'2026-10-16T13:00:00Z'},rows)
         self.assertEqual(rows,fresh)
 
+    def test_later_identity_review_preserves_an_already_valid_earlier_fact_clock(self):
+        from v13_collection import merge_financial_versions
+        r={'source_sha256':'a'*64,'period_kind':'quarter','period_end':'2026-06-30','security_isin':'INE000000001',
+          'reporting_mode':'consolidated','available_at_utc':'2026-08-01T00:00:00Z','pat':10.}
+        old=pd.DataFrame([r]);fresh=pd.DataFrame([{**r,'available_at_utc':'2026-10-15T13:00:00Z','symbol':'NEW'}])
+        d=merge_financial_versions(old,fresh);self.assertEqual(len(d),2)
+        self.assertEqual(d[d.available_at_utc.lt('2026-09-01')].pat.tolist(),[10.])
+        self.assertEqual(len(merge_financial_versions(old,pd.DataFrame([{**r,'pat_owners':8.}]))),1)
+
     def frame(self):
         r={'date':pd.Timestamp('2026-10-15'),'isin':'INE000000001','symbol':'A','close':100.,'distance_ma50':.1,
           'log_ret63':.1,'quarter_sales_yoy':.1,'quarter_pat_yoy':.1,'quarter_pat_margin':.1,

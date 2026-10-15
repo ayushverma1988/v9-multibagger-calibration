@@ -28,6 +28,13 @@ def financial_wide(extra):
     w['period']=pd.to_datetime(w.period_end);w['available']=pd.to_datetime(w.available_at_utc,utc=True,format='mixed')
     return w
 
+def merge_financial_versions(previous,fresh):
+    # A later identity review must not erase an already valid, earlier ISIN-
+    # bound observation. Parser enrichment at the same clock can update the
+    # derived extraction; different availability vintages remain separate.
+    keys=['source_sha256','period_kind','period_end','security_isin','reporting_mode','available_at_utc']
+    return pd.concat([previous,fresh],ignore_index=True).drop_duplicates(keys,keep='last')
+
 def enrich(matrix,wide,only_unknown=False):
     from v13_financial_evidence import balancing_quarters
     wide=balancing_quarters(wide)
@@ -377,7 +384,7 @@ def collect_financials(root,asof,budget=800):
     if rows:
         fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
-        combined=pd.concat([previous,fresh],ignore_index=True).drop_duplicates(['source_sha256','period_kind','period_end','security_isin','reporting_mode'],keep='last')
+        combined=merge_financial_versions(previous,fresh)
         combined.to_parquet(path,index=False)
     accepted_path.write_text(json.dumps(sorted(accepted)))
     parsed_path.write_text(json.dumps(sorted(parsed)))
