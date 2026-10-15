@@ -10,6 +10,16 @@ from v13_statement_eps import validate,enrich
 import v13_model as model
 
 class SourceResearchUpgrade(unittest.TestCase):
+    def test_financial_collector_reads_master_isin_column_at_real_entry_point(self):
+        from v13_collection import collect_financials
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t)
+            pd.DataFrame({'nse_current_symbol':['A'],'isin':['INE000000001']}).to_parquet(root/'universe.parquet',index=False)
+            columns=['symbol','reporting_mode','source_url','available_at_utc','period_end','filed_period']
+            pd.DataFrame(columns=columns).to_parquet(root/'catalog.parquet',index=False)
+            with patch('v13_symbol_identity.collect',return_value=[]):result=collect_financials(root,'2026-10-15',0)
+            self.assertEqual(result['requested'],0);self.assertEqual(result['official_rename_edges'],0)
+
     def rename(self):
         return {'old':'OLD','new':'NEW','effective_date':'2026-01-01','source_sha256':'a'*64,'first_seen_utc':'2026-10-15T13:00:00Z'}
 

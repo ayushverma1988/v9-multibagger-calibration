@@ -310,7 +310,7 @@ def collect_financials(root,asof,budget=800):
     root=Path(root);catalog_path=root/'catalog.parquet'
     if not catalog_path.exists():return {'requested':0,'errors':['financial_catalog_missing']}
     cat=pd.read_parquet(catalog_path);master=pd.read_parquet(root/'universe.parquet');symbols=set(master.nse_current_symbol)
-    master_isins=dict(zip(master.nse_current_symbol,master.isin))
+    master_isins=dict(zip(master.nse_current_symbol,master['isin']))
     from v13_symbol_identity import collect as collect_changes,parse_mapped
     identity_error=None
     try:changes=collect_changes(root)
