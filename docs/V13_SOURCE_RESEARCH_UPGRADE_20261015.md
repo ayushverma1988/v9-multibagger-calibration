@@ -51,6 +51,9 @@ Engineering checks do not establish financial prediction accuracy.
    vintage; the first response of the day no longer prevents later provider
    finalisation from being observed. Already exact source-aligned bars skip
    another request, and timestamped attempts rotate remaining public work.
+   Current cross-sectional ranks and breadth are recomputed after official
+   reconciliation so rejected provider rows cannot influence valid names.
+   This context remains explicitly a partial current universe, not all NSE.
 
 ## Validation and operational use
 

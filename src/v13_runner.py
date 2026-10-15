@@ -80,9 +80,9 @@ def current_frame(root,asof):
         (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':0},indent=2))
         return pd.DataFrame(),history
     d=pd.DataFrame(rows)
-    for source,target in [('log_ret63','relative_strength63'),('log_ret20','relative_strength20'),('momentum126','relative_strength126'),('momentum252_skip21','relative_strength252_skip21')]:d[target]=d[source].rank(pct=True)
-    d['market_breadth63']=d.log_ret63.gt(0).mean();d['market_median_ret63']=d.log_ret63.median();d['market_dispersion63']=d.log_ret63.std()
-    d['trend_regime_interaction']=d.relative_strength63*(d.market_breadth63-.5)
+    # Cross-sectional context is computed after official reconciliation below;
+    # rejected provider rows cannot influence accepted names' ranks or breadth.
+    d=market_context(d)
     d['liquidity_volume_interaction']=d.volume_confirmation*d.log_liquidity63
     d['earnings_market_confirmation']=np.nan
     from v13_information_clock import research_cutoffs
@@ -104,9 +104,21 @@ def current_frame(root,asof):
     valid=m.symbol.eq(m.symbol_official)&m.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&m.volume.eq(m.volume_official)
     for c in ('open','high','low','close'):valid&=(m[c]-m[c+'_official']).abs().le(.011)
     d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official
+    d=market_context(d)
+    d['market_context_scope']='OFFICIAL_RECONCILED_CURRENT_PARTIAL_UNIVERSE'
+    d['earnings_market_confirmation']=d.quarter_pat_yoy*d.relative_strength63
     (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':len(d),
       'mismatch_counts_overlap':True,'stale_bars_not_advanced_or_filled':True},indent=2))
     return d,history
+
+def market_context(d):
+    d=d.copy()
+    for source,target in [('log_ret63','relative_strength63'),('log_ret20','relative_strength20'),('momentum126','relative_strength126'),('momentum252_skip21','relative_strength252_skip21')]:d[target]=d[source].rank(pct=True)
+    d['market_breadth63']=d.log_ret63.gt(0).mean();d['market_median_ret63']=d.log_ret63.median();d['market_dispersion63']=d.log_ret63.std()
+    d['trend_regime_interaction']=d.relative_strength63*(d.market_breadth63-.5)
+    d['market_context_rows']=len(d)
+    d['market_context_scope']='CURRENT_PARTIAL_UNIVERSE'
+    return d
 
 def forecasts(heads,frame,root,label):
     d=frame.copy()

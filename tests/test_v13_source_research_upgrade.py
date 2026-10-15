@@ -1,6 +1,7 @@
 import hashlib,json,tempfile,unittest
 from pathlib import Path
 import joblib,numpy as np,pandas as pd
+from unittest.mock import patch
 from v13_symbol_identity import parse_changes,parse_mapped,rename_path
 from v13_research_selection import screen
 from v13_prediction_replay import snapshot
@@ -116,5 +117,25 @@ class SourceResearchUpgrade(unittest.TestCase):
             changed=h.copy();changed.at[0,key]=val
             self.assertTrue(history_needs_refresh(changed,official,'2026-10-15','A','INE000000001'))
         pd.testing.assert_frame_equal(h[official.columns[:-1]],official.drop(columns='source_status'))
+
+    def test_rejected_provider_outlier_cannot_change_valid_names_context(self):
+        from v13_runner import current_frame
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);folder=root/'history/securities';folder.mkdir(parents=True);(root/'official').mkdir()
+            records=[]
+            for i,(symbol,ret) in enumerate([('A',.1),('B',.2),('BAD',-100.)]):
+                r={'date':pd.Timestamp('2026-10-15'),'symbol':symbol,'isin':f'INE00000000{i+1}',
+                  'open':100.,'high':102.,'low':99.,'close':101.,'volume':1000,'adj_close':101.,
+                  'log_ret63':ret,'log_ret20':ret,'momentum126':ret,'momentum252_skip21':ret,
+                  'volume_confirmation':1.,'log_liquidity63':10.,'feature_eligible':True}
+                r['source_sha256']='b'*64
+                pd.DataFrame([r]).to_parquet(folder/(symbol+'.parquet'),index=False);records.append(r)
+            official=pd.DataFrame(records);official.loc[official.symbol.eq('BAD'),'volume']=900
+            official['series']='EQ';official['source_status']='VALID_POSITIVE_VOLUME_SESSION';official['source_sha256']='a'*64
+            official.to_parquet(root/'official/2026-10-15_official_market.parquet',index=False)
+            with patch('v13_runner.features.daily_features',side_effect=lambda bars,asof:bars):d,_=current_frame(root,'2026-10-15')
+            self.assertEqual(set(d.symbol),{'A','B'});self.assertTrue(d.market_breadth63.eq(1).all())
+            self.assertEqual(d.sort_values('symbol').relative_strength63.tolist(),[.5,1.])
+            funnel=json.loads((root/'evidence/market_coverage_funnel.json').read_text());self.assertEqual(funnel['volume_mismatch'],1)
 
 if __name__=='__main__':unittest.main()
