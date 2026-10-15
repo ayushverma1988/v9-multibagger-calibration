@@ -1,0 +1,50 @@
+name: V13 redevelopment inputs
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/v13_redevelopment_inputs.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ef5bc2f2cc87ede8a49500b823af50f4088c1c0f
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install huggingface_hub
+      - name: Retrieve pinned read-only inputs
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from concurrent.futures import ThreadPoolExecutor
+          from huggingface_hub import HfApi,hf_hub_download
+          from v13_checkpoint import ARCHIVE,materialize_one
+          token=os.environ['HF_ARCHIVE_TOKEN']
+          assert HfApi(token=token).repo_info(ARCHIVE,repo_type='dataset').private
+          def fetch(p): return hf_hub_download(ARCHIVE,p,repo_type='dataset',token=token)
+          raw=Path(fetch('v13/state/snapshots/20261015T202445Z_4d75089a1495.json')).read_bytes()
+          assert hashlib.sha256(raw).hexdigest()=='4d75089a14959a8b3b4f8a77c58b9d7e74c22efc96a4cd89f89dc42858af0aba'
+          root=Path('redevelopment_inputs');root.mkdir()
+          (root/'manifest.json').write_bytes(raw)
+          items=[r for r in json.loads(raw)['files'] if r['path'].startswith(('history/securities/','challenger_features/','prediction_replay/','financials/','catalyst_evidence/','evidence/')) and not r['raw_source'] or r['path'] in ('challenger_matrix.parquet','active_heads.joblib','challenger_heads.joblib','latest_run.json','history_attempts.json')]
+          with ThreadPoolExecutor(max_workers=8) as pool:
+              list(pool.map(lambda r:materialize_one(r,root,fetch),items))
+          (root/'export_receipt.json').write_text(json.dumps({'snapshot':'20261015T202445Z_4d75089a1495','files':items,'read_only':True},indent=2))
+          print('Verified exported files:',len(items))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-redevelopment-pinned-inputs
+          path: redevelopment_inputs/
+          retention-days: 7
