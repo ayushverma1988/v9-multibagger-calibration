@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 4f0ce5d509e498a72ea46318bf5b1dd73b9baaa0
+          ref: ea65f2bd2678ff33fcd9887bdcd17c1696c33007
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -89,3 +89,5 @@ jobs:
 # Apply the verified source and research upgrade after posting the frozen baseline.
 
 # Preserve earlier valid financial availability vintages on later identity reviews.
+
+# Resume after correcting financial master ISIN column access.
