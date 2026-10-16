@@ -56,7 +56,7 @@ def score(p,d):
     raw=np.clip(raw_score(p,d),1e-5,1-1e-5);c=p['calibration']
     return expit(c['slope']*logit(raw)+c['intercept'])
 
-def fit(train,cal,target):
+def fit(train,cal,target,feature_names=None):
     h=6 if target=='hit2_6' else 12
     p={'target':target,'train_rows':len(train),'cal_rows':len(cal),
        'train_maturity_max':str(train['mature_date_'+str(h)].max()),'cal_start':str(cal.date.min()),
@@ -67,7 +67,9 @@ def fit(train,cal,target):
         # of training an unstable tree or manufacturing certainty.
         p.update(method='shrunk_past_event_rate',constant=float((y.sum()+1)/(len(y)+2)),features=[])
         p['calibration']=core.calibrate(raw_score(p,cal),cal[target],y);return p
-    features=[c for c in FEATURES if np.isfinite(train[c]).any()]
+    # Optional catalogue is used only by separately evaluated research heads.
+    # Existing callers and frozen serialized heads retain their exact inputs.
+    features=[c for c in (FEATURES if feature_names is None else feature_names) if c in train and np.isfinite(train[c]).any()]
     clean=train[features].replace([np.inf,-np.inf],np.nan).to_numpy(float)
     p.update(method='learned_mixture',features=features,median=np.nanmedian(clean,axis=0),
        lo=np.nanquantile(clean,.005,axis=0),hi=np.nanquantile(clean,.995,axis=0))

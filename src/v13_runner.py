@@ -61,21 +61,28 @@ def last_completed_session(root,day):
         except Exception as e:errors.append({'date':str(candidate.date()),'error':str(e)[:160]})
     raise RuntimeError('No verified completed NSE session; '+json.dumps(errors))
 
-def current_frame(root,asof):
+def current_frame(root,asof,primary_volume_research=False):
     rows=[];history={};low,_=collection.bounds(asof)
     funnel={'history_files':0,'empty_after_window':0,'no_source_date_bar':0,'source_date_feature_ineligible':0,'feature_eligible_source_date':0}
+    primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
+    volume_overlays=0
     for path in sorted((root/'history'/'securities').glob('*.parquet')):
         funnel['history_files']+=1
         bars=pd.read_parquet(path);bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
         if bars.empty:funnel['empty_after_window']+=1;continue
         history[bars['isin'].iloc[0]]=bars
+        if primary_volume_research:
+            from v13_primary_volume import reconcile
+            bars,changed=reconcile(bars,primary,asof);volume_overlays+=int(changed)
         d=features.daily_features(bars,asof)
         current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
         if len(current)==1:rows.append(current.iloc[0].to_dict())
         elif not d.date.eq(pd.Timestamp(asof)).any():funnel['no_source_date_bar']+=1
         else:funnel['source_date_feature_ineligible']+=1
     funnel['feature_eligible_source_date']=len(rows)
-    out=root/'evidence';out.mkdir(exist_ok=True)
+    out=root/('primary_volume_research' if primary_volume_research else 'evidence');out.mkdir(exist_ok=True)
+    funnel['primary_volume_overlays']=volume_overlays
+    funnel['independent_volume_agreement_required']=not primary_volume_research
     if not rows:
         (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':0},indent=2))
         return pd.DataFrame(),history
@@ -274,6 +281,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                   'challenger':replay_snapshot(frame,b,challenger_model,root,'challenger')}
                 from v13_research_selection import export as export_research
                 report['separate_research_selector']=export_research(a,root,report['exact_prediction_replay']['champion'])
+                from v13_redevelopment import export as export_redevelopment
+                try:
+                    report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])
+                except Exception as exc:
+                    report['redevelopment_diagnostics']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
                 pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
                 export_watchlists(root,pair)
                 report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
