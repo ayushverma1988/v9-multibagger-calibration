@@ -19,13 +19,21 @@ def financial_wide(extra):
     w=x.pivot(index=keys,columns='metric',values='value').reset_index()
     # Preserve source URL, explicit economic start and retrieval time through
     # the pivot; comparative periods retain their original document identity.
-    meta=[c for c in ('period_start','source_url','first_retrieved_utc') if c in x]
+    meta=[c for c in ('period_start','source_url','first_retrieved_utc','original_document_symbol',
+      'original_publication_utc','identity_mapping_source_sha256','identity_mapping_first_seen_utc','identity_source') if c in x]
     if meta:
         m=x[keys+meta].drop_duplicates()
         if m.duplicated(keys).any():raise ValueError('Conflicting financial source metadata')
         w=w.merge(m,on=keys,validate='1:1')
     w['period']=pd.to_datetime(w.period_end);w['available']=pd.to_datetime(w.available_at_utc,utc=True,format='mixed')
     return w
+
+def merge_financial_versions(previous,fresh):
+    # A later identity review must not erase an already valid, earlier ISIN-
+    # bound observation. Parser enrichment at the same clock can update the
+    # derived extraction; different availability vintages remain separate.
+    keys=['source_sha256','period_kind','period_end','security_isin','reporting_mode','available_at_utc']
+    return pd.concat([previous,fresh],ignore_index=True).drop_duplicates(keys,keep='last')
 
 def enrich(matrix,wide,only_unknown=False):
     from v13_financial_evidence import balancing_quarters
@@ -226,7 +234,11 @@ def universe(root,asof):
 
 def collect_histories(root,asof,budget=800):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
-    store=Store(root/'sources'/asof/'history_raw');folder=root/'history'/'securities';folder.mkdir(parents=True,exist_ok=True)
+    from datetime import datetime,timezone
+    vintage=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    store=Store(root/'sources'/asof/'history_raw'/vintage);folder=root/'history'/'securities';folder.mkdir(parents=True,exist_ok=True)
+    official_path=root/'official'/(asof+'_official_market.parquet')
+    official=pd.read_parquet(official_path) if official_path.exists() else pd.DataFrame()
     attempt_path=root/'history_attempts.json'
     attempts=json.loads(attempt_path.read_text()) if attempt_path.exists() else {}
     queue=[]
@@ -238,14 +250,23 @@ def collect_histories(root,asof,budget=800):
         # Public, unranked execution/history evidence prioritises refreshes;
         # private forecasts, selections and realised outcomes are not read.
         liquid=not h.empty and len(h)>=127 and {'close','volume'}.issubset(h) and h.close.iloc[-1]>=20 and h.close.iloc[-1]<=2000 and (h.close*h.volume).tail(63).median()>=2_500_000
-        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid)))
+        # Preserve fresh source-aligned, technically usable public coverage.
+        # A high-turnover but persistently invalid history must not displace
+        # previously usable histories merely because its ticker hashes first.
+        eligible=False
+        if liquid and {'open','high','low','adj_close'}.issubset(h):
+            from v13_features import daily_features
+            z=daily_features(h[pd.to_datetime(h.date).ge(low)],asof)
+            eligible=not z.empty and bool(z.feature_eligible.iloc[-1])
+        needs_refresh=history_needs_refresh(h,official,asof,r['nse_current_symbol'],r['isin'])
+        queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid),eligible,needs_refresh))
     errors=[];count=0;started=time.monotonic();attempted=0
     ordered=sorted(queue,key=lambda q:(q[0],q[1]))
     # Keep known usable public-universe histories fresh while expanding cold
     # coverage. No private ranked/selected stock list enters this queue.
-    refresh=sorted([q for q in ordered if q[3] and q[0]<asof],key=lambda q:(not q[4],q[0],q[1]))[:budget*3//4]
+    refresh=sorted([q for q in ordered if q[3] and q[6]],key=lambda q:(not q[5],not q[4],q[0],q[1]))[:budget*3//4]
     chosen={q[1] for q in refresh}
-    batch=refresh+[q for q in ordered if q[1] not in chosen][:max(0,budget-len(refresh))]
+    batch=refresh+[q for q in ordered if q[1] not in chosen and q[6]][:max(0,budget-len(refresh))]
     def fetch(job):
         r=job[2]
         symbol=r['nse_current_symbol'];isin=r['isin']
@@ -264,16 +285,37 @@ def collect_histories(root,asof,budget=800):
         attempted+=1;symbol=job[2]['nse_current_symbol']
         if result.get('info'):count+=1
         else:errors.append({'symbol':symbol,'error':result['error']})
-        attempts[symbol]=asof
+        attempts[symbol]=datetime.now(timezone.utc).isoformat()
     attempt_path.write_text(json.dumps(attempts,indent=2))
     return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
       'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh),
+      'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
+      'already_source_aligned_histories_not_refetched':sum(not q[6] for q in queue),
+      'same_day_unreconciled_bars_can_be_retried':True,'raw_response_vintage':vintage,
       'source_workers':4,'source_rate_limited':True,'partial_coverage_is_not_full_NSE':True}
+
+def history_needs_refresh(history,official,asof,symbol,isin):
+    """Only exact current official matches establish a completed refresh."""
+    if history.empty or official.empty:return True
+    latest=history.sort_values('date').iloc[-1]
+    if pd.Timestamp(latest.date)!=pd.Timestamp(asof):return True
+    rows=official[official['isin'].eq(isin)]
+    if len(rows)!=1:return True
+    row=rows.iloc[0]
+    if latest.get('symbol')!=symbol or row.symbol!=symbol or latest.get('isin')!=isin:return True
+    if row.source_status!='VALID_POSITIVE_VOLUME_SESSION' or latest.volume!=row.volume:return True
+    return any(not np.isfinite(latest.get(c,np.nan)) or abs(latest[c]-row[c])>.011 for c in ('open','high','low','close'))
 
 def collect_financials(root,asof,budget=800):
     root=Path(root);catalog_path=root/'catalog.parquet'
     if not catalog_path.exists():return {'requested':0,'errors':['financial_catalog_missing']}
-    cat=pd.read_parquet(catalog_path);symbols=set(pd.read_parquet(root/'universe.parquet').nse_current_symbol)
+    cat=pd.read_parquet(catalog_path);master=pd.read_parquet(root/'universe.parquet');symbols=set(master.nse_current_symbol)
+    master_isins=dict(zip(master.nse_current_symbol,master['isin']))
+    from v13_symbol_identity import collect as collect_changes,parse_mapped
+    identity_error=None
+    try:changes=collect_changes(root)
+    except Exception as exc:
+        changes=[];identity_error=str(exc)[:160]
     cat=cat[cat.symbol.isin(symbols)&cat.reporting_mode.ne('unknown')]
     accepted_path=root/'accepted_filings.json';accepted=set(json.loads(accepted_path.read_text())) if accepted_path.exists() else set()
     cat['version_key']=cat.source_url+'|'+cat.available_at_utc
@@ -327,7 +369,7 @@ def collect_financials(root,asof,budget=800):
             if original_path in original_hash_by_path:expected={original_hash_by_path[original_path]}
             if r['version_key'] in accepted and expected and proof['sha256'] not in expected:
                 raise ValueError('Previously accepted original filing bytes changed; revision review required')
-            facts=parse_extra(raw,r,asof,include_ytd=True)
+            facts=parse_mapped(raw,r,asof,master_isins[r['symbol']],changes)
             if not facts:raise ValueError('No usable exact-identity financial facts; remains queued')
             return {'facts':[{**r,**f,'source_sha256':proof['sha256'],'first_retrieved_utc':proof['first_retrieved_utc']} for f in facts]}
         except Exception as e:return {'error':str(e)[:160]}
@@ -342,7 +384,7 @@ def collect_financials(root,asof,budget=800):
     if rows:
         fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
-        combined=pd.concat([previous,fresh],ignore_index=True).drop_duplicates(['source_sha256','period_kind','period_end','security_isin','reporting_mode'],keep='last')
+        combined=merge_financial_versions(previous,fresh)
         combined.to_parquet(path,index=False)
     accepted_path.write_text(json.dumps(sorted(accepted)))
     parsed_path.write_text(json.dumps(sorted(parsed)))
@@ -353,7 +395,9 @@ def collect_financials(root,asof,budget=800):
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,
-      'source_workers':4,'source_rate_limited':True,'owner_PAT_is_not_recurring_EPS':True}
+      'source_workers':4,'source_rate_limited':True,'owner_PAT_is_not_recurring_EPS':True,
+      'official_rename_reference_error':identity_error,'official_rename_edges':len(changes),
+      'mapped_fact_observations':sum('identity_mapping_source_sha256' in r for r in rows)}
 
 def fresh_public_price_symbols(root,asof,require_feature_eligible=False):
     """Unranked public raw-price coverage, never a private prediction list."""

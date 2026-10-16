@@ -305,4 +305,6 @@ def join(frame,root):
     out.mkdir(exist_ok=True);(out/'source_links.json').write_text(json.dumps(links,indent=2));(out/'rejected_reviews.json').write_text(json.dumps(rejected,indent=2))
     (out/'quantified_execution_reviews.json').write_text(json.dumps(records,indent=2))
     (out/'execution_bundles.json').write_text(json.dumps(bundles,indent=2))
+    from v13_upgrade_diagnostics import execution_diagnostics
+    (out/'research_execution_diagnostics.json').write_text(json.dumps([execution_diagnostics(z) for z in bundles],indent=2))
     return d

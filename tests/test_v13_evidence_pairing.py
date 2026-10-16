@@ -149,6 +149,10 @@ class EvidencePairing(unittest.TestCase):
                 stack.enter_context(patch('v13_valuation_evidence.collect',return_value={}))
                 stack.enter_context(patch.object(runner,'current_frame',return_value=(f,{})))
                 stack.enter_context(patch.object(runner,'scored',side_effect=lambda heads,frame,**kw:frame))
+                # This migration test supplies empty mock heads; exact numeric
+                # inference and research gates have their own real-head tests.
+                stack.enter_context(patch('v13_prediction_replay.snapshot',return_value={'replay_verified':True}))
+                stack.enter_context(patch('v13_research_selection.export',return_value={}))
                 result=runner.run(root,seed,'2026-10-12',local=True)
             self.assertEqual(old.read_bytes(),original);self.assertEqual(result['paired_registration']['rows_per_model'],2)
             self.assertLess(phases.index('collect_histories'),phases.index('collect_financials'))

@@ -63,12 +63,14 @@ class SourceQuality(unittest.TestCase):
 
     def test_scenario_quote_cannot_bind_an_arbitrary_larger_forecast(self):
         with tempfile.TemporaryDirectory() as t:
-            root=Path(t);(root/'evidence').mkdir();raw=b'Expected forward PAT attributable to shareholders INR 100. Forward diluted shares 10. Sector PE 20.'
+            root=Path(t);(root/'evidence').mkdir();raw=b'Expected forward PAT attributable to shareholders INR 100 for 2026-04-01 to 2027-03-31. Forward diluted shares 10. Sector PE 20.'
             (root/'source.bin').write_bytes(raw);digest=hashlib.sha256(raw).hexdigest()
             rec={'isin':'INE000000001','available_at_utc':'2026-10-13T00:00:00Z','first_reviewed_utc':'2026-10-14T02:00:00Z',
               'input_source_sha256':{k:digest for k in ('forward_PAT','forward_diluted_shares','sector_PE')},
-              'input_source_excerpts':{'forward_PAT':'Expected forward PAT attributable to shareholders INR 100.','forward_diluted_shares':'Forward diluted shares 10.','sector_PE':'Sector PE 20.'},
-              'forward_PAT_INR':1000,'forward_diluted_shares':10,'sector_PE':20,'forward_PAT_basis':'OWNERS_ATTRIBUTABLE'}
+              'input_source_excerpts':{'forward_PAT':'Expected forward PAT attributable to shareholders INR 100 for 2026-04-01 to 2027-03-31.','forward_diluted_shares':'Forward diluted shares 10.','sector_PE':'Sector PE 20.'},
+              'forward_PAT_INR':1000,'forward_diluted_shares':10,'sector_PE':20,'forward_PAT_basis':'OWNERS_ATTRIBUTABLE',
+              'horizon_months':12,'forecast_period_start':'2026-04-01','forecast_period_end':'2027-03-31',
+              'valuation_target_date':'2027-10-14','forward_share_basis':'FULLY_DILUTED_INCLUDING_REVIEWED_ACTIONS'}
             (root/'evidence/reviewed_earnings_scenarios.json').write_text(json.dumps([rec]))
             f=pd.DataFrame([{'isin':'INE000000001','date':pd.Timestamp('2026-10-14'),'close':100,'ttm_reported_PAT_INR':100,'latest_diluted_shares':10,'earnings_scenario_status':'UNKNOWN'}])
             self.assertEqual(apply_scenarios(f,root).earnings_scenario_status.iloc[0],'UNKNOWN')

@@ -34,6 +34,7 @@ class FrozenGuard:
             keys=['registry_sha256','isin']
             # Only forecast fields, not legitimate new outcome observations.
             columns=list(self.before.columns[:self.before.columns.get_loc('status')])
+            if 'information_cutoff_utc' in self.before:columns=list(dict.fromkeys(columns+['information_cutoff_utc']))
             try:
                 if observed.duplicated(keys).any():raise ValueError('Duplicate forecast identity')
                 chosen=self.before[keys].merge(observed,how='left',on=keys,validate='1:1')

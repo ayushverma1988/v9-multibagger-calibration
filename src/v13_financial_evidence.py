@@ -264,6 +264,7 @@ def enrich_evidence(frame,wide,root,asof):
         basis='consolidated' if recent.reporting_mode.eq('consolidated').any() else 'standalone'
         w=w[w.reporting_mode.eq(basis)];q=pick(w,'quarter')
         if not q or (date-q['period']).days>190:continue
+        d.at[i,'current_owner_profit_status']=owner_profit_status(q)
         annual=pick(w,'annual')
         if annual and (date-annual['period']).days<=450:d.at[i,'annual_reported_revenue_INR']=number(annual,'revenue')
         capital=number(q,'paidup_equity_capital');face=number(q,'face_value')
@@ -361,12 +362,17 @@ def apply_scenarios(frame,root):
             from v13_information_clock import cutoff
             decision=cutoff(row)
             if cut>decision:continue
+            from v13_upgrade_diagnostics import scenario_horizon
+            if not scenario_horizon(r,row.date):
+                audit.append({'isin':r['isin'],'status':'UNKNOWN_UNBOUND_ANNUAL_PERIOD_HORIZON_OR_DILUTED_SHARE_BASIS'});continue
             z=earnings_scenario(row.close,row.ttm_reported_PAT_INR,row.latest_diluted_shares,r.get('forward_PAT_INR'),r.get('forward_diluted_shares'),r.get('sector_PE'))
             if 'earnings_growth' in z:
                 owner=row.get('ttm_owner_attributable_PAT_INR',np.nan)
                 z['earnings_growth']=r['forward_PAT_INR']/owner-1 if np.isfinite(owner) and owner>0 else None
                 z['earnings_growth_status']='SOURCE_OWNER_PAT_BASELINE_NOT_RECURRING_EARNINGS' if z['earnings_growth'] is not None else 'UNKNOWN_CURRENT_OWNER_ATTRIBUTABLE_BASELINE'
-            audit.append({'isin':r['isin'],'source_asof':str(pd.Timestamp(row.date).date()),'available_at_utc':cut.isoformat(),'input_source_sha256':hashes,**z})
+            audit.append({'isin':r['isin'],'source_asof':str(pd.Timestamp(row.date).date()),'available_at_utc':cut.isoformat(),'input_source_sha256':hashes,
+              'horizon_months':r['horizon_months'],'valuation_target_date':r['valuation_target_date'],
+              'forecast_period_start':r['forecast_period_start'],'forecast_period_end':r['forecast_period_end'],**z})
             d.at[i,'earnings_scenario_status']=z['status']
             if 'scenario_multiple' in z:
                 d.at[i,'scenario_base_multiple']=z['scenario_multiple'];d.at[i,'scenario_net_multiple']=z['net_multiple_after_registered_costs']
