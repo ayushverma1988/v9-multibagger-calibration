@@ -4,6 +4,7 @@ import v13_discovery_diagnostics as dd
 import v13_historical_discovery as hd
 import v13_sector_quality as sq
 from v13_project_evidence import scenario_bridge
+from v13_discovery_current import watchlists
 class Discovery(unittest.TestCase):
     def bars(self):
         p=100+np.sin(np.arange(260)/3)*2
@@ -45,4 +46,20 @@ class Discovery(unittest.TestCase):
     def test_missing_margin_not_profit(self):self.assertEqual(scenario_bridge(100,200,None,10,10,5)['status'],'UNKNOWN_INPUTS')
     def test_dilution_reduces_upside(self):
         a=scenario_bridge(100,200,.1,10,10,5);b=scenario_bridge(100,200,.1,20,10,5);self.assertAlmostEqual(a['net_multiple']/2,b['net_multiple']);self.assertIsNone(a['probability'])
+    def watch_fixture(self,**changes):
+        row=dict(isin='INE000000001',symbol='TEST',sector_status='UNKNOWN_SECTOR_FINANCIAL_INPUTS',sector_sector_kind='BANK',close=100.,feature_eligible=True,p6=.1,p12=.2,loss12=.3,joint12=.15,size_status='SMALL_MID_VERIFIED',rsi14=70.,distance_ma50=.1,log_ret63=.1,redevelopment_price_discipline=.8,research_within_200dma_band=False)
+        row.update(changes)
+        doc=dict(isin=row['isin'],source_sha256='a'*64,issuer_identity_read=True,available_at_utc='2025-01-01T10:00Z',first_retrieved_utc='2025-01-01T11:00Z',headline='Updates',text='The company received a purchase order.')
+        return pd.DataFrame([row]),[doc]
+    def test_strict_rsi_and_optional_dma(self):
+        f,e=self.watch_fixture();self.assertFalse(watchlists(f,e,'2025-01-02T12:00Z').iloc[0].rsi70_research_eligible)
+        f.loc[0,'rsi14']=70.01;self.assertTrue(watchlists(f,e,'2025-01-02T12:00Z').iloc[0].rsi70_research_eligible)
+    def test_early_watch_does_not_require_rsi70(self):
+        f,e=self.watch_fixture(rsi14=40.);self.assertTrue(watchlists(f,e,'2025-01-02T12:00Z').iloc[0].early_watch_eligible)
+    def test_unknown_sector_preserves_known_financial_failure(self):
+        f,e=self.watch_fixture(sector_sector_kind='UNKNOWN',research_financial_tier='OBSERVED_FINANCIAL_FAILURE');self.assertFalse(watchlists(f,e,'2025-01-02T12:00Z').iloc[0].early_watch_eligible)
+    def test_future_review_cannot_trigger_early_watch(self):
+        f,e=self.watch_fixture();e[0]['first_retrieved_utc']='2025-01-03T10:00Z';self.assertFalse(watchlists(f,e,'2025-01-02T12:00Z').iloc[0].early_watch_eligible)
+    def test_watchlist_preserves_frozen_probabilities(self):
+        f,e=self.watch_fixture();d=watchlists(f,e,'2025-01-02T12:00Z');pd.testing.assert_frame_equal(f[['p6','p12','joint12','loss12']],d[['p6','p12','joint12','loss12']])
 if __name__=='__main__':unittest.main()

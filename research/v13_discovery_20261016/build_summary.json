@@ -1,0 +1,45 @@
+{
+  "input_hashes": {
+    "/workspace/scratch/b761f6f9118c/redevelopment_inputs/challenger_matrix.parquet": "980aaa0664fb3fb7d490b9cb2fb4735f4439b13607614e7b297b95a54810beae",
+    "/workspace/scratch/b761f6f9118c/redevelopment_results/expanded_primary_volume_research.parquet": "a46f2d6c396cd8b5489cd4541b6c6ac3e78867cabf7d520d002faf00c828d549",
+    "/workspace/scratch/ceba08a89f5b/events/events_all_2016_2026.parquet": "da669826aa7a6c85cd96203fd37200552c46d36c39b9c1838d8024a999e68531"
+  },
+  "historical_rows": 23172,
+  "current_rows": 1450,
+  "historical_finite_rows": {
+    "hd_order_90d": 16992,
+    "hd_capacity_90d": 16992,
+    "hd_commissioning_language_90d": 16992,
+    "hd_approval_language_90d": 16992,
+    "hd_adverse_project_90d": 16992,
+    "hd_dilution_90d": 16992,
+    "hd_promoter_purchase_language_90d": 16992,
+    "hd_positive_age_days": 6142
+  },
+  "historical_positive_rows": {
+    "hd_order_90d": 924,
+    "hd_capacity_90d": 991,
+    "hd_commissioning_language_90d": 367,
+    "hd_approval_language_90d": 18,
+    "hd_adverse_project_90d": 3,
+    "hd_dilution_90d": 3165,
+    "hd_promoter_purchase_language_90d": 149,
+    "hd_positive_age_days": 6142
+  },
+  "selected_breakout_reasons": {
+    "NO_RESISTANCE_CROSS_IN_LAST_20_SESSIONS": 11,
+    "REPEAT_RESISTANCE_CROSS|BASE_VOLATILITY_NOT_COMPRESSED": 2,
+    "BASE_RANGE_NOT_COMPRESSED|BASE_VOLATILITY_NOT_COMPRESSED": 2,
+    "BASE_VOLATILITY_NOT_COMPRESSED": 2,
+    "REPEAT_RESISTANCE_CROSS|BASE_RANGE_NOT_COMPRESSED|BASE_VOLATILITY_NOT_COMPRESSED": 1,
+    "REPEAT_RESISTANCE_CROSS|BASE_RANGE_NOT_COMPRESSED|VOLUME_NOT_CONFIRMED": 1,
+    "REPEAT_RESISTANCE_CROSS|BASE_RANGE_NOT_COMPRESSED|BASE_VOLATILITY_NOT_COMPRESSED|VOLUME_NOT_CONFIRMED": 1
+  },
+  "all_breakout_states": {
+    "NO_RECENT_CROSS": 1236,
+    "UNCONFIRMED_OR_CONTINUATION_CROSS": 200,
+    "OLDER_OR_EXTENDED_FIRST_BREAKOUT": 12,
+    "EARLY_FIRST_BREAKOUT": 1,
+    "FIRST_BREAKOUT_TODAY": 1
+  }
+}
