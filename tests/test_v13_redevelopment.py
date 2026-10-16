@@ -27,6 +27,12 @@ class Redevelopment(unittest.TestCase):
         self.assertTrue(d.rd_first_breakout.isna().all())
         self.assertTrue(d.rd_breakout_age.isna().all())
 
+    def test_first_breakout_requires_twenty_observed_prior_resistances(self):
+        bars=self.bars().iloc[:83].copy()
+        bars.loc[82,['close','adj_close','high']]=[110,110,111]
+        bars.loc[82,'volume']=30000
+        self.assertFalse(rd.daily(bars).rd_first_breakout.fillna(0).any())
+
     def test_calibration_monotonic_finite_for_rare_and_zero_events(self):
         raw=np.linspace(.01,.9,80)
         for y in [np.zeros(80),np.ones(80),np.arange(80)%3==0]:

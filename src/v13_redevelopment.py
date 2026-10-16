@@ -35,7 +35,8 @@ def daily(bars):
     volume=d.volume/d.volume.shift().rolling(20).median().replace(0,np.nan)
     gap=p/resistance-1
     cross=gap.gt(.005)&gap.shift().le(.005)
-    first=cross&cross.shift().rolling(20).sum().eq(0)&(range20/range63).le(.65)&vr.le(.8)&volume.ge(1.5)
+    first=(cross&cross.shift().rolling(20).sum().eq(0)&gap.shift().rolling(20).count().eq(20)
+      &(range20/range63).le(.65)&vr.le(.8)&volume.ge(1.5))
     known=resistance.notna()&vr.notna()&range63.gt(0)&volume.notna()
     event_idx=pd.Series(np.arange(len(d)),index=d.index).where(first).ffill()
     age=pd.Series(np.arange(len(d)),index=d.index)-event_idx
