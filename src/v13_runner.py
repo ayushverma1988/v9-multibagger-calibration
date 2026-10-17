@@ -13,7 +13,29 @@ import v13_collection as collection
 import v13_features as features
 import v13_model as model
 from v13_lifecycle import register,adjudicate,promotion_gate,paired_observations,validate_registry
-from v13_paired_forecasts import scored,register_pair,export_watchlists,promotion_coverage
+from v13_paired_forecasts import COMPARISON_CONTRACT,scored,register_pair,export_watchlists,promotion_coverage
+
+def paired_registration_coverage_gate(root,current_rows):
+    """Block a collapsed daily cohort without changing prior registrations.
+
+    The threshold is relative to recent committed paired cohorts, so it is a
+    data-integrity guard rather than a new stock-selection or probability rule.
+    The first paired cohort is allowed to establish the baseline.
+    """
+    prior=[]
+    for path in sorted((Path(root)/'paired_cohorts').glob('*.json')):
+        obj=json.loads(path.read_text())
+        if obj.get('comparison_contract')!=COMPARISON_CONTRACT:continue
+        prior.append((pd.Timestamp(obj['registered_at_utc']),int(obj['rows_per_model'])))
+    prior=[rows for _,rows in sorted(prior)[-3:]]
+    if not prior:
+        return {'passed':True,'current_rows':int(current_rows),'minimum_rows':None,
+          'reference_recent_rows':[],'status':'FIRST_COHORT_BASELINE'}
+    reference=float(np.median(prior));minimum=max(20,int(np.ceil(reference*.5)))
+    passed=int(current_rows)>=minimum
+    return {'passed':passed,'current_rows':int(current_rows),'minimum_rows':minimum,
+      'reference_recent_rows':prior,'reference_median_rows':reference,
+      'status':'PASS' if passed else 'BLOCKED_COLLAPSED_CURRENT_COVERAGE'}
 import v13_financial_evidence as financial_evidence
 import v13_catalyst_execution as catalyst_execution
 import v13_action_audit as action_audit
@@ -286,10 +308,15 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                     report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])
                 except Exception as exc:
                     report['redevelopment_diagnostics']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
-                pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
-                export_watchlists(root,pair)
-                report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
-                report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
+                coverage_gate=paired_registration_coverage_gate(root,len(frame))
+                report['paired_registration_coverage_gate']=coverage_gate
+                if coverage_gate['passed']:
+                    pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
+                    export_watchlists(root,pair)
+                    report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
+                    report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
+                else:
+                    report['paired_registration']={'status':'BLOCKED_LOW_CURRENT_COVERAGE',**coverage_gate}
             else:report['paired_registration']={'status':'BLOCKED_NO_COMPLETE_CHALLENGER'}
         originals=[pd.read_parquet(p) for p in sorted((root/'official').glob('*_official_market.parquet'))]
         official_all=pd.concat(originals,ignore_index=True)
