@@ -161,6 +161,25 @@ class EvidencePairing(unittest.TestCase):
             self.assertEqual(ledger.cohort_id.notna().sum(),4);self.assertFalse(result['promotion']['promote'])
             self.assertNotIn('missing_paired_prospective_schema',result['promotion']['reasons'])
 
+    def test_collapsed_daily_coverage_cannot_register_a_new_pair(self):
+        import v13_runner as runner
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);(root/'paired_cohorts').mkdir()
+            for i,rows in enumerate((180,220,240)):
+                obj={'source_asof':f'2026-10-{12+i:02d}','registered_at_utc':f'2026-10-{12+i:02d}T16:00:00Z',
+                  'comparison_contract':runner.COMPARISON_CONTRACT,'rows_per_model':rows}
+                (root/'paired_cohorts'/f'{i}.json').write_text(json.dumps(obj))
+            blocked=runner.paired_registration_coverage_gate(root,3)
+            self.assertFalse(blocked['passed']);self.assertEqual(blocked['minimum_rows'],110)
+            self.assertEqual(blocked['status'],'BLOCKED_COLLAPSED_CURRENT_COVERAGE')
+            self.assertTrue(runner.paired_registration_coverage_gate(root,110)['passed'])
+
+    def test_first_pair_establishes_coverage_baseline(self):
+        import v13_runner as runner
+        with tempfile.TemporaryDirectory() as t:
+            gate=runner.paired_registration_coverage_gate(Path(t),2)
+            self.assertTrue(gate['passed']);self.assertEqual(gate['status'],'FIRST_COHORT_BASELINE')
+
     def test_history_refresh_and_cold_expansion_share_budget(self):
         from v13_collection import collect_histories,sha
         with tempfile.TemporaryDirectory() as t:

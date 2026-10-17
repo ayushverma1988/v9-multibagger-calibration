@@ -287,12 +287,13 @@ def collect_histories(root,asof,budget=800):
         else:errors.append({'symbol':symbol,'error':result['error']})
         attempts[symbol]=datetime.now(timezone.utc).isoformat()
     attempt_path.write_text(json.dumps(attempts,indent=2))
+    rate_limited=any(any(token in e['error'].lower() for token in ('429','too many requests','403','forbidden')) for e in errors)
     return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
       'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh),
       'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
       'already_source_aligned_histories_not_refetched':sum(not q[6] for q in queue),
       'same_day_unreconciled_bars_can_be_retried':True,'raw_response_vintage':vintage,
-      'source_workers':4,'source_rate_limited':True,'partial_coverage_is_not_full_NSE':True}
+      'source_workers':4,'source_rate_limited':rate_limited,'partial_coverage_is_not_full_NSE':True}
 
 def history_needs_refresh(history,official,asof,symbol,isin):
     """Only exact current official matches establish a completed refresh."""
