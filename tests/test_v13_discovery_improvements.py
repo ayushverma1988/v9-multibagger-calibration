@@ -62,4 +62,29 @@ class Discovery(unittest.TestCase):
         f,e=self.watch_fixture();e[0]['first_retrieved_utc']='2025-01-03T10:00Z';self.assertFalse(watchlists(f,e,'2025-01-02T12:00Z').iloc[0].early_watch_eligible)
     def test_watchlist_preserves_frozen_probabilities(self):
         f,e=self.watch_fixture();d=watchlists(f,e,'2025-01-02T12:00Z');pd.testing.assert_frame_equal(f[['p6','p12','joint12','loss12']],d[['p6','p12','joint12','loss12']])
+    def test_price_band_removed_both_ends(self):
+        for price in [.5,19.99,2000.01,100000.]:
+            with self.subTest(price=price):
+                f,e=self.watch_fixture(close=price,rsi14=75.)
+                d=watchlists(f,e,'2025-01-02T12:00Z').iloc[0]
+                self.assertTrue(d.rsi70_research_eligible)
+                self.assertTrue(d.early_watch_eligible)
+    def test_invalid_prices_still_excluded(self):
+        for price in [0.,-1.,np.nan,np.inf,-np.inf]:
+            with self.subTest(price=price):
+                f,e=self.watch_fixture(close=price,rsi14=75.)
+                d=watchlists(f,e,'2025-01-02T12:00Z').iloc[0]
+                self.assertFalse(d.rsi70_research_eligible)
+                self.assertFalse(d.early_watch_eligible)
+    def test_model_gate_has_no_price_band(self):
+        import v13_model as model
+        from v13_financial_evidence import REQUIRED
+        rows=[]
+        for price in [1.,5000.,0.,np.inf]:
+            r={k:np.nan for k in REQUIRED};r.update(close=price,distance_ma50=.1,log_ret63=.1);rows.append(r)
+        d=pd.DataFrame(rows)
+        for name in model.old.BASE_FIELDS:
+            if name not in d:d[name]=np.nan
+        verified,discovery,bad=model.gates(d)
+        self.assertEqual((verified|discovery).tolist(),[True,True,False,False])
 if __name__=='__main__':unittest.main()

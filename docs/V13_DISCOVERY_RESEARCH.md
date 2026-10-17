@@ -1,5 +1,26 @@
 # V13 discovery research — 16 October 2026
 
+## Price-policy update — 17 October 2026
+
+The user removed the nominal ₹20–₹2,000 share-price restriction. Current model
+gates, discovery watchlists and financial-collection prioritization now require
+only a finite positive price. RSI >70, small/mid-cap classification, financial
+failure checks, risk limits, liquidity/history eligibility and optional DMA
+preference are unchanged. Frozen probability heads are unchanged.
+
+A controlled replay of the saved 15 October close snapshot scores the same
+1,450 stocks, including 19 below ₹20 and 60 above ₹2,000. Final eligibility rises
+from 8 to 11, adding LTTS, PERSISTENT and MPHASIS. Early-watch eligibility rises
+from 23 to 27, retaining a ranked top20. Six probability columns reproduce
+exactly; no retraining or fresh market collection occurs. Ranking can change
+because its probability percentile uses the newly expanded eligible pool.
+
+All 597 regression tests pass, including both removed price boundaries and
+invalid-price rejection. Previously reported historical evaluation results and
+their fixed price-band protocol are preserved as historical experiments; this
+current-policy replay is not a new historical accuracy experiment. The existing
+daily worker's deployment pin is not changed by this research-branch commit.
+
 This branch adds auditable discovery research to PR16. It does not change the
 operational selector, frozen models, scheduled worker, or old forecasts. The
 matched six-month experiment did not improve selected doubling hits. Do not

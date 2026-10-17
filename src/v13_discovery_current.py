@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np,pandas as pd
 from v13_sector_quality import annotate,dated_members
 from v13_historical_discovery import signals
+from v13_price_policy import valid_price,POLICY as PRICE_POLICY
 
 def classify_current(frame,classification_dir,prior_members,now):
     root=Path(classification_dir);receipts={r['name']:r for r in json.loads((root/'receipt.json').read_text()) if 'error' not in r}
@@ -44,7 +45,7 @@ def watchlists(frame,documents,now):
         values=pd.to_numeric(d.get(col,pd.Series(np.nan,index=d.index)),errors='coerce')
         no_bad &= ~(values.lt(0) if col.endswith('yoy') else values.le(0))
     no_bad &= ~d.get('current_owner_profit_status',pd.Series('',index=d.index)).eq('UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT')
-    market=d.close.between(20,2000)&d.feature_eligible.fillna(False).astype(bool)
+    market=valid_price(d.close)&d.feature_eligible.fillna(False).astype(bool)
     market &= d.p6.between(0,1)&d.p12.between(0,1)&d.loss12.between(0,.95)&d.p6.le(d.p12+1e-12)&d.joint12.between(0,1)&d.joint12.le(d.p12+1e-12)&(d.joint12+d.loss12).le(1+1e-12)
     size=d.size_status.eq('SMALL_MID_VERIFIED')
     d['early_watch_eligible']=market&size&no_bad&positive&~d.current_adverse_project_documents.gt(0)
@@ -54,6 +55,7 @@ def watchlists(frame,documents,now):
         score=(.70*d.p6.where(valid).rank(pct=True)+.25*d.redevelopment_price_discipline+.05*d.research_within_200dma_band).where(valid)
         d[prefix+'_score']=score;pool=d[valid].sort_values([prefix+'_score','isin'],ascending=[False,True]).head(20)
         d[prefix+'_rank']=d['isin'].map({v:i+1 for i,v in enumerate(pool['isin'])})
+    d['price_policy']=PRICE_POLICY
     d['review_asof_utc']=now;d['probabilities_status']='UNCHANGED_FROZEN_ESTIMATES_FROM_ORIGINAL_INPUT_NOT_RECALIBRATED'
     return d
 
