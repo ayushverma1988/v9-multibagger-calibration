@@ -10,6 +10,7 @@ from v12_public_history import bounds,parse_chart
 from v11_4_exchange_reference_universe import NSE_MASTER,NSE_SME_MASTER,parse_nse_master
 from urllib.parse import quote
 import numpy as np
+from v13_price_policy import valid_price
 import time
 
 def financial_wide(extra):
@@ -404,7 +405,7 @@ def fresh_public_price_symbols(root,asof,require_feature_eligible=False):
     root=Path(root);path=root/'official'/(asof+'_official_market.parquet')
     if not path.exists():return set()
     official=pd.read_parquet(path)
-    official=official[official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&official.close.between(20,2000)]
+    official=official[official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&valid_price(official.close)]
     official=official[~official['isin'].duplicated(keep=False)].set_index('isin');symbols=set()
     for p in (root/'history'/'securities').glob('*.parquet'):
         h=pd.read_parquet(p) if require_feature_eligible else pd.read_parquet(p,columns=['symbol','isin','date','close','volume'])

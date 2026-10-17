@@ -12,7 +12,7 @@ import pandas as pd
 import v13_model as model
 from v13_financial_evidence import REQUIRED,financial_quality
 
-POLICY='V13_AVAILABLE_DATA_RSI_GT70_DMA200_SOFT_RESEARCH_20261016'
+POLICY='V13_AVAILABLE_DATA_RSI_GT70_NO_PRICE_BAND_20261017'
 WEIGHTS={'joint12_percentile':.75,'financial_input_fraction':.10,
          'complete_execution':.05,'source_supported_net_2x':.05,'within_200dma_band':.05}
 DMA_BAND=.10
