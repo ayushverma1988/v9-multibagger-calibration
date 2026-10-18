@@ -169,6 +169,17 @@ def audit(root, asof, scored=None, collection_report=None):
             else:
                 row['current_status'] = 'FEATURE_ELIGIBLE_BUT_NOT_SCORED_CHECK_OFFICIAL_RECONCILIATION'
         rows.append(row)
+    early_path = root / 'early_potential' / 'latest.json'
+    if early_path.exists():
+        early = json.loads(early_path.read_text())
+        if early.get('source_date') == _date(asof):
+            states = {r['isin']: r for r in early.get('scored_states', [])}
+            for row in rows:
+                status = states.get(row['isin'])
+                row['early_potential_status'] = (status['early_state'] if status else
+                    'NOT_SCORABLE_WITH_CURRENT_DATA')
+                row['early_potential_pattern'] = status['early_pattern'] if status else None
+                row['early_potential_rank'] = status['early_rank'] if status else None
     summary = {'source_asof': _date(asof), 'scope': 'USER_SUPPLIED_DIAGNOSTIC_NOT_TRAINING_OR_SELECTION',
                'rolling_window_start': _date(low), 'listing_to_date_history_not_claimed': True,
                'current_status_counts': pd.Series([r['current_status'] for r in rows]).value_counts().to_dict(),

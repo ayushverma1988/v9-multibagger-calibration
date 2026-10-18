@@ -20,7 +20,8 @@ MARKET_FEATURES=['rd_return20','rd_return63','rd_extension200','rd_prior_range_r
  'rd_extension_since_breakout','rd_first_breakout']
 BOTTOM_FEATURES=['rd_peak_drawdown756','rd_peak_window_observed','rd_base_range30','rd_base_return30',
  'rd_low_distance30','rd_recent_volume_burst5','rd_recovery_turn',
- 'rd_surge_retest_age','rd_surge_peak_retrace','rd_surge_base_lift']
+ 'rd_surge_retest_age','rd_surge_peak_retrace','rd_surge_base_lift',
+ 'rd_observed_sessions','rd_peak_drawdown126']
 EVIDENCE_FEATURES=['owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document',
  'order_disclosure_count90','disclosed_order_value_due12_to_sales','verified_recurring_diluted_EPS_growth']
 WEIGHTS={'joint':.35,'risk':.15,'price_discipline':.25,'breakout':.10,'financial':.10,'dma_band':.05}
@@ -61,6 +62,8 @@ def daily(bars):
     recent_burst=volume.rolling(5,min_periods=5).max()
     d['rd_peak_drawdown756']=p/prior_peak-1
     d['rd_peak_window_observed']=prior_window.count().where(prior_peak.notna())
+    d['rd_observed_sessions']=np.arange(1,len(d)+1,dtype=float)
+    d['rd_peak_drawdown126']=p/p.shift().rolling(126,min_periods=126).max()-1
     d['rd_base_range30']=high30/low30-1
     d['rd_base_return30']=p/p.shift(30)-1
     d['rd_low_distance30']=p/low30-1
@@ -171,6 +174,8 @@ def export(scored,root,replay_receipt):
     root=Path(root);d=attach(scored,root/'history'/'securities')
     from v13_bottom_recovery import export as export_bottom_recovery
     bottom_summary=export_bottom_recovery(d,root,replay_receipt)
+    from v13_early_potential import export as export_early_potential
+    early_summary=export_early_potential(d,root,replay_receipt)
     d,audit=select(d)
     audit['prediction_replay']=replay_receipt
     audit['probabilities_recalibrated']=False
@@ -182,4 +187,5 @@ def export(scored,root,replay_receipt):
     (out/'latest.json').write_bytes(raw)
     result={k:v for k,v in audit.items() if k not in ('records','prediction_replay')}
     result['bottom_recovery_shadow']=bottom_summary
+    result['early_potential_shadow']=early_summary
     return result
