@@ -10,6 +10,7 @@ from v12_public_history import bounds,parse_chart
 from v11_4_exchange_reference_universe import NSE_MASTER,NSE_SME_MASTER,parse_nse_master
 from urllib.parse import quote
 import numpy as np
+from v13_price_policy import valid_price
 import time
 
 def financial_wide(extra):
@@ -232,6 +233,14 @@ def universe(root,asof):
     if d.nse_current_symbol.duplicated().any():raise ValueError('Public universe symbol conflict')
     d.to_parquet(Path(root)/'universe.parquet',index=False);return d
 
+def public_history_refresh_priority(history):
+    """Prioritize usable public history by coverage and turnover, not share price."""
+    if history.empty or len(history)<127 or not {'close','volume'}.issubset(history):return False
+    close=pd.to_numeric(history.close,errors='coerce')
+    volume=pd.to_numeric(history.volume,errors='coerce')
+    turnover=(close*volume).tail(63).replace([np.inf,-np.inf],np.nan).median()
+    return bool(valid_price(close.tail(1)).iloc[0] and np.isfinite(turnover) and turnover>=2_500_000)
+
 def collect_histories(root,asof,budget=800):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
     from datetime import datetime,timezone
@@ -249,7 +258,7 @@ def collect_histories(root,asof,budget=800):
         age=max(age,attempts.get(r['nse_current_symbol'],'0000'))
         # Public, unranked execution/history evidence prioritises refreshes;
         # private forecasts, selections and realised outcomes are not read.
-        liquid=not h.empty and len(h)>=127 and {'close','volume'}.issubset(h) and h.close.iloc[-1]>=20 and h.close.iloc[-1]<=2000 and (h.close*h.volume).tail(63).median()>=2_500_000
+        liquid=public_history_refresh_priority(h)
         # Preserve fresh source-aligned, technically usable public coverage.
         # A high-turnover but persistently invalid history must not displace
         # previously usable histories merely because its ticker hashes first.
@@ -404,7 +413,7 @@ def fresh_public_price_symbols(root,asof,require_feature_eligible=False):
     root=Path(root);path=root/'official'/(asof+'_official_market.parquet')
     if not path.exists():return set()
     official=pd.read_parquet(path)
-    official=official[official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&official.close.between(20,2000)]
+    official=official[official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&valid_price(official.close)]
     official=official[~official['isin'].duplicated(keep=False)].set_index('isin');symbols=set()
     for p in (root/'history'/'securities').glob('*.parquet'):
         h=pd.read_parquet(p) if require_feature_eligible else pd.read_parquet(p,columns=['symbol','isin','date','close','volume'])

@@ -18,6 +18,9 @@ VERSION='V13_EXTENSION_BREAKOUT_EVIDENCE_RISK_20261016'
 MARKET_FEATURES=['rd_return20','rd_return63','rd_extension200','rd_prior_range_ratio',
  'rd_prior_vol_ratio','rd_volume_ratio','rd_breakout_gap','rd_breakout_age',
  'rd_extension_since_breakout','rd_first_breakout']
+BOTTOM_FEATURES=['rd_peak_drawdown756','rd_peak_window_observed','rd_base_range30','rd_base_return30',
+ 'rd_low_distance30','rd_recent_volume_burst5','rd_recovery_turn',
+ 'rd_surge_retest_age','rd_surge_peak_retrace','rd_surge_base_lift']
 EVIDENCE_FEATURES=['owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document',
  'order_disclosure_count90','disclosed_order_value_due12_to_sales','verified_recurring_diluted_EPS_growth']
 WEIGHTS={'joint':.35,'risk':.15,'price_discipline':.25,'breakout':.10,'financial':.10,'dma_band':.05}
@@ -48,6 +51,38 @@ def daily(bars):
     d['rd_breakout_age']=age.where(age.le(20))
     d['rd_extension_since_breakout']=(p/reference-1).where(age.le(20))
     d['rd_first_breakout']=first.astype(float).where(known)
+    # A separate early-base channel: prices/volume are adjusted and every
+    # observation uses only bars available by this session's close.
+    prior_window=p.shift().rolling(756,min_periods=252)
+    prior_peak=prior_window.max()
+    low30=lo.rolling(30,min_periods=30).min()
+    high30=hi.rolling(30,min_periods=30).max()
+    dma50=p.rolling(50,min_periods=50).mean()
+    recent_burst=volume.rolling(5,min_periods=5).max()
+    d['rd_peak_drawdown756']=p/prior_peak-1
+    d['rd_peak_window_observed']=prior_window.count().where(prior_peak.notna())
+    d['rd_base_range30']=high30/low30-1
+    d['rd_base_return30']=p/p.shift(30)-1
+    d['rd_low_distance30']=p/low30-1
+    d['rd_recent_volume_burst5']=recent_burst
+    turns=(p.gt(dma50)&p.shift().le(dma50.shift())) | (
+      p.gt(hi.shift().rolling(20,min_periods=20).max())&volume.ge(1.5))
+    d['rd_recovery_turn']=turns.rolling(5,min_periods=5).max().astype(float)
+    d.loc[prior_peak.isna()|dma50.isna()|volume.isna(),'rd_recovery_turn']=np.nan
+    # A high-volume first lift from a 63-session low can be followed by a
+    # tradable pullback. Keep the event's original low/peak, not a rolling
+    # current-window low which would erase the first lift after the spike.
+    preceding_low=lo.shift().rolling(63,min_periods=63).min()
+    lift=p/preceding_low-1
+    surge=(lift.between(.25,1.5)&volume.ge(2.5)&p.gt(p.shift())&
+        (p/p.shift(5)-1).ge(.10)&prior_peak.notna())
+    surge_idx=pd.Series(np.arange(len(d)),index=d.index).where(surge).ffill()
+    surge_age=pd.Series(np.arange(len(d)),index=d.index)-surge_idx
+    surge_peak=p.where(surge).ffill()
+    surge_base=preceding_low.where(surge).ffill()
+    d['rd_surge_retest_age']=surge_age.where(surge_age.between(1,45))
+    d['rd_surge_peak_retrace']=(p/surge_peak-1).where(d.rd_surge_retest_age.notna())
+    d['rd_surge_base_lift']=(p/surge_base-1).where(d.rd_surge_retest_age.notna())
     return d.replace([np.inf,-np.inf],np.nan)
 
 def attach(frame,history):
@@ -56,13 +91,13 @@ def attach(frame,history):
     for path in sorted(Path(history).glob('*.parquet')):
         bars=pd.read_parquet(path)
         if bars.empty or not set(bars['isin'])&wanted:continue
-        x=daily(bars);pieces.append(x[['date','isin',*MARKET_FEATURES]])
+        x=daily(bars);pieces.append(x[['date','isin',*MARKET_FEATURES,*BOTTOM_FEATURES]])
     out=frame.copy();out['date']=pd.to_datetime(out.date)
     if pieces:
         x=pd.concat(pieces,ignore_index=True);x['date']=pd.to_datetime(x.date)
         if x.duplicated(['date','isin']).any():raise ValueError('Ambiguous history identity')
         out=out.merge(x,on=['date','isin'],how='left',validate='one_to_one',sort=False)
-    for name in MARKET_FEATURES+EVIDENCE_FEATURES:
+    for name in MARKET_FEATURES+BOTTOM_FEATURES+EVIDENCE_FEATURES:
         if name not in out:out[name]=np.nan
     return out
 
@@ -133,7 +168,10 @@ def select(scored):
 
 def export(scored,root,replay_receipt):
     """Daily diagnostics reuse exact champion probabilities, with new ranks."""
-    root=Path(root);d=attach(scored,root/'history'/'securities');d,audit=select(d)
+    root=Path(root);d=attach(scored,root/'history'/'securities')
+    from v13_bottom_recovery import export as export_bottom_recovery
+    bottom_summary=export_bottom_recovery(d,root,replay_receipt)
+    d,audit=select(d)
     audit['prediction_replay']=replay_receipt
     audit['probabilities_recalibrated']=False
     audit['records']=json.loads(d.to_json(orient='records',date_format='iso',double_precision=15))
@@ -142,4 +180,6 @@ def export(scored,root,replay_receipt):
     path=out/(key+'.json')
     if not path.exists():path.write_bytes(raw)
     (out/'latest.json').write_bytes(raw)
-    return {k:v for k,v in audit.items() if k not in ('records','prediction_replay')}
+    result={k:v for k,v in audit.items() if k not in ('records','prediction_replay')}
+    result['bottom_recovery_shadow']=bottom_summary
+    return result
