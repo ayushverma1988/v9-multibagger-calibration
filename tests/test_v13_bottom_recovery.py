@@ -74,6 +74,31 @@ class BottomRecovery(unittest.TestCase):
                 d, _ = bottom.select(self.row({**features, **change}))
                 self.assertFalse(d.iloc[0].bottom_recovery_eligible)
 
+    def test_volume_surge_then_pullback_is_a_separate_shadow_candidate(self):
+        b = self.bars()
+        # Old peak 160, base 72, then a first lift to 105 on strong volume.
+        b.loc[292, ['close', 'adj_close']] = 105.
+        b.loc[292, 'high'] = 106.
+        b.loc[292, 'low'] = 102.
+        b.loc[292, 'volume'] = 40000.
+        x = rd.daily(b).iloc[-1]
+        self.assertTrue(1 <= x.rd_surge_retest_age <= 45)
+        self.assertTrue(-.35 <= x.rd_surge_peak_retrace <= -.08)
+        d, audit = bottom.select(self.row({k: x[k] for k in rd.MARKET_FEATURES + rd.BOTTOM_FEATURES}))
+        self.assertTrue(d.iloc[0].retest_recovery_eligible)
+        self.assertEqual(d.iloc[0].retest_recovery_state, 'SURGE_PULLBACK_WATCH')
+        self.assertEqual(audit['retest_selected'], 1)
+        adverse = self.row({**{k: x[k] for k in rd.MARKET_FEATURES + rd.BOTTOM_FEATURES},
+                            'hd_dilution_90d': 1.})
+        self.assertFalse(bottom.select(adverse)[0].iloc[0].retest_recovery_eligible)
+
+    def test_volume_alone_is_not_surge_retest(self):
+        b = self.bars(); b.loc[292, 'volume'] = 40000.
+        x = rd.daily(b).iloc[-1]
+        self.assertTrue(np.isnan(x.rd_surge_retest_age))
+        d, _ = bottom.select(self.row({k: x[k] for k in rd.MARKET_FEATURES + rd.BOTTOM_FEATURES}))
+        self.assertFalse(d.iloc[0].retest_recovery_eligible)
+
 
 if __name__ == '__main__':
     unittest.main()

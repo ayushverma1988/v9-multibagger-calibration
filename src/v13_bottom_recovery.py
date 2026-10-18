@@ -66,12 +66,33 @@ def select(scored):
         .10 * early.astype(float) + .10 * catalyst.astype(float)).where(valid)
     pool = d[valid].sort_values(['bottom_recovery_score', 'isin'], ascending=[False, True]).head(20)
     d['bottom_recovery_rank'] = d['isin'].map({v: i + 1 for i, v in enumerate(pool['isin'])})
+    # A separate shadow lane for an observed first lift followed by a pullback.
+    # The volume burst itself is only a cue; risk and adverse-news gates remain.
+    retest = (col('rd_peak_drawdown756').between(-.80, -.25) &
+        col('rd_surge_retest_age').between(1, 45) &
+        col('rd_surge_peak_retrace').between(-.35, -.08) &
+        col('rd_surge_base_lift').between(.08, .90))
+    d['retest_recovery_state'] = np.select(
+        [col('rd_surge_retest_age').isna(), retest],
+        ['NO_OBSERVED_RECENT_SURGE', 'SURGE_PULLBACK_WATCH'], default='NO_QUALIFYING_PULLBACK')
+    d['retest_recovery_eligible'] = market & retest & ~adverse
+    retest_valid = d.retest_recovery_eligible
+    pullback_credit = (1 - (col('rd_surge_peak_retrace').abs() - .08) / .27).clip(0, 1).fillna(0)
+    d['retest_recovery_score'] = (
+        .45 * col('p6').where(retest_valid).rank(pct=True) +
+        .25 * (-col('loss12')).where(retest_valid).rank(pct=True) +
+        .15 * pullback_credit + .10 * catalyst.astype(float) +
+        .05 * (1 - col('rd_surge_retest_age') / 45).clip(0, 1).fillna(0)).where(retest_valid)
+    retest_pool = d[retest_valid].sort_values(
+        ['retest_recovery_score', 'isin'], ascending=[False, True]).head(20)
+    d['retest_recovery_rank'] = d['isin'].map({v: i + 1 for i, v in enumerate(retest_pool['isin'])})
     return d, {'version': VERSION, 'source_date': str(pd.Timestamp(d.date.max()).date()),
         'scored_rows': len(d), 'observed_bases': int(base.sum()),
         'eligible': int(valid.sum()), 'early_recoveries': int(early[valid].sum()),
         'selected': len(pool), 'unknown_history': int(d.bottom_recovery_state.eq('UNKNOWN_HISTORY').sum()),
         'weights_are_probabilities': False, 'frozen_probabilities_recalibrated': False,
-        'promotion_approved': False}
+        'promotion_approved': False, 'retest_eligible': int(retest_valid.sum()),
+        'retest_selected': len(retest_pool)}
 
 
 def export(attached, root, replay_receipt):
@@ -86,4 +107,18 @@ def export(attached, root, replay_receipt):
     audit['prediction_replay'] = replay_receipt
     path = Path(root) / 'bottom_recovery'; path.mkdir(exist_ok=True)
     (path / 'latest.json').write_text(json.dumps(audit, indent=2))
+    retest_cols = ['date', 'symbol', 'isin', 'close', 'p6', 'p12', 'loss12',
+        'retest_recovery_state', 'retest_recovery_score', 'retest_recovery_rank',
+        'rd_peak_drawdown756', 'rd_surge_retest_age', 'rd_surge_peak_retrace',
+        'rd_surge_base_lift', 'bottom_recovery_catalyst_status']
+    retest_audit = {k: audit[k] for k in ('version', 'source_date', 'scored_rows',
+        'retest_eligible', 'retest_selected', 'promotion_approved')}
+    # Preserve all qualifying candidates so examples outside top 20 can be
+    # audited; top 20 is only the display cut.
+    retest_audit['candidates'] = json.loads(d[d.retest_recovery_eligible].sort_values(
+        ['retest_recovery_score', 'isin'], ascending=[False, True])[retest_cols].to_json(
+        orient='records', date_format='iso'))
+    retest_audit['prediction_replay'] = replay_receipt
+    retest_path = Path(root) / 'retest_recovery'; retest_path.mkdir(exist_ok=True)
+    (retest_path / 'latest.json').write_text(json.dumps(retest_audit, indent=2))
     return {k: v for k, v in audit.items() if k not in ('top20', 'prediction_replay')}

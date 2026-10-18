@@ -25,6 +25,7 @@ EXAMPLES = (
     ('Raj Rayon Industries', 'RAJRILTD', 'INE533D01032'),
     ('R Systems International', 'RSYSTEMS', 'INE411H01032'),
     ('Chemcrux Enterprises', 'CHEMCRUX', 'INE298W01016'),
+    ('Huhtamaki India', 'HUHTAMAKI', 'INE275B01026'),
 )
 
 
@@ -97,7 +98,8 @@ def audit(root, asof, scored=None, collection_report=None):
             continue
         pattern = d[['date']].merge(redevelopment_daily(bars)[[
             'date', 'rd_peak_drawdown756', 'rd_base_range30',
-            'rd_base_return30', 'rd_low_distance30']],
+            'rd_base_return30', 'rd_low_distance30', 'rd_surge_retest_age',
+            'rd_surge_peak_retrace', 'rd_surge_base_lift']],
             on='date', how='left', validate='one_to_one', sort=False)
         last = d.iloc[-1]
         price = pd.to_numeric(bars.adj_close, errors='coerce')
@@ -139,6 +141,9 @@ def audit(root, asof, scored=None, collection_report=None):
                                                     if observed_base.any() else None)
         row['latest_peak_drawdown756'] = _number(pattern.rd_peak_drawdown756.iloc[-1])
         row['latest_base_range30'] = _number(pattern.rd_base_range30.iloc[-1])
+        row['latest_surge_retest_age'] = _number(pattern.rd_surge_retest_age.iloc[-1])
+        row['latest_surge_peak_retrace'] = _number(pattern.rd_surge_peak_retrace.iloc[-1])
+        row['latest_surge_base_lift'] = _number(pattern.rd_surge_base_lift.iloc[-1])
         row['latest_feature_gate_failures'] = [k for k, fails in (
             ('TURNOVER_63_BELOW_25_LAKH', pd.notna(last.get('median_turnover63')) and last.median_turnover63 < MIN_TURNOVER),
             ('TURNOVER_20_BELOW_25_LAKH', pd.notna(last.get('median_turnover20')) and last.median_turnover20 < MIN_TURNOVER),

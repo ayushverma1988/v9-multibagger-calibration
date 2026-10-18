@@ -46,7 +46,7 @@ class ExampleHistoryAuditTests(unittest.TestCase):
             self.assertEqual(by_name['DSSL']['last_public_history_attempt_utc'], '2026-10-18T02:00:00Z')
             self.assertEqual(by_name['DSSL']['current_run_public_history_error'], 'Provider security unavailable')
             self.assertEqual(by_name['CHEMCRUX']['current_status'], 'OUTSIDE_NSE_COLLECTION')
-            self.assertEqual(len(records), 8)
+            self.assertEqual(len(records), 9)
             self.assertTrue(summary['listing_to_date_history_not_claimed'])
 
 

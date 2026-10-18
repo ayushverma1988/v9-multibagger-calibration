@@ -19,7 +19,8 @@ MARKET_FEATURES=['rd_return20','rd_return63','rd_extension200','rd_prior_range_r
  'rd_prior_vol_ratio','rd_volume_ratio','rd_breakout_gap','rd_breakout_age',
  'rd_extension_since_breakout','rd_first_breakout']
 BOTTOM_FEATURES=['rd_peak_drawdown756','rd_peak_window_observed','rd_base_range30','rd_base_return30',
- 'rd_low_distance30','rd_recent_volume_burst5','rd_recovery_turn']
+ 'rd_low_distance30','rd_recent_volume_burst5','rd_recovery_turn',
+ 'rd_surge_retest_age','rd_surge_peak_retrace','rd_surge_base_lift']
 EVIDENCE_FEATURES=['owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document',
  'order_disclosure_count90','disclosed_order_value_due12_to_sales','verified_recurring_diluted_EPS_growth']
 WEIGHTS={'joint':.35,'risk':.15,'price_discipline':.25,'breakout':.10,'financial':.10,'dma_band':.05}
@@ -68,6 +69,19 @@ def daily(bars):
       p.gt(hi.shift().rolling(20,min_periods=20).max())&volume.ge(1.5))
     d['rd_recovery_turn']=turns.rolling(5,min_periods=5).max().astype(float)
     d.loc[prior_peak.isna()|dma50.isna()|volume.isna(),'rd_recovery_turn']=np.nan
+    # A high-volume first lift from a 63-session low can be followed by a
+    # tradable pullback. Keep the event's original low/peak, not a rolling
+    # current-window low which would erase the first lift after the spike.
+    preceding_low=lo.shift().rolling(63,min_periods=63).min()
+    lift=p/preceding_low-1
+    surge=lift.between(.25,1.5)&volume.ge(2.5)&prior_peak.notna()
+    surge_idx=pd.Series(np.arange(len(d)),index=d.index).where(surge).ffill()
+    surge_age=pd.Series(np.arange(len(d)),index=d.index)-surge_idx
+    surge_peak=p.where(surge).ffill()
+    surge_base=preceding_low.where(surge).ffill()
+    d['rd_surge_retest_age']=surge_age.where(surge_age.between(1,45))
+    d['rd_surge_peak_retrace']=(p/surge_peak-1).where(d.rd_surge_retest_age.notna())
+    d['rd_surge_base_lift']=(p/surge_base-1).where(d.rd_surge_retest_age.notna())
     return d.replace([np.inf,-np.inf],np.nan)
 
 def attach(frame,history):
