@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 80502d084e4826278ff25f821fc40b9376ae0360
+          ref: 18e961fc8a51f47557f0fcd5945fe801d627ab14
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -53,6 +53,7 @@ jobs:
             v13_state/research_selection/*.json
             v13_state/redevelopment/*.json
             v13_state/bottom_recovery/*.json
+            v13_state/retest_recovery/*.json
             v13_state/statement_eps/*.json
             v13_state/identity/symbol_changes.json
             v13_state/prediction_replay/**/*.json
