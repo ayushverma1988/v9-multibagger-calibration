@@ -4,6 +4,7 @@ Ranks are declared heuristics, never 50%/2x probabilities. User examples are
 diagnostics only: no symbol/ISIN enters a selection rule or training label.
 """
 import json
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -131,6 +132,21 @@ def export(attached, root, replay_receipt):
     summary['prediction_replay'] = replay_receipt
     path = Path(root) / 'early_potential';path.mkdir(exist_ok=True)
     (path / 'latest.json').write_text(json.dumps(summary, indent=2))
+    # Content-addressed, immutable prospective cohort: keep repeated refreshes
+    # of the same market date distinct instead of overwriting earlier evidence.
+    cohort = {'version': VERSION, 'source_date': summary['source_date'],
+        'labels': ['hit1p5_6m', 'hit1p5_12m', 'hit2_6m', 'hit2_12m'],
+        'outcomes_matured': False,
+        'corporate_actions_independently_verified': False,
+        'rows': json.loads(d[d.early_state.isin(['EARLY_POTENTIAL', 'CHART_WATCH'])][[
+            'date', 'isin', 'symbol', 'close', 'early_state', 'early_pattern',
+            'early_score', 'early_rank', 'early_watch_rank',
+            'early_market_cap_crore_proxy']].sort_values(
+                ['early_state', 'isin']).to_json(orient='records', date_format='iso'))}
+    raw = json.dumps(cohort, sort_keys=True, separators=(',', ':')).encode()
+    cohorts = path / 'cohorts';cohorts.mkdir(exist_ok=True)
+    cohort_file = cohorts / (summary['source_date'] + '_' + hashlib.sha256(raw).hexdigest() + '.json')
+    if not cohort_file.exists():cohort_file.write_bytes(raw)
     leaders = d[d.early_rank.between(1, 20)].sort_values('early_rank')
     lines = [f'# Early potential research queue — {summary["source_date"]}', '',
         'Untrained 6–12 month upside hypotheses. Rank is not a return probability.', '',
@@ -145,5 +161,7 @@ def export(attached, root, replay_receipt):
     lines += ['', f'{summary["chart_watch"]} more chart watches and '
         f'{summary["financial_conflicts"]} financial conflicts appear in latest.json.']
     (path / 'latest.md').write_text('\n'.join(lines) + '\n')
-    return {k: v for k, v in summary.items() if k not in (
+    result = {k: v for k, v in summary.items() if k not in (
         'candidates', 'scored_states', 'prediction_replay')}
+    result['prospective_cohort'] = str(cohort_file.relative_to(root))
+    return result

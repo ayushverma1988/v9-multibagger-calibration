@@ -74,6 +74,15 @@ class EarlyPotential(unittest.TestCase):
             x=json.loads((Path(root)/'early_potential'/'latest.json').read_text())
             self.assertEqual(len(x['candidates']),1)
             self.assertIn('ALPHA',(Path(root)/'early_potential'/'latest.md').read_text())
+            cohort=Path(root)/audit['prospective_cohort']
+            self.assertTrue(cohort.exists())
+            self.assertEqual(len(list(cohort.parent.glob('*.json'))),1)
+            early.export(original,root,{'sha256':'frozen'})
+            self.assertEqual(len(list(cohort.parent.glob('*.json'))),1)
+            changed=self.row(close=101.)
+            early.export(changed,root,{'sha256':'frozen'})
+            self.assertEqual(len(list(cohort.parent.glob('*.json'))),2)
+            self.assertEqual(json.loads(cohort.read_text())['rows'][0]['close'],100.)
 
     def test_history_features_are_prefix_causal(self):
         p = np.r_[np.linspace(100, 180, 150), np.linspace(180, 95, 80)]
