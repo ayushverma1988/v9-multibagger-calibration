@@ -38,6 +38,16 @@ class BottomRecovery(unittest.TestCase):
         pd.testing.assert_frame_equal(rd.daily(a)[rd.BOTTOM_FEATURES],
                                       rd.daily(b)[rd.BOTTOM_FEATURES])
 
+    def test_older_peak_remains_observable_after_one_year(self):
+        old = self.bars()
+        flat = old.iloc[-1:].copy()
+        more = pd.concat([flat] * 250, ignore_index=True)
+        more['date'] = pd.bdate_range(old.date.max() + pd.Timedelta(days=1), periods=250)
+        b = pd.concat([old, more], ignore_index=True)
+        x = rd.daily(b).iloc[-1]
+        self.assertGreater(x.rd_peak_window_observed, 500)
+        self.assertLess(x.rd_peak_drawdown756, -.45)
+
     def test_base_below_rsi70_and_no_capex_is_visible_as_shadow(self):
         b = self.bars(); b.loc[297, 'volume'] = 25000.
         x = rd.daily(b).iloc[-1]
@@ -54,10 +64,10 @@ class BottomRecovery(unittest.TestCase):
         self.assertFalse(audit['promotion_approved'])
 
     def test_unknown_history_financial_failure_and_adverse_news_exclude(self):
-        features = {'rd_peak_drawdown252': -.45, 'rd_base_range30': .14,
+        features = {'rd_peak_drawdown756': -.45, 'rd_base_range30': .14,
             'rd_base_return30': .04, 'rd_low_distance30': .12,
             'rd_recent_volume_burst5': 2., 'rd_recovery_turn': 1.}
-        for change in ({'rd_peak_drawdown252': np.nan},
+        for change in ({'rd_peak_drawdown756': np.nan},
                        {'hd_dilution_90d': 1.}, {'owner_PAT_yoy': -.2},
                        {'close': 0.}):
             with self.subTest(change=change):

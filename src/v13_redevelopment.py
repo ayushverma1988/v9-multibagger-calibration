@@ -18,7 +18,7 @@ VERSION='V13_EXTENSION_BREAKOUT_EVIDENCE_RISK_20261016'
 MARKET_FEATURES=['rd_return20','rd_return63','rd_extension200','rd_prior_range_ratio',
  'rd_prior_vol_ratio','rd_volume_ratio','rd_breakout_gap','rd_breakout_age',
  'rd_extension_since_breakout','rd_first_breakout']
-BOTTOM_FEATURES=['rd_peak_drawdown252','rd_base_range30','rd_base_return30',
+BOTTOM_FEATURES=['rd_peak_drawdown756','rd_peak_window_observed','rd_base_range30','rd_base_return30',
  'rd_low_distance30','rd_recent_volume_burst5','rd_recovery_turn']
 EVIDENCE_FEATURES=['owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document',
  'order_disclosure_count90','disclosed_order_value_due12_to_sales','verified_recurring_diluted_EPS_growth']
@@ -52,12 +52,14 @@ def daily(bars):
     d['rd_first_breakout']=first.astype(float).where(known)
     # A separate early-base channel: prices/volume are adjusted and every
     # observation uses only bars available by this session's close.
-    prior_peak=p.shift().rolling(252,min_periods=252).max()
+    prior_window=p.shift().rolling(756,min_periods=252)
+    prior_peak=prior_window.max()
     low30=lo.rolling(30,min_periods=30).min()
     high30=hi.rolling(30,min_periods=30).max()
     dma50=p.rolling(50,min_periods=50).mean()
     recent_burst=volume.rolling(5,min_periods=5).max()
-    d['rd_peak_drawdown252']=p/prior_peak-1
+    d['rd_peak_drawdown756']=p/prior_peak-1
+    d['rd_peak_window_observed']=prior_window.count().where(prior_peak.notna())
     d['rd_base_range30']=high30/low30-1
     d['rd_base_return30']=p/p.shift(30)-1
     d['rd_low_distance30']=p/low30-1

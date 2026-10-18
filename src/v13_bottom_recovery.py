@@ -34,8 +34,9 @@ def select(scored):
     observed_market = valid_price(d.close) & d.get('feature_eligible', pd.Series(False, index=d.index)).fillna(False).astype(bool)
     market = observed_market & probability_ok & ~bad_financial & ~owner_bad & ~known_owner_failure
     # A bottom must be observed, not inferred from an old screenshot or a
-    # missing 252-session history. A 200 DMA or RSI >70 is not mandatory.
-    base = (col('rd_peak_drawdown252').between(-.80, -.25) &
+    # missing one-year history. The prior peak looks back at most 756 sessions.
+    # A 200 DMA or RSI >70 is not mandatory.
+    base = (col('rd_peak_drawdown756').between(-.80, -.25) &
         col('rd_base_range30').between(0, .27) &
         col('rd_base_return30').between(-.18, .20) &
         col('rd_low_distance30').between(0, .45))
@@ -43,7 +44,7 @@ def select(scored):
     turning = col('rd_recovery_turn').eq(1) | col('rd_return20').gt(0)
     early = base & volume & turning
     d['bottom_recovery_state'] = np.select(
-        [~col('rd_peak_drawdown252').notna() | ~col('rd_base_range30').notna(),
+        [~col('rd_peak_drawdown756').notna() | ~col('rd_base_range30').notna(),
          early, base],
         ['UNKNOWN_HISTORY', 'EARLY_RECOVERY', 'BASE_WATCH'], default='NO_OBSERVED_BASE')
     adverse = (col('hd_adverse_project_90d').gt(0) | col('hd_dilution_90d').gt(0) |
@@ -77,7 +78,8 @@ def export(attached, root, replay_receipt):
     d, audit = select(attached)
     cols = ['date', 'symbol', 'isin', 'close', 'p6', 'p12', 'loss12',
         'bottom_recovery_state', 'bottom_recovery_catalyst_status',
-        'rd_peak_drawdown252', 'rd_base_range30', 'rd_recent_volume_burst5',
+        'rd_peak_drawdown756', 'rd_peak_window_observed', 'rd_base_range30',
+        'rd_recent_volume_burst5',
         'rsi14', 'distance_ma200', 'bottom_recovery_score', 'bottom_recovery_rank']
     audit['top20'] = json.loads(d[d.bottom_recovery_rank.notna()].sort_values(
         'bottom_recovery_rank')[cols].to_json(orient='records', date_format='iso'))
