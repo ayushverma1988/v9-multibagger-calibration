@@ -233,6 +233,14 @@ def universe(root,asof):
     if d.nse_current_symbol.duplicated().any():raise ValueError('Public universe symbol conflict')
     d.to_parquet(Path(root)/'universe.parquet',index=False);return d
 
+def public_history_refresh_priority(history):
+    """Prioritize usable public history by coverage and turnover, not share price."""
+    if history.empty or len(history)<127 or not {'close','volume'}.issubset(history):return False
+    close=pd.to_numeric(history.close,errors='coerce')
+    volume=pd.to_numeric(history.volume,errors='coerce')
+    turnover=(close*volume).tail(63).replace([np.inf,-np.inf],np.nan).median()
+    return bool(valid_price(close.tail(1)).iloc[0] and np.isfinite(turnover) and turnover>=2_500_000)
+
 def collect_histories(root,asof,budget=800):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
     from datetime import datetime,timezone
@@ -250,7 +258,7 @@ def collect_histories(root,asof,budget=800):
         age=max(age,attempts.get(r['nse_current_symbol'],'0000'))
         # Public, unranked execution/history evidence prioritises refreshes;
         # private forecasts, selections and realised outcomes are not read.
-        liquid=not h.empty and len(h)>=127 and {'close','volume'}.issubset(h) and h.close.iloc[-1]>=20 and h.close.iloc[-1]<=2000 and (h.close*h.volume).tail(63).median()>=2_500_000
+        liquid=public_history_refresh_priority(h)
         # Preserve fresh source-aligned, technically usable public coverage.
         # A high-turnover but persistently invalid history must not displace
         # previously usable histories merely because its ticker hashes first.

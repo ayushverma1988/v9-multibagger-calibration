@@ -249,6 +249,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 evaluation.experiments(diagnostic,asof,six_experiments)
                 report['six_area_development_experiments']='COMPLETED_PREVIOUSLY_EXAMINED_NOT_PROMOTION_EVIDENCE'
             except Exception as exc:report['six_area_development_experiments']={'status':'BLOCKED_RETAINING_FIXED_MODELS','error':str(exc)[:200]}
+        audited_scored=None
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
@@ -274,6 +275,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 freeze_path.write_text(json.dumps(freeze,indent=2))
                 active_meta=json.loads((root/'active_model.json').read_text()) if (root/'active_model.json').exists() else {}
                 a=scored(joblib.load(root/'active_heads.joblib'),frame,policy=active_meta.get('selection_policy','legacy'))
+                audited_scored=a
                 b=scored(joblib.load(challenger_model),frame,policy='evidence')
                 from v13_prediction_replay import snapshot as replay_snapshot
                 report['exact_prediction_replay']={
@@ -291,6 +293,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
                 report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
             else:report['paired_registration']={'status':'BLOCKED_NO_COMPLETE_CHALLENGER'}
+        try:
+            from v13_example_history_audit import audit as audit_examples
+            report['example_history_audit']=audit_examples(root,asof,audited_scored)
+        except Exception as exc:
+            report['example_history_audit']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
         originals=[pd.read_parquet(p) for p in sorted((root/'official').glob('*_official_market.parquet'))]
         official_all=pd.concat(originals,ignore_index=True)
         verification,report['steps']['independent_entry_actions']=action_audit.audit(root,official_all,history,asof)
