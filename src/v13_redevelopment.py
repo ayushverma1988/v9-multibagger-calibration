@@ -74,7 +74,8 @@ def daily(bars):
     # current-window low which would erase the first lift after the spike.
     preceding_low=lo.shift().rolling(63,min_periods=63).min()
     lift=p/preceding_low-1
-    surge=lift.between(.25,1.5)&volume.ge(2.5)&prior_peak.notna()
+    surge=(lift.between(.25,1.5)&volume.ge(2.5)&p.gt(p.shift())&
+        (p/p.shift(5)-1).ge(.10)&prior_peak.notna())
     surge_idx=pd.Series(np.arange(len(d)),index=d.index).where(surge).ffill()
     surge_age=pd.Series(np.arange(len(d)),index=d.index)-surge_idx
     surge_peak=p.where(surge).ffill()
