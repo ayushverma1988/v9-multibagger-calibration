@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 894ed5e7797b386538d271cdbcc8e12779a4a84a
+          ref: c13ec3fe4bb870c75c5c60f87a7794df1a813c94
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -52,6 +52,7 @@ jobs:
             v13_state/financial_wide.parquet
             v13_state/research_selection/*.json
             v13_state/redevelopment/*.json
+            v13_state/bottom_recovery/*.json
             v13_state/statement_eps/*.json
             v13_state/identity/symbol_changes.json
             v13_state/prediction_replay/**/*.json
@@ -78,7 +79,7 @@ jobs:
             const path = 'operational/v13_collector_health.json';
             let report = {};
             if (fs.existsSync('v13_state/latest_run.json')) report = JSON.parse(fs.readFileSync('v13_state/latest_run.json', 'utf8'));
-            const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', job_state: '${{ job.status }}', accuracy_approved: false, errors: (report.errors || []).length, market_rows: report.current_verified_market_rows || 0, public_universe_rows: report.public_universe_rows || 0, financial_errors: report.steps?.financials?.errors?.length || 0, financial_complete_rows: report.financial_complete_rows ?? null, financial_quality_pass_rows: report.financial_quality_pass_rows ?? null, financial_known_failure_rows: report.financial_known_failure_rows ?? null, execution_chain_supported_rows: report.execution_chain_supported_rows ?? null, source_bound_earnings_scenario_rows: report.source_bound_earnings_scenario_rows ?? null, history_errors: report.steps?.history?.errors?.length || 0, history_usable: report.steps?.history?.usable || 0, paired_rows_per_model: report.paired_registration?.rows_per_model || 0, paired_cohort: report.paired_registration?.cohort_id || null, catalyst_documents: report.steps?.catalysts?.documents || 0, verified_entries: report.steps?.independent_entry_actions?.verified_entries || 0, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes || 0 };
+            const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', job_state: '${{ job.status }}', accuracy_approved: false, errors: (report.errors || []).length, market_rows: report.current_verified_market_rows || 0, public_universe_rows: report.public_universe_rows || 0, financial_errors: report.steps?.financials?.errors?.length || 0, financial_complete_rows: report.financial_complete_rows ?? null, financial_quality_pass_rows: report.financial_quality_pass_rows ?? null, financial_known_failure_rows: report.financial_known_failure_rows ?? null, execution_chain_supported_rows: report.execution_chain_supported_rows ?? null, source_bound_earnings_scenario_rows: report.source_bound_earnings_scenario_rows ?? null, history_errors: report.steps?.history?.errors?.length || 0, history_usable: report.steps?.history?.usable || 0, paired_rows_per_model: report.paired_registration?.rows_per_model || 0, paired_cohort: report.paired_registration?.cohort_id || null, catalyst_documents: report.steps?.catalysts?.documents || 0, verified_entries: report.steps?.independent_entry_actions?.verified_entries || 0, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes || 0, bottom_watch_eligible: report.redevelopment_diagnostics?.bottom_recovery_shadow?.eligible ?? null, bottom_watch_history_unknown: report.redevelopment_diagnostics?.bottom_recovery_shadow?.unknown_history ?? null };
             let sha;
             try { const old = await github.rest.repos.getContent({...context.repo, path, ref: 'main'}); sha = old.data.sha; } catch (error) { if (error.status !== 404) throw error; }
             await github.rest.repos.createOrUpdateFileContents({...context.repo, branch: 'main', path, sha, message: 'Record V13 collector health', content: Buffer.from(JSON.stringify(health, null, 2) + '\n').toString('base64')});
