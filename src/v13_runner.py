@@ -295,7 +295,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             else:report['paired_registration']={'status':'BLOCKED_NO_COMPLETE_CHALLENGER'}
         try:
             from v13_example_history_audit import audit as audit_examples
-            report['example_history_audit']=audit_examples(root,asof,audited_scored)
+            report['example_history_audit']=audit_examples(root,asof,audited_scored,report['steps']['history'])
         except Exception as exc:
             report['example_history_audit']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
         originals=[pd.read_parquet(p) for p in sorted((root/'official').glob('*_official_market.parquet'))]

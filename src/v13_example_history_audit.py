@@ -40,11 +40,14 @@ def _date(value):
     return str(pd.Timestamp(value).date())
 
 
-def audit(root, asof, scored=None):
+def audit(root, asof, scored=None, collection_report=None):
     root = Path(root)
     asof = pd.Timestamp(asof)
     low, _ = bounds(_date(asof))
     universe = pd.read_parquet(root / 'universe.parquet')
+    attempt_path = root / 'history_attempts.json'
+    attempts = json.loads(attempt_path.read_text()) if attempt_path.exists() else {}
+    errors = {e['symbol']: e['error'] for e in (collection_report or {}).get('errors', [])}
     scored = scored if scored is not None else pd.DataFrame()
     screened, _ = screen(scored) if not scored.empty else (pd.DataFrame(), {})
     rows = []
@@ -54,6 +57,9 @@ def audit(root, asof, scored=None):
                'source_asof': _date(asof), 'rolling_window_start': _date(low),
                'universe_member': len(members) == 1,
                'current_symbol': str(members.iloc[0].nse_current_symbol) if len(members) == 1 else None,
+               'nse_series': str(members.iloc[0].get('nse_current_series')) if len(members) == 1 else None,
+               'nse_listing_date': (_date(members.iloc[0].get('nse_listing_date'))
+                                    if len(members) == 1 and pd.notna(members.iloc[0].get('nse_listing_date')) else None),
                'history_status': None, 'current_status': None}
         if len(members) != 1:
             row['history_status'] = 'NOT_IN_CURRENT_NSE_UNIVERSE'
@@ -61,6 +67,8 @@ def audit(root, asof, scored=None):
             rows.append(row)
             continue
         current_symbol = row['current_symbol']
+        row['last_public_history_attempt_utc'] = attempts.get(current_symbol)
+        row['current_run_public_history_error'] = errors.get(current_symbol)
         path = root / 'history' / 'securities' / (sha(current_symbol.encode()) + '.parquet')
         if not path.exists():
             row['history_status'] = 'NO_STORED_HISTORY_FOR_CURRENT_SYMBOL'
@@ -82,7 +90,15 @@ def audit(root, asof, scored=None):
             rows.append(row)
             continue
         d = daily_features(bars, _date(asof))
-        pattern = redevelopment_daily(bars)
+        if d.empty:
+            row['history_status'] = 'NO_USABLE_POSITIVE_VOLUME_BARS'
+            row['current_status'] = 'NOT_SCORABLE_INVALID_HISTORY'
+            rows.append(row)
+            continue
+        pattern = d[['date']].merge(redevelopment_daily(bars)[[
+            'date', 'rd_peak_drawdown756', 'rd_base_range30',
+            'rd_base_return30', 'rd_low_distance30']],
+            on='date', how='left', validate='one_to_one', sort=False)
         last = d.iloc[-1]
         price = pd.to_numeric(bars.adj_close, errors='coerce')
         peaks = price.cummax()
@@ -95,6 +111,7 @@ def audit(root, asof, scored=None):
                    lowest_adjusted_close=_number(price.min()),
                    largest_observed_peak_to_trough_drawdown=_number(drawdown.min()),
                    latest_drawdown_from_observed_peak=_number(drawdown.iloc[-1]),
+                   last_feature_date=_date(last.date),
                    feature_eligible_dates=int(d.feature_eligible.fillna(False).sum()),
                    first_feature_eligible_date=(_date(d.loc[d.feature_eligible, 'date'].min())
                                                 if d.feature_eligible.any() else None),
