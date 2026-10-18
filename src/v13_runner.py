@@ -288,6 +288,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                     report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])
                 except Exception as exc:
                     report['redevelopment_diagnostics']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
+                try:
+                    from v13_2x_report import export as export_two_x
+                    report['two_x_research']=export_two_x(root,report['exact_prediction_replay']['champion'])
+                except Exception as exc:
+                    report['two_x_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
                 pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
                 export_watchlists(root,pair)
                 report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
