@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 046bccbc63ca05abb29a1474dab1ebf99c930220
+          ref: 2ab1da343cafe15422fea3f866451cb717acca1a
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -56,6 +56,8 @@ jobs:
             v13_state/retest_recovery/*.json
             v13_state/early_potential/*.json
             v13_state/early_potential/*.md
+            v13_state/two_x_research/*.json
+            v13_state/two_x_research/*.md
             v13_state/early_potential/cohorts/*.json
             v13_state/statement_eps/*.json
             v13_state/identity/symbol_changes.json
