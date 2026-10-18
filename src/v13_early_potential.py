@@ -181,6 +181,17 @@ def export(attached, root, replay_receipt):
             f'{"Yes" if r.early_sales_growth_cue else "Unknown/No"} | '
             f'{"Yes" if r.early_owner_profit_cue else "Unknown/No"} | '
             f'{"Review" if r.early_filing_cue else "None observed"} |')
+    for pattern, title, limit in [('SURGE_PULLBACK', 'Surge pullbacks', 30),
+                                  ('SHORT_HISTORY_BASE', 'Short-history bases', 20)]:
+        subset=d[d.early_eligible & d.early_pattern.eq(pattern)].sort_values(
+            ['early_score','isin'],ascending=[False,True]).head(limit)
+        lines += ['',f'## {title} (separate pattern queue)','',
+            '| Pattern rank | Symbol | Price ₹ | Score | Volume cue | Filing cue |',
+            '| ---: | --- | ---: | ---: | --- | --- |']
+        for i,r in enumerate(subset.itertuples(),1):
+            lines.append(f'| {i} | {r.symbol} | {r.close:.2f} | {r.early_score:.3f} | '
+                f'{"Yes" if r.early_volume_cue else "No"} | '
+                f'{"Review" if r.early_filing_cue else "None observed"} |')
     lines += ['', f'{summary["chart_watch"]} more chart watches and '
         f'{summary["financial_conflicts"]} financial conflicts appear in latest.json.']
     (path / 'latest.md').write_text('\n'.join(lines) + '\n')

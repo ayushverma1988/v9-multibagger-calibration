@@ -102,5 +102,22 @@ class EarlyPotential(unittest.TestCase):
         pd.testing.assert_frame_equal(first[rd.BOTTOM_FEATURES],
                                       last.iloc[:200][rd.BOTTOM_FEATURES])
 
+    def test_pattern_queue_surfaces_retest_outside_global_top20(self):
+        leaders=[self.row(isin=f'INE{i:09d}',symbol=f'LEADER{i}',
+            rd_base_range30=.08,rd_low_distance30=.02,
+            rd_recent_volume_burst5=4.,owner_PAT_yoy=.25,
+            owner_PAT_margin=.12).iloc[0] for i in range(25)]
+        retest=self.row(isin='INE999999999',symbol='RETEST',
+            rd_surge_retest_age=12,rd_surge_peak_retrace=-.15,
+            rd_surge_base_lift=.25,rd_recent_volume_burst5=.2,
+            owner_PAT_yoy=.1,owner_PAT_margin=.1).iloc[0]
+        frame=pd.DataFrame(leaders+[retest]);d,_=early.select(frame)
+        self.assertGreater(d[d.symbol.eq('RETEST')].iloc[0].early_rank,20)
+        with tempfile.TemporaryDirectory() as root:
+            early.export(frame,root,{})
+            md=(Path(root)/'early_potential'/'latest.md').read_text()
+            self.assertIn('## Surge pullbacks',md)
+            self.assertIn('| 1 | RETEST |',md)
+
 
 if __name__=='__main__':unittest.main()
