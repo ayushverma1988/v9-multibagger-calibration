@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from v13_price_policy import valid_price
+from v12_dated_source_collection import sha
 
 VERSION = 'V13_EARLY_POTENTIAL_SHADOW_20261018'
 MAX_MARKET_CAP_CRORE = 50_000  # declared small/mid discovery scope
@@ -129,8 +130,30 @@ def export(attached, root, replay_receipt):
     summary['scored_states'] = json.loads(d[[
         'isin', 'early_pattern', 'early_state', 'early_rank',
         'early_watch_rank', 'early_score']].to_json(orient='records'))
-    summary['prediction_replay'] = replay_receipt
     path = Path(root) / 'early_potential';path.mkdir(exist_ok=True)
+    universe_path = Path(root) / 'universe.parquet'
+    if universe_path.exists():
+        universe = pd.read_parquet(universe_path)
+        missing = universe[~universe['isin'].isin(d['isin'])].copy()
+        attempts_path = Path(root) / 'history_attempts.json'
+        attempts = json.loads(attempts_path.read_text()) if attempts_path.exists() else {}
+        queue_rows=[]
+        for r in missing.to_dict('records'):
+            symbol=r['nse_current_symbol']
+            has_history=(Path(root)/'history'/'securities'/(
+                sha(symbol.encode())+'.parquet')).exists()
+            queue_rows.append({'symbol':symbol, 'isin':r['isin'],
+                'nse_series':r.get('nse_current_series'),
+                'history_status':('STORED_BUT_NOT_SCORED' if has_history else
+                    'NO_STORED_HISTORY'),
+                'last_public_history_attempt_utc':attempts.get(symbol)})
+        coverage={'source_date':summary['source_date'], 'public_nse_universe':len(universe),
+            'unscored':len(queue_rows), 'unscored_are_not_potential_labels':True,
+            'records':sorted(queue_rows,key=lambda x:(x['history_status'],x['symbol']))}
+        (path/'coverage_queue.json').write_text(json.dumps(coverage,indent=2))
+        summary['public_universe']=len(universe)
+        summary['unscored_coverage_queue']=len(queue_rows)
+    summary['prediction_replay'] = replay_receipt
     (path / 'latest.json').write_text(json.dumps(summary, indent=2))
     # Content-addressed, immutable prospective cohort: keep repeated refreshes
     # of the same market date distinct instead of overwriting earlier evidence.

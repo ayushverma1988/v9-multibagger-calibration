@@ -69,8 +69,15 @@ class EarlyPotential(unittest.TestCase):
         self.assertEqual(a.iloc[0].early_score, b.iloc[0].early_score)
         pd.testing.assert_frame_equal(original[['p6','p12','loss12']],a[['p6','p12','loss12']])
         with tempfile.TemporaryDirectory() as root:
+            pd.DataFrame([{'isin':'INE000000001','nse_current_symbol':'ALPHA'},
+                          {'isin':'INE000000002','nse_current_symbol':'BETA'}]).to_parquet(
+                Path(root)/'universe.parquet',index=False)
             audit = early.export(original, root, {'sha256':'frozen'})
             self.assertEqual(audit['early_potentials'],1)
+            self.assertEqual(audit['unscored_coverage_queue'],1)
+            coverage=json.loads((Path(root)/'early_potential'/'coverage_queue.json').read_text())
+            self.assertEqual(coverage['records'][0]['symbol'],'BETA')
+            self.assertEqual(coverage['records'][0]['history_status'],'NO_STORED_HISTORY')
             x=json.loads((Path(root)/'early_potential'/'latest.json').read_text())
             self.assertEqual(len(x['candidates']),1)
             self.assertIn('ALPHA',(Path(root)/'early_potential'/'latest.md').read_text())
