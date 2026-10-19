@@ -1,10 +1,10 @@
 {
   "base_rows": 1313619,
-  "recent_rows_fetched": 68981,
-  "merged_rows": 1320702,
+  "recent_rows_fetched": 68715,
+  "merged_rows": 1321359,
   "start": "2016-01-01 02:48:00+00:00",
-  "end": "2026-10-16 18:29:31+00:00",
-  "refresh_start": "2026-06-19",
-  "refresh_end": "2026-10-17",
+  "end": "2026-10-19 19:38:36+00:00",
+  "refresh_start": "2026-06-22",
+  "refresh_end": "2026-10-20",
   "recent_fetch_file": "events_current/event_refresh_recent.parquet"
 }
