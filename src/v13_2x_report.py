@@ -3,6 +3,8 @@
 Apply the existing 17 October discovery selector to fresh frozen probabilities.
 The basic selector remains available as a diagnostic, not the headline list.
 """
+import base64
+import gzip
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +27,24 @@ def _money(value):
     return '—' if value is None else f'{value:,.2f}'
 
 
+def _seed_classifications(target, failure, seed_path=None):
+    """Reuse verified dated classifications after a transport failure, with clocks intact."""
+    path = Path(seed_path) if seed_path else Path(__file__).resolve().parents[1] / 'v13_evidence_seed' / 'discovery_classifications_20261016.json.gz.b64'
+    bundle = json.loads(gzip.decompress(base64.b64decode(path.read_text())))
+    if pd.Timestamp.now(tz='UTC') > pd.Timestamp(bundle['reuse_not_after_utc']):
+        raise ValueError('Stored classification snapshot expired; fresh sources required')
+    target = Path(target)
+    target.mkdir(parents=True, exist_ok=True)
+    for name, content in bundle['files'].items():
+        (target / name).write_text(content)
+    receipts = json.loads((target / 'receipt.json').read_text())
+    for receipt in receipts:
+        receipt['refresh_attempt_error'] = failure[:200]
+        receipt['reuse_policy'] = 'VERIFIED_DATED_SNAPSHOT_CLOCKS_PRESERVED'
+    (target / 'receipt.json').write_text(json.dumps(receipts, indent=2))
+    return target
+
+
 def refine(rows, root, classification_dir=None, review_asof=None):
     """Reuse the selector that produced the user's 11-stock no-price-band list."""
     from v13_discovery_current import classify_current, watchlists
@@ -33,7 +53,10 @@ def refine(rows, root, classification_dir=None, review_asof=None):
     if classification_dir is None:
         from v13_discovery_sources import run as collect_classifications
         classification_dir = root / 'two_x_research' / 'classifications' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-        collect_classifications(classification_dir)
+        try:
+            collect_classifications(classification_dir)
+        except Exception as exc:
+            classification_dir = _seed_classifications(root / 'two_x_research' / 'classifications' / 'verified_20261016', str(exc))
     snapshot = json.loads((root / 'evidence' / 'valuation_snapshot.json').read_text())
     members = pd.DataFrame(json.loads((root / 'evidence' / 'valuation_research_hurdles.json').read_text()))[['isin', 'symbol', 'industry']]
     members['available_at_utc'] = snapshot['membership_first_observed_utc']
@@ -126,6 +149,7 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
     for r in previous:
         lines.append(f"| {r['symbol']} | {r['status']} | {', '.join(r['reasons']) or '—'} | {_pct(r.get('p6'))} | {_pct(r.get('p12'))} |")
     lines += ['', f"Scored frame: {len(rows)} shares. Current source date: {summary['source_date']}.",
+              'Classification source observation dates: ' + ', '.join(sorted({r['first_observed_utc'][:10] for r in receipts})) + '.',
               'A missing name cannot be reassessed from this snapshot. No 50–100% forecast is inferred from this 2× model.', '']
     (out / 'latest.md').write_text('\n'.join(lines))
     return {'source_date': summary['source_date'], 'ranked_count': len(ranked),
