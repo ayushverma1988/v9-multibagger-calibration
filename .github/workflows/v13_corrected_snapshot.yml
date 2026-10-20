@@ -1,0 +1,61 @@
+name: V13 corrected financial recovery and frozen-model replay
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-data-reliability-20261020]
+    paths: ['.github/workflows/v13_corrected_snapshot.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  corrected:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            for (const [id, name] of [[12241032873, 'source_snapshot.zip'], [12240007481, 'source_diagnostic.zip'], [12240791694, 'broad_financials.zip'], [12248220832, 'targeted_financials.zip'], [12244093047, 'latest_collected_financials.zip']]) {
+              const r = await github.rest.actions.downloadArtifact({...context.repo, artifact_id: id, archive_format: 'zip'});
+              fs.writeFileSync(name, Buffer.from(r.data));
+            }
+      - name: Recover public original gaps and replay corrected financial inputs
+        run: python -m v13_repair_snapshot --artifact source_snapshot.zip --diagnostic source_diagnostic.zip --out corrected_state --budget 0 --requested-completion --supplementary-financials broad_financials.zip --supplementary-financials targeted_financials.zip --supplementary-financials latest_collected_financials.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-corrected-financial-replay-20261020
+          path: |
+            corrected_state/correction_run.json
+            corrected_state/primary_recovery.json
+            corrected_state/financial_snapshot_union.json
+            corrected_state/financial_wide.parquet
+            corrected_state/evidence/*.json
+            corrected_state/financial_crosscheck/*.json
+            corrected_state/research_selection/*.json
+            corrected_state/redevelopment/*.json
+            corrected_state/early_potential/*.json
+            corrected_state/early_potential/*.md
+            corrected_state/two_x_research/*.json
+            corrected_state/two_x_research/*.md
+            corrected_state/prediction_replay/**/*.json
+            corrected_state/prediction_replay/**/*.parquet
+            corrected_state/filing_raw/**/*.bin
+            corrected_state/filing_raw/**/*.json
+          retention-days: 30
+
+# Repeat the frozen replay after reviewing annual amounts for current selections.
+# Carry current annual source-conflict tiers into the separate research lists.

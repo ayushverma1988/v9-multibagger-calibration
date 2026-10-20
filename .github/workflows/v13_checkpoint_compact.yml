@@ -1,0 +1,39 @@
+name: V13 verified checkpoint restart repair
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-data-reliability-20261020]
+    paths: ['.github/workflows/v13_checkpoint_compact.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  compact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Migrate with bounded transient-error retries and verify exact contents
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -u -m v13_checkpoint_compact
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-checkpoint-restart-repair
+          path: checkpoint_compaction_receipt.json
+          retention-days: 30

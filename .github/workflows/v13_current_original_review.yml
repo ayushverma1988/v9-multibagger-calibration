@@ -1,0 +1,59 @@
+name: V13 current-selection original filing review
+on:
+  push:
+    branches: [v13-data-reliability-20261020]
+    paths: ['.github/workflows/v13_current_original_review.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const r = await github.rest.actions.downloadArtifact({...context.repo, artifact_id: 12248575898, archive_format: 'zip'});
+            fs.writeFileSync('financial_snapshot.zip', Buffer.from(r.data));
+      - name: Read exact current annual originals without changing research state
+        run: |
+          python - <<'PY'
+          import json,zipfile
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+          import pandas as pd
+          from v12_dated_source_collection import Store
+          from v12_5_expanded_facts import parse_extra
+          from v11_4_longterm_fundamentals import context_map,local
+          folder=Path('original_review');folder.mkdir()
+          with zipfile.ZipFile('financial_snapshot.zip') as z:
+              with z.open('financial_wide.parquet') as f:w=pd.read_parquet(f)
+          store=Store(folder/'raw');result=[]
+          for symbol,basis in [('GABRIEL','consolidated'),('JUSTDIAL','standalone'),('LEMONTREE','consolidated'),('TATAELXSI','standalone')]:
+              rows=w[w.symbol.eq(symbol)&w.reporting_mode.eq(basis)&w.period_kind.eq('annual')&w.period_end.eq('2026-03-31')]
+              if len(rows)!=1:raise ValueError('Ambiguous exact original '+symbol)
+              r=rows.iloc[0].to_dict();raw,proof=store.get(r['source_url']);facts=parse_extra(raw,r,'2026-10-19',include_ytd=True)
+              doc=ET.fromstring(raw);contexts=context_map(doc)
+              candidates=[{'tag':local(e.tag),'value':e.text,'unit':e.get('unitRef'),'context':e.get('contextRef'),'economic_dates':contexts.get(e.get('contextRef'))} for e in doc.iter() if local(e.tag) in {'CashFlowsFromUsedInOperatingActivities','NetCashFlowsFromUsedInOperatingActivities','CashGeneratedFromOperations'}]
+              result.append({'symbol':symbol,'basis':basis,'recorded_source_sha256':r['source_sha256'],'receipt':proof,'bytes_match_existing_source_sha256':proof['sha256']==r['source_sha256'],'extracted_facts':facts,'raw_cash_flow_tag_candidates':candidates})
+          (folder/'current_original_review.json').write_text(json.dumps({'canonical_facts_or_forecasts_changed':False,'documents':result},indent=2,default=str))
+          print('Exact annual originals reviewed:',len(result),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-current-original-review-20261020
+          path: original_review/**
+          retention-days: 30

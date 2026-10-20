@@ -107,13 +107,32 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
         raise ValueError('2x report row count differs from model replay')
     current, receipts = refine(rows, root, classification_dir, review_asof)
     records = json.loads(current.to_json(orient='records', date_format='iso', double_precision=15))
+    from v13_financial_crosscheck import tag_current_reviews
+    financial_path=root/'financial_wide.parquet';comparison_path=root/'financial_crosscheck/latest.json';audit_path=root/'evidence/universe_financial_coverage.json'
+    wide=pd.read_parquet(financial_path) if financial_path.exists() else pd.DataFrame()
+    comparison=json.loads(comparison_path.read_text()) if comparison_path.exists() else {}
+    audited=json.loads(audit_path.read_text()).get('rows',[]) if audit_path.exists() else []
+    basis={r['isin']:r.get('preferred_reporting_basis') for r in audited}
+    records=tag_current_reviews(records,wide,comparison,selection['source_asof'],basis)
     ranked = sorted((r for r in records if r['rsi70_research_rank'] is not None), key=lambda r: r['rsi70_research_rank'])
     by_symbol = {r['symbol']: r for r in records}
     previous = []
+    seed_path=Path(__file__).resolve().parents[1]/'v13_evidence_seed'/'prior_no_price_band_20261017.json'
+    prior_data=json.loads(seed_path.read_text()) if seed_path.exists() else {'records':[]}
+    original_by_symbol={r['symbol']:r for r in prior_data['records']}
+    backlog_path=root/'early_potential'/'coverage_queue.json'
+    backlog={r['symbol']:r for r in json.loads(backlog_path.read_text())['records']} if backlog_path.exists() else {}
     for symbol in PRIOR_NO_PRICE_BAND:
         r = by_symbol.get(symbol)
+        old=original_by_symbol.get(symbol)
+        historical={'prior_source_date':prior_data.get('source_date'),
+          'prior_close':old.get('close') if old else None,'prior_p6':old.get('p6') if old else None,
+          'prior_p12':old.get('p12') if old else None,'prior_loss12':old.get('loss12') if old else None,
+          'prior_estimates_are_not_current':True}
         if r is None:
-            previous.append({'symbol': symbol, 'status': 'NOT_IN_CURRENT_SCORED_FRAME', 'reasons': []})
+            gap=backlog.get(symbol,{})
+            previous.append({'symbol': symbol, 'status': 'AWAITING_CURRENT_DATA_RETAINED_HISTORICAL_WATCH',
+              'reasons': [gap.get('history_status','NO_CURRENT_VERIFIED_MODEL_INPUTS')],**historical})
         else:
             reasons = r['two_x_exclusion_reasons']
             status = ('TOP_20' if r['rsi70_research_rank'] is not None else
@@ -121,7 +140,12 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
                       'FAILED_CURRENT_SCREEN')
             previous.append({'symbol': symbol, 'status': status, 'reasons': reasons,
                              'close': r['close'], 'p6': r['p6'], 'p12': r['p12'],
-                             'rsi14': r['rsi14'], 'rank': r['rsi70_research_rank']})
+                             'rsi14': r['rsi14'], 'rank': r['rsi70_research_rank'],**historical})
+
+    universe_path=root/'universe.parquet'
+    public_count=len(pd.read_parquet(universe_path)) if universe_path.exists() else len(rows)+len(backlog)
+    coverage_fraction=len(rows)/public_count if public_count else None
+    coverage_status='PARTIAL_DATA_DO_NOT_REPLACE_FULL_WATCHLIST' if coverage_fraction is None or coverage_fraction<.95 else 'BROAD_PUBLIC_UNIVERSE_COVERAGE'
 
     summary = {'source_date': selection['source_asof'],
                'model_replay_verified': True, 'model_retrained': False,
@@ -131,6 +155,9 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
                'classification_receipts': receipts, 'records': ranked,
                'basic_selector_ranked_count': sum(r['research_selected'] for r in rows),
                'scored_rows': len(rows),
+               'public_universe_rows':public_count,'coverage_fraction':coverage_fraction,'coverage_status':coverage_status,
+               'earlier_watchlist_preserved_independent_of_current_selection':True,
+               'source_review_groups':{tier:[r['symbol'] for r in ranked if r['source_comparison_tier']==tier] for tier in sorted({r['source_comparison_tier'] for r in ranked})},
                'previous': previous}
     out = root / 'two_x_research'
     out.mkdir(parents=True, exist_ok=True)
@@ -138,16 +165,17 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
     lines = [f"# Separate 2× research shortlist — {summary['source_date']}", '',
              'Frozen-model estimates for doubling by 6 or 12 months. These are research estimates, not confirmed returns or trade instructions.',
              'Existing refined selector: verified small/mid caps, known sector, strict RSI >70, financial/owner checks; 70% p6 percentile, 25% price discipline, 5% optional 200DMA band.', '',
-             '| Rank | Symbol | Close ₹ | P(2× 6m) | P(2× 12m) | 30% loss event | Financial tier |',
-             '| ---: | --- | ---: | ---: | ---: | ---: | --- |']
+             f"Coverage: {len(rows):,}/{public_count:,} public shares. {coverage_status}. Missing data is not a failed investment thesis.", '',
+             '| Rank | Symbol | Close ₹ | P(2× 6m) | P(2× 12m) | 30% loss event | Financial tier | Source review |',
+             '| ---: | --- | ---: | ---: | ---: | ---: | --- | --- |']
     for r in ranked:
-        lines.append(f"| {int(r['rsi70_research_rank'])} | {r['symbol']} | {_money(r['close'])} | {_pct(r['p6'])} | {_pct(r['p12'])} | {_pct(r['loss12'])} | {r['sector_status']} |")
+        lines.append(f"| {int(r['rsi70_research_rank'])} | {r['symbol']} | {_money(r['close'])} | {_pct(r['p6'])} | {_pct(r['p12'])} | {_pct(r['loss12'])} | {r['sector_status']} | {r['source_comparison_tier']} |")
     lines += ['', '## Earlier no-price-band shortlist (17 October report, 15 October source prices)', '',
               'Prior membership is tracked for explanation only; it does not influence the daily selection.', '',
-              '| Symbol | Current result | Reason if excluded | P(2× 6m) | P(2× 12m) |',
-              '| --- | --- | --- | ---: | ---: |']
+              '| Symbol | Current result | Reason if excluded | Current P(2× 6m) | Current P(2× 12m) | 15 Oct P(2× 6m) | 15 Oct P(2× 12m) |',
+              '| --- | --- | --- | ---: | ---: | ---: | ---: |']
     for r in previous:
-        lines.append(f"| {r['symbol']} | {r['status']} | {', '.join(r['reasons']) or '—'} | {_pct(r.get('p6'))} | {_pct(r.get('p12'))} |")
+        lines.append(f"| {r['symbol']} | {r['status']} | {', '.join(r['reasons']) or '—'} | {_pct(r.get('p6'))} | {_pct(r.get('p12'))} | {_pct(r.get('prior_p6'))} | {_pct(r.get('prior_p12'))} |")
     lines += ['', f"Scored frame: {len(rows)} shares. Current source date: {summary['source_date']}.",
               'Classification source observation dates: ' + ', '.join(sorted({r['first_observed_utc'][:10] for r in receipts})) + '.',
               'A missing name cannot be reassessed from this snapshot. No 50–100% forecast is inferred from this 2× model.', '']
