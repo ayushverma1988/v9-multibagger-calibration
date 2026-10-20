@@ -145,19 +145,25 @@ def forecasts(heads,frame,root,label):
 
 def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=False):
     root=Path(root);seed=Path(seed)
+    def phase(name):
+        item={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'phase':name,'updated_at_utc':datetime.now(timezone.utc).isoformat()}
+        path=root.parent/'v13_worker_attempt.json';temp=path.with_suffix('.tmp');temp.write_text(json.dumps(item,indent=2));temp.replace(path)
+        print('V13 worker phase',name,item['updated_at_utc'],flush=True)
+    phase('RESTORING_CHECKPOINT' if not local else 'LOCAL_RESEARCH_START')
     if not local:
         if not restore(root):initialize(root,seed)
         from v13_checkpoint import restore_review_originals
         review_seed=seed.parent/'v13_evidence_seed'/'primary_execution_sources.json'
         seed_hashes=[r['source_sha256'] for r in json.loads(review_seed.read_text())] if review_seed.exists() else []
         restore_review_originals(root,additional_hashes=seed_hashes)
-    report={'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
+    report={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
     from v13_frozen_integrity import FrozenGuard
     guard=FrozenGuard(root)
     try:
         if not local:
             from v13_history_integrity import recover_from_seed
             report['steps']['entry_history_recovery']=recover_from_seed(root,seed.parent/'v13_evidence_seed/entry_history_recovery.json')
+        phase('OFFICIAL_SESSION_AND_PUBLIC_CATALOGUES')
         asof,official,errors=last_completed_session(root,day);report['asof']=asof;report['steps']['official']=official
         # Every completed phase is checkpointed. Interrupted work resumes from
         # accepted filing versions and the public-history age queue.
@@ -167,11 +173,13 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         # Fresh public prices must exist before financial completion chooses
         # the unranked price/history-eligible population for this source date.
         # Previously a new session always prioritised yesterday's histories.
+        phase('PUBLIC_PRICE_HISTORY_COLLECTION')
         report['steps']['history']=collection.collect_histories(root,asof,history_budget)
         if not local:
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             save(root)
+        phase('ORIGINAL_FINANCIAL_COLLECTION')
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
         try:
             from v13_financial_crosscheck import collect as collect_financial_crosschecks
@@ -194,6 +202,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             save(root)
+        phase('CURRENT_SOURCE_ALIGNED_MODEL_INPUTS')
         frame,history=current_frame(root,asof)
         report['current_verified_market_rows']=len(frame)
         # Partial coverage is disclosed, not mistaken for a full-universe scan.
@@ -255,6 +264,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 report['six_area_development_experiments']='COMPLETED_PREVIOUSLY_EXAMINED_NOT_PROMOTION_EVIDENCE'
             except Exception as exc:report['six_area_development_experiments']={'status':'BLOCKED_RETAINING_FIXED_MODELS','error':str(exc)[:200]}
         audited_scored=None
+        phase('FULL_UNIVERSE_FINANCIAL_AUDIT_AND_MODEL_REPLAY')
         try:
             from v13_universe_financial_audit import audit as audit_universe_financials
             universe_wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
@@ -359,6 +369,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         else:report['promotion']={'promote':False,'reasons':['independent_action_reconciliation_incomplete','insufficient_untouched_mature_paired_outcomes']}
         report['steps']['frozen_integrity']=guard.check(observed,promote=report['promotion'].get('promote') is True)
         report['completed_at_utc']=datetime.now(timezone.utc).isoformat()
+        phase('MODEL_AND_AUDITS_COMPLETED')
     except Exception as e:
         report['errors'].append({'phase':'worker','error':str(e)[:400]});raise
     finally:
@@ -370,7 +381,9 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             except Exception as exc:report['errors'].append({'phase':'frozen_integrity','error':str(exc)[:400]})
         root.mkdir(parents=True,exist_ok=True);(root/'latest_run.json').write_text(json.dumps(report,indent=2))
         if not local:
+            phase('SAVING_VERIFIED_CHECKPOINT')
             receipt=save(root);(root.parent/'archive_receipt.json').write_text(json.dumps(receipt,indent=2))
+        phase('COMPLETED' if not report['errors'] else 'COMPLETED_WITH_RECORDED_ERRORS')
     return report
 
 if __name__=='__main__':

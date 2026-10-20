@@ -407,6 +407,9 @@ def collect_financials(root,asof,budget=800):
     warm_completion=completion_queue(other,expanded,asof,max(0,completion_budget-len(fresh_completion)))
     completion=pd.concat([basis_completion,owner_completion,fresh_completion,warm_completion],ignore_index=True)
     remainder=queue[~queue.version_key.isin(completion.version_key)]
+    public_completion=completion_queue(remainder,expanded,asof,max(0,budget-len(completion)))
+    remainder=remainder[~remainder.version_key.isin(public_completion.version_key)]
+    completion=pd.concat([completion,public_completion],ignore_index=True)
     queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
     def fetch(r):
@@ -442,6 +445,7 @@ def collect_financials(root,asof,budget=800):
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
       'reserved_owner_earnings_filings':len(owner_completion),'owner_queue_does_not_infer_recurring_EPS':True,
       'reserved_reporting_basis_recovery_filings':len(basis_completion),
+      'whole_public_universe_completion_filings':len(public_completion),
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,

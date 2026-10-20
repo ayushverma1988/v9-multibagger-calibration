@@ -19,7 +19,7 @@ from v13_redevelopment import export as redevelopment_export,MARKET_FEATURES,BOT
 from v13_2x_report import export as two_x_export,_seed_classifications
 
 
-def run(artifact,diagnostic,output,budget=1600):
+def run(artifact,diagnostic,output,budget=1600,requested_completion=False):
     root=Path(output);root.mkdir(parents=True,exist_ok=True)
     started=datetime.now(timezone.utc).isoformat()
     with zipfile.ZipFile(artifact) as z:
@@ -53,7 +53,11 @@ def run(artifact,diagnostic,output,budget=1600):
     accepted=sorted(set(observed.source_url+'|'+observed.available_at_utc))
     (root/'accepted_filings.json').write_text(json.dumps(accepted))
     (root/'history/securities').mkdir(parents=True,exist_ok=True)
-    recovery=collect_financials(root,asof,budget)
+    before_numeric=int(wide.select_dtypes(include='number').notna().sum().sum())
+    if requested_completion:
+        from v13_requested_financial_completion import collect as collect_requested
+        recovery=collect_requested(root,asof)
+    else:recovery=collect_financials(root,asof,budget)
     (root/'primary_recovery.json').write_text(json.dumps(recovery,indent=2))
     print('PRIMARY_RECOVERY',json.dumps({k:v for k,v in recovery.items() if k!='errors'}),flush=True)
     wide=pd.read_parquet(root/'financial_wide.parquet')
@@ -82,6 +86,8 @@ def run(artifact,diagnostic,output,budget=1600):
       'source_asof':asof,'source_snapshot_sha256':hashlib.sha256(Path(artifact).read_bytes()).hexdigest(),
       'original_input_sha256':key,'corrected_prediction_replay':replay,
       'new_primary_fact_observations':recovery['new_facts'],'originals_attempted':recovery['requested'],
+      'fact_count_definition':'EXTRACTED_THIS_PASS_INCLUDING_RECHECKS_NOT_ALL_NET_NEW',
+      'net_numeric_fact_observation_change':int(wide.select_dtypes(include='number').notna().sum().sum())-before_numeric,
       'original_source_errors':len(recovery['errors']),'financial_coverage':financial_audit,
       'financial_crosscheck':source_comparison,'two_x_output':result,
       'market_cohort_rows':len(frame),'market_inputs_unchanged':True,
@@ -92,5 +98,5 @@ def run(artifact,diagnostic,output,budget=1600):
     return summary
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--artifact',required=True);p.add_argument('--diagnostic',required=True);p.add_argument('--out',required=True);p.add_argument('--budget',type=int,default=1600)
-    a=p.parse_args();run(a.artifact,a.diagnostic,a.out,a.budget)
+    p=argparse.ArgumentParser();p.add_argument('--artifact',required=True);p.add_argument('--diagnostic',required=True);p.add_argument('--out',required=True);p.add_argument('--budget',type=int,default=1600);p.add_argument('--requested-completion',action='store_true')
+    a=p.parse_args();run(a.artifact,a.diagnostic,a.out,a.budget,a.requested_completion)

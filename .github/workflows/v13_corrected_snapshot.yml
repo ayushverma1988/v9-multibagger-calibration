@@ -28,12 +28,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            for (const [id, name] of [[12240141719, 'source_snapshot.zip'], [12240007481, 'source_diagnostic.zip']]) {
+            for (const [id, name] of [[12241032873, 'source_snapshot.zip'], [12240007481, 'source_diagnostic.zip']]) {
               const r = await github.rest.actions.downloadArtifact({...context.repo, artifact_id: id, archive_format: 'zip'});
               fs.writeFileSync(name, Buffer.from(r.data));
             }
       - name: Recover public original gaps and replay corrected financial inputs
-        run: python -m v13_repair_snapshot --artifact source_snapshot.zip --diagnostic source_diagnostic.zip --out corrected_state --budget 1600
+        run: python -m v13_repair_snapshot --artifact source_snapshot.zip --diagnostic source_diagnostic.zip --out corrected_state --budget 0 --requested-completion
       - uses: actions/upload-artifact@v4
         if: always()
         with:

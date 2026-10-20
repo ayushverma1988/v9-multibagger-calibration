@@ -2,7 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime,timezone
 from pathlib import Path
-import hashlib,json,os,re,shutil,tarfile
+import hashlib,json,os,re,shutil,tarfile,gzip,threading,time
 
 ARCHIVE='ayushverma1988/v10-multibagger-archive'
 
@@ -40,6 +40,86 @@ def materialize_one(item,root,fetch):
     if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Checkpoint object integrity failure')
     target=Path(root)/rel;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
 
+def build_derived_bundle(root,data,path):
+    """One deterministic private restart pack; original raw objects stay separate."""
+    root=Path(root);path=Path(path);active=[r for r in data['files'] if not r['raw_source']]
+    with path.open('wb') as dest,gzip.GzipFile(filename='',mode='wb',fileobj=dest,mtime=0,compresslevel=1) as gz,tarfile.open(fileobj=gz,mode='w|') as tar:
+        for item in active:
+            rel=Path(item['path'])
+            if rel.is_absolute() or '..' in rel.parts:raise ValueError('Unsafe derived bundle path')
+            source=root/rel
+            if not source.is_file() or source.stat().st_size!=item['bytes'] or hashlib.sha256(source.read_bytes()).hexdigest()!=item['sha256']:
+                raise ValueError('Derived bundle input differs from checkpoint manifest')
+            info=tarfile.TarInfo(item['path']);info.size=item['bytes'];info.mode=0o644;info.mtime=0
+            with source.open('rb') as src:tar.addfile(info,src)
+    digest=hashlib.sha256(path.read_bytes()).hexdigest()
+    return {'sha256':digest,'bytes':path.stat().st_size,'object_path':object_path(digest),
+      'files':len(active),'uncompressed_bytes':sum(r['bytes'] for r in active)}
+
+def materialize_bundle(bundle,data,root,fetch):
+    validate_object(bundle);source=Path(fetch(bundle['object_path']))
+    if source.stat().st_size!=bundle['bytes'] or hashlib.sha256(source.read_bytes()).hexdigest()!=bundle['sha256']:
+        raise ValueError('Derived bundle digest or size mismatch')
+    expected={r['path']:r for r in data['files'] if not r['raw_source']};seen=set();root=Path(root)
+    if len(expected)!=bundle['files']:raise ValueError('Derived bundle member count mismatch')
+    with tarfile.open(source,'r|gz') as tar:
+        for member in tar:
+            rel=Path(member.name)
+            if not member.isfile() or rel.is_absolute() or '..' in rel.parts or member.name not in expected or member.name in seen:
+                raise ValueError('Unexpected, duplicate or unsafe derived bundle member')
+            item=expected[member.name];validate_object(item)
+            raw=tar.extractfile(member).read()
+            if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:
+                raise ValueError('Derived bundle member integrity failure')
+            target=root/rel;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw);seen.add(member.name)
+    if seen!=set(expected):raise ValueError('Derived bundle omitted checkpoint files')
+    return len(seen)
+
+class VerifiedObjectDownloader:
+    """Legacy migration GETs with known hashes; no per-file metadata HEADs.
+
+    The authenticated resolver is documented by the Hub. Requests are paced
+    below its free resolver allowance; 429 responses pause the shared queue
+    according to the server's reset header. Credentials are never logged.
+    """
+    def __init__(self,items,folder,token,requests_per_second=8):
+        self.items={r['object_path']:r for r in items};self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
+        self.token=token;self.interval=1/requests_per_second;self.lock=threading.Lock();self.next=0.;self.blocked=0.;self.local=threading.local();self.done=0
+        self.object_locks={path:threading.Lock() for path in self.items}
+    def __call__(self,path):
+        with self.object_locks[path]:return self.download(path)
+    def download(self,path):
+        from huggingface_hub import hf_hub_url
+        import requests
+        item=self.items[path];validate_object(item);out=self.folder/(item['sha256']+'.bin')
+        if out.exists() and out.stat().st_size==item['bytes'] and hashlib.sha256(out.read_bytes()).hexdigest()==item['sha256']:return out
+        if not hasattr(self.local,'session'):self.local.session=requests.Session()
+        for attempt in range(3):
+            with self.lock:
+                now=time.monotonic();slot=max(now,self.next,self.blocked);self.next=slot+self.interval
+            while time.monotonic()<slot:time.sleep(max(0,min(1,slot-time.monotonic())))
+            url=hf_hub_url(ARCHIVE,path,repo_type='dataset')
+            with self.local.session.get(url,headers={'Authorization':'Bearer '+self.token},timeout=(8,60),stream=True) as response:
+                if response.status_code==429:
+                    match=re.search(r';\s*t=(\d+)',response.headers.get('RateLimit',''))
+                    delay=int(match.group(1)) if match else int(response.headers.get('Retry-After','300'))
+                    with self.lock:self.blocked=max(self.blocked,time.monotonic()+max(delay,1))
+                    continue
+                if response.status_code!=200:raise RuntimeError('Private checkpoint resolver HTTP '+str(response.status_code))
+                temp=out.with_suffix('.part');digest=hashlib.sha256();size=0
+                with temp.open('wb') as target:
+                    for chunk in response.iter_content(1024*1024):
+                        size+=len(chunk)
+                        if size>item['bytes']:raise ValueError('Checkpoint resolver exceeded recorded size')
+                        digest.update(chunk);target.write(chunk)
+                if size!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Checkpoint resolver integrity failure')
+                temp.replace(out)
+            with self.lock:
+                self.done+=1
+                if self.done%250==0:print('Verified checkpoint objects restored',self.done,flush=True)
+            return out
+        raise RuntimeError('Private checkpoint rate limit persisted after server-directed waits')
+
 def restore(root):
     from huggingface_hub import HfApi,hf_hub_download
     from huggingface_hub.errors import EntryNotFoundError
@@ -63,10 +143,18 @@ def restore(root):
     active=[r for r in data['files'] if not r['raw_source']]
     # Original source objects remain immutable in the private archive. They
     # are fetched by hash only when auditing; inference restores derived data.
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        list(pool.map(lambda r:materialize_one(r,root,fetch),active))
+    started=time.monotonic()
+    if data.get('derived_state_bundle'):
+        count=materialize_bundle(data['derived_state_bundle'],data,root,fetch)
+        method='HASH_VERIFIED_DERIVED_STATE_BUNDLE'
+    else:
+        paced=VerifiedObjectDownloader(active,root.parent/'v13_restore_objects',token)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(lambda r:materialize_one(r,root,paced),active))
+        count=len(active);method='PACED_LEGACY_OBJECT_MIGRATION'
     (root/'remote_manifest.json').write_text(json.dumps(data,indent=2))
     (root/'state_manifest.json').write_text(json.dumps({'files':active},indent=2))
+    print('Checkpoint restore completed',json.dumps({'method':method,'files':count,'seconds':round(time.monotonic()-started,2)}),flush=True)
     return True
 
 def save(root):
@@ -80,6 +168,12 @@ def save(root):
     for start in range(0,len(entries),200):
         operations=[CommitOperationAdd(path_in_repo=r['object_path'],path_or_fileobj=root/r['path']) for r in entries[start:start+200]]
         api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 immutable source/model objects',operations=operations)
+    bundle_path=root.parent/'v13_derived_state_bundle.tar.gz'
+    bundle=build_derived_bundle(root,data,bundle_path);data['derived_state_bundle']=bundle
+    previous_bundle=json.loads(old.read_text()).get('derived_state_bundle',{}) if old.exists() else {}
+    if previous_bundle.get('sha256')!=bundle['sha256']:
+        api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 verified derived restart bundle',
+          operations=[CommitOperationAdd(path_in_repo=bundle['object_path'],path_or_fileobj=bundle_path)])
     raw=json.dumps(data,sort_keys=True,indent=2).encode();sha=hashlib.sha256(raw).hexdigest()
     path=root.parent/'v13_checkpoint_manifest.json';path.write_bytes(raw)
     key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+sha[:12]
@@ -94,7 +188,8 @@ def save(root):
     with tarfile.open(archive,'w:gz') as tar:
         tar.add(path,arcname='v13_checkpoint_manifest.json')
         if (root/'latest_run.json').exists():tar.add(root/'latest_run.json',arcname='latest_run.json')
-    return {'archive':ARCHIVE,'snapshot':key,'manifest_sha256':sha,'new_objects':len(entries),'total_objects':len({r['sha256'] for r in data['files']})}
+    return {'archive':ARCHIVE,'snapshot':key,'manifest_sha256':sha,'new_objects':len(entries),'total_objects':len({r['sha256'] for r in data['files']}),
+      'derived_bundle_bytes':bundle['bytes'],'derived_bundle_files':bundle['files']}
 
 def restore_review_originals(root,additional_hashes=None):
     """Fetch only original hashes required by reviewed evidence, using the
