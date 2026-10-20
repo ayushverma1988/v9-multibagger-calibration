@@ -29,6 +29,15 @@ The final pass rechecked **19 original filings**, extracted **427 observations i
 
 Coverage uses information available by **2026-10-19T16:30:00+00:00**. Later-published observations can be stored but are excluded from this dated replay. Counts describe source observations, not money invested, independent confirmations or unique economic facts. Complete inputs can fail financial checks. Zero interest or a nonpositive comparison denominator can leave a ratio undefined even when original amounts are available. **Financial coverage remains incomplete.** BSE-only securities are outside this public NSE denominator.
 
+| Available statement history | Issuers | Original rows | Earliest period | Latest period |
+| --- | ---: | ---: | --- | --- |
+| annual | 2,796 | 6,353 | 2025-03-31 | 2026-06-30 |
+| instant | 2,806 | 12,538 | 2022-12-31 | 2026-09-30 |
+| quarter | 2,400 | 22,823 | 2023-03-31 | 2026-09-30 |
+| ytd | 2,551 | 6,178 | 2024-09-30 | 2026-09-30 |
+
+These endpoints describe the collected dataset; each issuer can have gaps and duplicate original versions. Annual financial history currently starts in March 2025, so this is not a complete five- or ten-year fundamental history. Longer original annual-report coverage remains a data gap.
+
 ## Cross-validation
 
 Compared 325 dated provider observations across 17 issuers. **20 annual revenue/operating-cash-flow field-periods agree with both Screener and reviewed StockAnalysis/S&P Global displays within their published rounding precision.** This limited check is not a claim that all fields or all companies are verified.
@@ -75,17 +84,19 @@ Reviewed annual amounts below are normalised to **₹ crore**. Each row matches 
 
 Same frozen heads and preferred 17 October selector: verified small/mid-cap classification, known sector, RSI strictly above 70, above 50DMA and financial/owner checks. Missing financial evidence is shown explicitly. The estimates remain unvalidated research estimates; a shortlist entry does not mean doubling is likely.
 
-| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Financial status |
-| ---: | --- | ---: | ---: | ---: | --- |
-| 1 | GABRIEL | 1,486.10 | 6.12% | 10.55% | All seven available checks pass |
-| 2 | CUPID | 336.30 | 9.24% | 13.85% | All seven available checks pass |
-| 3 | SOUTHBANK | 54.26 | 5.82% | 10.41% | Financial-sector rules unavailable; review required |
-| 4 | TANLA | 552.35 | 4.49% | 8.25% | All seven available checks pass |
-| 5 | KARURVYSYA | 370.05 | 4.70% | 9.34% | Financial-sector rules unavailable; review required |
-| 6 | LEMONTREE | 111.67 | 3.72% | 7.42% | All seven available checks pass |
-| 7 | JUSTDIAL | 731.75 | 4.11% | 8.02% | All seven available checks pass |
-| 8 | ZENSARTECH | 513.15 | 3.62% | 7.39% | All seven available checks pass |
-| 9 | TATAELXSI | 3,790.00 | 3.55% | 7.22% | All seven available checks pass |
+| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Model 30% loss event | Financial status |
+| ---: | --- | ---: | ---: | ---: | ---: | --- |
+| 1 | GABRIEL | 1,486.10 | 6.12% | 10.55% | 83.51% | All seven available checks pass |
+| 2 | CUPID | 336.30 | 9.24% | 13.85% | 82.15% | All seven available checks pass |
+| 3 | SOUTHBANK | 54.26 | 5.82% | 10.41% | 60.34% | Financial-sector rules unavailable; review required |
+| 4 | TANLA | 552.35 | 4.49% | 8.25% | 85.89% | All seven available checks pass |
+| 5 | KARURVYSYA | 370.05 | 4.70% | 9.34% | 66.44% | Financial-sector rules unavailable; review required |
+| 6 | LEMONTREE | 111.67 | 3.72% | 7.42% | 40.74% | All seven available checks pass |
+| 7 | JUSTDIAL | 731.75 | 4.11% | 8.02% | 80.32% | All seven available checks pass |
+| 8 | ZENSARTECH | 513.15 | 3.62% | 7.39% | 81.13% | All seven available checks pass |
+| 9 | TATAELXSI | 3,790.00 | 3.55% | 7.22% | 80.47% | All seven available checks pass |
+
+The loss head targets a 30% loss event before a 2× hit over the 12-month window. These estimates are also unvalidated and remain high for these names; a relative research rank must not be read as a favourable risk/reward conclusion.
 
 PVRINOX was present in an intermediate partial snapshot. It is excluded after combining the available originals because the interest-coverage check fails. South Indian Bank and Karur Vysya Bank remain explicitly unverified under sector-specific financial rules; their presence is not a seven-check financial pass.
 
@@ -108,6 +119,24 @@ The original estimates below use 15 October prices and remain historical. Curren
 | ZENSARTECH | 7.14% | TOP_20 | PASS_AVAILABLE_SEVEN_CHECKS |
 | SUNTV | 8.41% | FAILED_CURRENT_SCREEN — OBSERVED_OWNER_EARNINGS_FAILURE_OR_CONFLICT | PASS_AVAILABLE_SEVEN_CHECKS; UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT |
 | MPHASIS | 6.97% | AWAITING_CURRENT_DATA_RETAINED_HISTORICAL_WATCH — STORED_BUT_NOT_SCORED | PASS_AVAILABLE_SEVEN_CHECKS |
+
+## Your nine chart examples — retained research watch
+
+The nine user-supplied chart names are tracked separately from the eleven earlier model recommendations. All nine are present in the current public NSE master, but none is in this replay’s 633 current source-aligned input rows. Their absence cannot be treated as a current technical rejection or a confirmation of upside. Their available financial evidence also differs:
+
+| Share | Current model inputs | Financial evidence |
+| --- | --- | --- |
+| EMUDHRA | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | PASS_AVAILABLE_SEVEN_CHECKS |
+| DSSL | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | KNOWN_FINANCIAL_FAILURE — quarter_sales_yoy |
+| CORONA | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | UNKNOWN_FINANCIAL_INPUTS — missing quarter_sales_yoy, quarter_pat_yoy |
+| PARAGON | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | UNKNOWN_FINANCIAL_INPUTS — missing four_profitable_quarters, quarter_sales_yoy, quarter_pat_yoy, quarter_pat_margin, annual_CFO_PAT, dated_debt_equity, annual_EBIT_proxy_interest_coverage |
+| AGOL | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | UNKNOWN_FINANCIAL_INPUTS — missing four_profitable_quarters, quarter_sales_yoy, quarter_pat_yoy, quarter_pat_margin, annual_CFO_PAT, dated_debt_equity, annual_EBIT_proxy_interest_coverage |
+| RAJRILTD | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | KNOWN_FINANCIAL_FAILURE — quarter_sales_yoy |
+| RSYSTEMS | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | KNOWN_FINANCIAL_FAILURE — quarter_pat_yoy |
+| CHEMCRUX | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | UNKNOWN_FINANCIAL_INPUTS — missing four_profitable_quarters, quarter_sales_yoy, quarter_pat_yoy, quarter_pat_margin, annual_CFO_PAT, dated_debt_equity, annual_EBIT_proxy_interest_coverage |
+| HUHTAMAKI | NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS | PASS_AVAILABLE_SEVEN_CHECKS |
+
+These names remain a research/data-completion watch. They do not supply positive training labels or override observed revenue/profit weakness. Merging older exchange history requires verified security identity and corporate-action treatment.
 
 ## Separate early-potential chart/volume lane
 

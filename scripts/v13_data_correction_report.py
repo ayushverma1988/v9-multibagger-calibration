@@ -1,9 +1,11 @@
 """Build a reviewable dated correction from successful recovery artifacts."""
 import argparse,json
 from pathlib import Path
+import pandas as pd
 
 
 def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
+    from v13_example_history_audit import EXAMPLES
     root=Path(root);out=Path(output)
     run=json.loads((root/'correction_run.json').read_text())
     x=json.loads((root/'two_x_research/latest.json').read_text())
@@ -15,6 +17,24 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
     pct=lambda v:'—' if v is None else f'{100*v:.2f}%'
     money=lambda v:'—' if v is None else f'{v:,.2f}'
     quality={r['symbol']:r for r in f['rows']}
+    quality_isin={r['isin']:r for r in f['rows']}
+    current_chart_states={r['isin']:r for r in e['scored_states']}
+    chart_example_watch=[]
+    for name,symbol,isin in EXAMPLES:
+        q=quality_isin.get(isin,{})
+        state=current_chart_states.get(isin)
+        chart_example_watch.append({'company':name,'symbol':symbol,'isin':isin,
+          'in_current_public_universe':isin in quality_isin,
+          'current_input_status':state['early_state'] if state else 'NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS',
+          'financial_status':q.get('financial_quality_status','UNKNOWN'),
+          'failed_checks':q.get('failed_checks',[]),'unknown_fields':q.get('unknown_fields',[]),
+          'owner_profit_status':q.get('owner_earnings_source_status')})
+    w=pd.read_parquet(root/'financial_wide.parquet')
+    w=w[w.security_isin.isin({r['isin'] for r in f['rows']}) &
+        pd.to_datetime(w.available_at_utc,utc=True,format='mixed').le(pd.Timestamp(f['information_cutoff_utc'])) &
+        pd.to_datetime(w.period_end).le(pd.Timestamp(run['source_asof']))]
+    history_depth={kind:{'original_rows':len(d),'issuers':d.security_isin.nunique(),'first_period':str(d.period_end.min()),'last_period':str(d.period_end.max())} for kind,d in w.groupby('period_kind')}
+    assert sum(r['original_rows'] for r in history_depth.values())==f['original_period_basis_version_rows']
     lines=['# Data correction and research output — 20 October 2026','',
       f"Price source session: **{run['source_asof']}**. Review completed: {run['review_completed_at_utc']}. **{x['scored_rows']:,}/{f['public_universe_issuers']:,} public NSE shares** have source-aligned inputs in this replay. This is partial coverage and must not replace the earlier broad watchlist.",'',
       '## What was wrong','',
@@ -27,6 +47,10 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
     for label,key in [('Public NSE shares','public_universe_issuers'),('Shares with financial observations','issuers_with_financial_observations'),('Original period/basis/version rows','original_period_basis_version_rows'),('Nonmissing numeric fact observations','nonmissing_numeric_fact_observations'),('Unique original document hashes','unique_source_document_hashes'),('Fresh preferred-basis quarter','fresh_preferred_basis_quarter_issuers'),('All seven screening ratios/checks available','complete_seven_check_issuers'),('Underlying required facts available, including undefined-ratio cases','underlying_required_facts_complete_issuers'),('Pass the seven available checks','quality_pass_issuers'),('Missing recent consolidated quarter','consolidated_basis_gap_issuers')]:
         lines.append(f'| {label} | {f[key]:,} |')
     lines += ['', f"Coverage uses information available by **{f['information_cutoff_utc']}**. Later-published observations can be stored but are excluded from this dated replay. Counts describe source observations, not money invested, independent confirmations or unique economic facts. Complete inputs can fail financial checks. Zero interest or a nonpositive comparison denominator can leave a ratio undefined even when original amounts are available. **Financial coverage remains incomplete.** BSE-only securities are outside this public NSE denominator.",'',
+      '| Available statement history | Issuers | Original rows | Earliest period | Latest period |',
+      '| --- | ---: | ---: | --- | --- |']
+    for kind,d in history_depth.items():lines.append(f"| {kind} | {d['issuers']:,} | {d['original_rows']:,} | {d['first_period']} | {d['last_period']} |")
+    lines += ['', 'These endpoints describe the collected dataset; each issuer can have gaps and duplicate original versions. Annual financial history currently starts in March 2025, so this is not a complete five- or ten-year fundamental history. Longer original annual-report coverage remains a data gap.','',
       '## Cross-validation','',
       f"Compared {c['observations_compared']:,} dated provider observations across {c['issuers_compared']:,} issuers. **{c['primary_plus_two_provider_agreements']:,} annual revenue/operating-cash-flow field-periods agree with both Screener and reviewed StockAnalysis/S&P Global displays within their published rounding precision.** This limited check is not a claim that all fields or all companies are verified.",'',
       'Only the same issuer, consolidated/standalone basis, fiscal period, metric and INR units are compared. Repeated sites using one provider count once. Net profit and EPS definitions remain separate where total, parent-attributable, basic, diluted or restated bases have not been reconciled. Agreement is corroboration, not a truth certificate; all publishers may depend on the same underlying issuer filing.','',
@@ -48,11 +72,12 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
         annual_review.append({'primary_comparison':r,'screener_comparison':s,'three_publishers_agree_within_rounding':agree})
     lines += ['', '## Current separate 2× research list','',
       'Same frozen heads and preferred 17 October selector: verified small/mid-cap classification, known sector, RSI strictly above 70, above 50DMA and financial/owner checks. Missing financial evidence is shown explicitly. The estimates remain unvalidated research estimates; a shortlist entry does not mean doubling is likely.','',
-      '| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Financial status |','| ---: | --- | ---: | ---: | ---: | --- |']
+      '| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Model 30% loss event | Financial status |','| ---: | --- | ---: | ---: | ---: | ---: | --- |']
     for r in x['records']:
         label={'PASS_AVAILABLE_SEVEN_CHECKS':'All seven available checks pass','UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION':'Financial-sector rules unavailable; review required'}.get(r['sector_status'],r['sector_status'])
-        lines.append(f"| {int(r['rsi70_research_rank'])} | {r['symbol']} | {money(r['close'])} | {pct(r['p6'])} | {pct(r['p12'])} | {label} |")
-    lines += ['', 'PVRINOX was present in an intermediate partial snapshot. It is excluded after combining the available originals because the interest-coverage check fails. South Indian Bank and Karur Vysya Bank remain explicitly unverified under sector-specific financial rules; their presence is not a seven-check financial pass.','',
+        lines.append(f"| {int(r['rsi70_research_rank'])} | {r['symbol']} | {money(r['close'])} | {pct(r['p6'])} | {pct(r['p12'])} | {pct(r['loss12'])} | {label} |")
+    lines += ['', 'The loss head targets a 30% loss event before a 2× hit over the 12-month window. These estimates are also unvalidated and remain high for these names; a relative research rank must not be read as a favourable risk/reward conclusion.','',
+      'PVRINOX was present in an intermediate partial snapshot. It is excluded after combining the available originals because the interest-coverage check fails. South Indian Bank and Karur Vysya Bank remain explicitly unverified under sector-specific financial rules; their presence is not a seven-check financial pass.','',
       'Mastek now passes all seven available financial checks after its consolidated June originals and comparison periods were recovered. It still lacks usable current market inputs in this replay. Cupid, Tanla and Zensar remain on the current list. Persistent has RSI 62.78, below this lane’s strict 70 threshold; Sun TV has a parent/minority/total-profit reconciliation conflict. Hexaware also has an observed year-on-year consolidated PAT decline. These are distinct from missing quotes.']
     lines += ['', '## Earlier 11 recommendations — retained separately','',
       'The original estimates below use 15 October prices and remain historical. Current absence is not silently interpreted as lack of potential. A current momentum-screen failure also does not settle a longer-term investment thesis.','',
@@ -64,6 +89,16 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
         label=q.get('financial_quality_status','UNKNOWN')
         if owner.startswith('UNKNOWN'):label+='; '+owner
         lines.append(f"| {r['symbol']} | {pct(r.get('prior_p12'))} | {status} | {label} |")
+    lines += ['', '## Your nine chart examples — retained research watch','',
+      'The nine user-supplied chart names are tracked separately from the eleven earlier model recommendations. All nine are present in the current public NSE master, but none is in this replay’s 633 current source-aligned input rows. Their absence cannot be treated as a current technical rejection or a confirmation of upside. Their available financial evidence also differs:','',
+      '| Share | Current model inputs | Financial evidence |',
+      '| --- | --- | --- |']
+    for r in chart_example_watch:
+        detail=r['financial_status']
+        if r['failed_checks']:detail+=' — '+', '.join(r['failed_checks'])
+        if r['unknown_fields']:detail+=' — missing '+', '.join(r['unknown_fields'])
+        lines.append(f"| {r['symbol']} | {r['current_input_status']} | {detail} |")
+    lines += ['', 'These names remain a research/data-completion watch. They do not supply positive training labels or override observed revenue/profit weakness. Merging older exchange history requires verified security identity and corporate-action treatment.']
     early=sorted([r for r in e['candidates'] if r['early_state']=='EARLY_POTENTIAL'],key=lambda r:r['early_rank'] or 999)
     lines += ['', '## Separate early-potential chart/volume lane','',
       f"{len(early)} current setups are recorded in this cohort. These are untrained 50–100% upside hypotheses, separate from the 2× model. A ranking score is not a return probability. A filing cue identifies a dated announcement to review; it does not establish completed capex or realised earnings. The first 20 are:",'',
@@ -88,10 +123,10 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
       '- Individual matched fields and source timestamps are retained in the correction artifact and dated source-review seed files.','']
     out.parent.mkdir(parents=True,exist_ok=True);out.write_text('\n'.join(lines))
     two_x={k:v for k,v in x.items() if k not in {'records'}}
-    two_x['records']=[{k:r.get(k) for k in ['symbol','close','p6','p12','rsi14','rsi70_research_rank','sector_status']} for r in x['records']]
+    two_x['records']=[{k:r.get(k) for k in ['symbol','close','p6','p12','loss12','joint12','rsi14','rsi70_research_rank','sector_status']} for r in x['records']]
     early_summary={k:v for k,v in e.items() if k not in {'candidates','scored_states'}}
     early_summary['early_candidates']=early
-    compact={'correction_run':run,'two_x':two_x,'early_potential':early_summary,'financial_snapshot_union':union,'checkpoint_repair':checkpoint,'worker_source_commit':worker_commit,'prior_cohort_financial_audit':[quality[r['symbol']] for r in x['previous'] if r['symbol'] in quality],'financial_source_comparison_summary':{k:v for k,v in c.items() if k not in {'rows','three_source_checks'}},'three_source_checks':c['three_source_checks'],'annual_three_publisher_review':annual_review}
+    compact={'correction_run':run,'financial_history_depth':history_depth,'two_x':two_x,'chart_example_watch':chart_example_watch,'early_potential':early_summary,'financial_snapshot_union':union,'checkpoint_repair':checkpoint,'worker_source_commit':worker_commit,'prior_cohort_financial_audit':[quality[r['symbol']] for r in x['previous'] if r['symbol'] in quality],'financial_source_comparison_summary':{k:v for k,v in c.items() if k not in {'rows','three_source_checks'}},'three_source_checks':c['three_source_checks'],'annual_three_publisher_review':annual_review}
     out.with_suffix('.json').write_text(json.dumps(compact,indent=2))
     print(out)
 

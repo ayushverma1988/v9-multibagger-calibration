@@ -90,6 +90,32 @@
     "full_market_rerun": false,
     "reason": "Latest source-aligned market cohort retained; missing current provider closes remain outside fresh inference."
   },
+  "financial_history_depth": {
+    "annual": {
+      "original_rows": 6353,
+      "issuers": 2796,
+      "first_period": "2025-03-31",
+      "last_period": "2026-06-30"
+    },
+    "instant": {
+      "original_rows": 12538,
+      "issuers": 2806,
+      "first_period": "2022-12-31",
+      "last_period": "2026-09-30"
+    },
+    "quarter": {
+      "original_rows": 22823,
+      "issuers": 2400,
+      "first_period": "2023-03-31",
+      "last_period": "2026-09-30"
+    },
+    "ytd": {
+      "original_rows": 6178,
+      "issuers": 2551,
+      "first_period": "2024-09-30",
+      "last_period": "2026-09-30"
+    }
+  },
   "two_x": {
     "source_date": "2026-10-19",
     "model_replay_verified": true,
@@ -307,6 +333,8 @@
         "close": 1486.0999755859375,
         "p6": 0.061190007228454,
         "p12": 0.105501872854126,
+        "loss12": 0.835142058583105,
+        "joint12": 0.102073612315722,
         "rsi14": 70.19770058304869,
         "rsi70_research_rank": 1.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
@@ -316,6 +344,8 @@
         "close": 336.29998779296875,
         "p6": 0.092446091856846,
         "p12": 0.138481292232469,
+        "loss12": 0.821539388525386,
+        "joint12": 0.130443992415819,
         "rsi14": 75.35309647733274,
         "rsi70_research_rank": 2.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
@@ -325,6 +355,8 @@
         "close": 54.2599983215332,
         "p6": 0.058217821411672,
         "p12": 0.104132475956274,
+        "loss12": 0.603359245784722,
+        "joint12": 0.100380145985946,
         "rsi14": 71.6153741644715,
         "rsi70_research_rank": 3.0,
         "sector_status": "UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION"
@@ -334,6 +366,8 @@
         "close": 552.3499755859375,
         "p6": 0.044894584488791,
         "p12": 0.08248208760659,
+        "loss12": 0.858902407859512,
+        "joint12": 0.070411175916335,
         "rsi14": 71.06772962341806,
         "rsi70_research_rank": 4.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
@@ -343,6 +377,8 @@
         "close": 370.04998779296875,
         "p6": 0.046982897099333,
         "p12": 0.093445287288508,
+        "loss12": 0.664365188605414,
+        "joint12": 0.090272592610884,
         "rsi14": 84.1412888740105,
         "rsi70_research_rank": 5.0,
         "sector_status": "UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION"
@@ -352,6 +388,8 @@
         "close": 111.66999816894531,
         "p6": 0.037209632633552,
         "p12": 0.074248865713403,
+        "loss12": 0.407385445283279,
+        "joint12": 0.068793035488605,
         "rsi14": 72.96665787209841,
         "rsi70_research_rank": 6.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
@@ -361,6 +399,8 @@
         "close": 731.75,
         "p6": 0.041066576287483,
         "p12": 0.080186065369281,
+        "loss12": 0.803233822406117,
+        "joint12": 0.074363273739804,
         "rsi14": 71.92769910414395,
         "rsi70_research_rank": 7.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
@@ -370,6 +410,8 @@
         "close": 513.1500244140625,
         "p6": 0.036182640895366,
         "p12": 0.073929219704556,
+        "loss12": 0.81131774539661,
+        "joint12": 0.06899961006382,
         "rsi14": 79.3925349878446,
         "rsi70_research_rank": 8.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
@@ -379,12 +421,148 @@
         "close": 3790.0,
         "p6": 0.035513770160232,
         "p12": 0.072232446700595,
+        "loss12": 0.804739146416861,
+        "joint12": 0.06822311043932,
         "rsi14": 75.32126528716653,
         "rsi70_research_rank": 9.0,
         "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
       }
     ]
   },
+  "chart_example_watch": [
+    {
+      "company": "eMudhra",
+      "symbol": "EMUDHRA",
+      "isin": "INE01QM01018",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+      "failed_checks": [],
+      "unknown_fields": [],
+      "owner_profit_status": "ORIGINAL_OWNER_MINORITY_TOTAL_PAT_RECONCILED_NOT_RECURRING_EPS"
+    },
+    {
+      "company": "Dynacons Systems & Solutions",
+      "symbol": "DSSL",
+      "isin": "INE417B01040",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "KNOWN_FINANCIAL_FAILURE",
+      "failed_checks": [
+        "quarter_sales_yoy"
+      ],
+      "unknown_fields": [],
+      "owner_profit_status": "UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT"
+    },
+    {
+      "company": "Corona Remedies",
+      "symbol": "CORONA",
+      "isin": "INE02ZQ01018",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "UNKNOWN_FINANCIAL_INPUTS",
+      "failed_checks": [],
+      "unknown_fields": [
+        "quarter_sales_yoy",
+        "quarter_pat_yoy"
+      ],
+      "owner_profit_status": "UNKNOWN_MISSING_OWNER_MINORITY_OR_TOTAL_PAT"
+    },
+    {
+      "company": "Paragon Fine and Speciality Chemical",
+      "symbol": "PARAGON",
+      "isin": "INE0N4G01012",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "UNKNOWN_FINANCIAL_INPUTS",
+      "failed_checks": [],
+      "unknown_fields": [
+        "four_profitable_quarters",
+        "quarter_sales_yoy",
+        "quarter_pat_yoy",
+        "quarter_pat_margin",
+        "annual_CFO_PAT",
+        "dated_debt_equity",
+        "annual_EBIT_proxy_interest_coverage"
+      ],
+      "owner_profit_status": null
+    },
+    {
+      "company": "Ashapuri Gold Ornament",
+      "symbol": "AGOL",
+      "isin": "INE05FR01029",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "UNKNOWN_FINANCIAL_INPUTS",
+      "failed_checks": [],
+      "unknown_fields": [
+        "four_profitable_quarters",
+        "quarter_sales_yoy",
+        "quarter_pat_yoy",
+        "quarter_pat_margin",
+        "annual_CFO_PAT",
+        "dated_debt_equity",
+        "annual_EBIT_proxy_interest_coverage"
+      ],
+      "owner_profit_status": null
+    },
+    {
+      "company": "Raj Rayon Industries",
+      "symbol": "RAJRILTD",
+      "isin": "INE533D01032",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "KNOWN_FINANCIAL_FAILURE",
+      "failed_checks": [
+        "quarter_sales_yoy"
+      ],
+      "unknown_fields": [],
+      "owner_profit_status": "UNKNOWN_MISSING_OWNER_MINORITY_OR_TOTAL_PAT"
+    },
+    {
+      "company": "R Systems International",
+      "symbol": "RSYSTEMS",
+      "isin": "INE411H01032",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "KNOWN_FINANCIAL_FAILURE",
+      "failed_checks": [
+        "quarter_pat_yoy"
+      ],
+      "unknown_fields": [],
+      "owner_profit_status": "ORIGINAL_OWNER_MINORITY_TOTAL_PAT_RECONCILED_NOT_RECURRING_EPS"
+    },
+    {
+      "company": "Chemcrux Enterprises",
+      "symbol": "CHEMCRUX",
+      "isin": "INE298W01016",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "UNKNOWN_FINANCIAL_INPUTS",
+      "failed_checks": [],
+      "unknown_fields": [
+        "four_profitable_quarters",
+        "quarter_sales_yoy",
+        "quarter_pat_yoy",
+        "quarter_pat_margin",
+        "annual_CFO_PAT",
+        "dated_debt_equity",
+        "annual_EBIT_proxy_interest_coverage"
+      ],
+      "owner_profit_status": null
+    },
+    {
+      "company": "Huhtamaki India",
+      "symbol": "HUHTAMAKI",
+      "isin": "INE275B01026",
+      "in_current_public_universe": true,
+      "current_input_status": "NO_CURRENT_SOURCE_ALIGNED_MODEL_INPUTS",
+      "financial_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+      "failed_checks": [],
+      "unknown_fields": [],
+      "owner_profit_status": "UNKNOWN_MISSING_OWNER_MINORITY_OR_TOTAL_PAT"
+    }
+  ],
   "early_potential": {
     "version": "V13_EARLY_POTENTIAL_SHADOW_20261018",
     "source_date": "2026-10-19",
