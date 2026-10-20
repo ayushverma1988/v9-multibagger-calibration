@@ -10,11 +10,13 @@ def compact(root,receipt):
     if not restore(root):raise RuntimeError('Existing checkpoint is required; migration cannot initialize a new state')
     old=json.loads((root/'remote_manifest.json').read_text())
     before={r['path']:(r['sha256'],r['bytes'],r['object_path']) for r in old['files']}
+    print('Building and publishing hash-verified restart bundle',flush=True)
     published=save(root)
     new=json.loads((root/'remote_manifest.json').read_text())
     after={r['path']:(r['sha256'],r['bytes'],r['object_path']) for r in new['files']}
     if before!=after:raise ValueError('Bundle migration changed original checkpoint contents')
     verify=root.with_name(root.name+'_bundle_verify')
+    print('Verifying a new restore from the published bundle',flush=True)
     if not restore(verify):raise RuntimeError('Bundle restart verification failed')
     for r in new['files']:
         if r['raw_source']:continue

@@ -56,3 +56,5 @@ jobs:
             corrected_state/filing_raw/**/*.bin
             corrected_state/filing_raw/**/*.json
           retention-days: 30
+
+# Repeat the frozen replay after reviewing annual amounts for current selections.

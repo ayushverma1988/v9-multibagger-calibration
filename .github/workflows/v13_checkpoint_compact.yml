@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
-      - name: Compact and verify exact existing checkpoint contents
+      - name: Retry interrupted migration and verify exact checkpoint contents
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: python -u -m v13_checkpoint_compact

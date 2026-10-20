@@ -1,0 +1,26 @@
+{
+  "reviewed_at_utc": "2026-10-20T08:20:32.277338+00:00",
+  "canonical_facts_overwritten": false,
+  "reviews": [
+    {
+      "symbol": "GABRIEL",
+      "isin": "INE524A01029",
+      "reporting_mode": "consolidated",
+      "period_kind": "annual",
+      "period_end": "2026-03-31",
+      "metric": "cfo",
+      "stored_NSE_XBRL_value_INR": 4435590000.0,
+      "stored_NSE_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1674517_27052026091922_WEB.xml",
+      "stored_NSE_source_sha256": "10e6bb5129cb78af1c839b82a655c2ea174198c8bad9f74b31bb41f5537945e3",
+      "issuer_annual_report_value_INR": 3452730000,
+      "issuer_annual_report_url": "https://www.anandgroupindia.com/wp-content/uploads/2026/07/Gabriel-India_AR-2025-26_C2C_SGAAds_V11-Interactive.pdf",
+      "pdf_page_index": 293,
+      "printed_page": 292,
+      "display_value": "3,452.73",
+      "display_unit": "INR_MILLION",
+      "manual_page_image_reviewed": true,
+      "status": "ORIGINAL_DOCUMENT_VALUE_CONFLICT_REQUIRES_RECONCILIATION",
+      "reason_not_assumed": "No automatic assumption of a parser error, restatement or provider error; inspect the original XBRL and dated amendments before replacing any fact."
+    }
+  ]
+}

@@ -149,7 +149,11 @@ def restore(root):
         method='HASH_VERIFIED_DERIVED_STATE_BUNDLE'
     else:
         paced=VerifiedObjectDownloader(active,root.parent/'v13_restore_objects',token)
-        with ThreadPoolExecutor(max_workers=8) as pool:
+        # Resolver/CDN round trips can exceed one second. More bounded I/O
+        # workers fill that latency while the shared eight-request/second
+        # limiter and server-directed 429 pauses remain unchanged.
+        print('Checkpoint restore plan',json.dumps({'files':len(active),'workers':32,'requests_per_second':8}),flush=True)
+        with ThreadPoolExecutor(max_workers=32) as pool:
             list(pool.map(lambda r:materialize_one(r,root,paced),active))
         count=len(active);method='PACED_LEGACY_OBJECT_MIGRATION'
     (root/'remote_manifest.json').write_text(json.dumps(data,indent=2))
