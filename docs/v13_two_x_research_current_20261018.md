@@ -1,5 +1,7 @@
 # Separate 2× research shortlist — 2026-10-16
 
+> Historical basic-ranking snapshot. Reporting correction, 20 October 2026: the current daily 2× headline now uses the established refined selector (verified small/mid-cap size, known sector, strict RSI >70, financial/owner checks, and 70% p6 percentile +25% price discipline +5% optional 200DMA proximity). The probabilities below are preserved; this table is not the latest refined selection. Current outputs are in the worker artifacts under `two_x_research/latest.md`.
+
 Frozen-model estimates for doubling by 6 or 12 months. These are research estimates, not confirmed returns or trade instructions.
 The ranking also uses evidence and risk preferences; it is not sorted solely by P(2×).
 
