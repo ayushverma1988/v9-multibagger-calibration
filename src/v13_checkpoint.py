@@ -94,31 +94,41 @@ class VerifiedObjectDownloader:
         item=self.items[path];validate_object(item);out=self.folder/(item['sha256']+'.bin')
         if out.exists() and out.stat().st_size==item['bytes'] and hashlib.sha256(out.read_bytes()).hexdigest()==item['sha256']:return out
         if not hasattr(self.local,'session'):self.local.session=requests.Session()
-        for attempt in range(3):
+        last_error='rate limit'
+        for attempt in range(5):
             with self.lock:
                 now=time.monotonic();slot=max(now,self.next,self.blocked);self.next=slot+self.interval
             while time.monotonic()<slot:time.sleep(max(0,min(1,slot-time.monotonic())))
             url=hf_hub_url(ARCHIVE,path,repo_type='dataset')
-            with self.local.session.get(url,headers={'Authorization':'Bearer '+self.token},timeout=(8,60),stream=True) as response:
-                if response.status_code==429:
-                    match=re.search(r';\s*t=(\d+)',response.headers.get('RateLimit',''))
-                    delay=int(match.group(1)) if match else int(response.headers.get('Retry-After','300'))
-                    with self.lock:self.blocked=max(self.blocked,time.monotonic()+max(delay,1))
-                    continue
-                if response.status_code!=200:raise RuntimeError('Private checkpoint resolver HTTP '+str(response.status_code))
-                temp=out.with_suffix('.part');digest=hashlib.sha256();size=0
-                with temp.open('wb') as target:
-                    for chunk in response.iter_content(1024*1024):
-                        size+=len(chunk)
-                        if size>item['bytes']:raise ValueError('Checkpoint resolver exceeded recorded size')
-                        digest.update(chunk);target.write(chunk)
-                if size!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Checkpoint resolver integrity failure')
-                temp.replace(out)
+            try:
+                with self.local.session.get(url,headers={'Authorization':'Bearer '+self.token},timeout=(8,60),stream=True) as response:
+                    if response.status_code==429:
+                        match=re.search(r';\s*t=(\d+)',response.headers.get('RateLimit',''))
+                        delay=int(match.group(1)) if match else int(response.headers.get('Retry-After','300'))
+                        with self.lock:self.blocked=max(self.blocked,time.monotonic()+max(delay,1))
+                        last_error='rate limit';continue
+                    if response.status_code in {408,425,500,502,503,504}:
+                        last_error='HTTP '+str(response.status_code)
+                        time.sleep(min(2**attempt,15));continue
+                    if response.status_code!=200:raise RuntimeError('Private checkpoint resolver HTTP '+str(response.status_code))
+                    temp=out.with_suffix('.part');digest=hashlib.sha256();size=0
+                    with temp.open('wb') as target:
+                        for chunk in response.iter_content(1024*1024):
+                            size+=len(chunk)
+                            if size>item['bytes']:raise ValueError('Checkpoint resolver exceeded recorded size')
+                            digest.update(chunk);target.write(chunk)
+                    if size!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Checkpoint resolver integrity failure')
+                    temp.replace(out)
+            except requests.RequestException as exc:
+                # Exception text may contain a signed redirect URL; retain
+                # only its class. Fresh attempts overwrite partial bytes and
+                # must pass the same recorded size/hash before acceptance.
+                last_error=type(exc).__name__;time.sleep(min(2**attempt,15));continue
             with self.lock:
                 self.done+=1
                 if self.done%250==0:print('Verified checkpoint objects restored',self.done,flush=True)
             return out
-        raise RuntimeError('Private checkpoint rate limit persisted after server-directed waits')
+        raise RuntimeError('Private checkpoint unavailable after bounded retries: '+last_error)
 
 def restore(root):
     from huggingface_hub import HfApi,hf_hub_download

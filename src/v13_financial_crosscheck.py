@@ -59,8 +59,15 @@ def parse_screener(raw,symbol,isin,receipt):
                   'profit_definition':'UNVERIFIED_TOTAL_VERSUS_PARENT' if metric=='provider_net_profit' else 'NAMED_REVENUE_OR_OPERATING_CASH_FLOW'})
     return rows
 
+def known_at(wide,asof):
+    if wide.empty:return wide.copy()
+    date=pd.Timestamp(asof)
+    cut=date.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=22)
+    return wide[pd.to_datetime(wide.available,utc=True,format='mixed').le(cut)&pd.to_datetime(wide.period).le(date)].copy()
+
 def compare(wide,observations,asof):
     date=pd.Timestamp(asof);results=[]
+    wide=known_at(wide,asof)
     groups=dict(tuple(wide.groupby('security_isin'))) if not wide.empty else {}
     for r in observations:
         if pd.Timestamp(r['period_end'])>date or pd.Timestamp(r['period_end'])<date-pd.DateOffset(years=4):continue
@@ -95,6 +102,25 @@ def compare(wide,observations,asof):
           'sources':[{'url':r['source_url'],'first_observed_utc':r['first_observed_utc']} for r in vals],
           'common_underlying_issuer_origin_possible':True,'truth_certified':False})
     return results,triples
+
+def tag_current_reviews(records,wide,comparison,asof,basis_by_isin):
+    """Add review tiers without changing model probabilities or membership."""
+    wide=known_at(wide,asof);tagged=[]
+    for record in records:
+        r=dict(record);isin=r['isin'];basis=basis_by_isin.get(isin)
+        q=wide[wide.security_isin.eq(isin)&wide.reporting_mode.eq(basis)&wide.period_kind.eq('annual')] if not wide.empty and basis else pd.DataFrame()
+        last=str(pd.Timestamp(q.period.max()).date()) if not q.empty else None
+        rows=[x for x in comparison.get('rows',[]) if x['isin']==isin and x['reporting_mode']==basis and x['period_kind']=='annual' and x['period_end']==last and x['metric'] in {'revenue','cfo'}]
+        conflicts=sorted({x['metric'] for x in rows if x['comparison_status']=='NUMERIC_CONFLICT_REVIEW_REQUIRED'})
+        agreements={m:{x['provider_family'] for x in rows if x['metric']==m and x['comparison_status']=='NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING'} for m in ('revenue','cfo')}
+        tier=('SECTOR_RULES_PENDING_REVIEW' if r.get('sector_status')=='UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION' else
+          'ANNUAL_SOURCE_CONFLICT_REVIEW' if conflicts else
+          'ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE' if all(len(v)>=2 for v in agreements.values()) else
+          'LIMITED_ANNUAL_COMPARISON' if rows else 'NO_CURRENT_ANNUAL_COMPARISON')
+        r.update(source_comparison_tier=tier,source_review_period_end=last,source_conflicting_metrics=conflicts,
+          source_review_scope='ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS')
+        tagged.append(r)
+    return tagged
 
 def export(root,wide,asof,extra_observations=()):
     root=Path(root);observations=list(extra_observations);folder=root/'financial_crosscheck';folder.mkdir(exist_ok=True)

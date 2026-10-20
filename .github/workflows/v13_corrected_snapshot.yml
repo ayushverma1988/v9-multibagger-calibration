@@ -58,3 +58,4 @@ jobs:
           retention-days: 30
 
 # Repeat the frozen replay after reviewing annual amounts for current selections.
+# Carry current annual source-conflict tiers into the separate research lists.
