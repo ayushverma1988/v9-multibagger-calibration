@@ -1,0 +1,42 @@
+name: V13 source coverage and financial comparison diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-data-reliability-20261020]
+    paths: ['.github/workflows/v13_data_source_diagnostic.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const r = await github.rest.actions.downloadArtifact({...context.repo, artifact_id: 12239080868, archive_format: 'zip'});
+            fs.writeFileSync('source_snapshot.zip', Buffer.from(r.data));
+      - name: Diagnose public histories and compare financial sources
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_data_source_diagnostic --artifact source_snapshot.zip --out source_diagnostic
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-source-coverage-diagnostic-20261020
+          path: source_diagnostic/
+          retention-days: 30
