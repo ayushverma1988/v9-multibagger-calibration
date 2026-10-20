@@ -1,0 +1,88 @@
+name: V13 latest refined prediction output
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-early-potential-20261018]
+    paths: ['.github/workflows/v13_latest_prediction_output.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b19aa3af43329435ce132bb49c6e89f6038e4313
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - name: Obtain completed fresh collection artifact
+        timeout-minutes: 35
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const run_id = 39325541617;
+            let run;
+            for (let i = 0; i < 90; i++) {
+              run = (await github.rest.actions.getWorkflowRun({...context.repo, run_id})).data;
+              if (run.status === 'completed') break;
+              await new Promise(resolve => setTimeout(resolve, 20000));
+            }
+            if (run.status !== 'completed' || run.conclusion !== 'success' || run.run_attempt < 2) throw new Error('Fresh source run is not complete and successful');
+            const artifacts = (await github.rest.actions.listWorkflowRunArtifacts({...context.repo, run_id})).data.artifacts;
+            const a = artifacts.filter(x => !x.expired && x.name.startsWith('v13-private-research-state-') && x.created_at >= run.run_started_at).sort((a,b) => b.id-a.id)[0];
+            if (!a) throw new Error('No artifact from the fresh run attempt');
+            const archive = await github.rest.actions.downloadArtifact({...context.repo, artifact_id: a.id, archive_format: 'zip'});
+            fs.writeFileSync('fresh_collection.zip', Buffer.from(archive.data));
+            fs.writeFileSync('source_artifact.json', JSON.stringify({run_id, run_attempt: run.run_attempt, artifact_id: a.id, digest: a.digest}, null, 2));
+      - name: Replay frozen predictions and apply established refined selector
+        run: |
+          python - <<'PY'
+          import hashlib,io,json,zipfile
+          from pathlib import Path
+          import joblib,numpy as np,pandas as pd
+          import v13_model
+          from v13_2x_report import export
+          with zipfile.ZipFile('fresh_collection.zip') as z:
+              z.extractall('fresh_collection')
+          root=Path('fresh_collection/v13_state')
+          report=json.loads((root/'latest_run.json').read_text())
+          if report['asof']!='2026-10-19' or report['current_verified_market_rows']<=3:
+              raise ValueError('Fresh broad source coverage has not recovered')
+          receipt=report['exact_prediction_replay']['champion']
+          model_bytes=(root/'active_heads.joblib').read_bytes()
+          assert hashlib.sha256(model_bytes).hexdigest()==receipt['model_sha256']
+          input_bytes=(root/'prediction_replay'/receipt['input_parquet_sha256']/'inputs.parquet').read_bytes()
+          assert hashlib.sha256(input_bytes).hexdigest()==receipt['input_parquet_sha256']
+          frame=pd.read_parquet(io.BytesIO(input_bytes))
+          outputs=v13_model.probabilities(joblib.load(io.BytesIO(model_bytes)),frame)
+          saved=pd.DataFrame(json.loads((root/'redevelopment/latest.json').read_text())['records']).set_index('isin').loc[frame['isin']]
+          maximum=max(float(np.max(np.abs(saved[k].to_numpy()-v))) for k,v in outputs.items())
+          assert maximum<=1e-12
+          summary=export(root,receipt)
+          summary.update(scored_rows=len(frame),maximum_independent_replay_error=maximum,source_artifact=json.loads(Path('source_artifact.json').read_text()))
+          Path('prediction_summary.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary,indent=2))
+          print((root/'two_x_research/latest.md').read_text())
+          print((root/'early_potential/latest.md').read_text())
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-latest-refined-predictions-20261020
+          path: |
+            prediction_summary.json
+            source_artifact.json
+            fresh_collection/v13_state/two_x_research/**
+            fresh_collection/v13_state/early_potential/latest.json
+            fresh_collection/v13_state/early_potential/latest.md
+          retention-days: 30
