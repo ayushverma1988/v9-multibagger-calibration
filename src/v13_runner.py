@@ -184,8 +184,22 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         report['steps']['verified_original_financial_recovery']=apply_financial_recovery_seed(root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261020.json',asof)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
         try:
-            from v13_financial_crosscheck import collect as collect_financial_crosschecks
-            report['steps']['financial_crosschecks']=collect_financial_crosschecks(root,asof,budget=160)
+            from v13_alternate_sources import collect as collect_alternates,sector_master
+            report['steps']['additional_master_sources']=collect_alternates(root,budget=160,seconds=120)
+            report['steps']['sector_master']=sector_master(root)
+        except Exception as exc:
+            report['steps']['additional_master_sources']={'status':'SOURCE_COLLECTION_INCOMPLETE','error':str(exc)[:200]}
+        try:
+            # Reuse source receipts; do not request the same host a second
+            # time after the bounded collector has stopped on an access limit.
+            from v13_financial_crosscheck import export as export_financial_crosschecks
+            from v13_master_data import reviewed_public_packet
+            observations=reviewed_public_packet().get('observations',[])
+            for path in (root/'master_data/provider_inputs').glob('*.json'):
+                observations.extend(json.loads(path.read_text()))
+            observations=[r for r in observations if r['metric'] in {'revenue','cfo','provider_net_profit'}]
+            report['steps']['financial_crosschecks']=export_financial_crosschecks(
+                root,pd.read_parquet(root/'financial_wide.parquet'),asof,observations)
         except Exception as exc:
             report['steps']['financial_crosschecks']={'status':'COMPARISON_INCOMPLETE','error':str(exc)[:200]}
         import v13_statement_eps as statement_eps
@@ -200,6 +214,12 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         report['steps']['action_notice_collection']=action_sources.collect(root,asof,budget=30)
         import v13_valuation_evidence as valuation_evidence
         report['steps']['valuation_snapshot']=valuation_evidence.collect(root,asof)
+        phase('SAVE_MASTER_INPUTS_BEFORE_ANALYSIS')
+        from v13_universe_financial_audit import audit as audit_financial_inputs
+        report['universe_financial_coverage']=audit_financial_inputs(
+            pd.read_parquet(root/'universe.parquet'),pd.read_parquet(root/'financial_wide.parquet'),asof,root)
+        from v13_master_data import export as export_master_data
+        report['steps']['master_data_before_analysis']=export_master_data(root,asof)
         if not local:
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
@@ -326,6 +346,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             report['example_history_audit']=audit_examples(root,asof,audited_scored,report['steps']['history'])
         except Exception as exc:
             report['example_history_audit']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
+        try:
+            from v13_master_data import export as export_master_data
+            report['master_data']=export_master_data(root,asof)
+        except Exception as exc:
+            report['master_data']={'status':'MASTER_EXPORT_INCOMPLETE','error':str(exc)[:200]}
         originals=[pd.read_parquet(p) for p in sorted((root/'official').glob('*_official_market.parquet'))]
         official_all=pd.concat(originals,ignore_index=True)
         verification,report['steps']['independent_entry_actions']=action_audit.audit(root,official_all,history,asof)

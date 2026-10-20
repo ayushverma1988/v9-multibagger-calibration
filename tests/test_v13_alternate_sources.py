@@ -1,6 +1,7 @@
-import json
+import json,tempfile
+from pathlib import Path
 import unittest
-from v13_alternate_sources import parse_quote, normal_name, sector_kind
+from v13_alternate_sources import parse_quote, parse_finology, normal_name, sector_kind,apply_sector_master
 from v13_financial_evidence import completion_queue
 import pandas as pd
 
@@ -10,6 +11,8 @@ class AlternateSourcesTests(unittest.TestCase):
         self.assertEqual(sector_kind(['Financial Services','Insurance']),'INSURER')
         self.assertEqual(sector_kind(['Financial Services','Capital Markets']),'OTHER_FINANCIAL')
         self.assertEqual(sector_kind(['Information Technology','IT - Software']),'NONFINANCIAL')
+        self.assertEqual(sector_kind(['BPO/ITeS']),'NONFINANCIAL')
+        self.assertEqual(sector_kind(['Textile - Weaving']),'NONFINANCIAL')
         self.assertEqual(sector_kind(['']),'UNKNOWN')
     def test_name_match_keeps_country_and_business_names(self):
         self.assertEqual(normal_name('Singer India share price'),normal_name('Singer India Limited'))
@@ -30,5 +33,37 @@ class AlternateSourcesTests(unittest.TestCase):
             {'symbol':'TEST','reporting_mode':'standalone','period_kind':'quarter',
             'period_end':'2026-06-30','period':pd.Timestamp('2026-06-30'),'available':pd.Timestamp('2026-08-01T12:00:00Z')}])
         self.assertTrue(completion_queue(queue,wide,'2026-10-19',100).empty)
+    def test_abbreviated_vendor_name_needs_exact_exchange_mapping(self):
+        raw=b'''<h1>Abbreviated name share price</h1><span>BSE: <span>123456</span></span>
+        <input id="mainContent_hfMode" value="C"><p>Data Feed provided by Accord Fintech</p>
+        <div id="profit"><h4>Profit &amp; Loss (All Figures in Cr. Adjusted EPS in Rs.)</h4>
+        <table><tr><th>PARTICULARS</th><th>Mar 2026</th></tr><tr><td>Net Sales</td><td>12.34</td></tr></table></div>'''
+        issuer={'nse_current_symbol':'TEST','nse_current_name':'Different full name Limited','isin':'INE000000001'}
+        receipt={'requested_url':'https://ticker.finology.in/company/TEST?mode=C','sha256':'a'*64,'first_retrieved_utc':'2026-10-20T12:00:00Z'}
+        with self.assertRaisesRegex(ValueError,'issuer-name'):parse_finology(raw,issuer,receipt)
+        rows,meta=parse_finology(raw,{**issuer,'bse_code':'123456'},receipt)
+        self.assertEqual(meta['reporting_mode'],'consolidated')
+        self.assertEqual(rows[0]['value_INR'],123400000)
+        with self.assertRaisesRegex(ValueError,'issuer-name'):parse_finology(raw,{**issuer,'bse_code':'999999'},receipt)
+        ticker_raw=raw.replace(b'<h1>',b'<input id="mainContent_hfSymbol" value="TEST"><h1>')
+        rows,meta=parse_finology(ticker_raw,issuer,receipt)
+        self.assertIn('EXACT_CURRENT_NSE_SYMBOL',meta['identity_proof'])
+        self.assertEqual(rows[0]['reporting_mode'],'consolidated')
+    def test_sector_recovery_needs_three_sources_before_review_clock(self):
+        frame=pd.DataFrame([{'isin':'INE000000001','symbol':'TEST','industry':None,'sector_sector_kind':'UNKNOWN','p6':.2}])
+        sources=[{'isin':'INE000000001','symbol':'TEST','provider_family':p,'source_sha256':'a'*64,
+            'source_url':'https://example.test/'+p,'identity_proof':'EXACT_ISIN',
+            'first_observed_utc':'2026-10-20T12:00:00Z'} for p in ('NSE','SCREENER','ACCORD_FINTECH')]
+        evidence={'isin':'INE000000001','symbol':'TEST','industry':'Household Appliances','sector_kind':'NONFINANCIAL',
+            'primary_plus_two_additional_sources_agree':True,'available_at_utc':'2026-10-20T12:00:00Z','sources':sources}
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'master_data';path.mkdir();(path/'sector_master.json').write_text(json.dumps([evidence]))
+            early=apply_sector_master(frame,temp,'2026-10-20T11:00:00Z')
+            self.assertFalse(early.sector_recovered_from_three_sources.iloc[0])
+            late=apply_sector_master(frame,temp,'2026-10-20T13:00:00Z')
+            self.assertTrue(late.sector_recovered_from_three_sources.iloc[0]);self.assertEqual(late.p6.iloc[0],.2)
+            self.assertEqual(late.sector_sector_kind.iloc[0],'NONFINANCIAL')
+            stale=apply_sector_master(frame,temp,'2026-11-21T13:00:00Z')
+            self.assertFalse(stale.sector_recovered_from_three_sources.iloc[0])
 
 if __name__=='__main__':unittest.main()

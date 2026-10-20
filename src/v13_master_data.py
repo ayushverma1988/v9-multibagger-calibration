@@ -51,6 +51,12 @@ def dump(path, data):
 def clean_records(frame):
     return json.loads(frame.to_json(orient='records',date_format='iso',double_precision=15))
 
+def reviewed_public_packet():
+    path=Path(__file__).resolve().parents[1]/'v13_evidence_seed/master_review_packet_20261020.json.gz.b64'
+    if not path.exists():return {}
+    import base64,gzip
+    return json.loads(gzip.decompress(base64.b64decode(path.read_text())))
+
 def parse_screener_inputs(raw, symbol, isin, receipt):
     # The established parser verifies the exact exchange symbol and explicit
     # INR-crore units. A redirected standalone response keeps its own basis.
@@ -178,6 +184,37 @@ def primary_index(wide,asof,clock):
                 'available_at_utc':str(row.get('available_at_utc'))}
     return out
 
+def reviewed_primary_index(root,asof,clock):
+    """Reviewed issuer tables supplement missing originals with their real clock.
+
+    These do not enter the historical NSE matrix or overwrite an existing NSE
+    observation. Each source is downloaded normally and checked against the
+    exact reviewed PDF hash before any reviewed amount becomes observable.
+    """
+    import requests
+    seed=Path(__file__).resolve().parents[1]/'v13_evidence_seed/master_original_reviews_20261020.json'
+    if not seed.exists():return {},[]
+    values={};errors=[];seen={}
+    for record in json.loads(seed.read_text()).get('records',[]):
+        url=record['source_url'];digest=record['source_sha256']
+        try:
+            target=Path(root)/'master_data/raw'/digest/'reviewed_original.pdf'
+            if not target.exists():
+                response=requests.get(url,timeout=(8,40));response.raise_for_status()
+                if hashlib.sha256(response.content).hexdigest()!=digest:raise ValueError('Reviewed original source hash changed')
+                target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(response.content)
+            if hashlib.sha256(target.read_bytes()).hexdigest()!=digest:raise ValueError('Stored reviewed original hash changed')
+            available=record['first_retrieved_utc']
+            if pd.Timestamp(available)>pd.Timestamp(clock) or pd.Timestamp(record['period_end'])>pd.Timestamp(asof):continue
+            for metric,value in record['facts_INR'].items():
+                if metric not in RAW_FIELDS or not np.isfinite(value):continue
+                key=(record['isin'],record['reporting_mode'],record['period_kind'],record['period_end'],metric)
+                values[key]={'value_INR':float(value),'source_url':url,'source_sha256':digest,
+                    'available_at_utc':available,'source_locator':record['source_locator'],
+                    'manual_original_table_review':True}
+        except Exception as exc:errors.append({'source_url':url,'error':str(exc)[:180]})
+    return values,errors
+
 def collect_providers(root,asof,budget=3200):
     """Whole-public-universe rotation. Access denial stops the source host."""
     import requests
@@ -216,6 +253,14 @@ def export(root,asof):
     clock=datetime.now(timezone.utc).isoformat()
     wide=pd.read_parquet(root/'financial_wide.parquet')
     primary=primary_index(wide,asof,clock);observations=[]
+    reviewed,review_errors=reviewed_primary_index(root,asof,clock)
+    review_conflicts=[]
+    for key,value in reviewed.items():
+        if key not in primary:primary[key]=value
+        elif abs(primary[key]['value_INR']-value['value_INR'])>1:
+            review_conflicts.append({'key':key,'NSE_original':primary[key],'issuer_original':value})
+    dump(folder/'reviewed_original_status.json',{'recovered_observations':len(reviewed),
+        'errors':review_errors,'original_document_conflicts':review_conflicts,'NSE_facts_overwritten':False})
     low=str((pd.Timestamp(asof)-pd.DateOffset(years=3)).date())
     for p in sorted((folder/'provider_inputs').glob('*.json')):
         observations.extend(r for r in json.loads(p.read_text()) if r.get('period_end','')>=low)
@@ -225,11 +270,31 @@ def export(root,asof):
     if review.exists():observations.extend(json.loads(review.read_text()).get('rows',[]))
     seeds=Path(__file__).resolve().parents[1]/'v13_evidence_seed/master_source_reviews_20261020.json'
     if seeds.exists():observations.extend(json.loads(seeds.read_text()).get('observations',[]))
+    observations.extend(reviewed_public_packet().get('observations',[]))
+    # A reviewed packet can overlap cached pages. Count a source observation
+    # once and compare the same trailing window for every collection path.
+    observation_count_before_dedup=len(observations)
+    unique={}
+    for r in observations:
+        if r.get('period_end','')<low:continue
+        key=tuple(r.get(k) for k in (*KEYS,'provider_family','source_sha256',
+            'first_observed_utc','value_INR','rounding_half_width_INR','definition_status'))
+        unique[key]=r
+    observations=list(unique.values())
     comparisons,rejected=reconcile(primary,observations,asof,clock)
     matched={tuple(r[k] for k in KEYS):r for r in comparisons}
+    observed_periods={}
+    for isin,basis,kind,end,field in primary:
+        key=(isin,basis,kind)
+        observed_periods[key]=max(end,observed_periods.get(key,''))
     coverage=json.loads((root/'evidence/universe_financial_coverage.json').read_text())
+    sector_path=folder/'sector_master.json'
+    sectors={r['isin']:r for r in json.loads(sector_path.read_text())} if sector_path.exists() else {}
+    queue_path=root/'early_potential/coverage_queue.json'
+    gaps={r['isin']:r for r in json.loads(queue_path.read_text()).get('records',[])} if queue_path.exists() else {}
     latest=root/'redevelopment/latest.json'
     forecasts=json.loads(latest.read_text()).get('records',[]) if latest.exists() else []
+    forecasts=[r for r in forecasts if str(r.get('date',''))[:10]==asof]
     by_isin={r['isin']:r for r in forecasts}
     groups=dict(tuple(wide[wide.period.le(pd.Timestamp(asof))&wide.available.le(pd.Timestamp(clock))].groupby('security_isin')))
     rows=[];cells=[]
@@ -242,21 +307,46 @@ def export(root,asof):
         r={k:a.get(k) for k in ('symbol','isin','preferred_reporting_basis','financial_complete','financial_quality_status','preferred_quarter_end','owner_earnings_source_status')}
         r.update(market_asof=asof,review_clock_utc=clock,usable_current_market_inputs=a['isin'] in by_isin,
             missing_financial_checks=', '.join(a['unknown_fields']),known_failed_checks=', '.join(a['failed_checks']))
+        sector=sectors.get(a['isin'],{})
+        exchange=next((s for s in sector.get('sources',[]) if s.get('provider_family')=='NSE'),{})
+        r.update(sector_kind=sector.get('sector_kind'),industry=sector.get('industry'),
+            sector_three_source_agreement=sector.get('primary_plus_two_additional_sources_agree',False),
+            sector_source_urls='\n'.join(s['source_url'] for s in sector.get('sources',[])),
+            market_coverage_reason=gaps.get(a['isin'],{}).get('history_status',
+                'CURRENT_MODEL_ROW_AVAILABLE' if a['isin'] in by_isin else 'NO_CURRENT_VERIFIED_MODEL_ROW'))
+        r.update(company_name=exchange.get('company_name'),
+            nse_issued_shares_single_source=exchange.get('issued_shares'),
+            nse_market_cap_INR_single_source=exchange.get('market_cap_INR'),
+            nse_face_value_single_source=exchange.get('face_value'),
+            nse_quote_source_url=exchange.get('source_url'),
+            nse_quote_source_sha256=exchange.get('source_sha256'),
+            nse_quote_source_updated=exchange.get('last_source_update'),
+            nse_quote_observed_utc=exchange.get('first_observed_utc'))
         current=by_isin.get(a['isin'],{})
         for field in ('close','rsi14','distance_ma50','distance_ma200'):r[field]=current.get(field)
         for kind,field in specs:
-            row=pick(w,kind) if not w.empty else {};period=str(row['period'].date()) if row else None
+            stored=w.loc[w.period_kind.eq(kind),'period'].max() if not w.empty else pd.NaT
+            dates=[str(stored.date())] if pd.notna(stored) else []
+            reviewed_period=observed_periods.get((a['isin'],basis,kind))
+            if reviewed_period:dates.append(reviewed_period)
+            period=max(dates) if dates else None
+            r[kind+'_period_end']=period
             key=(a['isin'],basis,kind,period,field);p=primary.get(key);proof=matched.get(key,{})
             name=kind+'_'+field;r[name]=p['value_INR'] if p else None
-            r['validated_'+name]=r[name] if proof.get('validated_for_new_master_input',False) else None
+            fresh=bool(period and 0<=(pd.Timestamp(asof)-pd.Timestamp(period)).days<=(190 if kind=='quarter' else 450))
+            admitted=fresh and proof.get('validated_for_new_master_input',False)
+            r['validated_'+name]=r[name] if admitted else None
             cells.append({'symbol':a['symbol'],'isin':a['isin'],'column':name,
                 'reporting_mode':basis,'period_kind':kind,'period_end':period,
                 'metric':field,'value':r[name],
                 'source_url':p['source_url'] if p else None,'source_sha256':p['source_sha256'] if p else None,
                 'source_status':'ORIGINAL_OBSERVED' if p else 'MISSING_OR_AMBIGUOUS_ORIGINAL',
                 'two_additional_sources_agree':proof.get('validated_for_new_master_input',False),
+                'period_is_current_enough':fresh,'eligible_current_three_source_input':bool(admitted),
                 'source_review':proof.get('status','NO_ADDITIONAL_SOURCE_COMPARISON'),
-                'matching_provider_families':', '.join(proof.get('matching_provider_families',[]))})
+                'matching_provider_families':', '.join(proof.get('matching_provider_families',[])),
+                'additional_source_urls':'\n'.join(sorted({s['source_url'] for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])})),
+                'additional_source_hashes':'\n'.join(sorted({s['source_sha256'] for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])}))})
         rows.append(r)
     master=pd.DataFrame(rows);long=pd.DataFrame(cells)
     master.to_parquet(folder/'master_inputs.parquet',index=False)
@@ -265,13 +355,15 @@ def export(root,asof):
     long.to_csv(folder/'master_input_sources.csv',index=False)
     dump(folder/'master_inputs.json',clean_records(master))
     dump(folder/'source_comparisons.json',comparisons)
-    pending=long[long.value.isna()|~long.two_additional_sources_agree].copy()
+    pending=long[~long.eligible_current_three_source_input].copy()
     pending.to_parquet(folder/'pending_input_validation.parquet',index=False)
     counts=[]
     for column,g in long.groupby('column',sort=False):
         counts.append({'column':column,'issuers':len(g),'original_observed':int(g.value.notna().sum()),
             'missing_or_ambiguous_original':int(g.value.isna().sum()),
-            'primary_plus_two_additional_sources_agree':int(g.two_additional_sources_agree.sum())})
+            'primary_plus_two_additional_sources_agree':int(g.two_additional_sources_agree.sum()),
+            'current_three_source_inputs':int(g.eligible_current_three_source_input.sum()),
+            'stale_or_unknown_period':int((~g.period_is_current_enough).sum())})
     dump(folder/'column_coverage.json',counts)
     from v13_model import FEATURES
     model_columns=[{'column':c,'scored_issuers':len(forecasts),
@@ -311,9 +403,14 @@ def export(root,asof):
         'original_observed_cells':int(long.value.notna().sum()),
         'missing_or_ambiguous_original_cells':int(long.value.isna().sum()),
         'cells_with_primary_plus_two_additional_sources':int(long.two_additional_sources_agree.sum()),
+        'current_three_source_input_cells':int(long.eligible_current_three_source_input.sum()),
+        'remaining_current_validation_cells':int((~long.eligible_current_three_source_input).sum()),
+        'three_source_sector_issuers':sum(r['sector_three_source_agreement'] for r in rows),
         'provider_observations':len(observations),'comparison_groups':len(comparisons),
+        'source_comparison_window_start':low,
+        'raw_observations_before_window_and_dedup':observation_count_before_dedup,
         'rejected_observations':len(rejected),'column_coverage':counts,
-        'all_missing_data_collected':False,'analysis_ready_under_three_source_requirement':bool(long.two_additional_sources_agree.all()),
+        'all_missing_data_collected':False,'analysis_ready_under_three_source_requirement':bool(long.eligible_current_three_source_input.all()),
         'new_prediction_run':False,'frozen_forecasts_unchanged':True,
         'prior_twenty_price_date':'2026-10-16','prior_twenty_current_market_rows':sum(r['current_market_input_available'] for r in prior)}
     dump(folder/'summary.json',result)
