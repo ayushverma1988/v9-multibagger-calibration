@@ -1,0 +1,49 @@
+name: V13 finalize reviewed master inputs
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-master-data-20261020]
+    paths: ['.github/workflows/v13_finalize_master.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Check source identity, basis, clocks and reconciliation
+        run: |
+          python -m unittest discover -s tests -p 'test_v13_master_data.py'
+          python -m unittest discover -s tests -p 'test_v13_alternate_sources.py'
+      - name: Restore newest collection and save reviewed master without inference
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_master_data --state v13_state --passes 0 --provider-budget 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-final-reviewed-master-${{ github.run_id }}
+          path: |
+            v13_state/master_data/*.json
+            v13_state/master_data/*.csv
+            v13_state/master_data/*.parquet
+            v13_state/master_data/*.md
+            v13_state/financial_wide.parquet
+            v13_state/evidence/universe_financial_coverage.json
+            master_archive_receipt.json
+          retention-days: 30
