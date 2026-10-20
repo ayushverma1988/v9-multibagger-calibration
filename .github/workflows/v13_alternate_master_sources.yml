@@ -1,0 +1,81 @@
+name: V13 additional-source financial and sector master
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-master-data-20261020]
+    paths: ['.github/workflows/v13_alternate_master_sources.yml']
+permissions:
+  contents: read
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Verify source parsers and reporting-basis queue
+        run: python -m unittest discover -s tests -p 'test_v13_*sources.py'
+      - name: Read existing public universe without writing archive state
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -c "from pathlib import Path; from v13_checkpoint import restore; assert restore(Path('alternate_state'))"
+      - name: Collect public NSE metadata, Accord statements and Screener statements
+        run: python -m v13_alternate_sources --state alternate_state --budget 3200 --seconds 1200
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-additional-source-observations
+          path: alternate_state/master_data/
+          retention-days: 7
+  publish:
+    needs: sources
+    if: always() && needs.sources.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    concurrency:
+      group: v13-private-research-state
+      cancel-in-progress: false
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - uses: actions/download-artifact@v4
+        with:
+          name: v13-additional-source-observations
+          path: incoming_sources
+      - name: Merge into latest master after original-source collection finishes
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_master_data --state v13_state --passes 0 --provider-budget 0 --merge-source-dir incoming_sources
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-reconciled-master-${{ github.run_id }}
+          path: |
+            v13_state/master_data/*.json
+            v13_state/master_data/*.csv
+            v13_state/master_data/*.parquet
+            v13_state/master_data/*.md
+            v13_state/financial_wide.parquet
+            v13_state/evidence/universe_financial_coverage.json
+            master_archive_receipt.json
+          retention-days: 30

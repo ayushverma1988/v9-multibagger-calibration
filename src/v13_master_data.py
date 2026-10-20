@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
 import time
 from urllib.parse import quote
 
@@ -215,7 +216,9 @@ def export(root,asof):
     clock=datetime.now(timezone.utc).isoformat()
     wide=pd.read_parquet(root/'financial_wide.parquet')
     primary=primary_index(wide,asof,clock);observations=[]
-    for p in sorted((folder/'provider_inputs').glob('*.json')):observations.extend(json.loads(p.read_text()))
+    low=str((pd.Timestamp(asof)-pd.DateOffset(years=3)).date())
+    for p in sorted((folder/'provider_inputs').glob('*.json')):
+        observations.extend(r for r in json.loads(p.read_text()) if r.get('period_end','')>=low)
     # Existing manually reviewed provider observations keep their explicit
     # review clocks. A web transcription hash is never an original PDF hash.
     review=root/'financial_crosscheck/latest.json'
@@ -316,7 +319,7 @@ def export(root,asof):
     dump(folder/'summary.json',result)
     return result
 
-def run(root,passes=3,provider_budget=3200):
+def run(root,passes=3,provider_budget=3200,incoming=None):
     from v13_checkpoint import restore, save
     from v13_collection import collect_financials
     from v13_universe_financial_audit import audit
@@ -324,16 +327,28 @@ def run(root,passes=3,provider_budget=3200):
     root=Path(root)
     if not restore(root):raise RuntimeError('Existing checkpoint required; no fresh state substituted')
     guard=FrozenGuard(root)
+    if incoming:
+        incoming=Path(incoming)
+        # Only source observations enter the fresh checkpoint. Never replace
+        # an older restored financial matrix, model, registry or forecast.
+        for source in incoming.rglob('*'):
+            if not source.is_file() or source.is_symlink() or source.suffix not in {'.json','.gz'}:continue
+            relative=source.relative_to(incoming)
+            if relative.parts[0] not in {'provider_inputs','sector_nse','sector_finology','sector_screener','raw'} and relative.name not in {'alternate_attempts.json','alternate_collection.json'}:continue
+            target=root/'master_data'/relative;target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copy2(source,target)
     previous=json.loads((root/'latest_run.json').read_text());asof=previous['asof']
     root.joinpath('master_data').mkdir(exist_ok=True)
     baseline=audit(pd.read_parquet(root/'universe.parquet'),pd.read_parquet(root/'financial_wide.parquet'),asof,root)
-    dump(root/'master_data/before_collection.json',baseline)
+    if not (root/'master_data/before_collection.json').exists():dump(root/'master_data/before_collection.json',baseline)
     runs=[]
     for i in range(passes):
         report=collect_financials(root,asof,budget=2400);runs.append(report)
         dump(root/'master_data/original_collection_passes.json',runs)
         print('Master original collection pass',i+1,json.dumps({k:v for k,v in report.items() if k!='errors'}),flush=True)
-    provider=collect_providers(root,asof,provider_budget)
+    if provider_budget:collect_providers(root,asof,provider_budget)
+    from v13_alternate_sources import sector_master
+    sector_master(root)
     after=audit(pd.read_parquet(root/'universe.parquet'),pd.read_parquet(root/'financial_wide.parquet'),asof,root)
     dump(root/'master_data/after_collection.json',after)
     result=export(root,asof)
@@ -343,5 +358,5 @@ def run(root,passes=3,provider_budget=3200):
     return result
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--passes',type=int,default=3);p.add_argument('--provider-budget',type=int,default=3200)
-    args=p.parse_args();run(args.state,args.passes,args.provider_budget)
+    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--passes',type=int,default=3);p.add_argument('--provider-budget',type=int,default=3200);p.add_argument('--merge-source-dir')
+    args=p.parse_args();run(args.state,args.passes,args.provider_budget,args.merge_source_dir)

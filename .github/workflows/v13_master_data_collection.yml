@@ -31,7 +31,7 @@ jobs:
       - name: Collect missing original inputs and additional public sources before analysis
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
-        run: python -m v13_master_data --state v13_state --passes 3 --provider-budget 3200
+        run: python -m v13_master_data --state v13_state --passes 3 --provider-budget 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -46,3 +46,6 @@ jobs:
             v13_state/evidence/universe_financial_coverage.json
             master_archive_receipt.json
             v13_state.tar.gz
+
+# Additional sources are collected in parallel by v13_alternate_master_sources.
+# The empty preferred-basis endpoint now stays in the missing-period queue.
