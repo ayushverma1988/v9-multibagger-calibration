@@ -10,16 +10,21 @@ from v13_price_policy import valid_price,POLICY as PRICE_POLICY
 def classify_current(frame,classification_dir,prior_members,now):
     root=Path(classification_dir);receipts={r['name']:r for r in json.loads((root/'receipt.json').read_text()) if 'error' not in r}
     for name in ['amfi.xlsx','bank.csv','insurance.csv']:
-        if hashlib.sha256((root/name).read_bytes()).hexdigest()!=receipts[name]['sha256']:raise ValueError('Classification original changed')
+        receipt=receipts[name];local_name=receipt.get('normalized_name',name)
+        expected=receipt.get('normalized_sha256',receipt['sha256'])
+        if hashlib.sha256((root/local_name).read_bytes()).hexdigest()!=expected:raise ValueError('Classification original or normalized snapshot changed')
     d=frame.copy();d['original_information_cutoff_utc']=d.information_cutoff_utc;d['information_cutoff_utc']=now
     m=prior_members.copy();m['size_category']=None;detailed=[]
     for filename,industry in [('bank.csv','Banks'),('insurance.csv','Insurance')]:
         x=pd.read_csv(root/filename);x.columns=x.columns.str.strip()
         for r in x.to_dict('records'):detailed.append(dict(isin=r['ISIN Code'],symbol=r['Symbol'],industry=industry,size_category=None,available_at_utc=receipts[filename]['first_observed_utc'],source_sha256=receipts[filename]['sha256']))
     m=pd.concat([m,pd.DataFrame(detailed)],ignore_index=True);d=dated_members(d,m)
-    amfi=pd.read_excel(root/'amfi.xlsx',header=1);amfi.columns=amfi.columns.str.strip()
-    category=next(c for c in amfi if c.startswith('Categorization'))
-    amfi=amfi.rename(columns={'ISIN':'isin','NSE Symbol':'symbol',category:'size_category'})
+    if receipts['amfi.xlsx'].get('normalized_name'):
+        amfi=pd.read_csv(root/receipts['amfi.xlsx']['normalized_name'])
+    else:
+        amfi=pd.read_excel(root/'amfi.xlsx',header=1);amfi.columns=amfi.columns.str.strip()
+        category=next(c for c in amfi if c.startswith('Categorization'))
+        amfi=amfi.rename(columns={'ISIN':'isin','NSE Symbol':'symbol',category:'size_category'})
     for c in ['isin','symbol','size_category']:amfi[c]=amfi[c].astype(str).str.strip()
     if amfi.duplicated(['isin','symbol']).any():raise ValueError('Ambiguous AMFI identity')
     lookup=amfi.set_index(['isin','symbol'])
