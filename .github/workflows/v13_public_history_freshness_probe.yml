@@ -1,0 +1,53 @@
+name: V13 public history freshness probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-early-potential-20261018]
+    paths: ['.github/workflows/v13_public_history_freshness_probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compare public provider request windows
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,time,datetime,urllib.request,urllib.parse
+          from pathlib import Path
+          out=Path('freshness_probe');out.mkdir()
+          asof=datetime.date(2026,10,19)
+          zone=datetime.timezone(datetime.timedelta(hours=5,minutes=30))
+          period1=int(datetime.datetime(2022,10,19,tzinfo=zone).timestamp())
+          period2=int(datetime.datetime(2026,10,20,tzinfo=zone).timestamp())
+          rows=[]
+          for symbol in ['RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK']:
+              for variant,params in [
+                  ('dated',{'interval':'1d','period1':period1,'period2':period2,'events':'div,splits'}),
+                  ('extended',{'interval':'1d','period1':period1,'period2':period2+86400,'events':'div,splits'}),
+                  ('range',{'interval':'1d','range':'5y','events':'div,splits'})]:
+                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'.NS?'+urllib.parse.urlencode(params)
+                  row={'symbol':symbol,'variant':variant,'source_asof':str(asof),'url':url}
+                  try:
+                      req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+                      with urllib.request.urlopen(req,timeout=25) as r:raw=r.read()
+                      (out/(symbol+'_'+variant+'.json')).write_bytes(raw)
+                      c=json.loads(raw)['chart']['result'][0]
+                      dates=[datetime.datetime.fromtimestamp(x,zone).date() for x in c.get('timestamp',[])]
+                      dates=[x for x in dates if x<=asof]
+                      row.update(latest_closed_bar=str(max(dates)) if dates else None,bars=len(dates),metadata_symbol=c['meta'].get('symbol'))
+                  except Exception as e:row['error']=str(e)[:200]
+                  rows.append(row);print(json.dumps(row),flush=True);time.sleep(.3)
+          (out/'summary.json').write_text(json.dumps(rows,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-public-history-freshness-probe
+          path: freshness_probe/
+          retention-days: 7

@@ -33,6 +33,11 @@ class ExampleHistoryAuditTests(unittest.TestCase):
             bars.to_parquet(root / 'history' / 'securities' /
                             (sha(b'EMUDHRA') + '.parquet'), index=False)
             (root / 'history_attempts.json').write_text(json.dumps({'DSSL': '2026-10-18T02:00:00Z'}))
+            (root / 'early_potential').mkdir()
+            (root / 'early_potential' / 'latest.json').write_text(json.dumps({
+                'source_date':'2026-10-16', 'scored_states':[
+                    {'isin':'INE01QM01018', 'early_state':'CHART_WATCH',
+                     'early_pattern':'DEEP_RESET_BASE', 'early_rank':None}]}))
             summary = audit(root, '2026-10-16', collection_report={'errors': [
                 {'symbol': 'DSSL', 'error': 'Provider security unavailable'}]})
             records = json.loads((root / 'evidence' / 'example_history_audit.json').read_text())['records']
@@ -42,7 +47,9 @@ class ExampleHistoryAuditTests(unittest.TestCase):
             self.assertEqual(by_name['EMUDHRA']['last_bar'], '2026-10-15')
             self.assertEqual(by_name['EMUDHRA']['last_feature_date'], '2026-10-14')
             self.assertEqual(by_name['EMUDHRA']['nse_listing_date'], '2022-06-01')
+            self.assertEqual(by_name['EMUDHRA']['early_potential_status'], 'CHART_WATCH')
             self.assertEqual(by_name['DSSL']['current_status'], 'NOT_SCORABLE_MISSING_HISTORY')
+            self.assertEqual(by_name['DSSL']['early_potential_status'], 'NOT_SCORABLE_WITH_CURRENT_DATA')
             self.assertEqual(by_name['DSSL']['last_public_history_attempt_utc'], '2026-10-18T02:00:00Z')
             self.assertEqual(by_name['DSSL']['current_run_public_history_error'], 'Provider security unavailable')
             self.assertEqual(by_name['CHEMCRUX']['current_status'], 'OUTSIDE_NSE_COLLECTION')
