@@ -4,6 +4,7 @@ import unittest
 from v13_alternate_sources import parse_quote, parse_finology, normal_name, sector_kind,apply_sector_master
 from v13_financial_evidence import completion_queue
 import pandas as pd
+from unittest.mock import patch,Mock
 
 class AlternateSourcesTests(unittest.TestCase):
     def test_sector_kinds_keep_financials_separate(self):
@@ -49,6 +50,32 @@ class AlternateSourcesTests(unittest.TestCase):
         rows,meta=parse_finology(ticker_raw,issuer,receipt)
         self.assertIn('EXACT_CURRENT_NSE_SYMBOL',meta['identity_proof'])
         self.assertEqual(rows[0]['reporting_mode'],'consolidated')
+    def test_ownership_only_group_page_falls_back_to_real_standalone_statements(self):
+        from v13_alternate_sources import collect
+        shared='''<a href="https://www.nseindia.com/get-quotes/equity?symbol=TEST">NSE</a>
+        <section id="peers"><a href="/market/IN/1">Industrials</a><a href="/market/IN/2">Industrials</a>
+        <a href="/market/IN/3">Capital Goods</a><a href="/market/IN/4">Machinery</a></section>
+        <section id="shareholding"><table><tr><th></th><th>Jun 2026</th></tr>
+        <tr><td>Promoters +</td><td>50.0%</td></tr></table></section>'''
+        group=('<div id="company-info" data-consolidated="true"></div>'+shared).encode()
+        standalone=('''<div id="company-info" data-consolidated="false"></div>'''+shared+'''
+        <section id="quarters">Figures in Rs. Crores<table><tr><th></th><th>Jun 2026</th></tr>
+        <tr><td>Sales +</td><td>12.34</td></tr></table></section>''').encode()
+        requested=[]
+        def response(session,url,**kwargs):
+            requested.append(url);r=Mock();r.content=group if url.endswith('/consolidated/') else standalone
+            r.url=url;r.status_code=200;r.raise_for_status.return_value=None;return r
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/'evidence').mkdir()
+            pd.DataFrame([{'nse_current_symbol':'TEST','nse_current_name':'Test Limited','nse_current_series':'EQ','isin':'INE000000001'}]).to_parquet(root/'universe.parquet')
+            (root/'evidence/universe_financial_coverage.json').write_text(json.dumps({'rows':[{'isin':'INE000000001','preferred_reporting_basis':'consolidated'}]}))
+            with patch('v13_alternate_sources.requests.Session.get',response):
+                result=collect(root,budget=1,seconds=3,sources=('SCREENER',))
+            self.assertEqual(result['SCREENER']['new_accepted'],1)
+            self.assertEqual(requested,['https://www.screener.in/company/TEST/consolidated/','https://www.screener.in/company/TEST/'])
+            saved=json.loads((root/'master_data/provider_inputs/INE000000001_screener.json').read_text())
+            statement=next(r for r in saved if r['metric']=='revenue')
+            self.assertEqual(statement['reporting_mode'],'standalone');self.assertEqual(statement['value_INR'],123400000)
     def test_sector_recovery_needs_three_sources_before_review_clock(self):
         frame=pd.DataFrame([{'isin':'INE000000001','symbol':'TEST','industry':None,'sector_sector_kind':'UNKNOWN','p6':.2}])
         sources=[{'isin':'INE000000001','symbol':'TEST','provider_family':p,'source_sha256':'a'*64,

@@ -43,11 +43,18 @@ the unchanged refined selector. Six earlier names still fail its RSI rule on
 Financially incomplete names retain that status even when sector metadata is
 recovered. Banks and insurers retain their own missing sector-specific checks.
 
-Singer's original FY26 annual report also supplies reviewed financial amounts
-missing from the exchange matrix. Its printed ISIN, NSE/BSE codes, units and
-table locations are recorded with the exact PDF hash. These observations
-supplement the research master; they do not rewrite old filing versions or
-historical forecasts. Contradictory original amounts are recorded for review.
+Singer's original FY26 annual report and June-quarter statement also provide
+independently reviewed original amounts. Its printed ISIN, NSE/BSE codes,
+units and table locations are recorded with exact PDF hashes. Missing original
+observations can supplement the research master; existing exchange amounts
+are retained. Some annual-report amounts have greater displayed precision
+than the exchange filing. Differences are recorded for review, without
+rewriting old filing versions or historical forecasts.
+
+An additional ingestion defect was corrected: ownership rows on an empty
+consolidated page no longer count as financial statements. The collector
+requests the preferred reporting basis first, tries the other public mode
+only when real statements are absent, and preserves the observed basis.
 
 ## Interpretation and verification
 

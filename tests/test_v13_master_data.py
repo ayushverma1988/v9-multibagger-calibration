@@ -1,5 +1,9 @@
 import unittest
-from v13_master_data import reconcile, parse_screener_inputs
+from unittest.mock import patch
+from pathlib import Path
+import tempfile
+import pandas as pd
+from v13_master_data import reconcile, parse_screener_inputs,cached_primary_index
 
 class MasterEvidenceTests(unittest.TestCase):
     def setUp(self):
@@ -41,6 +45,18 @@ class MasterEvidenceTests(unittest.TestCase):
     def test_rounding_does_not_allow_percentage_error(self):
         r=self.check([self.obs('A',1001),self.obs('B',1001)])[0]
         self.assertFalse(r['validated_for_new_master_input'])
+    def test_original_index_cache_reopens_when_information_clock_admits_filing(self):
+        wide=pd.DataFrame({'period':pd.to_datetime(['2026-03-31']*2),
+            'available':pd.to_datetime(['2026-10-20T10:00:00Z','2026-10-20T13:00:00Z'])})
+        with tempfile.TemporaryDirectory() as temp:
+            (Path(temp)/'financial_wide.parquet').write_bytes(b'fixture-source-matrix')
+            with patch('v13_master_data.primary_index',return_value=self.primary) as index:
+                first=cached_primary_index(temp,wide,'2026-10-19','2026-10-20T12:00:00Z')
+                self.assertEqual(first,self.primary)
+                self.assertEqual(cached_primary_index(temp,wide,'2026-10-19','2026-10-20T12:30:00Z'),first)
+                self.assertEqual(index.call_count,1)
+                cached_primary_index(temp,wide,'2026-10-19','2026-10-20T14:00:00Z')
+                self.assertEqual(index.call_count,2)
     def test_parser_keeps_units_reporting_basis_and_profit_definition(self):
         raw=b'''<div id="company-info" data-consolidated="false"></div>
         <a href="https://www.nseindia.com/get-quotes/equity?symbol=TEST">NSE</a>

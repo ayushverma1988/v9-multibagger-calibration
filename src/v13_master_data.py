@@ -184,6 +184,29 @@ def primary_index(wide,asof,clock):
                 'available_at_utc':str(row.get('available_at_utc'))}
     return out
 
+def cached_primary_index(root,wide,asof,clock):
+    """Reuse an unchanged original index between pre/post-analysis exports.
+
+    The source matrix hash and the eligible-row count bind the cache. A later
+    information cutoff that admits a new filing necessarily changes the count.
+    """
+    import gzip
+    path=Path(root)/'financial_wide.parquet'
+    eligible=wide.period.le(pd.Timestamp(asof))&wide.available.le(pd.Timestamp(clock))
+    stamp={'source_matrix_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+        'asof':asof,'eligible_rows':int(eligible.sum())}
+    cache=Path(root)/'master_data/original_index_cache.json.gz'
+    if cache.exists():
+        try:
+            saved=json.loads(gzip.decompress(cache.read_bytes()))
+            if saved['stamp']==stamp:return {tuple(k.split('|')):v for k,v in saved['rows'].items()}
+        except (ValueError,KeyError,OSError):pass
+    result=primary_index(wide,asof,clock)
+    payload={'stamp':stamp,'rows':{'|'.join(k):v for k,v in result.items()}}
+    cache.parent.mkdir(parents=True,exist_ok=True)
+    cache.write_bytes(gzip.compress(json.dumps(payload,allow_nan=False,default=str).encode(),compresslevel=1,mtime=0))
+    return result
+
 def reviewed_primary_index(root,asof,clock):
     """Reviewed issuer tables supplement missing originals with their real clock.
 
@@ -197,6 +220,8 @@ def reviewed_primary_index(root,asof,clock):
     values={};errors=[];seen={}
     for record in json.loads(seed.read_text()).get('records',[]):
         url=record['source_url'];digest=record['source_sha256']
+        available=record['first_retrieved_utc']
+        if pd.Timestamp(available)>pd.Timestamp(clock) or pd.Timestamp(record['period_end'])>pd.Timestamp(asof):continue
         try:
             target=Path(root)/'master_data/raw'/digest/'reviewed_original.pdf'
             if not target.exists():
@@ -204,8 +229,6 @@ def reviewed_primary_index(root,asof,clock):
                 if hashlib.sha256(response.content).hexdigest()!=digest:raise ValueError('Reviewed original source hash changed')
                 target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(response.content)
             if hashlib.sha256(target.read_bytes()).hexdigest()!=digest:raise ValueError('Stored reviewed original hash changed')
-            available=record['first_retrieved_utc']
-            if pd.Timestamp(available)>pd.Timestamp(clock) or pd.Timestamp(record['period_end'])>pd.Timestamp(asof):continue
             for metric,value in record['facts_INR'].items():
                 if metric not in RAW_FIELDS or not np.isfinite(value):continue
                 key=(record['isin'],record['reporting_mode'],record['period_kind'],record['period_end'],metric)
@@ -252,14 +275,15 @@ def export(root,asof):
     root=Path(root);folder=root/'master_data';folder.mkdir(exist_ok=True)
     clock=datetime.now(timezone.utc).isoformat()
     wide=pd.read_parquet(root/'financial_wide.parquet')
-    primary=primary_index(wide,asof,clock);observations=[]
+    primary=cached_primary_index(root,wide,asof,clock);observations=[]
     reviewed,review_errors=reviewed_primary_index(root,asof,clock)
-    review_conflicts=[]
+    review_conflicts=[];review_supplemented=0
     for key,value in reviewed.items():
-        if key not in primary:primary[key]=value
+        if key not in primary:primary[key]=value;review_supplemented+=1
         elif abs(primary[key]['value_INR']-value['value_INR'])>1:
             review_conflicts.append({'key':key,'NSE_original':primary[key],'issuer_original':value})
-    dump(folder/'reviewed_original_status.json',{'recovered_observations':len(reviewed),
+    dump(folder/'reviewed_original_status.json',{'reviewed_original_observations':len(reviewed),
+        'missing_original_observations_supplemented':review_supplemented,
         'errors':review_errors,'original_document_conflicts':review_conflicts,'NSE_facts_overwritten':False})
     low=str((pd.Timestamp(asof)-pd.DateOffset(years=3)).date())
     for p in sorted((folder/'provider_inputs').glob('*.json')):
@@ -346,7 +370,7 @@ def export(root,asof):
                 'source_review':proof.get('status','NO_ADDITIONAL_SOURCE_COMPARISON'),
                 'matching_provider_families':', '.join(proof.get('matching_provider_families',[])),
                 'additional_source_urls':'\n'.join(sorted({s['source_url'] for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])})),
-                'additional_source_hashes':'\n'.join(sorted({s['source_sha256'] for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])}))})
+                'additional_source_hashes':'\n'.join(sorted({s['provider_family']+':'+(s.get('source_sha256') or 'WEB_TABLE_REVIEW_NO_ORIGINAL_BYTES') for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])}))})
         rows.append(r)
     master=pd.DataFrame(rows);long=pd.DataFrame(cells)
     master.to_parquet(folder/'master_inputs.parquet',index=False)

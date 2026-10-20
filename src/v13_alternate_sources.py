@@ -139,6 +139,7 @@ def parse_screener_sector(raw,issuer,receipt):
     codes={m.group(1) for m in codes if m}
     if len(codes)>1:raise ValueError('Ambiguous BSE issuer identity mapping')
     return {'symbol':issuer['nse_current_symbol'],'isin':issuer['isin'],'taxonomy':labels,
+        'reporting_mode':'consolidated' if soup.select_one('#company-info').get('data-consolidated')=='true' else 'standalone',
         'bse_code':next(iter(codes)) if codes else None,
         'sector_kind':sector_kind(labels),'provider_family':'SCREENER',
         'source_url':receipt['requested_url'],'source_sha256':receipt['sha256'],
@@ -191,7 +192,9 @@ def collect(root,universe_path=None,budget=3200,seconds=1800,sources=('NSE','SCR
                 old=json.loads(output.read_text())
                 current=old['first_observed_utc'][:10]==datetime.now(timezone.utc).date().isoformat()
                 desired=bases.get(isin) if bases.get(isin) in {'standalone','consolidated'} else 'standalone'
-                mode_ok=source!='FINOLOGY' or old.get('reporting_mode')==desired
+                cached_rows=json.loads(values.read_text()) if source!='NSE' else []
+                statements=[s for s in cached_rows if s.get('period_kind') in {'quarter','annual','instant'}]
+                mode_ok=source=='NSE' or (statements and {s['reporting_mode'] for s in statements}=={desired})
                 if current and mode_ok:
                     if source=='SCREENER' and not old.get('bse_code'):
                         archived=folder/'raw'/old['source_sha256']/'SCREENER.gz'
@@ -224,14 +227,22 @@ def collect(root,universe_path=None,budget=3200,seconds=1800,sources=('NSE','SCR
                     if not issuer.get('bse_code') and normal_name(r['nse_current_name']) not in unique_names:raise ValueError('Ambiguous public issuer name')
                     dump(values,observations)
                 else:
-                    url='https://www.screener.in/company/'+quote(symbol,safe='')+'/consolidated/'
+                    base_url='https://www.screener.in/company/'+quote(symbol,safe='')+'/'
+                    want_group=bases.get(isin)=='consolidated'
+                    url=base_url+('consolidated/' if want_group else '')
                     raw,proof=get(url,source);metadata=parse_screener_sector(raw,r,proof)
                     observations=parse_screener_inputs(raw,symbol,isin,proof)
-                    if not observations:
-                        url='https://www.screener.in/company/'+quote(symbol,safe='')+'/'
-                        raw,proof=get(url,source);observations=parse_screener_inputs(raw,symbol,isin,proof)
-                    if not observations:raise ValueError('No dated financial values in either public reporting mode')
+                    if not any(s['period_kind'] in {'quarter','annual','instant'} for s in observations):
+                        url=base_url+('' if want_group else 'consolidated/')
+                        raw,proof=get(url,source);metadata=parse_screener_sector(raw,r,proof)
+                        observations=parse_screener_inputs(raw,symbol,isin,proof)
+                    if not any(s['period_kind'] in {'quarter','annual','instant'} for s in observations):
+                        dump(output,metadata)
+                        raise ValueError('No dated financial statement values in either public reporting mode; ownership rows are not statements')
                     dump(values,observations)
+                    # Retain both reporting bases if a later refresh changes
+                    # the preferred basis; raw source vintages are immutable.
+                    dump(values.with_name(isin+'_screener_'+metadata['reporting_mode']+'.json'),observations)
                 dump(output,metadata);return {'accepted':True}
             except Exception as exc:return {'error':str(exc)[:180],'symbol':symbol}
         for r,result in bounded_map(rows,worker,workers=4,seconds=seconds):

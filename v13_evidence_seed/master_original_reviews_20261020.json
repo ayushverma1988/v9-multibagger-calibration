@@ -90,6 +90,81 @@
         "ppe": 88581000,
         "receivables_current": 446451000
       }
+    },
+    {
+      "symbol": "SINGERIND",
+      "isin": "INE638A01035",
+      "reporting_mode": "standalone",
+      "source_url": "https://singerindia.com/wp-content/uploads/2026/08/Outcome.pdf",
+      "source_sha256": "ab54ddfb15715321a90764dfa1d09c68ade95517b741e1429d15fa302f929b17",
+      "first_retrieved_utc": "2026-10-20T14:11:38.049431+00:00",
+      "unit_in_original": "INR_LAKH_EXCEPT_FACE_VALUE_INR_PER_SHARE",
+      "identity_locator": "PDF page 1: NSE SINGERIND and BSE 505729, bound to annual-report printed ISIN",
+      "period_kind": "quarter",
+      "period_end": "2026-06-30",
+      "source_locator": "PDF page 4, quarterly statement; lakh-rounded original amounts; March column is the issuer-reported balancing quarter, not a locally inferred quarter.",
+      "reported_diluted_eps_INR": 0.48,
+      "reported_diluted_EPS_not_silently_classified_as_continuing_operations": true,
+      "facts_INR": {
+        "revenue": 1445500000,
+        "other_income": 19200000,
+        "finance_cost": 1600000,
+        "depreciation": 13200000,
+        "pbt": 40400000,
+        "pat": 30000000,
+        "paidup_equity_capital": 124400000,
+        "face_value": 2
+      }
+    },
+    {
+      "symbol": "SINGERIND",
+      "isin": "INE638A01035",
+      "reporting_mode": "standalone",
+      "source_url": "https://singerindia.com/wp-content/uploads/2026/08/Outcome.pdf",
+      "source_sha256": "ab54ddfb15715321a90764dfa1d09c68ade95517b741e1429d15fa302f929b17",
+      "first_retrieved_utc": "2026-10-20T14:11:38.049431+00:00",
+      "unit_in_original": "INR_LAKH_EXCEPT_FACE_VALUE_INR_PER_SHARE",
+      "identity_locator": "PDF page 1: NSE SINGERIND and BSE 505729, bound to annual-report printed ISIN",
+      "period_kind": "quarter",
+      "period_end": "2026-03-31",
+      "source_locator": "PDF page 4, quarterly statement; lakh-rounded original amounts; March column is the issuer-reported balancing quarter, not a locally inferred quarter.",
+      "reported_diluted_eps_INR": 0.95,
+      "reported_diluted_EPS_not_silently_classified_as_continuing_operations": true,
+      "facts_INR": {
+        "revenue": 1663200000,
+        "other_income": 22300000,
+        "finance_cost": 1700000,
+        "depreciation": 11200000,
+        "pbt": 80400000,
+        "pat": 59000000,
+        "paidup_equity_capital": 124400000,
+        "face_value": 2
+      }
+    },
+    {
+      "symbol": "SINGERIND",
+      "isin": "INE638A01035",
+      "reporting_mode": "standalone",
+      "source_url": "https://singerindia.com/wp-content/uploads/2026/08/Outcome.pdf",
+      "source_sha256": "ab54ddfb15715321a90764dfa1d09c68ade95517b741e1429d15fa302f929b17",
+      "first_retrieved_utc": "2026-10-20T14:11:38.049431+00:00",
+      "unit_in_original": "INR_LAKH_EXCEPT_FACE_VALUE_INR_PER_SHARE",
+      "identity_locator": "PDF page 1: NSE SINGERIND and BSE 505729, bound to annual-report printed ISIN",
+      "period_kind": "quarter",
+      "period_end": "2025-06-30",
+      "source_locator": "PDF page 4, quarterly statement; lakh-rounded original amounts; March column is the issuer-reported balancing quarter, not a locally inferred quarter.",
+      "reported_diluted_eps_INR": -0.38,
+      "reported_diluted_EPS_not_silently_classified_as_continuing_operations": true,
+      "facts_INR": {
+        "revenue": 921000000,
+        "other_income": 13400000,
+        "finance_cost": 600000,
+        "depreciation": 7800000,
+        "pbt": -32400000,
+        "pat": -23600000,
+        "paidup_equity_capital": 123300000,
+        "face_value": 2
+      }
     }
   ]
 }
