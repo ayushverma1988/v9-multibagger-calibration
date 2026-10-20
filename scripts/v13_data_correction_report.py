@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
+def build(root,output,worker_commit,contract_run,checkpoint_receipt=None,replay_run=39393869433,checkpoint_run=39393869559,test_count=636):
     from v13_example_history_audit import EXAMPLES
     root=Path(root);out=Path(output)
     run=json.loads((root/'correction_run.json').read_text())
@@ -14,6 +14,8 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
     c=json.loads((root/'financial_crosscheck/latest.json').read_text())
     checkpoint=json.loads(Path(checkpoint_receipt).read_text()) if checkpoint_receipt else None
     union=json.loads((root/'financial_snapshot_union.json').read_text())
+    original_review_path=Path(__file__).resolve().parents[1]/'v13_evidence_seed/financial_original_review_20261020.json'
+    original_reviews=json.loads(original_review_path.read_text()) if original_review_path.exists() else {}
     pct=lambda v:'—' if v is None else f'{100*v:.2f}%'
     money=lambda v:'—' if v is None else f'{v:,.2f}'
     quality={r['symbol']:r for r in f['rows']}
@@ -72,11 +74,14 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
         annual_review.append({'primary_comparison':r,'screener_comparison':s,'three_publishers_agree_within_rounding':agree})
     lines += ['', '## Current separate 2× research list','',
       'Same frozen heads and preferred 17 October selector: verified small/mid-cap classification, known sector, RSI strictly above 70, above 50DMA and financial/owner checks. Missing financial evidence is shown explicitly. The estimates remain unvalidated research estimates; a shortlist entry does not mean doubling is likely.','',
-      '| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Model 30% loss event | Financial status |','| ---: | --- | ---: | ---: | ---: | ---: | --- |']
+      '| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Model 30% loss event | Primary financial status | Source review |','| ---: | --- | ---: | ---: | ---: | ---: | --- | --- |']
     for r in x['records']:
         label={'PASS_AVAILABLE_SEVEN_CHECKS':'All seven available checks pass','UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION':'Financial-sector rules unavailable; review required'}.get(r['sector_status'],r['sector_status'])
-        lines.append(f"| {int(r['rsi70_research_rank'])} | {r['symbol']} | {money(r['close'])} | {pct(r['p6'])} | {pct(r['p12'])} | {pct(r['loss12'])} | {label} |")
+        source_label={'ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE':'Annual revenue/CFO agree with two publishers','ANNUAL_SOURCE_CONFLICT_REVIEW':'Review: '+', '.join(r.get('source_conflicting_metrics',[])),'SECTOR_RULES_PENDING_REVIEW':'Bank financial rules pending'}.get(r.get('source_comparison_tier'),r.get('source_comparison_tier','Not compared'))
+        lines.append(f"| {int(r['rsi70_research_rank'])} | {r['symbol']} | {money(r['close'])} | {pct(r['p6'])} | {pct(r['p12'])} | {pct(r['loss12'])} | {label} | {source_label} |")
     lines += ['', 'The loss head targets a 30% loss event before a 2× hit over the 12-month window. These estimates are also unvalidated and remain high for these names; a relative research rank must not be read as a favourable risk/reward conclusion.','',
+      '**Current annual-data corroboration subset:** Cupid, Tanla, Justdial and Zensar. Gabriel, Lemon Tree and Tata Elxsi require source reconciliation; South Indian Bank and Karur Vysya require sector-specific financial review. The agreement subset covers annual revenue and CFO only. It does not certify the remaining financial fields, future returns or the model. All nine raw model selections stay visible with their review tier.','',
+      'The Gabriel discrepancy was checked against fresh original XML bytes: the download matches the stored source hash and its single current-year CFO tag contains ₹443.559 crore. The [issuer annual report, printed page 292](https://www.anandgroupindia.com/wp-content/uploads/2026/07/Gabriel-India_AR-2025-26_C2C_SGAAds_V11-Interactive.pdf) instead shows net operating cash flow of ₹345.273 crore, consistent with the rounded provider displays. Both original observations are retained. A parser error, filing revision or reclassification has not been assumed, and the annual-report value has not silently replaced the NSE original.','',
       'PVRINOX was present in an intermediate partial snapshot. It is excluded after combining the available originals because the interest-coverage check fails. South Indian Bank and Karur Vysya Bank remain explicitly unverified under sector-specific financial rules; their presence is not a seven-check financial pass.','',
       'Mastek now passes all seven available financial checks after its consolidated June originals and comparison periods were recovered. It still lacks usable current market inputs in this replay. Cupid, Tanla and Zensar remain on the current list. Persistent has RSI 62.78, below this lane’s strict 70 threshold; Sun TV has a parent/minority/total-profit reconciliation conflict. Hexaware also has an observed year-on-year consolidated PAT decline. These are distinct from missing quotes.']
     lines += ['', '## Earlier 11 recommendations — retained separately','',
@@ -107,14 +112,16 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
     lines += ['', '## Daily-worker changes','',
       f'The weekday **22:00 IST** worker is pinned to tested correction commit `{worker_commit}`. It requests up to 3,200 public histories and 1,600 filings per run within bounded source/time limits, retries limited source variants, counts fresh official-aligned histories separately from merely usable old histories, rotates public financial comparison work and reports full-universe financial coverage. A verified source pack retains the 24 successfully recovered original filings, including Mastek comparison periods, without seeding any desired stock rankings. Runs use the existing single-writer concurrency group. GitHub scheduling can be delayed.','',
       'The later collector timed out after spending much of its 90-minute budget restoring thousands of separate archive objects under provider rate limits. Its saved financial collection is included in this correction; its previous completed list was not treated as a new model result. Restarts now use one hash-verified bundle, preserve immutable original objects and record the actual attempt phase. Health reports distinguish a previous completed report from the present attempt.','',
-      ('The archive migration completed and verified a fresh bundle restore against every original derived-file hash. Original checkpoint records, frozen forecasts and model heads were unchanged. '+f"Verified {checkpoint['derived_bundle_files']:,} derived files; compressed bundle {checkpoint['derived_bundle_bytes']:,} bytes." if checkpoint and checkpoint.get('passed') else 'The archive migration is running; its completion has not yet been claimed.'),'',
-      'Validation: all **630 tests passed locally and on GitHub**, including missing consolidated results, stale source responses, original-source identity and byte-hash checks, rate limits, period/basis mismatches and duplicate-provider checks. This correction replay writes no private archive state; the normal worker persists its own verified source recovery. No model was retrained or declared accurate.','',
+      'One migration attempt stopped on an archive-server HTTP 504. The final version retries bounded transient server and connection failures, keeps the shared eight-request/second limit, and rejects permission or hash failures. Thirty-two bounded download workers fill network latency without raising the request rate. The blocked normal restores were cancelled before collection and requeued behind the repair.','',
+      ('The archive migration completed and verified a fresh bundle restore against every original derived-file hash. Original checkpoint records, frozen forecasts and model heads were unchanged. '+f"Verified {checkpoint['derived_bundle_files']:,} derived files; compressed bundle {checkpoint['derived_bundle_bytes']:,} bytes." if checkpoint and checkpoint.get('passed') else 'The final archive migration retry is running; its completion has not yet been claimed.'),'',
+      f'Validation: all **{test_count} tests passed locally and on GitHub**, including missing consolidated results, stale source responses, original-source identity and byte-hash checks, transient server errors, rate limits, dated source-comparison tiers and duplicate-provider checks. Source review now excludes future primary revisions from a dated comparison. This correction replay writes no private archive state; the normal worker persists its own verified source recovery. No model was retrained or declared accurate.','',
       '## Reproducibility and sources','',
       f"- Frozen model SHA-256: `{run['corrected_prediction_replay']['model_sha256']}`",
       f"- Corrected input SHA-256: `{run['corrected_prediction_replay']['input_parquet_sha256']}`",
       '- [Correction and code review](https://github.com/ayushverma1988/v9-multibagger-calibration/pull/20)',
-      '- [Final combined-financial model replay](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39387830536)',
-      '- [Archive restart repair](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39386777965)',
+      f'- [Final combined-financial model replay](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/{replay_run})',
+      f'- [Archive restart repair](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/{checkpoint_run})',
+      '- [Four current selections: exact original XML review](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39393869584)',
       '- [Source diagnostic run](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39367248886)',
       f'- [Contract checks](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/{contract_run})',
       '- [Mastek issuer consolidated June release](https://www.mastek.com/wp-content/uploads/2026/07/Press-Release-Q1FY27.pdf)',
@@ -123,10 +130,10 @@ def build(root,output,worker_commit,contract_run,checkpoint_receipt=None):
       '- Individual matched fields and source timestamps are retained in the correction artifact and dated source-review seed files.','']
     out.parent.mkdir(parents=True,exist_ok=True);out.write_text('\n'.join(lines))
     two_x={k:v for k,v in x.items() if k not in {'records'}}
-    two_x['records']=[{k:r.get(k) for k in ['symbol','close','p6','p12','loss12','joint12','rsi14','rsi70_research_rank','sector_status']} for r in x['records']]
+    two_x['records']=[{k:r.get(k) for k in ['symbol','close','p6','p12','loss12','joint12','rsi14','rsi70_research_rank','sector_status','source_comparison_tier','source_conflicting_metrics','source_review_period_end','source_review_scope']} for r in x['records']]
     early_summary={k:v for k,v in e.items() if k not in {'candidates','scored_states'}}
     early_summary['early_candidates']=early
-    compact={'correction_run':run,'financial_history_depth':history_depth,'two_x':two_x,'chart_example_watch':chart_example_watch,'early_potential':early_summary,'financial_snapshot_union':union,'checkpoint_repair':checkpoint,'worker_source_commit':worker_commit,'prior_cohort_financial_audit':[quality[r['symbol']] for r in x['previous'] if r['symbol'] in quality],'financial_source_comparison_summary':{k:v for k,v in c.items() if k not in {'rows','three_source_checks'}},'three_source_checks':c['three_source_checks'],'annual_three_publisher_review':annual_review}
+    compact={'correction_run':run,'financial_history_depth':history_depth,'two_x':two_x,'chart_example_watch':chart_example_watch,'early_potential':early_summary,'financial_snapshot_union':union,'checkpoint_repair':checkpoint,'worker_source_commit':worker_commit,'original_document_reviews':original_reviews,'validation_test_count':test_count,'replay_workflow_run':replay_run,'checkpoint_workflow_run':checkpoint_run,'prior_cohort_financial_audit':[quality[r['symbol']] for r in x['previous'] if r['symbol'] in quality],'financial_source_comparison_summary':{k:v for k,v in c.items() if k not in {'rows','three_source_checks'}},'three_source_checks':c['three_source_checks'],'annual_three_publisher_review':annual_review}
     out.with_suffix('.json').write_text(json.dumps(compact,indent=2))
     print(out)
 

@@ -20,7 +20,17 @@
       "display_unit": "INR_MILLION",
       "manual_page_image_reviewed": true,
       "status": "ORIGINAL_DOCUMENT_VALUE_CONFLICT_REQUIRES_RECONCILIATION",
-      "reason_not_assumed": "No automatic assumption of a parser error, restatement or provider error; inspect the original XBRL and dated amendments before replacing any fact."
+      "reason_not_assumed": "No automatic assumption of a parser error, restatement or provider error; inspect the original XBRL and dated amendments before replacing any fact.",
+      "original_review_workflow_run": 39393869584,
+      "original_review_artifact_id": 12250579202,
+      "original_review_artifact_sha256": "8d41a2126f296c738f59848b4af931433f86e8565b6f26e9796a7c60bc017dde",
+      "fresh_NSE_download_matches_stored_sha256": true,
+      "NSE_original_tag": "CashFlowsFromUsedInOperatingActivities",
+      "NSE_context_ref": "FourD",
+      "NSE_context_start": "2025-04-01",
+      "NSE_context_end": "2026-03-31",
+      "NSE_context_unit": "INR",
+      "NSE_same_period_alternate_net_CFO_tag_present": false
     }
   ]
 }

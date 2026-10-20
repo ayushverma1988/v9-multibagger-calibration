@@ -1,6 +1,6 @@
 # Data correction and research output — 20 October 2026
 
-Price source session: **2026-10-19**. Review completed: 2026-10-20T07:41:13.353451+00:00. **633/3,200 public NSE shares** have source-aligned inputs in this replay. This is partial coverage and must not replace the earlier broad watchlist.
+Price source session: **2026-10-19**. Review completed: 2026-10-20T08:33:00.427660+00:00. **633/3,200 public NSE shares** have source-aligned inputs in this replay. This is partial coverage and must not replace the earlier broad watchlist.
 
 ## What was wrong
 
@@ -40,7 +40,7 @@ These endpoints describe the collected dataset; each issuer can have gaps and du
 
 ## Cross-validation
 
-Compared 325 dated provider observations across 17 issuers. **20 annual revenue/operating-cash-flow field-periods agree with both Screener and reviewed StockAnalysis/S&P Global displays within their published rounding precision.** This limited check is not a claim that all fields or all companies are verified.
+Compared 341 dated provider observations across 21 issuers. **25 annual revenue/operating-cash-flow field-periods agree with both Screener and reviewed StockAnalysis/S&P Global displays within their published rounding precision.** This limited check is not a claim that all fields or all companies are verified.
 
 Only the same issuer, consolidated/standalone basis, fiscal period, metric and INR units are compared. Repeated sites using one provider count once. Net profit and EPS definitions remain separate where total, parent-attributable, basic, diluted or restated bases have not been reconciled. Agreement is corroboration, not a truth certificate; all publishers may depend on the same underlying issuer filing.
 
@@ -48,10 +48,10 @@ The runner fetched Screener successfully. StockAnalysis direct requests returned
 
 | Comparison status | Observations |
 | --- | ---: |
-| NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING | 148 |
+| NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING | 159 |
 | PROFIT_DEFINITION_REVIEW_REQUIRED | 135 |
 | PRIMARY_FACT_MISSING_OR_AMBIGUOUS | 24 |
-| NUMERIC_CONFLICT_REVIEW_REQUIRED | 18 |
+| NUMERIC_CONFLICT_REVIEW_REQUIRED | 23 |
 
 Reviewed annual amounts below are normalised to **₹ crore**. Each row matches the same fiscal year-end and reporting basis. Display rounding is allowed only within the source’s recorded precision. Full original values, source URLs and retrieval times are retained in the downloadable correction data.
 
@@ -79,24 +79,36 @@ Reviewed annual amounts below are normalised to **₹ crore**. Each row matches 
 | SUNTV | 2026-03-31 | consolidated | cfo | 1,801.64 | 1,802.00 | 1,801.60 | Agree within rounding |
 | MPHASIS | 2026-03-31 | consolidated | revenue | 15,879.65 | 15,880.00 | 15,879.60 | Agree within rounding |
 | MPHASIS | 2026-03-31 | consolidated | cfo | 1,253.28 | 1,253.00 | 1,253.30 | Agree within rounding |
+| GABRIEL | 2026-03-31 | consolidated | revenue | 4,666.93 | 4,667.00 | 4,666.90 | Agree within rounding |
+| GABRIEL | 2026-03-31 | consolidated | cfo | 443.56 | 345.00 | 345.30 | Review required |
+| JUSTDIAL | 2026-03-31 | standalone | revenue | 1,213.86 | 1,214.00 | 1,213.90 | Agree within rounding |
+| JUSTDIAL | 2026-03-31 | standalone | cfo | 268.70 | 269.00 | 268.70 | Agree within rounding |
+| LEMONTREE | 2026-03-31 | consolidated | revenue | 1,444.50 | 1,444.00 | 1,446.60 | Review required |
+| LEMONTREE | 2026-03-31 | consolidated | cfo | 541.61 | 542.00 | 541.60 | Agree within rounding |
+| TATAELXSI | 2026-03-31 | standalone | revenue | 3,757.42 | 3,757.00 | 3,781.70 | Review required |
+| TATAELXSI | 2026-03-31 | standalone | cfo | 663.98 | 664.00 | 664.00 | Agree within rounding |
 
 ## Current separate 2× research list
 
 Same frozen heads and preferred 17 October selector: verified small/mid-cap classification, known sector, RSI strictly above 70, above 50DMA and financial/owner checks. Missing financial evidence is shown explicitly. The estimates remain unvalidated research estimates; a shortlist entry does not mean doubling is likely.
 
-| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Model 30% loss event | Financial status |
-| ---: | --- | ---: | ---: | ---: | ---: | --- |
-| 1 | GABRIEL | 1,486.10 | 6.12% | 10.55% | 83.51% | All seven available checks pass |
-| 2 | CUPID | 336.30 | 9.24% | 13.85% | 82.15% | All seven available checks pass |
-| 3 | SOUTHBANK | 54.26 | 5.82% | 10.41% | 60.34% | Financial-sector rules unavailable; review required |
-| 4 | TANLA | 552.35 | 4.49% | 8.25% | 85.89% | All seven available checks pass |
-| 5 | KARURVYSYA | 370.05 | 4.70% | 9.34% | 66.44% | Financial-sector rules unavailable; review required |
-| 6 | LEMONTREE | 111.67 | 3.72% | 7.42% | 40.74% | All seven available checks pass |
-| 7 | JUSTDIAL | 731.75 | 4.11% | 8.02% | 80.32% | All seven available checks pass |
-| 8 | ZENSARTECH | 513.15 | 3.62% | 7.39% | 81.13% | All seven available checks pass |
-| 9 | TATAELXSI | 3,790.00 | 3.55% | 7.22% | 80.47% | All seven available checks pass |
+| Rank | Share | Close ₹ | Model 2× by 6m | Model 2× by 12m | Model 30% loss event | Primary financial status | Source review |
+| ---: | --- | ---: | ---: | ---: | ---: | --- | --- |
+| 1 | GABRIEL | 1,486.10 | 6.12% | 10.55% | 83.51% | All seven available checks pass | Review: cfo |
+| 2 | CUPID | 336.30 | 9.24% | 13.85% | 82.15% | All seven available checks pass | Annual revenue/CFO agree with two publishers |
+| 3 | SOUTHBANK | 54.26 | 5.82% | 10.41% | 60.34% | Financial-sector rules unavailable; review required | Bank financial rules pending |
+| 4 | TANLA | 552.35 | 4.49% | 8.25% | 85.89% | All seven available checks pass | Annual revenue/CFO agree with two publishers |
+| 5 | KARURVYSYA | 370.05 | 4.70% | 9.34% | 66.44% | Financial-sector rules unavailable; review required | Bank financial rules pending |
+| 6 | LEMONTREE | 111.67 | 3.72% | 7.42% | 40.74% | All seven available checks pass | Review: revenue |
+| 7 | JUSTDIAL | 731.75 | 4.11% | 8.02% | 80.32% | All seven available checks pass | Annual revenue/CFO agree with two publishers |
+| 8 | ZENSARTECH | 513.15 | 3.62% | 7.39% | 81.13% | All seven available checks pass | Annual revenue/CFO agree with two publishers |
+| 9 | TATAELXSI | 3,790.00 | 3.55% | 7.22% | 80.47% | All seven available checks pass | Review: revenue |
 
 The loss head targets a 30% loss event before a 2× hit over the 12-month window. These estimates are also unvalidated and remain high for these names; a relative research rank must not be read as a favourable risk/reward conclusion.
+
+**Current annual-data corroboration subset:** Cupid, Tanla, Justdial and Zensar. Gabriel, Lemon Tree and Tata Elxsi require source reconciliation; South Indian Bank and Karur Vysya require sector-specific financial review. The agreement subset covers annual revenue and CFO only. It does not certify the remaining financial fields, future returns or the model. All nine raw model selections stay visible with their review tier.
+
+The Gabriel discrepancy was checked against fresh original XML bytes: the download matches the stored source hash and its single current-year CFO tag contains ₹443.559 crore. The [issuer annual report, printed page 292](https://www.anandgroupindia.com/wp-content/uploads/2026/07/Gabriel-India_AR-2025-26_C2C_SGAAds_V11-Interactive.pdf) instead shows net operating cash flow of ₹345.273 crore, consistent with the rounded provider displays. Both original observations are retained. A parser error, filing revision or reclassification has not been assumed, and the annual-report value has not silently replaced the NSE original.
 
 PVRINOX was present in an intermediate partial snapshot. It is excluded after combining the available originals because the interest-coverage check fails. South Indian Bank and Karur Vysya Bank remain explicitly unverified under sector-specific financial rules; their presence is not a seven-check financial pass.
 
@@ -167,23 +179,26 @@ These names remain a research/data-completion watch. They do not supply positive
 
 ## Daily-worker changes
 
-The weekday **22:00 IST** worker is pinned to tested correction commit `ad519bf2e626ff89d0d68037a704b64f79d8647f`. It requests up to 3,200 public histories and 1,600 filings per run within bounded source/time limits, retries limited source variants, counts fresh official-aligned histories separately from merely usable old histories, rotates public financial comparison work and reports full-universe financial coverage. A verified source pack retains the 24 successfully recovered original filings, including Mastek comparison periods, without seeding any desired stock rankings. Runs use the existing single-writer concurrency group. GitHub scheduling can be delayed.
+The weekday **22:00 IST** worker is pinned to tested correction commit `aa3afc2ccc23ea019c8b4ebcb08b929d629fd72c`. It requests up to 3,200 public histories and 1,600 filings per run within bounded source/time limits, retries limited source variants, counts fresh official-aligned histories separately from merely usable old histories, rotates public financial comparison work and reports full-universe financial coverage. A verified source pack retains the 24 successfully recovered original filings, including Mastek comparison periods, without seeding any desired stock rankings. Runs use the existing single-writer concurrency group. GitHub scheduling can be delayed.
 
 The later collector timed out after spending much of its 90-minute budget restoring thousands of separate archive objects under provider rate limits. Its saved financial collection is included in this correction; its previous completed list was not treated as a new model result. Restarts now use one hash-verified bundle, preserve immutable original objects and record the actual attempt phase. Health reports distinguish a previous completed report from the present attempt.
 
-The archive migration is running; its completion has not yet been claimed.
+One migration attempt stopped on an archive-server HTTP 504. The final version retries bounded transient server and connection failures, keeps the shared eight-request/second limit, and rejects permission or hash failures. Thirty-two bounded download workers fill network latency without raising the request rate. The blocked normal restores were cancelled before collection and requeued behind the repair.
 
-Validation: all **630 tests passed locally and on GitHub**, including missing consolidated results, stale source responses, original-source identity and byte-hash checks, rate limits, period/basis mismatches and duplicate-provider checks. This correction replay writes no private archive state; the normal worker persists its own verified source recovery. No model was retrained or declared accurate.
+The final archive migration retry is running; its completion has not yet been claimed.
+
+Validation: all **636 tests passed locally and on GitHub**, including missing consolidated results, stale source responses, original-source identity and byte-hash checks, transient server errors, rate limits, dated source-comparison tiers and duplicate-provider checks. Source review now excludes future primary revisions from a dated comparison. This correction replay writes no private archive state; the normal worker persists its own verified source recovery. No model was retrained or declared accurate.
 
 ## Reproducibility and sources
 
 - Frozen model SHA-256: `c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571`
 - Corrected input SHA-256: `1886f23150395b3f0904a58e2d92847d14b65b90f5bfdedac161567ec42a41c3`
 - [Correction and code review](https://github.com/ayushverma1988/v9-multibagger-calibration/pull/20)
-- [Final combined-financial model replay](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39387830536)
-- [Archive restart repair](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39386777965)
+- [Final combined-financial model replay](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39393869433)
+- [Archive restart repair](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39393869559)
+- [Four current selections: exact original XML review](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39393869584)
 - [Source diagnostic run](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39367248886)
-- [Contract checks](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39388868606)
+- [Contract checks](https://github.com/ayushverma1988/v9-multibagger-calibration/actions/runs/39393876900)
 - [Mastek issuer consolidated June release](https://www.mastek.com/wp-content/uploads/2026/07/Press-Release-Q1FY27.pdf)
 - [Mastek Screener consolidated tables](https://www.screener.in/company/MASTEK/consolidated/)
 - [Mastek StockAnalysis/S&P Global financial tables](https://stockanalysis.com/quote/nse/MASTEK/financials/)

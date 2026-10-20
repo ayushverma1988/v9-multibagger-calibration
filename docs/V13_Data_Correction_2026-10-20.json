@@ -1,7 +1,7 @@
 {
   "correction_run": {
-    "review_started_at_utc": "2026-10-20T07:39:09.093819+00:00",
-    "review_completed_at_utc": "2026-10-20T07:41:13.353451+00:00",
+    "review_started_at_utc": "2026-10-20T08:31:05.926379+00:00",
+    "review_completed_at_utc": "2026-10-20T08:33:00.427660+00:00",
     "source_asof": "2026-10-19",
     "source_snapshot_sha256": "4e6afe0b982e57d4c5a1426b651bf0cbf1cdf32555744e359201882cae7e4d25",
     "original_input_sha256": "8aa285d540621508055ef1f1214ce75870ac40e85504aab67e61b87b520e6537",
@@ -10,7 +10,7 @@
       "model_sha256": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
       "replay_verified": true,
       "rows": 633,
-      "receipt_sha256": "6b79ca58ccd1a895c22e35ffb81633e10cde4105cbfccaacaf174b71fa30d810"
+      "receipt_sha256": "ddf65b5d70a0347b0eea174cc876e7eab9770cc05465cffb98de893bea3944c1"
     },
     "supplementary_financial_snapshots": [
       {
@@ -64,15 +64,15 @@
     },
     "financial_crosscheck": {
       "source_asof": "2026-10-19",
-      "observations_compared": 325,
-      "issuers_compared": 17,
+      "observations_compared": 341,
+      "issuers_compared": 21,
       "status_counts": {
-        "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 148,
+        "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 159,
         "PROFIT_DEFINITION_REVIEW_REQUIRED": 135,
         "PRIMARY_FACT_MISSING_OR_AMBIGUOUS": 24,
-        "NUMERIC_CONFLICT_REVIEW_REQUIRED": 18
+        "NUMERIC_CONFLICT_REVIEW_REQUIRED": 23
       },
-      "primary_plus_two_provider_agreements": 20,
+      "primary_plus_two_provider_agreements": 25,
       "truth_certified": false,
       "definition_and_period_matching_required": true,
       "canonical_facts_overwritten": false
@@ -163,6 +163,23 @@
     "coverage_fraction": 0.1978125,
     "coverage_status": "PARTIAL_DATA_DO_NOT_REPLACE_FULL_WATCHLIST",
     "earlier_watchlist_preserved_independent_of_current_selection": true,
+    "source_review_groups": {
+      "ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE": [
+        "CUPID",
+        "TANLA",
+        "JUSTDIAL",
+        "ZENSARTECH"
+      ],
+      "ANNUAL_SOURCE_CONFLICT_REVIEW": [
+        "GABRIEL",
+        "LEMONTREE",
+        "TATAELXSI"
+      ],
+      "SECTOR_RULES_PENDING_REVIEW": [
+        "SOUTHBANK",
+        "KARURVYSYA"
+      ]
+    },
     "previous": [
       {
         "symbol": "MASTEK",
@@ -337,7 +354,13 @@
         "joint12": 0.102073612315722,
         "rsi14": 70.19770058304869,
         "rsi70_research_rank": 1.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_SOURCE_CONFLICT_REVIEW",
+        "source_conflicting_metrics": [
+          "cfo"
+        ],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "CUPID",
@@ -348,7 +371,11 @@
         "joint12": 0.130443992415819,
         "rsi14": 75.35309647733274,
         "rsi70_research_rank": 2.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE",
+        "source_conflicting_metrics": [],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "SOUTHBANK",
@@ -359,7 +386,11 @@
         "joint12": 0.100380145985946,
         "rsi14": 71.6153741644715,
         "rsi70_research_rank": 3.0,
-        "sector_status": "UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION"
+        "sector_status": "UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION",
+        "source_comparison_tier": "SECTOR_RULES_PENDING_REVIEW",
+        "source_conflicting_metrics": [],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "TANLA",
@@ -370,7 +401,11 @@
         "joint12": 0.070411175916335,
         "rsi14": 71.06772962341806,
         "rsi70_research_rank": 4.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE",
+        "source_conflicting_metrics": [],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "KARURVYSYA",
@@ -381,7 +416,11 @@
         "joint12": 0.090272592610884,
         "rsi14": 84.1412888740105,
         "rsi70_research_rank": 5.0,
-        "sector_status": "UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION"
+        "sector_status": "UNKNOWN_SECTOR_RULES_OR_CLASSIFICATION",
+        "source_comparison_tier": "SECTOR_RULES_PENDING_REVIEW",
+        "source_conflicting_metrics": [],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "LEMONTREE",
@@ -392,7 +431,13 @@
         "joint12": 0.068793035488605,
         "rsi14": 72.96665787209841,
         "rsi70_research_rank": 6.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_SOURCE_CONFLICT_REVIEW",
+        "source_conflicting_metrics": [
+          "revenue"
+        ],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "JUSTDIAL",
@@ -403,7 +448,11 @@
         "joint12": 0.074363273739804,
         "rsi14": 71.92769910414395,
         "rsi70_research_rank": 7.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE",
+        "source_conflicting_metrics": [],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "ZENSARTECH",
@@ -414,7 +463,11 @@
         "joint12": 0.06899961006382,
         "rsi14": 79.3925349878446,
         "rsi70_research_rank": 8.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_REVENUE_CFO_TWO_ADDITIONAL_PROVIDERS_AGREE",
+        "source_conflicting_metrics": [],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       },
       {
         "symbol": "TATAELXSI",
@@ -425,7 +478,13 @@
         "joint12": 0.06822311043932,
         "rsi14": 75.32126528716653,
         "rsi70_research_rank": 9.0,
-        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS"
+        "sector_status": "PASS_AVAILABLE_SEVEN_CHECKS",
+        "source_comparison_tier": "ANNUAL_SOURCE_CONFLICT_REVIEW",
+        "source_conflicting_metrics": [
+          "revenue"
+        ],
+        "source_review_period_end": "2026-03-31",
+        "source_review_scope": "ANNUAL_REVENUE_AND_CFO_ONLY_NOT_ALL_FINANCIAL_FIELDS"
       }
     ]
   },
@@ -585,7 +644,7 @@
       "model_sha256": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
       "replay_verified": true,
       "rows": 633,
-      "receipt_sha256": "6b79ca58ccd1a895c22e35ffb81633e10cde4105cbfccaacaf174b71fa30d810"
+      "receipt_sha256": "ddf65b5d70a0347b0eea174cc876e7eab9770cc05465cffb98de893bea3944c1"
     },
     "early_candidates": [
       {
@@ -2204,7 +2263,46 @@
     "conflicts": []
   },
   "checkpoint_repair": null,
-  "worker_source_commit": "ad519bf2e626ff89d0d68037a704b64f79d8647f",
+  "worker_source_commit": "aa3afc2ccc23ea019c8b4ebcb08b929d629fd72c",
+  "original_document_reviews": {
+    "reviewed_at_utc": "2026-10-20T08:20:32.277338+00:00",
+    "canonical_facts_overwritten": false,
+    "reviews": [
+      {
+        "symbol": "GABRIEL",
+        "isin": "INE524A01029",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "stored_NSE_XBRL_value_INR": 4435590000.0,
+        "stored_NSE_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1674517_27052026091922_WEB.xml",
+        "stored_NSE_source_sha256": "10e6bb5129cb78af1c839b82a655c2ea174198c8bad9f74b31bb41f5537945e3",
+        "issuer_annual_report_value_INR": 3452730000,
+        "issuer_annual_report_url": "https://www.anandgroupindia.com/wp-content/uploads/2026/07/Gabriel-India_AR-2025-26_C2C_SGAAds_V11-Interactive.pdf",
+        "pdf_page_index": 293,
+        "printed_page": 292,
+        "display_value": "3,452.73",
+        "display_unit": "INR_MILLION",
+        "manual_page_image_reviewed": true,
+        "status": "ORIGINAL_DOCUMENT_VALUE_CONFLICT_REQUIRES_RECONCILIATION",
+        "reason_not_assumed": "No automatic assumption of a parser error, restatement or provider error; inspect the original XBRL and dated amendments before replacing any fact.",
+        "original_review_workflow_run": 39393869584,
+        "original_review_artifact_id": 12250579202,
+        "original_review_artifact_sha256": "8d41a2126f296c738f59848b4af931433f86e8565b6f26e9796a7c60bc017dde",
+        "fresh_NSE_download_matches_stored_sha256": true,
+        "NSE_original_tag": "CashFlowsFromUsedInOperatingActivities",
+        "NSE_context_ref": "FourD",
+        "NSE_context_start": "2025-04-01",
+        "NSE_context_end": "2026-03-31",
+        "NSE_context_unit": "INR",
+        "NSE_same_period_alternate_net_CFO_tag_present": false
+      }
+    ]
+  },
+  "validation_test_count": 636,
+  "replay_workflow_run": 39393869433,
+  "checkpoint_workflow_run": 39393869559,
   "prior_cohort_financial_audit": [
     {
       "symbol": "MASTEK",
@@ -2459,15 +2557,15 @@
   ],
   "financial_source_comparison_summary": {
     "source_asof": "2026-10-19",
-    "observations_compared": 325,
-    "issuers_compared": 17,
+    "observations_compared": 341,
+    "issuers_compared": 21,
     "status_counts": {
-      "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 148,
+      "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 159,
       "PROFIT_DEFINITION_REVIEW_REQUIRED": 135,
       "PRIMARY_FACT_MISSING_OR_AMBIGUOUS": 24,
-      "NUMERIC_CONFLICT_REVIEW_REQUIRED": 18
+      "NUMERIC_CONFLICT_REVIEW_REQUIRED": 23
     },
-    "primary_plus_two_provider_agreements": 20,
+    "primary_plus_two_provider_agreements": 25,
     "truth_certified": false,
     "definition_and_period_matching_required": true,
     "canonical_facts_overwritten": false
@@ -2988,6 +3086,136 @@
         {
           "url": "https://www.screener.in/company/MPHASIS/consolidated/",
           "first_observed_utc": "2026-10-20T04:01:37.515852+00:00"
+        }
+      ],
+      "common_underlying_issuer_origin_possible": true,
+      "truth_certified": false
+    },
+    {
+      "isin": "INE524A01029",
+      "period_kind": "annual",
+      "period_end": "2026-03-31",
+      "reporting_mode": "consolidated",
+      "metric": "revenue",
+      "symbol": "GABRIEL",
+      "status": "PRIMARY_PLUS_TWO_PROVIDER_AGREEMENT_WITHIN_ROUNDING",
+      "primary_value_INR": 46669330000.0,
+      "additional_provider_families": [
+        "SCREENER",
+        "SP_GLOBAL"
+      ],
+      "sources": [
+        {
+          "url": "https://stockanalysis.com/quote/nse/GABRIEL/financials/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        },
+        {
+          "url": "https://www.screener.in/company/GABRIEL/consolidated/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        }
+      ],
+      "common_underlying_issuer_origin_possible": true,
+      "truth_certified": false
+    },
+    {
+      "isin": "INE599M01018",
+      "period_kind": "annual",
+      "period_end": "2026-03-31",
+      "reporting_mode": "standalone",
+      "metric": "revenue",
+      "symbol": "JUSTDIAL",
+      "status": "PRIMARY_PLUS_TWO_PROVIDER_AGREEMENT_WITHIN_ROUNDING",
+      "primary_value_INR": 12138600000.0,
+      "additional_provider_families": [
+        "SCREENER",
+        "SP_GLOBAL"
+      ],
+      "sources": [
+        {
+          "url": "https://stockanalysis.com/quote/nse/JUSTDIAL/financials/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        },
+        {
+          "url": "https://www.screener.in/company/JUSTDIAL/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        }
+      ],
+      "common_underlying_issuer_origin_possible": true,
+      "truth_certified": false
+    },
+    {
+      "isin": "INE599M01018",
+      "period_kind": "annual",
+      "period_end": "2026-03-31",
+      "reporting_mode": "standalone",
+      "metric": "cfo",
+      "symbol": "JUSTDIAL",
+      "status": "PRIMARY_PLUS_TWO_PROVIDER_AGREEMENT_WITHIN_ROUNDING",
+      "primary_value_INR": 2687000000.0,
+      "additional_provider_families": [
+        "SCREENER",
+        "SP_GLOBAL"
+      ],
+      "sources": [
+        {
+          "url": "https://stockanalysis.com/quote/nse/JUSTDIAL/financials/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        },
+        {
+          "url": "https://www.screener.in/company/JUSTDIAL/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        }
+      ],
+      "common_underlying_issuer_origin_possible": true,
+      "truth_certified": false
+    },
+    {
+      "isin": "INE970X01018",
+      "period_kind": "annual",
+      "period_end": "2026-03-31",
+      "reporting_mode": "consolidated",
+      "metric": "cfo",
+      "symbol": "LEMONTREE",
+      "status": "PRIMARY_PLUS_TWO_PROVIDER_AGREEMENT_WITHIN_ROUNDING",
+      "primary_value_INR": 5416130000.0,
+      "additional_provider_families": [
+        "SCREENER",
+        "SP_GLOBAL"
+      ],
+      "sources": [
+        {
+          "url": "https://stockanalysis.com/quote/nse/LEMONTREE/financials/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        },
+        {
+          "url": "https://www.screener.in/company/LEMONTREE/consolidated/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        }
+      ],
+      "common_underlying_issuer_origin_possible": true,
+      "truth_certified": false
+    },
+    {
+      "isin": "INE670A01012",
+      "period_kind": "annual",
+      "period_end": "2026-03-31",
+      "reporting_mode": "standalone",
+      "metric": "cfo",
+      "symbol": "TATAELXSI",
+      "status": "PRIMARY_PLUS_TWO_PROVIDER_AGREEMENT_WITHIN_ROUNDING",
+      "primary_value_INR": 6639810000.0,
+      "additional_provider_families": [
+        "SCREENER",
+        "SP_GLOBAL"
+      ],
+      "sources": [
+        {
+          "url": "https://stockanalysis.com/quote/nse/TATAELXSI/financials/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
+        },
+        {
+          "url": "https://www.screener.in/company/TATAELXSI/",
+          "first_observed_utc": "2026-10-20T08:20:32.277338+00:00"
         }
       ],
       "common_underlying_issuer_origin_possible": true,
@@ -4134,6 +4362,430 @@
         "primary_value_INR": 12532810000.0,
         "primary_source_sha256": "ac4e0b54db1399f60fdab22334061fe7325eb0a4ed50f1590d7a78d405af19ec",
         "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1661644_29042026115749_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": true
+    },
+    {
+      "primary_comparison": {
+        "symbol": "GABRIEL",
+        "isin": "INE524A01029",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 46669000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "46669",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/GABRIEL/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 46669330000.0,
+        "primary_source_sha256": "10e6bb5129cb78af1c839b82a655c2ea174198c8bad9f74b31bb41f5537945e3",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1674517_27052026091922_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "GABRIEL",
+        "isin": "INE524A01029",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 46670000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "4667",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/GABRIEL/consolidated/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 46669330000.0,
+        "primary_source_sha256": "10e6bb5129cb78af1c839b82a655c2ea174198c8bad9f74b31bb41f5537945e3",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1674517_27052026091922_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": true
+    },
+    {
+      "primary_comparison": {
+        "symbol": "GABRIEL",
+        "isin": "INE524A01029",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 3453000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "3453",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/GABRIEL/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 4435590000.0,
+        "primary_source_sha256": "10e6bb5129cb78af1c839b82a655c2ea174198c8bad9f74b31bb41f5537945e3",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1674517_27052026091922_WEB.xml",
+        "comparison_status": "NUMERIC_CONFLICT_REVIEW_REQUIRED",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "GABRIEL",
+        "isin": "INE524A01029",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 3450000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "345",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/GABRIEL/consolidated/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 4435590000.0,
+        "primary_source_sha256": "10e6bb5129cb78af1c839b82a655c2ea174198c8bad9f74b31bb41f5537945e3",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1674517_27052026091922_WEB.xml",
+        "comparison_status": "NUMERIC_CONFLICT_REVIEW_REQUIRED",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": false
+    },
+    {
+      "primary_comparison": {
+        "symbol": "JUSTDIAL",
+        "isin": "INE599M01018",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 12139000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "12139",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/JUSTDIAL/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 12138600000.0,
+        "primary_source_sha256": "ef4a6adaac25ba416817fb8f28ddbd8c2dafad19343ab01622ec5d421071aa97",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1650270_13042026114116_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "JUSTDIAL",
+        "isin": "INE599M01018",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 12140000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "1214",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/JUSTDIAL/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 12138600000.0,
+        "primary_source_sha256": "ef4a6adaac25ba416817fb8f28ddbd8c2dafad19343ab01622ec5d421071aa97",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1650270_13042026114116_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": true
+    },
+    {
+      "primary_comparison": {
+        "symbol": "JUSTDIAL",
+        "isin": "INE599M01018",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 2687000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "2687",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/JUSTDIAL/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 2687000000.0,
+        "primary_source_sha256": "ef4a6adaac25ba416817fb8f28ddbd8c2dafad19343ab01622ec5d421071aa97",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1650270_13042026114116_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "JUSTDIAL",
+        "isin": "INE599M01018",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 2690000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "269",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/JUSTDIAL/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 2687000000.0,
+        "primary_source_sha256": "ef4a6adaac25ba416817fb8f28ddbd8c2dafad19343ab01622ec5d421071aa97",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1650270_13042026114116_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": true
+    },
+    {
+      "primary_comparison": {
+        "symbol": "LEMONTREE",
+        "isin": "INE970X01018",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 14466000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "14466",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/LEMONTREE/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 14445033000.0,
+        "primary_source_sha256": "2ff9c76d82f3a0b7a498cf1479a5d75e72074789b604c0607aa3ad99225d8706",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1675541_28052026114414_WEB.xml",
+        "comparison_status": "NUMERIC_CONFLICT_REVIEW_REQUIRED",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "LEMONTREE",
+        "isin": "INE970X01018",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 14440000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "1444",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/LEMONTREE/consolidated/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 14445033000.0,
+        "primary_source_sha256": "2ff9c76d82f3a0b7a498cf1479a5d75e72074789b604c0607aa3ad99225d8706",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1675541_28052026114414_WEB.xml",
+        "comparison_status": "NUMERIC_CONFLICT_REVIEW_REQUIRED",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": false
+    },
+    {
+      "primary_comparison": {
+        "symbol": "LEMONTREE",
+        "isin": "INE970X01018",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 5416000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "5416",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/LEMONTREE/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 5416130000.0,
+        "primary_source_sha256": "2ff9c76d82f3a0b7a498cf1479a5d75e72074789b604c0607aa3ad99225d8706",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1675541_28052026114414_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "LEMONTREE",
+        "isin": "INE970X01018",
+        "reporting_mode": "consolidated",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 5420000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "542",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/LEMONTREE/consolidated/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 5416130000.0,
+        "primary_source_sha256": "2ff9c76d82f3a0b7a498cf1479a5d75e72074789b604c0607aa3ad99225d8706",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1675541_28052026114414_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": true
+    },
+    {
+      "primary_comparison": {
+        "symbol": "TATAELXSI",
+        "isin": "INE670A01012",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 37817000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "37817",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/TATAELXSI/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 37574237000.0,
+        "primary_source_sha256": "e92e9ddf2dfe89ec195edf371cd2a01555de3da81cc8d3f7398ddd7a743a9f0f",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1656889_21042026101425_WEB.xml",
+        "comparison_status": "NUMERIC_CONFLICT_REVIEW_REQUIRED",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "TATAELXSI",
+        "isin": "INE670A01012",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "revenue",
+        "value_INR": 37570000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "3757",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/TATAELXSI/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 37574237000.0,
+        "primary_source_sha256": "e92e9ddf2dfe89ec195edf371cd2a01555de3da81cc8d3f7398ddd7a743a9f0f",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1656889_21042026101425_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "three_publishers_agree_within_rounding": false
+    },
+    {
+      "primary_comparison": {
+        "symbol": "TATAELXSI",
+        "isin": "INE670A01012",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 6640000000,
+        "rounding_half_width_INR": 500000.0,
+        "display_value": "6640",
+        "display_unit": "INR_MILLION",
+        "publisher": "STOCKANALYSIS",
+        "provider_family": "SP_GLOBAL",
+        "source_url": "https://stockanalysis.com/quote/nse/TATAELXSI/financials/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 6639810000.0,
+        "primary_source_sha256": "e92e9ddf2dfe89ec195edf371cd2a01555de3da81cc8d3f7398ddd7a743a9f0f",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1656889_21042026101425_WEB.xml",
+        "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
+        "canonical_fact_overwritten": false
+      },
+      "screener_comparison": {
+        "symbol": "TATAELXSI",
+        "isin": "INE670A01012",
+        "reporting_mode": "standalone",
+        "period_kind": "annual",
+        "period_end": "2026-03-31",
+        "metric": "cfo",
+        "value_INR": 6640000000,
+        "rounding_half_width_INR": 5000000.0,
+        "display_value": "664",
+        "display_unit": "INR_CRORE",
+        "publisher": "SCREENER",
+        "provider_family": "SCREENER",
+        "source_url": "https://www.screener.in/company/TATAELXSI/",
+        "first_observed_utc": "2026-10-20T08:20:32.277338+00:00",
+        "review_method": "PUBLIC_WEB_TABLE_REVIEW_20261020",
+        "identity_proof": "PROVIDER_EXPLICIT_NSE_SYMBOL_JOINED_CURRENT_PUBLIC_ISIN",
+        "profit_definition": "NAMED_REVENUE_OR_OPERATING_CASH_FLOW",
+        "review_scope": "ANNUAL_REVENUE_AND_OPERATING_CASH_FLOW_ONLY_NOT_ALL_FINANCIAL_FIELDS",
+        "primary_value_INR": 6639810000.0,
+        "primary_source_sha256": "e92e9ddf2dfe89ec195edf371cd2a01555de3da81cc8d3f7398ddd7a743a9f0f",
+        "primary_source_url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1656889_21042026101425_WEB.xml",
         "comparison_status": "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING",
         "canonical_fact_overwritten": false
       },
