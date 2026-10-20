@@ -1,3 +1,5 @@
+> **Superseded on 20 October 2026:** This 226-share output has known coverage and financial-basis gaps. See the [corrected 633-share replay and full-universe financial audit](https://github.com/ayushverma1988/v9-multibagger-calibration/blob/v13-data-reliability-20261020/docs/V13_Data_Correction_2026-10-20.md). The original report below is retained for traceability.
+
 # V13 predictions — 20 October 2026
 
 Price source: completed NSE session of **19 October 2026**. The fresh model run completed 20 October 2026 at 03:27:29 UTC / 08:57:29 IST.
