@@ -185,7 +185,7 @@ The later collector timed out after spending much of its 90-minute budget restor
 
 One migration attempt stopped on an archive-server HTTP 504. The final version retries bounded transient server and connection failures, keeps the shared eight-request/second limit, and rejects permission or hash failures. Thirty-two bounded download workers fill network latency without raising the request rate. The blocked normal restores were cancelled before collection and requeued behind the repair.
 
-The final archive migration retry is running; its completion has not yet been claimed.
+The archive migration completed and verified a fresh bundle restore against every original derived-file hash. Original checkpoint records, frozen forecasts and model heads were unchanged. Verified 6,885 derived files; compressed bundle 269,225,963 bytes.
 
 Validation: all **636 tests passed locally and on GitHub**, including missing consolidated results, stale source responses, original-source identity and byte-hash checks, transient server errors, rate limits, dated source-comparison tiers and duplicate-provider checks. Source review now excludes future primary revisions from a dated comparison. This correction replay writes no private archive state; the normal worker persists its own verified source recovery. No model was retrained or declared accurate.
 
