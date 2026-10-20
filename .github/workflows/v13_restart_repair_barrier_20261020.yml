@@ -1,0 +1,16 @@
+name: V13 stop blocked legacy restore for restart repair
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v13_restart_repair_barrier_20261020.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: true
+jobs:
+  barrier:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release the interrupted restore before verified migration
+        run: echo 'Stopped the legacy archive restore before it could collect or save research state; restart repair will retain every original checkpoint record.'
