@@ -241,7 +241,45 @@ def public_history_refresh_priority(history):
     turnover=(close*volume).tail(63).replace([np.inf,-np.inf],np.nan).median()
     return bool(valid_price(close.tail(1)).iloc[0] and np.isfinite(turnover) and turnover>=2_500_000)
 
-def collect_histories(root,asof,budget=800):
+def current_history(store,symbol,isin,asof,previous,official):
+    """Bounded source variants; stale replies never count as fresh success.
+
+    The range variant is trimmed by the same four-year parser. All original
+    replies are retained. No official bar is spliced into an adjusted series.
+    Rate/permission errors stop retries; a prior valid file stays untouched.
+    """
+    low,high=bounds(asof)
+    base='https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol+'.NS',safe='')
+    p1=int(low.tz_localize('Asia/Kolkata').timestamp())
+    p2=int((high+pd.Timedelta(days=1)).tz_localize('Asia/Kolkata').timestamp())
+    variants=[('dated',f'interval=1d&period1={p1}&period2={p2}&events=div%2Csplits'),
+      ('extended',f'interval=1d&period1={p1}&period2={p2+86400}&events=div%2Csplits'),
+      ('range','interval=1d&range=5y&events=div%2Csplits')]
+    attempts=[];best=None
+    for variant,query in variants:
+        try:
+            raw,receipt=store.get(base+'?'+query)
+            d,info=parse_chart(raw,symbol,isin,asof,receipt)
+            from v13_history_integrity import validate_refresh
+            validate_refresh(previous,d,asof,symbol,isin)
+            fresh=pd.Timestamp(info['latest_bar'])==pd.Timestamp(asof)
+            aligned=fresh and not history_needs_refresh(d,official,asof,symbol,isin)
+            attempts.append({'variant':variant,'latest_bar':info['latest_bar'],
+              'source_sha256':info['source_sha256'],'fresh':fresh,'official_aligned':aligned})
+            if best is None or d.date.max()>best[0].date.max():best=(d,info)
+            if aligned:return {'bars':d,'info':{**info,'request_variant':variant},'attempts':attempts,'fresh':True,'official_aligned':True}
+        except Exception as exc:
+            message=str(exc)[:180];attempts.append({'variant':variant,'error':message})
+            if '429' in message or '403' in message:return {'error':message,'attempts':attempts}
+    if best is not None:
+        # New cold histories can still be retained as partial evidence. An
+        # older or shorter response cannot replace a previously valid series.
+        d,info=best
+        return {'bars':d,'info':info,'attempts':attempts,'fresh':False,'official_aligned':False,
+          'coverage_status':'VALID_HISTORY_WITHOUT_SOURCE_ALIGNED_CURRENT_SESSION'}
+    return {'error':attempts[-1].get('error','No usable source history'),'attempts':attempts}
+
+def collect_histories(root,asof,budget=3200):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
     from datetime import datetime,timezone
     vintage=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
@@ -269,7 +307,7 @@ def collect_histories(root,asof,budget=800):
             eligible=not z.empty and bool(z.feature_eligible.iloc[-1])
         needs_refresh=history_needs_refresh(h,official,asof,r['nse_current_symbol'],r['isin'])
         queue.append((age,sha(r['nse_current_symbol'].encode()),r,path.exists(),bool(liquid),eligible,needs_refresh))
-    errors=[];count=0;started=time.monotonic();attempted=0
+    errors=[];count=0;fresh_count=0;started=time.monotonic();attempted=0;receipts=[]
     ordered=sorted(queue,key=lambda q:(q[0],q[1]))
     # Keep known usable public-universe histories fresh while expanding cold
     # coverage. No private ranked/selected stock list enters this queue.
@@ -279,24 +317,24 @@ def collect_histories(root,asof,budget=800):
     def fetch(job):
         r=job[2]
         symbol=r['nse_current_symbol'];isin=r['isin']
-        url='https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol+'.NS',safe='')+f'?interval=1d&period1={int(low.tz_localize("Asia/Kolkata").timestamp())}&period2={int((high+pd.Timedelta(days=1)).tz_localize("Asia/Kolkata").timestamp())}&events=div%2Csplits'
-        try:
-            raw,receipt=store.get(url);d,info=parse_chart(raw,symbol,isin,asof,receipt)
-            path=folder/(sha(symbol.encode())+'.parquet')
-            if path.exists():
-                from v13_history_integrity import validate_refresh
-                validate_refresh(pd.read_parquet(path),d,asof,symbol,isin)
-            d.to_parquet(path,index=False)
-            return {'info':info}
-        except Exception as e:return {'error':str(e)[:160]}
+        path=folder/(sha(symbol.encode())+'.parquet')
+        previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
+        result=current_history(store,symbol,isin,asof,previous,official)
+        bars=result.pop('bars',None)
+        if bars is not None:bars.to_parquet(path,index=False)
+        return result
     from v13_parallel_collection import bounded_map
-    for job,result in bounded_map(batch,fetch,workers=4,seconds=600):
+    for job,result in bounded_map(batch,fetch,workers=4,seconds=1800):
         attempted+=1;symbol=job[2]['nse_current_symbol']
-        if result.get('info'):count+=1
+        receipts.append({'symbol':symbol,**result})
+        if result.get('info'):
+            count+=1;fresh_count+=int(result.get('official_aligned',False))
         else:errors.append({'symbol':symbol,'error':result['error']})
         attempts[symbol]=datetime.now(timezone.utc).isoformat()
     attempt_path.write_text(json.dumps(attempts,indent=2))
-    return {'requested':attempted,'usable':count,'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
+    (root/'sources'/asof/('history_refresh_'+vintage+'.json')).write_text(json.dumps(receipts,indent=2))
+    return {'requested':attempted,'usable':count,'fresh_official_aligned':fresh_count,'valid_but_not_current_aligned':count-fresh_count,
+      'errors':errors,'public_universe':len(u),'total_histories':len(list(folder.glob('*.parquet'))),
       'reserved_refresh_slots':len(refresh),'cold_expansion_slots':len(batch)-len(refresh),
       'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
       'already_source_aligned_histories_not_refetched':sum(not q[6] for q in queue),
@@ -338,7 +376,7 @@ def collect_financials(root,asof,budget=800):
     queue['last_attempt']=queue.version_key.map(lambda k:attempts.get(k,'0000'))
     # Complete public-cohort queue, newest disclosures first. No query uses
     # private model picks. Accepted URLs keep immutable original-byte hashes.
-    from v13_financial_evidence import priority_queue,completion_queue,owner_completion_queue,balancing_quarters
+    from v13_financial_evidence import priority_queue,completion_queue,owner_completion_queue,basis_completion_queue,balancing_quarters
     wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
     expected_hashes={}
     if not wide.empty:
@@ -355,17 +393,19 @@ def collect_financials(root,asof,budget=800):
     # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
     expanded=balancing_quarters(wide)
+    basis_completion=basis_completion_queue(queue,expanded,asof,budget//4)
+    queue=queue[~queue.version_key.isin(set(basis_completion.version_key))]
     owner_public=queue[queue.symbol.isin(scoreable_symbols)]
     owner_completion=owner_completion_queue(owner_public,expanded,asof,budget//4)
     owner_keys=set(owner_completion.version_key)
     queue=queue[~queue.version_key.isin(owner_keys)]
-    completion_budget=budget*3//4-len(owner_completion)
+    completion_budget=budget*3//4-len(owner_completion)-len(basis_completion)
     scoreable_completion=completion_queue(queue[queue.symbol.isin(scoreable_symbols)],expanded,asof,completion_budget)
     raw_completion=completion_queue(queue[queue.symbol.isin(fresh_symbols)&~queue.version_key.isin(scoreable_completion.version_key)],expanded,asof,max(0,completion_budget-len(scoreable_completion)))
     fresh_completion=pd.concat([scoreable_completion,raw_completion],ignore_index=True)
     other=queue[queue.symbol.isin(public_history_symbols)&~queue.version_key.isin(fresh_completion.version_key)]
     warm_completion=completion_queue(other,expanded,asof,max(0,completion_budget-len(fresh_completion)))
-    completion=pd.concat([owner_completion,fresh_completion,warm_completion],ignore_index=True)
+    completion=pd.concat([basis_completion,owner_completion,fresh_completion,warm_completion],ignore_index=True)
     remainder=queue[~queue.version_key.isin(completion.version_key)]
     queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
@@ -401,6 +441,7 @@ def collect_financials(root,asof,budget=800):
     return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
       'reserved_owner_earnings_filings':len(owner_completion),'owner_queue_does_not_infer_recurring_EPS':True,
+      'reserved_reporting_basis_recovery_filings':len(basis_completion),
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,

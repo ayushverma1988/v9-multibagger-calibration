@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from v12_5_features import features,pick,number,owner_pat,owner_profit_status,FINANCIAL,UNSUPPORTED
+from v12_5_features import features,pick,number,owner_pat,owner_profit_status,FINANCIAL,UNSUPPORTED,preferred_reporting_basis,reporting_basis_status
 from v12_public_history import bounds
 
 REQUIRED=('four_profitable_quarters','quarter_sales_yoy','quarter_pat_yoy','quarter_pat_margin',
@@ -39,11 +39,14 @@ def financial_readiness(known,date,f):
     """
     missing=[k for k in REQUIRED if not np.isfinite(f.get(k,np.nan))]
     reasons={k:'MISSING_OR_AMBIGUOUS_ORIGINAL_PERIOD_OR_FACT' for k in missing}
-    if known.empty:return {'unknown_reasons':reasons,'underlying_required_facts_complete':False,'latest_reported_diluted_EPS_available':False}
-    recent=known[known.period_kind.eq('quarter')&(date-known.period).dt.days.between(0,190)]
-    basis='consolidated' if recent.reporting_mode.eq('consolidated').any() else 'standalone'
+    status=reporting_basis_status(known,date)
+    empty={**status,'unknown_reasons':reasons,'underlying_required_facts_complete':False,'latest_reported_diluted_EPS_available':False}
+    if known.empty:return empty
+    basis=preferred_reporting_basis(known,date)
     d=known[known.reporting_mode.eq(basis)];q=pick(d,'quarter')
-    if not q or (date-q['period']).days>190:return {'unknown_reasons':reasons,'underlying_required_facts_complete':False,'latest_reported_diluted_EPS_available':False}
+    if not q or (date-q['period']).days>190:
+        if basis=='consolidated':reasons.update({k:status['reporting_basis_status'] for k in missing})
+        return empty
     previous=pick(d,'quarter',q['period']-pd.DateOffset(years=1));annual=pick(d,'annual');bal=pick(d,'instant')
     if annual and (date-annual['period']).days>450:annual={}
     if bal and (date-bal['period']).days>450:bal={}
@@ -56,7 +59,7 @@ def financial_readiness(known,date,f):
     values=[number(q,'revenue'),number(q,'pat'),number(previous,'revenue'),number(previous,'pat'),*quarter_pats,
       number(annual,'cfo'),number(annual,'pat'),number(annual,'pbt'),number(annual,'finance_cost'),
       number(bal,'equity'),number(bal,'borrowings_current'),number(bal,'borrowings_noncurrent')]
-    return {'unknown_reasons':reasons,'underlying_required_facts_complete':bool(all(np.isfinite(x) for x in values)),
+    return {**status,'unknown_reasons':reasons,'underlying_required_facts_complete':bool(all(np.isfinite(x) for x in values)),
       'latest_reported_diluted_EPS_available':bool(np.isfinite(number(q,'eps_diluted_continuing'))),
       'reported_EPS_is_not_recurring_or_action_reconciled':True,'owner_earnings_source_status':owner_profit_status(q)}
 
@@ -120,8 +123,9 @@ def completion_queue(queue,wide,asof,budget):
         # filing. Its observed quarter must still anchor older comparison
         # periods; otherwise completing the newest filing starves its issuer.
         if recent.empty and observed_recent.empty:continue
-        anchor=observed_recent if not observed_recent.empty else recent
-        basis='consolidated' if anchor.reporting_mode.eq('consolidated').any() else 'standalone'
+        pending=g.rename(columns={'_period':'period'})
+        anchor=pd.concat([w,pending],ignore_index=True)
+        basis=preferred_reporting_basis(anchor,date)
         g=g[g.reporting_mode.eq(basis)]
         if not w.empty:w=w[w.reporting_mode.eq(basis)]
         endpoints=[g['_period'].max()]
@@ -231,14 +235,36 @@ def owner_completion_queue(queue,wide,asof,budget):
         selected=bundle.head(budget-count);chosen.append(selected);count+=len(selected)
     return pd.concat(chosen,ignore_index=True).drop(columns=['_period','_owner_priority']) if chosen else queue.iloc[:0].copy()
 
+def basis_completion_queue(queue,wide,asof,budget):
+    """Recover missing current group results across the public universe.
+
+    This queue is independent of fresh price coverage. One newest original
+    per issuer first; failures rotate with the recorded source-attempt clock.
+    """
+    if queue.empty or wide.empty or budget<=0:return queue.iloc[:0].copy()
+    date=pd.Timestamp(asof);groups=dict(tuple(wide.groupby('symbol')));chosen=[]
+    for symbol,g in queue.groupby('symbol'):
+        w=groups.get(symbol)
+        if w is None or preferred_reporting_basis(w,date)!='consolidated':continue
+        current=pick(w[w.reporting_mode.eq('consolidated')],'quarter')
+        q=g[g.reporting_mode.eq('consolidated')].copy();q['_period']=pd.to_datetime(q.period_end)
+        q=q[(date-q['_period']).dt.days.between(0,190)]
+        if current:q=q[q['_period'].gt(current['period'])]
+        if q.empty:continue
+        target=q.sort_values(['_period','available_at_utc'],ascending=False).head(1).copy()
+        target['_issuer_hash']=__import__('hashlib').sha256(symbol.encode()).hexdigest();chosen.append(target)
+    if not chosen:return queue.iloc[:0].copy()
+    return pd.concat(chosen).sort_values(['last_attempt','_issuer_hash']).head(budget).drop(columns=['_period','_issuer_hash'])
+
 def enrich_evidence(frame,wide,root,asof):
     wide=balancing_quarters(wide)
     d=frame.copy();links=[];coverage=[];low,_=bounds(asof)
     for c in ('ttm_reported_PAT_INR','ttm_owner_attributable_PAT_INR','annual_reported_revenue_INR','latest_issued_shares','latest_diluted_shares','ttm_reported_eps','implied_reported_PE','required_eps_at_current_PE_for_2x','scenario_base_multiple','scenario_net_multiple','historical_sector_relative_PE','total_PAT_divided_by_latest_quarter_weighted_shares_proxy'):
-        if c not in d:d[c]=np.nan
+        d[c]=np.nan
     d['financial_complete']=False;d['financial_unknown_fields']='';d['evidence_status']='MISSING_FINANCIAL_OR_EXECUTION'
     d['financial_quality_pass']=False;d['financial_quality_status']='UNKNOWN_FINANCIAL_INPUTS'
     d['earnings_scenario_status']='UNKNOWN_FORWARD_EARNINGS_AND_SECTOR_VALUATION'
+    d['current_owner_profit_status']='UNKNOWN_MISSING_PREFERRED_BASIS_QUARTER'
     for i,r in d.iterrows():
         date=pd.Timestamp(r.date)
         from v13_information_clock import cutoff
@@ -260,8 +286,7 @@ def enrich_evidence(frame,wide,root,asof):
               'input_source_sha256':z.get('input_source_sha256'),'input_source_urls':z.get('input_source_urls')}
             links.append({k:None if isinstance(v,float) and not np.isfinite(v) else v for k,v in item.items()})
         if w.empty:continue
-        recent=w[w.period_kind.eq('quarter')&(date-w.period).dt.days.between(0,190)]
-        basis='consolidated' if recent.reporting_mode.eq('consolidated').any() else 'standalone'
+        basis=preferred_reporting_basis(w,date)
         w=w[w.reporting_mode.eq(basis)];q=pick(w,'quarter')
         if not q or (date-q['period']).days>190:continue
         d.at[i,'current_owner_profit_status']=owner_profit_status(q)

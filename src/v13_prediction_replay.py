@@ -27,6 +27,8 @@ def snapshot(frame,scored,model_path,root,label):
     try:commit=subprocess.run(['git','rev-parse','HEAD'],capture_output=True,text=True,check=True).stdout.strip()
     except Exception:commit='UNKNOWN'
     source_hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.glob('v13*.py')}
+    for name in ('v12_5_features.py','v12_5_expanded_facts.py'):
+        source_hashes[name]=hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
     obj={'input_parquet_sha256':input_sha,'model_sha256':head_sha,'label':label,'rows':len(inputs),
       'source_asof':str(pd.Timestamp(inputs.date.max()).date()),'python':platform.python_version(),
       'runtime_versions':versions,'code_commit':commit,'source_code_sha256':source_hashes,

@@ -173,6 +173,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             save(root)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
+        try:
+            from v13_financial_crosscheck import collect as collect_financial_crosschecks
+            report['steps']['financial_crosschecks']=collect_financial_crosschecks(root,asof,budget=160)
+        except Exception as exc:
+            report['steps']['financial_crosschecks']={'status':'COMPARISON_INCOMPLETE','error':str(exc)[:200]}
         import v13_statement_eps as statement_eps
         report['steps']['reviewed_statement_EPS']=statement_eps.collect(root,seed.parent/'v13_evidence_seed'/'statement_eps_reviews.json')
         report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
@@ -250,6 +255,12 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 report['six_area_development_experiments']='COMPLETED_PREVIOUSLY_EXAMINED_NOT_PROMOTION_EVIDENCE'
             except Exception as exc:report['six_area_development_experiments']={'status':'BLOCKED_RETAINING_FIXED_MODELS','error':str(exc)[:200]}
         audited_scored=None
+        try:
+            from v13_universe_financial_audit import audit as audit_universe_financials
+            universe_wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
+            report['universe_financial_coverage']=audit_universe_financials(pd.read_parquet(root/'universe.parquet'),universe_wide,asof,root)
+        except Exception as exc:
+            report['universe_financial_coverage']={'status':'AUDIT_FAILED','error':str(exc)[:200]}
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)

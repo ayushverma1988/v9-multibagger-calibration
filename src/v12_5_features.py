@@ -65,11 +65,36 @@ def pick(d,kind,period=None):
     if len(ix)!=1:return {}
     return d.iloc[int(ix[0])].to_dict()
 
+def preferred_reporting_basis(known,date):
+    """Keep consolidated continuity when its newest quarter is missing.
+
+    Availability-filtered observations only. A recent annual/comparative
+    consolidated statement establishes the group basis even when a newer
+    standalone filing is present. A missing group quarter is not evidence of
+    falling standalone earnings. Explicit issuer basis changes need review.
+    """
+    if known.empty:return 'unknown'
+    recent=known[(date-known.period).dt.days.between(0,450)]
+    if recent.reporting_mode.eq('consolidated').any():return 'consolidated'
+    if recent.reporting_mode.eq('standalone').any():return 'standalone'
+    return 'unknown'
+
+def reporting_basis_status(known,date):
+    basis=preferred_reporting_basis(known,date)
+    q=pick(known[known.reporting_mode.eq(basis)],'quarter') if not known.empty else {}
+    quarters=known[known.period_kind.eq('quarter')] if not known.empty else known
+    fresh=bool(q and 0<=(date-q['period']).days<=190)
+    return {'preferred_reporting_basis':basis,
+      'preferred_quarter_end':str(q['period'].date()) if q else None,
+      'preferred_quarter_fresh':fresh,
+      'latest_any_basis_quarter_end':str(quarters.period.max().date()) if not quarters.empty else None,
+      'reporting_basis_status':'FRESH_PREFERRED_BASIS' if fresh else
+        'MISSING_RECENT_CONSOLIDATED_QUARTER_NO_STANDALONE_SUBSTITUTION' if basis=='consolidated' else
+        'MISSING_RECENT_PREFERRED_BASIS_QUARTER'}
+
 def features(known,date):
     out={c:np.nan for c in (*FINANCIAL,*UNSUPPORTED,*BASE_FIELDS,'four_profitable_quarters')}
-    recent=known[known.period_kind.eq('quarter') & (date-known.period).dt.days.between(0,190)]
-    if recent.empty:return out,[]
-    basis='consolidated' if recent.reporting_mode.eq('consolidated').any() else 'standalone'
+    basis=preferred_reporting_basis(known,date)
     d=known[known.reporting_mode.eq(basis)];q=pick(d,'quarter')
     if not q or (date-q['period']).days>190:return out,[]
     sources=[q];period=q['period'];old=pick(d,'quarter',period-pd.DateOffset(years=1))
