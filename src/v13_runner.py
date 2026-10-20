@@ -180,6 +180,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             save(root)
         phase('ORIGINAL_FINANCIAL_COLLECTION')
+        from v13_financial_recovery_seed import apply as apply_financial_recovery_seed
+        report['steps']['verified_original_financial_recovery']=apply_financial_recovery_seed(root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261020.json',asof)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
         try:
             from v13_financial_crosscheck import collect as collect_financial_crosschecks
