@@ -1,0 +1,48 @@
+name: V13 missing-column master data collection
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-master-data-20261020]
+    paths: ['.github/workflows/v13_master_data_collection.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Contract checks for identity, basis, period and provider agreement
+        run: python -m unittest discover -s tests -p 'test_v13_master_data.py'
+      - name: Collect missing original inputs and additional public sources before analysis
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_master_data --state v13_state --passes 3 --provider-budget 3200
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-master-data-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            v13_state/master_data/**/*.json
+            v13_state/master_data/*.parquet
+            v13_state/master_data/*.csv
+            v13_state/master_data/*.md
+            v13_state/financial_wide.parquet
+            v13_state/evidence/universe_financial_coverage.json
+            master_archive_receipt.json
+            v13_state.tar.gz
