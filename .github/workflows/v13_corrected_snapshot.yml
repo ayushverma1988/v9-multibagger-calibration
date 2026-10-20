@@ -28,12 +28,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            for (const [id, name] of [[12241032873, 'source_snapshot.zip'], [12240007481, 'source_diagnostic.zip']]) {
+            for (const [id, name] of [[12241032873, 'source_snapshot.zip'], [12240007481, 'source_diagnostic.zip'], [12240791694, 'broad_financials.zip'], [12248220832, 'targeted_financials.zip'], [12244093047, 'latest_collected_financials.zip']]) {
               const r = await github.rest.actions.downloadArtifact({...context.repo, artifact_id: id, archive_format: 'zip'});
               fs.writeFileSync(name, Buffer.from(r.data));
             }
       - name: Recover public original gaps and replay corrected financial inputs
-        run: python -m v13_repair_snapshot --artifact source_snapshot.zip --diagnostic source_diagnostic.zip --out corrected_state --budget 0 --requested-completion
+        run: python -m v13_repair_snapshot --artifact source_snapshot.zip --diagnostic source_diagnostic.zip --out corrected_state --budget 0 --requested-completion --supplementary-financials broad_financials.zip --supplementary-financials targeted_financials.zip --supplementary-financials latest_collected_financials.zip
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -41,6 +41,7 @@ jobs:
           path: |
             corrected_state/correction_run.json
             corrected_state/primary_recovery.json
+            corrected_state/financial_snapshot_union.json
             corrected_state/financial_wide.parquet
             corrected_state/evidence/*.json
             corrected_state/financial_crosscheck/*.json

@@ -19,7 +19,7 @@ from v13_redevelopment import export as redevelopment_export,MARKET_FEATURES,BOT
 from v13_2x_report import export as two_x_export,_seed_classifications
 
 
-def run(artifact,diagnostic,output,budget=1600,requested_completion=False):
+def run(artifact,diagnostic,output,budget=1600,requested_completion=False,supplementary_financials=()):
     root=Path(output);root.mkdir(parents=True,exist_ok=True)
     started=datetime.now(timezone.utc).isoformat()
     with zipfile.ZipFile(artifact) as z:
@@ -49,6 +49,16 @@ def run(artifact,diagnostic,output,budget=1600,requested_completion=False):
     # Record successful original versions without assuming that all economic
     # periods or owner facts in those documents have already been extracted.
     wide=pd.read_parquet(root/'financial_wide.parquet')
+    supplement_receipts=[];union_conflicts=[]
+    from v13_financial_snapshot_union import union as union_financials
+    for supplement in supplementary_financials:
+        with zipfile.ZipFile(supplement) as extra:
+            name=next(n for n in extra.namelist() if n.endswith('financial_wide.parquet'))
+            joined=pd.read_parquet(io.BytesIO(extra.read(name)))
+        wide,conflicts=union_financials(wide,joined);union_conflicts.extend(conflicts)
+        supplement_receipts.append({'artifact_sha256':hashlib.sha256(Path(supplement).read_bytes()).hexdigest(),'rows':len(joined)})
+    wide.to_parquet(root/'financial_wide.parquet',index=False)
+    (root/'financial_snapshot_union.json').write_text(json.dumps({'supplements':supplement_receipts,'conflicts':union_conflicts},indent=2))
     observed=wide[wide.source_url.notna()]
     accepted=sorted(set(observed.source_url+'|'+observed.available_at_utc))
     (root/'accepted_filings.json').write_text(json.dumps(accepted))
@@ -85,6 +95,7 @@ def run(artifact,diagnostic,output,budget=1600,requested_completion=False):
     summary={'review_started_at_utc':started,'review_completed_at_utc':datetime.now(timezone.utc).isoformat(),
       'source_asof':asof,'source_snapshot_sha256':hashlib.sha256(Path(artifact).read_bytes()).hexdigest(),
       'original_input_sha256':key,'corrected_prediction_replay':replay,
+      'supplementary_financial_snapshots':supplement_receipts,'same_original_numeric_conflicts':len(union_conflicts),
       'new_primary_fact_observations':recovery['new_facts'],'originals_attempted':recovery['requested'],
       'fact_count_definition':'EXTRACTED_THIS_PASS_INCLUDING_RECHECKS_NOT_ALL_NET_NEW',
       'net_numeric_fact_observation_change':int(wide.select_dtypes(include='number').notna().sum().sum())-before_numeric,
@@ -98,5 +109,5 @@ def run(artifact,diagnostic,output,budget=1600,requested_completion=False):
     return summary
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--artifact',required=True);p.add_argument('--diagnostic',required=True);p.add_argument('--out',required=True);p.add_argument('--budget',type=int,default=1600);p.add_argument('--requested-completion',action='store_true')
-    a=p.parse_args();run(a.artifact,a.diagnostic,a.out,a.budget,a.requested_completion)
+    p=argparse.ArgumentParser();p.add_argument('--artifact',required=True);p.add_argument('--diagnostic',required=True);p.add_argument('--out',required=True);p.add_argument('--budget',type=int,default=1600);p.add_argument('--requested-completion',action='store_true');p.add_argument('--supplementary-financials',action='append',default=[])
+    a=p.parse_args();run(a.artifact,a.diagnostic,a.out,a.budget,a.requested_completion,a.supplementary_financials)
