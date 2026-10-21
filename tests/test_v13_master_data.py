@@ -85,6 +85,11 @@ class MasterEvidenceTests(unittest.TestCase):
             'sha256':'a'*64,'first_retrieved_utc':'2026-10-20T10:00:00+00:00'})
         self.assertEqual(rows[0]['value_INR'],123400000)
         self.assertEqual(rows[0]['reporting_mode'],'standalone')
-        self.assertEqual(rows[1]['definition_status'],'UNRESOLVED')
+        self.assertEqual(rows[1]['metric'],'pat')
+        self.assertEqual(rows[1]['definition_status'],'NAMED_FINANCIAL_LINE')
+        consolidated=parse_screener_inputs(raw.replace(b'data-consolidated="false"',b'data-consolidated="true"'),'TEST','INE123456789',{
+            'requested_url':'https://www.screener.in/company/TEST/consolidated/',
+            'sha256':'a'*64,'first_retrieved_utc':'2026-10-20T10:00:00Z'})
+        self.assertEqual(consolidated[1]['definition_status'],'UNRESOLVED')
 
 if __name__=='__main__':unittest.main()

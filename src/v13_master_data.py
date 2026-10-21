@@ -52,10 +52,13 @@ def clean_records(frame):
     return json.loads(frame.to_json(orient='records',date_format='iso',double_precision=15))
 
 def reviewed_public_packet():
-    path=Path(__file__).resolve().parents[1]/'v13_evidence_seed/master_review_packet_20261020.json.gz.b64'
-    if not path.exists():return {}
+    folder=Path(__file__).resolve().parents[1]/'v13_evidence_seed'
     import base64,gzip
-    return json.loads(gzip.decompress(base64.b64decode(path.read_text())))
+    combined={'observations':[],'sector_sources':[]}
+    for path in sorted(folder.glob('master_*packet_*.json.gz.b64')):
+        packet=json.loads(gzip.decompress(base64.b64decode(path.read_text())))
+        for key in combined:combined[key].extend(packet.get(key,[]))
+    return combined
 
 def parse_screener_inputs(raw, symbol, isin, receipt):
     # The established parser verifies the exact exchange symbol and explicit
@@ -79,6 +82,7 @@ def parse_screener_inputs(raw, symbol, isin, receipt):
             label=re.sub(r'\s+',' ',cells[0].replace('+','')).strip()
             metric=metrics.get(label)
             if metric is None: continue
+            if metric=='provider_net_profit' and basis=='standalone':metric='pat'
             for period,display in zip(headers,cells[1:]):
                 if not re.fullmatch(r'[A-Z][a-z]{2} 20\d\d',period): continue
                 end=pd.to_datetime(period,format='%b %Y')+pd.offsets.MonthEnd(0)
@@ -319,6 +323,12 @@ def export(root,asof):
     seeds=Path(__file__).resolve().parents[1]/'v13_evidence_seed/master_source_reviews_20261020.json'
     if seeds.exists():observations.extend(json.loads(seeds.read_text()).get('observations',[]))
     observations.extend(reviewed_public_packet().get('observations',[]))
+    # A standalone company's dated Net Profit is PAT; group Net Profit can
+    # refer to total or owner profit and retains its unresolved definition.
+    observations=[dict(r,metric='pat',definition_status='NAMED_STANDALONE_PAT',
+        original_provider_metric='provider_net_profit')
+        if r.get('reporting_mode')=='standalone' and r.get('metric')=='provider_net_profit'
+        and r.get('provider_family') in {'SCREENER','ACCORD_FINTECH'} else r for r in observations]
     # A reviewed packet can overlap cached pages. Count a source observation
     # once and compare the same trailing window for every collection path.
     observation_count_before_dedup=len(observations)

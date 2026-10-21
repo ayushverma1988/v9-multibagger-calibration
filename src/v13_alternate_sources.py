@@ -114,6 +114,7 @@ def parse_finology(raw,issuer,receipt):
             cells=[c.get_text(' ',strip=True) for c in tr.find_all(['th','td'])]
             if not cells or cells[0] not in metrics:continue
             metric=metrics[cells[0]]
+            if metric=='provider_net_profit' and basis=='standalone':metric='pat'
             for label,value in zip(headers,cells[1:]):
                 if not re.fullmatch(r'[A-Z][a-z]{2} 20\d\d',label):continue
                 scale=1 if metric=='provider_eps_unspecified' else 10_000_000
