@@ -6,6 +6,7 @@ import numpy as np,pandas as pd
 from v13_sector_quality import annotate,dated_members
 from v13_historical_discovery import signals
 from v13_price_policy import valid_price,POLICY as PRICE_POLICY
+from v13_research_selection import RSI_MIN
 
 def classify_current(frame,classification_dir,prior_members,now):
     root=Path(classification_dir);receipts={r['name']:r for r in json.loads((root/'receipt.json').read_text()) if 'error' not in r}
@@ -53,8 +54,8 @@ def watchlists(frame,documents,now):
     market=valid_price(d.close)&d.feature_eligible.fillna(False).astype(bool)
     market &= d.p6.between(0,1)&d.p12.between(0,1)&d.loss12.between(0,.95)&d.p6.le(d.p12+1e-12)&d.joint12.between(0,1)&d.joint12.le(d.p12+1e-12)&(d.joint12+d.loss12).le(1+1e-12)
     size=d.size_status.eq('SMALL_MID_VERIFIED')
-    d['early_watch_eligible']=market&size&no_bad&positive&~d.current_adverse_project_documents.gt(0)
-    d['rsi70_research_eligible']=market&size&no_bad&d.rsi14.gt(70)&d.distance_ma50.gt(0)&d.log_ret63.le(np.log(2.5))&d.sector_sector_kind.ne('UNKNOWN')
+    d['early_watch_eligible']=market&size&no_bad&positive&d.rsi14.ge(RSI_MIN)&~d.current_adverse_project_documents.gt(0)
+    d['rsi70_research_eligible']=market&size&no_bad&d.rsi14.ge(RSI_MIN)&d.distance_ma50.gt(0)&d.log_ret63.le(np.log(2.5))&d.sector_sector_kind.ne('UNKNOWN')
     for prefix in ['early_watch','rsi70_research']:
         valid=d[prefix+'_eligible']
         score=(.70*d.p6.where(valid).rank(pct=True)+.25*d.redevelopment_price_discipline+.05*d.research_within_200dma_band).where(valid)

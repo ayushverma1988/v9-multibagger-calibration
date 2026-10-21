@@ -63,9 +63,9 @@ class SourceResearchUpgrade(unittest.TestCase):
         r={'date':pd.Timestamp('2026-10-15'),'isin':'INE000000001','symbol':'A','close':100.,'distance_ma50':.1,
           'log_ret63':.1,'quarter_sales_yoy':.1,'quarter_pat_yoy':.1,'quarter_pat_margin':.1,
           'annual_CFO_PAT':1.,'dated_debt_equity':.2,'annual_EBIT_proxy_interest_coverage':2.,'four_profitable_quarters':1,
-          'financial_quality_pass':True,'rsi14':70.0001,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
+          'financial_quality_pass':True,'rsi14':50.0001,'p6':.1,'p12':.2,'loss12':.4,'joint12':.15,
           'evidence_status':'MISSING_FINANCIAL_OR_EXECUTION','scenario_net_multiple':np.nan}
-        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':70.},
+        return pd.DataFrame([r,{**r,'isin':'INE000000002','symbol':'B','rsi14':49.999},
           {**r,'isin':'INE000000003','symbol':'C','annual_CFO_PAT':.1}])
 
     def test_research_rsi_boundary_failures_and_zero_strict_remain_visible(self):
@@ -74,6 +74,16 @@ class SourceResearchUpgrade(unittest.TestCase):
         self.assertEqual(a['gate_counts']['strict_net_2x'],0)
         pd.testing.assert_frame_equal(f,original)
         f['rsi14']=np.nan;self.assertEqual(screen(f)[1]['gate_counts']['selected'],0)
+
+    def test_exact_rsi50_passes_but_below_and_missing_do_not(self):
+        r=self.frame().iloc[0].to_dict()
+        f=pd.DataFrame([{**r,'isin':f'INE{i:09d}','rsi14':value,'distance_ma200':np.nan}
+                        for i,value in enumerate([49.999,50.,50.001,np.nan])])
+        d,a=screen(f)
+        self.assertEqual(d.research_eligible.tolist(),[False,True,True,False])
+        self.assertEqual(a['gate_counts']['RSI_at_least_50'],2)
+        self.assertIn('RSI_BELOW_50_OR_MISSING',d.research_exclusion_reasons.iloc[0])
+        self.assertIn('inclusive >=50',a['RSI_definition'])
 
     def test_dma_band_is_inclusive_and_optional_with_unknown_separate(self):
         r=self.frame().iloc[0].to_dict()

@@ -11,9 +11,10 @@ import numpy as np
 import pandas as pd
 
 from v13_price_policy import valid_price
+from v13_research_selection import RSI_MIN
 from v12_dated_source_collection import sha
 
-VERSION = 'V13_EARLY_POTENTIAL_SHADOW_20261018'
+VERSION = 'V13_EARLY_POTENTIAL_SHADOW_RSI_GE50_20261021'
 MAX_MARKET_CAP_CRORE = 50_000  # declared small/mid discovery scope
 
 
@@ -23,7 +24,7 @@ def select(scored):
         return pd.to_numeric(d.get(name, pd.Series(np.nan, index=d.index)), errors='coerce')
 
     # Existing official reconciliation, liquidity and history-quality checks
-    # live in feature_eligible. No nominal rupee-price, RSI or 200-DMA gate.
+    # live in feature_eligible. No nominal rupee-price or 200-DMA gate.
     market = (valid_price(d.close) &
         d.get('feature_eligible', pd.Series(False, index=d.index)).fillna(False).astype(bool))
     deep = (col('rd_peak_drawdown756').between(-.80, -.20) &
@@ -70,11 +71,11 @@ def select(scored):
     # it in an explicit conflict/review tier rather than a potential list.
     d['early_state'] = np.select(
         [~market, ~pattern, ~in_scope & market_cap.notna(),
-         market_cap.isna(), adverse, financial_failure,
+         market_cap.isna(), adverse, financial_failure, ~col('rsi14').ge(RSI_MIN),
          (sales & owner) | (volume & (sales | filing))],
         ['NO_VALID_CURRENT_MARKET', 'NO_OBSERVED_SETUP', 'OUTSIDE_SIZE_SCOPE',
          'SIZE_UNKNOWN_REVIEW', 'ADVERSE_NEWS_REVIEW',
-         'FINANCIAL_CONFLICT_REVIEW', 'EARLY_POTENTIAL'], default='CHART_WATCH')
+         'FINANCIAL_CONFLICT_REVIEW', 'RSI_BELOW_50_OR_MISSING', 'EARLY_POTENTIAL'], default='CHART_WATCH')
     d['early_volume_cue'] = volume
     d['early_filing_cue'] = filing
     d['early_sales_growth_cue'] = sales
@@ -100,6 +101,8 @@ def select(scored):
     summary = {'version': VERSION, 'source_date': str(pd.Timestamp(d.date.max()).date()),
         'scored_rows': len(d), 'observed_chart_setups': int(chart.sum()),
         'early_potentials': len(pool), 'chart_watch': len(watch),
+        'RSI_definition': 'simple rolling 14 session gains/losses; inclusive >=50',
+        'RSI_minimum': RSI_MIN,
         'financial_conflicts': int(d.early_state.eq('FINANCIAL_CONFLICT_REVIEW').sum()),
         'short_history_setups': int((chart & young).sum()),
         'size_ceiling_crore': MAX_MARKET_CAP_CRORE,

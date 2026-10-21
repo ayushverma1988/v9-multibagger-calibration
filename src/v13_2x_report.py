@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from v13_research_selection import RSI_MIN
 
 
 PRIOR_NO_PRICE_BAND = (
@@ -81,7 +82,7 @@ def _reasons(r):
     reasons = []
     if r['size_status'] != 'SMALL_MID_VERIFIED': reasons.append(r['size_status'])
     if r['sector_sector_kind'] == 'UNKNOWN': reasons.append('UNKNOWN_SECTOR')
-    if not r['rsi14'] > 70: reasons.append('RSI_NOT_STRICTLY_ABOVE_70')
+    if not r['rsi14'] >= RSI_MIN: reasons.append('RSI_BELOW_50_OR_MISSING')
     if not r['distance_ma50'] > 0: reasons.append('NOT_ABOVE_50DMA')
     if r['log_ret63'] > np.log(2.5): reasons.append('EXCESSIVE_63_SESSION_EXTENSION')
     if r['sector_status'] == 'KNOWN_FINANCIAL_FAILURE': reasons.append('OBSERVED_SECTOR_FINANCIAL_FAILURE')
@@ -152,7 +153,7 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
     summary = {'source_date': selection['source_asof'],
                'model_replay_verified': True, 'model_retrained': False,
                'ranked_count': len(ranked), 'prior_cohort_size': len(previous),
-               'selector': 'V13_DISCOVERY_CURRENT_RSI70_NO_PRICE_BAND_20261017',
+               'selector': 'V13_DISCOVERY_CURRENT_RSI_GE50_NO_PRICE_BAND_20261021',
                'ranking_weights': {'p6_percentile': .70, 'price_discipline': .25, 'optional_DMA_band': .05},
                'classification_receipts': receipts, 'records': ranked,
                'basic_selector_ranked_count': sum(r['research_selected'] for r in rows),
@@ -180,7 +181,7 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
     (out / 'latest.json').write_text(json.dumps(summary, indent=2))
     lines = [f"# Separate 2× research shortlist — {summary['source_date']}", '',
              'Frozen-model estimates for doubling by 6 or 12 months. These are research estimates, not confirmed returns or trade instructions.',
-             'Existing refined selector: verified small/mid caps, known sector, strict RSI >70, financial/owner checks; 70% p6 percentile, 25% price discipline, 5% optional 200DMA band.', '',
+             'Existing refined selector: verified small/mid caps, known sector, RSI >=50 (inclusive), financial/owner checks; 70% p6 percentile, 25% price discipline, 5% optional 200DMA band.', '',
              f"Coverage: {len(rows):,}/{public_count:,} public shares. {coverage_status}. Missing data is not a failed investment thesis.", '',
              '| Rank | Symbol | Close ₹ | P(2× 6m) | P(2× 12m) | 30% loss event | Financial tier | Source review |',
              '| ---: | --- | ---: | ---: | ---: | ---: | --- | --- |']

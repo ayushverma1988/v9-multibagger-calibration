@@ -13,7 +13,7 @@ import v13_redevelopment as rd
 class EarlyPotential(unittest.TestCase):
     def row(self, **changes):
         r = dict(date='2026-10-16', isin='INE000000001', symbol='ALPHA',
-            close=100., latest_issued_shares=50_000_000, feature_eligible=True,
+            close=100., rsi14=60., latest_issued_shares=50_000_000, feature_eligible=True,
             rd_peak_drawdown756=-.45, rd_base_range30=.20,
             rd_base_return30=.01, rd_low_distance30=.10,
             rd_recent_volume_burst5=2., quarter_sales_yoy=.12,
@@ -25,12 +25,19 @@ class EarlyPotential(unittest.TestCase):
         return pd.DataFrame([r])
 
     def test_volume_and_sales_surface_pre_breakout_candidate(self):
-        d, s = early.select(self.row(rsi14=25., distance_ma200=-.20))
+        d, s = early.select(self.row(rsi14=50., distance_ma200=-.20))
         self.assertEqual(d.iloc[0].early_pattern, 'DEEP_RESET_BASE')
         self.assertEqual(d.iloc[0].early_state, 'EARLY_POTENTIAL')
         self.assertEqual(d.iloc[0].early_rank, 1)
         self.assertFalse(s['weights_are_probabilities'])
         self.assertFalse(s['frozen_model_changed'])
+
+    def test_rsi50_is_inclusive_and_lower_or_missing_values_are_excluded(self):
+        for value,passes in [(49.999,False),(50.,True),(50.001,True),(np.nan,False)]:
+            with self.subTest(rsi=value):
+                frame=self.row(rsi14=value);d,_=early.select(frame)
+                self.assertEqual(bool(d.iloc[0].early_eligible),passes)
+                pd.testing.assert_frame_equal(frame[['p6','p12','loss12']],d[['p6','p12','loss12']])
 
     def test_earnings_supported_reset_without_spike_is_visible(self):
         d, _ = early.select(self.row(rd_base_range30=.39,
