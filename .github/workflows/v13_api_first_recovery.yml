@@ -1,0 +1,57 @@
+name: V13 API data first and web recovery without cross-validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-master-data-20261020]
+    paths: ['.github/workflows/v13_api_first_recovery.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      INDIAN_STOCK_API_CHECKOUT: ${{ github.workspace }}/api_source
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: 0xramm/Indian-Stock-Market-API
+          ref: 147cd5c92a7888104e0be63eef7ea72a5b61ad3e
+          path: api_source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Check direct API, single-source inputs and dated web parsers
+        run: |
+          python -m unittest discover -s tests -p 'test_v13_master_data.py'
+          python -m unittest discover -s tests -p 'test_v13_yahoo_financials.py'
+          python -m unittest discover -s tests -p 'test_v13_web_missing_data.py'
+      - name: Store all available API inputs, then collect remaining gaps from websites
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_master_data --state v13_state --passes 0 --provider-budget 0 --yahoo-budget 3200 --web-budget 3200 --source-seconds 3600
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-api-first-master-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            v13_state/master_data/*.json
+            v13_state/master_data/*.csv
+            v13_state/master_data/*.parquet
+            v13_state/master_data/provider_inputs/*.json
+            v13_state/master_data/api_quote_inputs/*.json
+            v13_state/evidence/universe_financial_coverage.json
+            master_archive_receipt.json

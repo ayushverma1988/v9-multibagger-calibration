@@ -63,6 +63,8 @@ def refine(rows, root, classification_dir=None, review_asof=None):
     members['source_sha256'] = snapshot['membership_sha256']
     original = pd.DataFrame(rows)
     current = classify_current(original, classification_dir, members, now)
+    from v13_alternate_sources import apply_sector_master
+    current = apply_sector_master(current,root,now)
     documents = json.loads((root / 'catalyst_evidence' / 'document_evidence.json').read_text())
     current = watchlists(current, documents, now)
     columns = ['p6', 'p12', 'loss12', 'joint12']
@@ -159,8 +161,22 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
                'earlier_watchlist_preserved_independent_of_current_selection':True,
                'source_review_groups':{tier:[r['symbol'] for r in ranked if r['source_comparison_tier']==tier] for tier in sorted({r['source_comparison_tier'] for r in ranked})},
                'previous': previous}
+    # Preserve the broader screen requested in the user's 20-stock screenshot.
+    # Its definitions and estimates remain separate from the refined list.
+    basic=sorted((r for r in rows if r.get('research_selected')),key=lambda r:r['research_rank'])
+    summary['recovered_missing_sector_rows']=sum(bool(r.get('sector_recovered_from_three_sources')) for r in records)
     out = root / 'two_x_research'
     out.mkdir(parents=True, exist_ok=True)
+    (out/'basic_latest.json').write_text(json.dumps({'source_date':selection['source_asof'],
+        'policy':selection.get('policy'),'records':basic,'model_retrained':False,
+        'scope':'BROADER_AVAILABLE_DATA_SCREEN_SEPARATE_FROM_REFINED_SIZE_SECTOR_SCREEN',
+        'missing_financial_inputs_are_disclosed':True},indent=2))
+    basic_lines=[f"# Broader 2x research shortlist — {selection['source_asof']}",'',
+        'Available-data screen retained separately from the refined sector/size list. Estimates are unvalidated; incomplete financials are not verified passes.','',
+        '| Rank | Share | Close INR | 2x by 6m | 2x by 12m | Financial inputs |',
+        '| ---: | --- | ---: | ---: | ---: | --- |']
+    for r in basic:basic_lines.append(f"| {int(r['research_rank'])} | {r['symbol']} | {_money(r['close'])} | {_pct(r['p6'])} | {_pct(r['p12'])} | {r.get('research_financial_tier','UNKNOWN')} |")
+    (out/'basic_latest.md').write_text('\n'.join(basic_lines)+'\n')
     (out / 'latest.json').write_text(json.dumps(summary, indent=2))
     lines = [f"# Separate 2× research shortlist — {summary['source_date']}", '',
              'Frozen-model estimates for doubling by 6 or 12 months. These are research estimates, not confirmed returns or trade instructions.',

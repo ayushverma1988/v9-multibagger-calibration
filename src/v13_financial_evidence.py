@@ -130,7 +130,12 @@ def completion_queue(queue,wide,asof,budget):
         if not w.empty:w=w[w.reporting_mode.eq(basis)]
         endpoints=[g['_period'].max()]
         if not w.empty:endpoints.append(w.loc[w.period_kind.eq('quarter'),'period'].max())
-        latest=max(z for z in endpoints if pd.notna(z))
+        endpoints=[z for z in endpoints if pd.notna(z)]
+        # A current standalone filing can coexist with a recent group annual
+        # but no group quarter or pending group filing. The separate basis
+        # queue handles that gap; it supplies no endpoint for this bundle.
+        if not endpoints:continue
+        latest=max(endpoints)
         if pd.isna(latest):continue
         periods={latest-pd.offsets.MonthEnd(k) for k in (0,3,6,9,12,15,18)}
         annual=g[g.filed_period.str.contains('annual',case=False,na=False)&g['_period'].ge(date-pd.DateOffset(months=27))] if 'filed_period' in g else g.iloc[:0]

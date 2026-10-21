@@ -136,6 +136,7 @@ class EvidencePairing(unittest.TestCase):
             joblib.dump({},root/'active_heads.joblib');joblib.dump({},root/'challenger/research_heads.joblib')
             (root/'last_retrain_month.txt').write_text('2026-10')
             pd.DataFrame({'nse_current_symbol':['A','B']}).to_parquet(root/'universe.parquet')
+            pd.DataFrame().to_parquet(root/'financial_wide.parquet')
             official=pd.DataFrame({'date':pd.to_datetime(['2026-10-09']*2),'isin':f['isin'],'symbol':f.symbol,'open':[100,100],'close':[100,100],'source_status':'VALID_POSITIVE_VOLUME_SESSION','source_sha256':'c'*64})
             official.to_parquet(root/'official/2026-10-09_official_market.parquet')
             phases=[]
@@ -147,6 +148,8 @@ class EvidencePairing(unittest.TestCase):
                 stack.enter_context(patch.object(runner.action_audit,'backfill',return_value={}))
                 stack.enter_context(patch('v13_completion_work.primary_history_backfill',return_value={}))
                 stack.enter_context(patch('v13_valuation_evidence.collect',return_value={}))
+                stack.enter_context(patch('v13_universe_financial_audit.audit',return_value={}))
+                stack.enter_context(patch('v13_master_data.export',side_effect=lambda *args,**kw:phases.append('master_saved') or {}))
                 stack.enter_context(patch.object(runner,'current_frame',return_value=(f,{})))
                 stack.enter_context(patch.object(runner,'scored',side_effect=lambda heads,frame,**kw:frame))
                 # This migration test supplies empty mock heads; exact numeric
@@ -156,6 +159,7 @@ class EvidencePairing(unittest.TestCase):
                 result=runner.run(root,seed,'2026-10-12',local=True)
             self.assertEqual(old.read_bytes(),original);self.assertEqual(result['paired_registration']['rows_per_model'],2)
             self.assertLess(phases.index('collect_histories'),phases.index('collect_financials'))
+            self.assertLess(phases.index('collect_financials'),phases.index('master_saved'))
             self.assertTrue((root/'challenger_latest_watchlist.json').exists())
             ledger=pd.read_parquet(root/'prospective_observations.parquet');self.assertEqual(len(ledger),6)
             self.assertEqual(ledger.cohort_id.notna().sum(),4);self.assertFalse(result['promotion']['promote'])
