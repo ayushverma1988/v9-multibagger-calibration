@@ -1,8 +1,7 @@
 """Public Yahoo statements, the upstream used by 0xramm's MIT-licensed API.
 
-No paid API, credential, model rank or guessed reporting basis is used. The
-wrapper and Yahoo are one provider family. An exact public name/ticker match
-binds identity; at least two nonzero original facts bind the statement basis.
+No paid API, credential or model rank is used. An exact public name/ticker match
+binds identity. Independent source agreement is not required for API ingestion.
 """
 import argparse
 from datetime import datetime, timezone
@@ -29,6 +28,8 @@ METRICS={
     'TotalRevenue':('revenue','flow'),
     'PretaxIncome':('pbt','flow'),
     'NetIncomeIncludingNoncontrollingInterests':('pat','flow'),
+    'NetIncome':('pat_owners','flow'),
+    'DilutedContinuousOperations':('eps_diluted_continuing','flow'),
     'DepreciationAndAmortizationInIncomeStatement':('depreciation','flow'),
     'OperatingCashFlow':('cfo','annual'),
     'TotalAssets':('assets','instant'),
@@ -38,6 +39,9 @@ METRICS={
     'CashAndCashEquivalents':('cash','instant'),
     'CurrentLiabilities':('current_liabilities','instant'),
     'NetPPE':('ppe','instant'),
+    'AccountsReceivable':('receivables_current','instant'),
+    'NonCurrentAccountsReceivable':('receivables_noncurrent','instant'),
+    'CommonStock':('paidup_equity_capital','quarter_or_instant'),
 }
 
 def collect_api_quotes(root,budget=80):
@@ -73,6 +77,7 @@ def parse(raw, chart_raw, issuer, proof, chart_proof, primary):
         metric,kind=METRICS[typ[len(prefix):]]
         if kind=='annual' and prefix!='annual':continue
         if kind=='flow':kind='annual' if prefix=='annual' else 'quarter'
+        if kind=='quarter_or_instant':kind='quarter' if prefix=='quarterly' else 'instant'
         for item in block.get(typ,[]):
             value=(item.get('reportedValue') or {}).get('raw')
             if item.get('currencyCode')!='INR' or value is None or not np.isfinite(value):continue
@@ -82,7 +87,8 @@ def parse(raw, chart_raw, issuer, proof, chart_proof, primary):
             # Yahoo raw numbers have no declared display-rounding uncertainty.
             rows.append({'symbol':issuer['nse_current_symbol'],'isin':issuer['isin'],
                 'period_kind':kind,'period_end':end,'metric':metric,'value_INR':float(value),
-                'rounding_half_width_INR':0.,'display_value':str(value),'display_unit':'INR',
+                'rounding_half_width_INR':0.,'display_value':str(value),
+                'display_unit':'INR_PER_SHARE' if metric=='eps_diluted_continuing' else 'INR',
                 'provider_family':'YAHOO_FINANCE','publisher':'YAHOO_FINANCE',
                 'source_url':proof['requested_url'],'source_sha256':proof['sha256'],
                 'first_observed_utc':proof['first_retrieved_utc'],
@@ -106,9 +112,32 @@ def parse(raw, chart_raw, issuer, proof, chart_proof, primary):
             else:conflicts.append(key)
         if len({(r['metric'],r['period_end']) for r in matches})>=2:
             candidates.append((basis,matches))
-    if len(candidates)!=1:raise ValueError('Yahoo statement reporting basis not uniquely corroborated')
-    basis,anchors=candidates[0]
-    for r in rows:r.update(reporting_mode=basis,reporting_basis_proof='UNIQUE_BASIS_MULTIPLE_ORIGINAL_FACT_ANCHORS',basis_anchor_sources=anchors)
+    # Exact overlapping originals may identify a standalone presentation, but
+    # this is optional metadata. Do not reject API data for absent corroboration.
+    # The documented upstream raw-fundamentals convention is consolidated.
+    # Keep that convention explicit rather than silently marking it confirmed.
+    if len(candidates)==1:
+        basis,anchors=candidates[0];basis_proof='OPTIONAL_ORIGINAL_OVERLAP_IDENTIFIES_BASIS'
+    else:
+        basis='consolidated';anchors=[];basis_proof='UPSTREAM_DOCUMENTED_CONSOLIDATED_CONVENTION_NOT_INDEPENDENTLY_CONFIRMED'
+    for r in rows:r.update(reporting_mode=basis,reporting_basis_proof=basis_proof,
+        reporting_basis_independently_confirmed=bool(anchors),basis_anchor_sources=anchors[:2],basis_anchor_count=len(anchors),
+        cross_source_validation_required=False,
+        financial_definition_reference='https://morningstardirect.morningstar.com/clientcomm/DataDefinitions-EquityandExecutive.pdf')
+    # The total and parent profit lines come from the same API statement.
+    # Record their difference as a calculation, never as a reported original.
+    profit={}
+    for r in rows:
+        if r['metric'] in {'pat','pat_owners'}:profit.setdefault((r['period_kind'],r['period_end']),{})[r['metric']]=r
+    for pair in profit.values():
+        if set(pair)=={'pat','pat_owners'}:
+            total,owners=pair['pat'],pair['pat_owners']
+            rows.append(dict(total,metric='pat_noncontrolling',value_INR=total['value_INR']-owners['value_INR'],
+                display_value=str(total['value_INR']-owners['value_INR']),
+                upstream_field='DERIVED_TOTAL_MINUS_PARENT_PROFIT',
+                definition_status='DERIVED_FROM_SAME_API_FINANCIAL_LINES',
+                calculation='NetIncomeIncludingNoncontrollingInterests - NetIncome',
+                supporting_upstream_fields=[total['upstream_field'],owners['upstream_field']]))
     if not rows:raise ValueError('No dated Yahoo financial facts')
     return rows
 
@@ -138,7 +167,7 @@ def collect(root,budget=3200,seconds=1500,asof=None):
         symbol=issuer['nse_current_symbol'];ticker=symbol+'.NS';target=folder/'provider_inputs'/(issuer['isin']+'_yahoo.json')
         if target.exists():
             old=json.loads(target.read_text())
-            if old and old[0]['first_observed_utc'][:10]==clock[:10]:return {'rows':len(old),'cached':True}
+            if old and old[0]['first_observed_utc'][:10]==clock[:10] and any(x.get('metric')=='pat_owners' for x in old):return {'rows':len(old),'cached':True}
         chart,cp=fetch('https://query1.finance.yahoo.com/v8/finance/chart/'+quote(ticker,safe='')+'?interval=1d&range=5d')
         raw,proof=fetch('https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/'+quote(ticker,safe='')+'?'+urlencode({'symbol':ticker,'type':','.join(fields),'period1':low,'period2':high}))
         rows=parse(raw,chart,issuer,proof,cp,primary);dump(target,rows)
@@ -157,7 +186,7 @@ def collect(root,budget=3200,seconds=1500,asof=None):
             dump(attempt_path,attempts);print('Yahoo processed',processed,'accepted',accepted,'facts',facts,flush=True)
     dump(attempt_path,attempts)
     summary={'public_universe':len(u),'processed':processed,'accepted_issuers':accepted,
-        'numeric_observations':facts,'errors':errors,'required_additional_sources':1,
+        'numeric_observations':facts,'errors':errors,'required_additional_sources':0,
         'wrapper_and_upstream_count_as_one_family':True,'private_model_ranks_used_in_requests':False,
         'stopped_on_host_denial':any('403' in e['error'] or '429' in e['error'] for e in errors)}
     if not summary['stopped_on_host_denial']:

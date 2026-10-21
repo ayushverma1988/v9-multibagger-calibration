@@ -22,19 +22,30 @@ class YahooFinancialsTests(unittest.TestCase):
         self.assertEqual(cash['reporting_mode'],'consolidated');self.assertEqual(cash['value_INR'],300)
         self.assertEqual(cash['provider_family'],'YAHOO_FINANCE')
     def test_no_guess_when_original_basis_unknown(self):
-        with self.assertRaisesRegex(ValueError,'basis'):self.run_parse({})
+        rows=self.run_parse({});self.assertEqual(len(rows),3)
+        self.assertEqual(rows[0]['reporting_mode'],'consolidated')
+        self.assertFalse(rows[0]['reporting_basis_independently_confirmed'])
     def test_identical_standalone_and_group_anchors_are_ambiguous(self):
         primary=dict(self.primary)
         for key,value in self.primary.items():primary[(key[0],'standalone',*key[2:])]=value
-        with self.assertRaisesRegex(ValueError,'basis'):self.run_parse(primary)
+        rows=self.run_parse(primary)
+        self.assertFalse(rows[0]['reporting_basis_independently_confirmed'])
     def test_currency_cannot_be_assumed_from_listing(self):
         self.raw['timeseries']['result'][0]['annualTotalRevenue'][0]['currencyCode']='USD'
-        with self.assertRaisesRegex(ValueError,'basis'):self.run_parse()
+        rows=self.run_parse();self.assertNotIn('revenue',{r['metric'] for r in rows})
     def test_wrong_exchange_or_issuer_is_rejected(self):
         self.chart['chart']['result'][0]['meta']['longName']='Other Limited'
         with self.assertRaisesRegex(ValueError,'mismatch'):self.run_parse()
     def test_ttm_is_not_treated_as_annual(self):
         self.raw['timeseries']['result'][0]['annualTotalRevenue'][0]['periodType']='TTM'
-        with self.assertRaisesRegex(ValueError,'basis'):self.run_parse()
+        rows=self.run_parse();self.assertNotIn('revenue',{r['metric'] for r in rows})
+    def test_noncontrolling_profit_is_labeled_as_same_api_calculation(self):
+        for name,value in [('NetIncomeIncludingNoncontrollingInterests',100),('NetIncome',80)]:
+            key='annual'+name
+            self.raw['timeseries']['result'].append({'meta':{'symbol':['TEST.NS'],'type':[key]},key:[{
+                'asOfDate':'2026-03-31','periodType':'12M','currencyCode':'INR','reportedValue':{'raw':value}}]})
+        rows=self.run_parse({});minority=next(r for r in rows if r['metric']=='pat_noncontrolling')
+        self.assertEqual(minority['value_INR'],20)
+        self.assertEqual(minority['definition_status'],'DERIVED_FROM_SAME_API_FINANCIAL_LINES')
 
 if __name__=='__main__':unittest.main()

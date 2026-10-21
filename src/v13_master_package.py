@@ -17,6 +17,8 @@ def build(root,output,report=None):
     assert int(cells.value.notna().sum())==summary['original_observed_cells']
     assert int(cells.resolved_value.isna().sum())==summary['remaining_missing_or_unresolved_cells']
     assert int(cells.eligible_current_two_source_input.sum())==summary['current_two_source_input_cells']
+    if 'current_usable_input_cells' in summary:
+        assert int(cells.eligible_current_input.sum())==summary['current_usable_input_cells']
     assert int(cells.recovered_missing_original.sum())==summary['recovered_missing_original_cells']
     assert cells.loc[cells.recovered_missing_original,'value'].isna().all()
     assert cells.loc[cells.eligible_current_two_source_input,'validated_value'].notna().all()
@@ -43,19 +45,20 @@ Market snapshot: {summary['market_asof']}.
 Source review clock: {summary['review_clock_utc']}.
 
 Open master_data/master_inputs.csv for the full 3,200-company master.
-Original fields are preserved. resolved_ fields include separately corroborated
-substitutes; validated_ fields additionally require sufficient freshness and
-two distinct sources total. A wrapper and its upstream count once.
+Original fields are preserved. resolved_ fields include API values and website
+fallbacks. usable_ fields meet the period, identity, units and freshness rules.
+No independent-source agreement is required. validated_ fields are retained
+only as an optional diagnostic and do not gate use of an input.
 
 Recovered missing values, all observed periods: {len(recovery)}.
 Recovered missing values meeting freshness limits: {summary['recovered_missing_original_cells']}.
 Remaining missing or unresolved values: {summary['remaining_missing_or_unresolved_cells']}.
-Current cells with two matching sources: {summary['current_two_source_input_cells']}.
+Current usable cells without a cross-source requirement: {summary.get('current_usable_input_cells',summary['current_two_source_input_cells'])}.
 
 The source ledger maps all 86,400 cells. recovered_missing_values.csv isolates
 the recovered gaps. Provider statement files retain observed numeric facts,
-URLs, hashes and clocks. Quote API receipts are quote snapshots, not dated
-quarterly earnings, and are excluded from financial-statement recovery counts.
+URLs, hashes and clocks. Calculated fields identify their source inputs and
+calculation. Quote snapshots are kept separately from dated statement facts.
 
 The earlier twenty-name comparison retains the old estimates. No new prediction
 or retraining was performed by this recovery export. Source agreement does not

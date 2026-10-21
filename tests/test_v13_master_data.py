@@ -3,7 +3,7 @@ from unittest.mock import patch
 from pathlib import Path
 import tempfile
 import pandas as pd
-from v13_master_data import reconcile, parse_screener_inputs,cached_primary_index
+from v13_master_data import reconcile, parse_screener_inputs,cached_primary_index,dump,compact_observation
 
 class MasterEvidenceTests(unittest.TestCase):
     def setUp(self):
@@ -21,22 +21,45 @@ class MasterEvidenceTests(unittest.TestCase):
         self.assertTrue(r['validated_for_new_master_input'])
         self.assertFalse(r['canonical_original_overwritten'])
     def test_user_requirement_needs_only_one_additional_source(self):
-        r=reconcile(self.primary,[self.obs('A')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        r=reconcile(self.primary,[self.obs('A')],'2026-10-19','2026-10-20T12:00:00Z',required_additional=1)[0][0]
         self.assertTrue(r['validated_for_new_master_input'])
         self.assertFalse(r['primary_plus_two_additional_sources_agree'])
     def test_missing_original_can_be_recovered_by_two_distinct_sources(self):
-        r=reconcile({},[self.obs('A'),self.obs('B')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        r=reconcile({},[self.obs('A'),self.obs('B')],'2026-10-19','2026-10-20T12:00:00Z',required_additional=1)[0][0]
         self.assertTrue(r['validated_for_new_master_input']);self.assertEqual(r['recovered_value_INR'],1000)
         self.assertIsNone(r['primary_value_INR']);self.assertFalse(r['canonical_original_overwritten'])
     def test_wrapper_and_yahoo_do_not_validate_each_other(self):
-        r=reconcile({},[self.obs('YAHOO_FINANCE'),self.obs('INDIAN_STOCK_MARKET_API')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        r=reconcile({},[self.obs('YAHOO_FINANCE'),self.obs('INDIAN_STOCK_MARKET_API')],'2026-10-19','2026-10-20T12:00:00Z',required_additional=1)[0][0]
         self.assertFalse(r['validated_for_new_master_input'])
     def test_two_source_recovery_rejects_conflicting_third_source(self):
-        r=reconcile({},[self.obs('A'),self.obs('B'),self.obs('C',1100)],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        r=reconcile({},[self.obs('A'),self.obs('B'),self.obs('C',1100)],'2026-10-19','2026-10-20T12:00:00Z',required_additional=1)[0][0]
         self.assertFalse(r['validated_for_new_master_input'])
     def test_original_family_cannot_corroborate_itself(self):
-        r=reconcile(self.primary,[self.obs('NSE')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        r=reconcile(self.primary,[self.obs('NSE')],'2026-10-19','2026-10-20T12:00:00Z',required_additional=1)[0][0]
         self.assertFalse(r['validated_for_new_master_input'])
+    def test_api_value_is_usable_without_another_provider(self):
+        r=reconcile({},[self.obs('YAHOO_FINANCE')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertTrue(r['validated_for_new_master_input']);self.assertFalse(r['cross_source_validation_required'])
+        self.assertEqual(r['selected_provider_family'],'YAHOO_FINANCE')
+    def test_one_web_source_can_fill_api_gap(self):
+        r=reconcile({},[self.obs('SCREENER')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertEqual(r['recovered_value_INR'],1000);self.assertEqual(r['status'],'WEB_VALUE_NO_CROSSCHECK_REQUIRED')
+    def test_api_priority_keeps_other_values_visible_without_requiring_agreement(self):
+        r=reconcile({},[self.obs('YAHOO_FINANCE'),self.obs('SCREENER',1100)],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertEqual(r['recovered_value_INR'],1000);self.assertEqual(len(r['provider_observations']),2)
+    def test_original_is_preserved_when_no_crosscheck_is_required(self):
+        r=reconcile(self.primary,[self.obs('YAHOO_FINANCE',1100)],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertEqual(r['resolved_value_INR'],1000);self.assertTrue(r['validated_for_new_master_input'])
+    def test_failed_large_json_write_preserves_previous_saved_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target=Path(temp)/'summary.json';dump(target,{'previous':'retained'})
+            with self.assertRaises(ValueError):dump(target,{'invalid':float('nan')})
+            self.assertIn('retained',target.read_text())
+    def test_repeated_source_metadata_is_compacted_without_changing_fact(self):
+        original=self.obs('YAHOO_FINANCE',basis_anchor_sources=[{'source':'https://issuer.test/'+str(i)} for i in range(50)])
+        compact=compact_observation(original)
+        self.assertEqual(compact['value_INR'],original['value_INR']);self.assertEqual(compact['basis_anchor_count'],50)
+        self.assertEqual(len(compact['basis_anchor_sources']),2);self.assertEqual(len(original['basis_anchor_sources']),50)
     def test_mirror_of_one_provider_counts_once(self):
         self.assertFalse(self.check([self.obs('A'),self.obs('A')])[0]['validated_for_new_master_input'])
     def test_secondary_agreement_does_not_replace_missing_primary(self):

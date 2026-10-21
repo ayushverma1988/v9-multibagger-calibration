@@ -20,7 +20,9 @@ def pack(root,output,baseline=None):
         'value_INR','rounding_half_width_INR','display_value','display_unit',
         'publisher','provider_family','source_url','source_sha256','first_observed_utc',
         'identity_proof','definition_status','upstream_field','identity_source_url',
-        'identity_source_sha256','reporting_basis_proof','basis_anchor_sources')
+        'identity_source_sha256','reporting_basis_proof','basis_anchor_sources',
+        'reporting_basis_independently_confirmed','calculation','supporting_upstream_fields',
+        'financial_definition_reference','cross_source_validation_required')
     for path in sorted((root/'master_data/provider_inputs').glob('*.json')):
         for r in json.loads(path.read_text()):
             issuer=current.get(r.get('isin'));kind=r.get('period_kind')

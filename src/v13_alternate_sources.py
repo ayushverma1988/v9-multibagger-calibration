@@ -146,7 +146,7 @@ def parse_screener_sector(raw,issuer,receipt):
         'source_url':receipt['requested_url'],'source_sha256':receipt['sha256'],
         'first_observed_utc':receipt['first_retrieved_utc'],'identity_proof':'EXACT_NSE_SYMBOL_JOINED_PUBLIC_ISIN'}
 
-def collect(root,universe_path=None,budget=3200,seconds=1800,sources=('NSE','SCREENER','FINOLOGY')):
+def collect(root,universe_path=None,budget=3200,seconds=1800,sources=('NSE','SCREENER','FINOLOGY'),only_isins=None):
     root=Path(root);folder=root/'master_data';folder.mkdir(parents=True,exist_ok=True)
     universe=pd.read_parquet(universe_path or root/'universe.parquet')
     coverage_path=root/'evidence/universe_financial_coverage.json'
@@ -154,6 +154,7 @@ def collect(root,universe_path=None,budget=3200,seconds=1800,sources=('NSE','SCR
     # Reject ambiguous normalized company names for the issuer-level provider.
     names=universe.nse_current_name.map(normal_name);unique_names=set(names[~names.duplicated(keep=False)])
     public_rows=universe.to_dict('records')
+    if only_isins is not None:public_rows=[r for r in public_rows if r['isin'] in set(only_isins)]
     attempts_path=folder/'alternate_attempts.json'
     attempts=json.loads(attempts_path.read_text()) if attempts_path.exists() else {}
     lock=threading.Lock();last={};local=threading.local()
