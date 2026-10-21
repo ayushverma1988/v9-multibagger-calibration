@@ -64,6 +64,8 @@ def validate_xml_observation(raw,document,observation,master_isin):
 
 def apply(root,packet_path):
     root=Path(root);packet=load_packet(packet_path)
+    embedded_parts=sorted(Path(packet_path).parent.glob('precision_gap_original_bytes_20261021.part*.b64'))
+    embedded=json.loads(gzip.decompress(base64.b64decode(''.join(p.read_text() for p in embedded_parts)))) if embedded_parts else {}
     universe=pd.read_parquet(root/'universe.parquet');master=dict(zip(universe.nse_current_symbol,universe['isin']))
     by_hash={d['receipt']['sha256']:d for d in packet['documents']};valid={};failures=[]
     raw_folder=root/'master_data/raw';raw_folder.mkdir(parents=True,exist_ok=True)
@@ -72,7 +74,8 @@ def apply(root,packet_path):
         proof=document['receipt'];digest=proof['sha256'];r=document['record'];suffix='.pdf' if document['source_type']=='PDF_MANUALLY_REVIEWED' else '.xml';path=raw_folder/digest/('original'+suffix)
         try:
             if proof.get('status')!=200 or proof['requested_url']!=r['source_url']:raise ValueError('Original receipt mismatch')
-            if path.exists():raw=path.read_bytes()
+            if digest in embedded:raw=gzip.decompress(base64.b64decode(embedded[digest]))
+            elif path.exists():raw=path.read_bytes()
             else:
                 # Local source publication caches use URL and availability hashes.
                 cache=root/'filing_raw'/hashlib.sha256(r['available_at_utc'].encode()).hexdigest()/(hashlib.sha256(r['source_url'].encode()).hexdigest()+'.bin')
@@ -113,5 +116,5 @@ def apply(root,packet_path):
         for o in old+observations:
             key=tuple(o.get(k) for k in (*KEYS,'provider_family','source_sha256','first_observed_utc','value_INR','rounding_half_width_INR','definition_status'));unique[key]=o
         path.write_text(json.dumps(list(unique.values()),indent=2))
-    result={'packet_sha256':hashlib.sha256(Path(packet_path).read_bytes()).hexdigest(),'source_documents_expected':len(packet['documents']),'source_documents_validated':len(valid),'source_fetch_failures':failures,'accepted_observations':len(accepted),'issuer_count':len(by_isin),'observation_validation_errors':rejected,'single_source_sufficient':True,'existing_original_values_overwritten':False,'frozen_forecasts_modified':False}
+    result={'packet_sha256':hashlib.sha256(Path(packet_path).read_bytes()).hexdigest(),'embedded_source_documents':len(embedded),'source_documents_expected':len(packet['documents']),'source_documents_validated':len(valid),'source_fetch_failures':failures,'accepted_observations':len(accepted),'issuer_count':len(by_isin),'observation_validation_errors':rejected,'single_source_sufficient':True,'existing_original_values_overwritten':False,'frozen_forecasts_modified':False}
     (root/'master_data/precision_source_import.json').write_text(json.dumps(result,indent=2));return result

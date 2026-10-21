@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: v13-private-research-state
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   import:
     runs-on: ubuntu-latest
