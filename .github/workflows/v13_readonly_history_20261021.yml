@@ -1,0 +1,50 @@
+name: V13 read-only market history for latest-close research
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-precision-gap-recovery-20261021]
+    paths: ['.github/workflows/v13_readonly_history_20261021.yml']
+permissions:
+  contents: read
+jobs:
+  research-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'huggingface_hub>=0.34,<2'
+      - name: Read current checkpoint history without changing forecasts or archive
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,tarfile,hashlib
+          from v13_checkpoint import restore
+          root=Path('v13_state')
+          if not restore(root):raise RuntimeError('Current checkpoint required')
+          members=sorted((root/'history'/'securities').glob('*.parquet'))
+          if not members:raise RuntimeError('No stored market history')
+          with tarfile.open('market_history.tar.gz','w:gz',compresslevel=1) as tar:
+              for p in members:tar.add(p,arcname=str(p.relative_to(root)))
+          receipt={'mode':'READ_ONLY_EXISTING_CHECKPOINT','history_files':len(members),'source_checkpoint':json.loads((root/'remote_manifest.json').read_text())['saved_at_utc'],'history_archive_sha256':hashlib.sha256(Path('market_history.tar.gz').read_bytes()).hexdigest(),'forecast_or_archive_written':False}
+          Path('history_export_receipt.json').write_text(json.dumps(receipt,indent=2))
+          print(json.dumps(receipt))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-readonly-market-history-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            market_history.tar.gz
+            history_export_receipt.json
