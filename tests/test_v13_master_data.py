@@ -15,11 +15,28 @@ class MasterEvidenceTests(unittest.TestCase):
             source_url='https://'+family.lower()+'.test/a',first_observed_utc='2026-10-20T10:00:00+00:00',identity_proof='EXACT_ISIN')
         r.update(kw);return r
     def check(self,rows,primary=None):
-        return reconcile(self.primary if primary is None else primary,rows,'2026-10-19','2026-10-20T12:00:00+00:00')[0]
+        return reconcile(self.primary if primary is None else primary,rows,'2026-10-19','2026-10-20T12:00:00+00:00',required_additional=2)[0]
     def test_two_additional_families_match_primary(self):
         r=self.check([self.obs('A'),self.obs('B')])[0]
         self.assertTrue(r['validated_for_new_master_input'])
         self.assertFalse(r['canonical_original_overwritten'])
+    def test_user_requirement_needs_only_one_additional_source(self):
+        r=reconcile(self.primary,[self.obs('A')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertTrue(r['validated_for_new_master_input'])
+        self.assertFalse(r['primary_plus_two_additional_sources_agree'])
+    def test_missing_original_can_be_recovered_by_two_distinct_sources(self):
+        r=reconcile({},[self.obs('A'),self.obs('B')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertTrue(r['validated_for_new_master_input']);self.assertEqual(r['recovered_value_INR'],1000)
+        self.assertIsNone(r['primary_value_INR']);self.assertFalse(r['canonical_original_overwritten'])
+    def test_wrapper_and_yahoo_do_not_validate_each_other(self):
+        r=reconcile({},[self.obs('YAHOO_FINANCE'),self.obs('INDIAN_STOCK_MARKET_API')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertFalse(r['validated_for_new_master_input'])
+    def test_two_source_recovery_rejects_conflicting_third_source(self):
+        r=reconcile({},[self.obs('A'),self.obs('B'),self.obs('C',1100)],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertFalse(r['validated_for_new_master_input'])
+    def test_original_family_cannot_corroborate_itself(self):
+        r=reconcile(self.primary,[self.obs('NSE')],'2026-10-19','2026-10-20T12:00:00Z')[0][0]
+        self.assertFalse(r['validated_for_new_master_input'])
     def test_mirror_of_one_provider_counts_once(self):
         self.assertFalse(self.check([self.obs('A'),self.obs('A')])[0]['validated_for_new_master_input'])
     def test_secondary_agreement_does_not_replace_missing_primary(self):

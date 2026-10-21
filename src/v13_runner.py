@@ -190,6 +190,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         except Exception as exc:
             report['steps']['additional_master_sources']={'status':'SOURCE_COLLECTION_INCOMPLETE','error':str(exc)[:200]}
         try:
+            from v13_yahoo_financials import collect as collect_yahoo_financials
+            report['steps']['yahoo_statement_sources']=collect_yahoo_financials(root,budget=240,seconds=180,asof=asof)
+        except Exception as exc:
+            report['steps']['yahoo_statement_sources']={'status':'SOURCE_COLLECTION_INCOMPLETE','error':str(exc)[:200]}
+        try:
             # Reuse source receipts; do not request the same host a second
             # time after the bounded collector has stopped on an access limit.
             from v13_financial_crosscheck import export as export_financial_crosschecks

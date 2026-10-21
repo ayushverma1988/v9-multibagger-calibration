@@ -119,12 +119,20 @@ def parse_screener_inputs(raw, symbol, isin, receipt):
 
 KEYS=('isin','reporting_mode','period_kind','period_end','metric')
 
-def reconcile(primary, observations, asof, review_clock):
+def source_family(value):
+    # The MIT-licensed wrapper, yfinance and Yahoo pages share one upstream.
+    family=str(value or '').upper()
+    if family in {'YFINANCE','YAHOO','YAHOO_FINANCE','INDIAN_STOCK_MARKET_API','0XRAMM'}:
+        return 'YAHOO_FINANCE'
+    return family
+
+def reconcile(primary, observations, asof, review_clock, required_additional=1):
     """Match identity, period, basis and definitions before comparing numbers.
 
     Multiple URLs from one provider family count once. Conflicts within that
     family disqualify it. No percentage tolerance hides a rounding mismatch.
     """
+    if required_additional not in {1,2}:raise ValueError('Require one or two additional sources')
     date=pd.Timestamp(asof);clock=pd.Timestamp(review_clock)
     if clock.tzinfo is None:raise ValueError('Review clock must be timezone aware')
     groups={};rejected=[]
@@ -141,7 +149,7 @@ def reconcile(primary, observations, asof, review_clock):
     out=[]
     for key,rs in groups.items():
         p=primary.get(key);families={}
-        for r in rs:families.setdefault(r['provider_family'],[]).append(r)
+        for r in rs:families.setdefault(source_family(r['provider_family']),[]).append(r)
         usable={};family_conflicts=[]
         for family,items in families.items():
             # Compare the latest observation vintage, not a mix of stale and
@@ -152,20 +160,36 @@ def reconcile(primary, observations, asof, review_clock):
             high=min(x['value_INR']+x['rounding_half_width_INR'] for x in items)
             if low>high+1e-6:family_conflicts.append(family)
             else:usable[family]=(low,high,items[-1])
+        primary_family=source_family((p or {}).get('provider_family','NSE'))
+        usable={k:v for k,v in usable.items() if k and k!=primary_family}
         matches={k:v for k,v in usable.items() if p is not None and v[0]-1e-6<=p['value_INR']<=v[1]+1e-6}
         low=max((v[0] for v in matches.values()),default=np.nan)
         high=min((v[1] for v in matches.values()),default=np.nan)
         triple=p is not None and len(matches)>=2 and low<=high+1e-6
-        status=('PRIMARY_PLUS_TWO_ADDITIONAL_PROVIDER_FAMILIES_AGREE' if triple else
+        pair=p is not None and len(matches)>=required_additional and low<=high+1e-6
+        recovered=None
+        if p is None and len(usable)>=2 and not family_conflicts:
+            lower=max(v[0] for v in usable.values());upper=min(v[1] for v in usable.values())
+            chosen=min(usable.values(),key=lambda v:v[1]-v[0])[2]['value_INR']
+            if lower-1e-6<=chosen<=upper+1e-6:
+                recovered=float(chosen);matches=usable
+        admitted=pair or (recovered is not None and required_additional==1)
+        status=('TWO_DISTINCT_PROVIDERS_RECOVER_MISSING_ORIGINAL' if recovered is not None else
+            'PRIMARY_PLUS_TWO_ADDITIONAL_PROVIDER_FAMILIES_AGREE' if triple else
+            'PRIMARY_PLUS_ONE_ADDITIONAL_PROVIDER_FAMILY_AGREES' if pair else
             'PRIMARY_VALUE_MISSING_OR_AMBIGUOUS' if p is None else
             'NUMERIC_CONFLICT_REVIEW' if any(k not in matches for k in usable) else
-            'FEWER_THAN_TWO_ADDITIONAL_PROVIDERS')
+            'INSUFFICIENT_DISTINCT_ADDITIONAL_PROVIDERS')
         out.append({**dict(zip(KEYS,key)),'symbol':rs[0]['symbol'],
             'primary_value_INR':None if p is None else p['value_INR'],
             'primary_source_url':None if p is None else p['source_url'],
             'primary_source_sha256':None if p is None else p['source_sha256'],
             'matching_provider_families':sorted(matches),'within_family_conflicts':family_conflicts,
-            'status':status,'validated_for_new_master_input':bool(triple),
+            'status':status,'validated_for_new_master_input':bool(admitted),
+            'primary_plus_two_additional_sources_agree':bool(triple),
+            'required_additional_sources':required_additional,
+            'recovered_value_INR':recovered,
+            'resolved_value_INR':p['value_INR'] if p else recovered,
             'canonical_original_overwritten':False,'provider_observations':rs})
     return out,rejected
 
@@ -311,6 +335,11 @@ def export(root,asof):
     for isin,basis,kind,end,field in primary:
         key=(isin,basis,kind)
         observed_periods[key]=max(end,observed_periods.get(key,''))
+    recovered_periods={}
+    for proof in comparisons:
+        if proof['validated_for_new_master_input']:
+            key=(proof['isin'],proof['reporting_mode'],proof['period_kind'])
+            recovered_periods[key]=max(proof['period_end'],recovered_periods.get(key,''))
     coverage=json.loads((root/'evidence/universe_financial_coverage.json').read_text())
     sector_path=folder/'sector_master.json'
     sectors={r['isin']:r for r in json.loads(sector_path.read_text())} if sector_path.exists() else {}
@@ -353,24 +382,34 @@ def export(root,asof):
             dates=[str(stored.date())] if pd.notna(stored) else []
             reviewed_period=observed_periods.get((a['isin'],basis,kind))
             if reviewed_period:dates.append(reviewed_period)
+            # Complete gaps in the existing dated section. A provider's newer
+            # single line must not erase the remaining known original fields.
+            if not dates and recovered_periods.get((a['isin'],basis,kind)):
+                dates.append(recovered_periods[(a['isin'],basis,kind)])
             period=max(dates) if dates else None
             r[kind+'_period_end']=period
             key=(a['isin'],basis,kind,period,field);p=primary.get(key);proof=matched.get(key,{})
             name=kind+'_'+field;r[name]=p['value_INR'] if p else None
             fresh=bool(period and 0<=(pd.Timestamp(asof)-pd.Timestamp(period)).days<=(190 if kind=='quarter' else 450))
             admitted=fresh and proof.get('validated_for_new_master_input',False)
-            r['validated_'+name]=r[name] if admitted else None
+            resolved=r[name] if p else proof.get('recovered_value_INR')
+            r['resolved_'+name]=resolved
+            r['validated_'+name]=resolved if admitted else None
             cells.append({'symbol':a['symbol'],'isin':a['isin'],'column':name,
                 'reporting_mode':basis,'period_kind':kind,'period_end':period,
                 'metric':field,'value':r[name],
                 'source_url':p['source_url'] if p else None,'source_sha256':p['source_sha256'] if p else None,
-                'source_status':'ORIGINAL_OBSERVED' if p else 'MISSING_OR_AMBIGUOUS_ORIGINAL',
-                'two_additional_sources_agree':proof.get('validated_for_new_master_input',False),
-                'period_is_current_enough':fresh,'eligible_current_three_source_input':bool(admitted),
+                'resolved_value':resolved,'validated_value':resolved if admitted else None,
+                'source_status':'ORIGINAL_OBSERVED' if p else 'RECOVERED_FROM_TWO_PROVIDERS' if admitted else 'MISSING_OR_AMBIGUOUS_ORIGINAL',
+                'two_additional_sources_agree':proof.get('primary_plus_two_additional_sources_agree',False),
+                'one_additional_source_agrees':bool(p and proof.get('validated_for_new_master_input',False)),
+                'eligible_current_two_source_input':bool(admitted),
+                'recovered_missing_original':bool(p is None and admitted),
+                'period_is_current_enough':fresh,'eligible_current_three_source_input':bool(fresh and proof.get('primary_plus_two_additional_sources_agree',False)),
                 'source_review':proof.get('status','NO_ADDITIONAL_SOURCE_COMPARISON'),
                 'matching_provider_families':', '.join(proof.get('matching_provider_families',[])),
-                'additional_source_urls':'\n'.join(sorted({s['source_url'] for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])})),
-                'additional_source_hashes':'\n'.join(sorted({s['provider_family']+':'+(s.get('source_sha256') or 'WEB_TABLE_REVIEW_NO_ORIGINAL_BYTES') for s in proof.get('provider_observations',[]) if s['provider_family'] in proof.get('matching_provider_families',[])}))})
+                'additional_source_urls':'\n'.join(sorted({s['source_url'] for s in proof.get('provider_observations',[]) if source_family(s['provider_family']) in proof.get('matching_provider_families',[])})),
+                'additional_source_hashes':'\n'.join(sorted({source_family(s['provider_family'])+':'+(s.get('source_sha256') or 'WEB_TABLE_REVIEW_NO_ORIGINAL_BYTES') for s in proof.get('provider_observations',[]) if source_family(s['provider_family']) in proof.get('matching_provider_families',[])}))})
         rows.append(r)
     master=pd.DataFrame(rows);long=pd.DataFrame(cells)
     master.to_parquet(folder/'master_inputs.parquet',index=False)
@@ -379,7 +418,7 @@ def export(root,asof):
     long.to_csv(folder/'master_input_sources.csv',index=False)
     dump(folder/'master_inputs.json',clean_records(master))
     dump(folder/'source_comparisons.json',comparisons)
-    pending=long[~long.eligible_current_three_source_input].copy()
+    pending=long[~long.eligible_current_two_source_input].copy()
     pending.to_parquet(folder/'pending_input_validation.parquet',index=False)
     counts=[]
     for column,g in long.groupby('column',sort=False):
@@ -387,6 +426,9 @@ def export(root,asof):
             'missing_or_ambiguous_original':int(g.value.isna().sum()),
             'primary_plus_two_additional_sources_agree':int(g.two_additional_sources_agree.sum()),
             'current_three_source_inputs':int(g.eligible_current_three_source_input.sum()),
+            'current_two_source_inputs':int(g.eligible_current_two_source_input.sum()),
+            'recovered_missing_original':int(g.recovered_missing_original.sum()),
+            'remaining_missing_or_ambiguous':int(g.resolved_value.isna().sum()),
             'stale_or_unknown_period':int((~g.period_is_current_enough).sum())})
     dump(folder/'column_coverage.json',counts)
     from v13_model import FEATURES
@@ -428,19 +470,26 @@ def export(root,asof):
         'missing_or_ambiguous_original_cells':int(long.value.isna().sum()),
         'cells_with_primary_plus_two_additional_sources':int(long.two_additional_sources_agree.sum()),
         'current_three_source_input_cells':int(long.eligible_current_three_source_input.sum()),
-        'remaining_current_validation_cells':int((~long.eligible_current_three_source_input).sum()),
+        'required_additional_sources':1,
+        'current_two_source_input_cells':int(long.eligible_current_two_source_input.sum()),
+        'recovered_missing_original_cells':int(long.recovered_missing_original.sum()),
+        'resolved_input_cells':int(long.resolved_value.notna().sum()),
+        'remaining_missing_or_unresolved_cells':int(long.resolved_value.isna().sum()),
+        'remaining_current_validation_cells':int((~long.eligible_current_two_source_input).sum()),
         'three_source_sector_issuers':sum(r['sector_three_source_agreement'] for r in rows),
         'provider_observations':len(observations),'comparison_groups':len(comparisons),
         'source_comparison_window_start':low,
         'raw_observations_before_window_and_dedup':observation_count_before_dedup,
         'rejected_observations':len(rejected),'column_coverage':counts,
-        'all_missing_data_collected':False,'analysis_ready_under_three_source_requirement':bool(long.eligible_current_three_source_input.all()),
+        'all_missing_data_collected':bool(long.resolved_value.notna().all()),
+        'analysis_ready_under_two_source_requirement':bool(long.eligible_current_two_source_input.all()),
+        'analysis_ready_under_three_source_requirement':bool(long.eligible_current_three_source_input.all()),
         'new_prediction_run':False,'frozen_forecasts_unchanged':True,
         'prior_twenty_price_date':'2026-10-16','prior_twenty_current_market_rows':sum(r['current_market_input_available'] for r in prior)}
     dump(folder/'summary.json',result)
     return result
 
-def run(root,passes=3,provider_budget=3200,incoming=None):
+def run(root,passes=3,provider_budget=3200,incoming=None,alternate_budget=0,yahoo_budget=0,source_seconds=1200):
     from v13_checkpoint import restore, save
     from v13_collection import collect_financials
     from v13_universe_financial_audit import audit
@@ -468,6 +517,12 @@ def run(root,passes=3,provider_budget=3200,incoming=None):
         dump(root/'master_data/original_collection_passes.json',runs)
         print('Master original collection pass',i+1,json.dumps({k:v for k,v in report.items() if k!='errors'}),flush=True)
     if provider_budget:collect_providers(root,asof,provider_budget)
+    if alternate_budget:
+        from v13_alternate_sources import collect as collect_alternates
+        collect_alternates(root,budget=alternate_budget,seconds=source_seconds)
+    if yahoo_budget:
+        from v13_yahoo_financials import collect as collect_yahoo
+        collect_yahoo(root,budget=yahoo_budget,seconds=source_seconds,asof=asof)
     from v13_alternate_sources import sector_master
     sector_master(root)
     after=audit(pd.read_parquet(root/'universe.parquet'),pd.read_parquet(root/'financial_wide.parquet'),asof,root)
@@ -479,5 +534,5 @@ def run(root,passes=3,provider_budget=3200,incoming=None):
     return result
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--passes',type=int,default=3);p.add_argument('--provider-budget',type=int,default=3200);p.add_argument('--merge-source-dir')
-    args=p.parse_args();run(args.state,args.passes,args.provider_budget,args.merge_source_dir)
+    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--passes',type=int,default=3);p.add_argument('--provider-budget',type=int,default=3200);p.add_argument('--merge-source-dir');p.add_argument('--alternate-budget',type=int,default=0);p.add_argument('--yahoo-budget',type=int,default=0);p.add_argument('--source-seconds',type=int,default=1200)
+    args=p.parse_args();run(args.state,args.passes,args.provider_budget,args.merge_source_dir,args.alternate_budget,args.yahoo_budget,args.source_seconds)

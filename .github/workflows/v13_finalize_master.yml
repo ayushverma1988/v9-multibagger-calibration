@@ -1,4 +1,4 @@
-name: V13 finalize reviewed master inputs
+name: V13 two-source missing financial input recovery
 on:
   workflow_dispatch:
   push:
@@ -12,15 +12,22 @@ concurrency:
 jobs:
   finalize:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 100
     env:
       PYTHONPATH: src
+      INDIAN_STOCK_API_CHECKOUT: ${{ github.workspace }}/api_source
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: 0xramm/Indian-Stock-Market-API
+          ref: 147cd5c92a7888104e0be63eef7ea72a5b61ad3e
+          path: api_source
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -30,10 +37,11 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_v13_master_data.py'
           python -m unittest discover -s tests -p 'test_v13_alternate_sources.py'
-      - name: Restore newest collection and save reviewed master without inference
+          python -m unittest discover -s tests -p 'test_v13_yahoo_financials.py'
+      - name: Restore newest collection, collect alternate sources and save two-source master
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
-        run: python -m v13_master_data --state v13_state --passes 0 --provider-budget 0
+        run: python -m v13_master_data --state v13_state --passes 0 --provider-budget 0 --alternate-budget 3200 --yahoo-budget 3200 --source-seconds 900
       - uses: actions/upload-artifact@v4
         if: always()
         with:
