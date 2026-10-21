@@ -1,0 +1,70 @@
+name: V13 import single-source primary gap recovery after model run
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-primary-gap-import-20261021]
+    paths: ['.github/workflows/v13_primary_gap_import_20261021.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Check source import and single-source master contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_v13_financial_recovery_seed.py'
+          python -m unittest discover -s tests -p 'test_v13_master_data.py'
+      - name: Import original documents into current checkpoint and preserve frozen forecasts
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          from v13_checkpoint import restore,save
+          from v13_frozen_integrity import FrozenGuard
+          from v13_financial_recovery_seed import apply
+          from v13_master_data import export
+          root=Path('v13_state')
+          if not restore(root):raise RuntimeError('Current checkpoint required')
+          guard=FrozenGuard(root)
+          asof=json.loads((root/'latest_run.json').read_text())['asof']
+          before=export(root,asof)
+          imported=apply(root,Path('v13_evidence_seed/financial_primary_recovery_20261021.json'),asof)
+          if imported['errors'] or imported['same_original_numeric_conflicts']:raise ValueError('Source import has unresolved conflicts')
+          after=export(root,asof)
+          integrity=guard.check(pd.read_parquet(root/'prospective_observations.parquet'))
+          result={'before':before,'import':imported,'after':after,'frozen_integrity':integrity,'new_forecast_created':False,'cross_source_validation_required':False}
+          (root/'master_data/primary_gap_import_20261021.json').write_text(json.dumps(result,indent=2))
+          receipt=save(root)
+          Path('primary_gap_archive_receipt.json').write_text(json.dumps(receipt,indent=2))
+          print(json.dumps({'imported_documents':imported['original_documents_replayed'],'before_missing':before['remaining_missing_or_unresolved_cells'],'after_missing':after['remaining_missing_or_unresolved_cells'],'archive_receipt':receipt},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-primary-gap-import-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            v13_state/master_data/*.json
+            v13_state/master_data/*.parquet
+            v13_state/master_data/*.csv
+            v13_state/financial_primary_seed_recovery.json
+            primary_gap_archive_receipt.json
