@@ -226,12 +226,51 @@ def stable_event_windows(asof):
     return sorted(full,reverse=True)+sorted(partial,reverse=True)
 
 def universe(root,asof):
-    store=Store(Path(root)/'sources'/asof/'raw');frames=[]
+    from datetime import datetime,timezone
+    root=Path(root);frames=[];attempts=[]
+    # A current master can be corrected between requests. Preserve each reply
+    # in its own cache vintage: retrying the same Store would replay the bad
+    # bytes forever, including a same-session restart. Identity checks remain
+    # strict and a failed refresh never replaces the last accepted universe.
+    vintage=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    audit=root/'evidence'/'universe_source_audit.json';audit.parent.mkdir(parents=True,exist_ok=True)
+    def record(status):
+        audit.write_text(json.dumps({'source_asof':asof,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
+          'status':status,'attempts':attempts,'identity_checks_relaxed':False,
+          'previous_universe_used_as_current':False},indent=2))
     for url in (NSE_MASTER,NSE_SME_MASTER):
-        raw,_=store.get(url);frames.append(parse_nse_master(raw))
+        for number in range(1,4):
+            store=Store(root/'sources'/asof/'raw'/('universe_'+vintage)/str(number))
+            try:
+                raw,proof=store.get(url)
+            except Exception as exc:
+                # Access limits and network failures retain their existing
+                # fail-closed behaviour; no repeated permission probing.
+                attempts.append({'url':url,'attempt':number,'status':'FETCH_FAILED',
+                  'error':type(exc).__name__})
+                record('SOURCE_FETCH_FAILED');raise
+            attempt={'url':url,'attempt':number,'source_sha256':proof['sha256'],
+              'retrieved_at_utc':proof['first_retrieved_utc'],'bytes':len(raw)}
+            try:
+                frame=parse_nse_master(raw)
+            except ValueError as exc:
+                attempts.append({**attempt,'status':'REJECTED','error':str(exc)[:200]})
+                record('RETRYING_INVALID_MASTER' if number<3 else 'INVALID_MASTER')
+                if number==3:raise
+                time.sleep(1)
+                continue
+            attempts.append({**attempt,'status':'ACCEPTED','rows':len(frame)})
+            frames.append(frame);break
     d=pd.concat(frames).drop_duplicates('isin')
-    if d.nse_current_symbol.duplicated().any():raise ValueError('Public universe symbol conflict')
-    d.to_parquet(Path(root)/'universe.parquet',index=False);return d
+    if d.nse_current_symbol.duplicated().any():
+        record('CROSS_MASTER_SYMBOL_CONFLICT');raise ValueError('Public universe symbol conflict')
+    path=root/'universe.parquet';temp=path.with_suffix('.parquet.tmp')
+    try:
+        d.to_parquet(temp,index=False);temp.replace(path)
+    finally:
+        temp.unlink(missing_ok=True)
+    record('ACCEPTED')
+    return d
 
 def public_history_refresh_priority(history):
     """Prioritize usable public history by coverage and turnover, not share price."""
