@@ -81,6 +81,21 @@ class UniverseRetryTests(unittest.TestCase):
                 universe(root, '2026-10-22')
             self.assertEqual((root / 'universe.parquet').read_bytes(), prior)
 
+    def test_partial_write_cannot_replace_prior_universe_or_pollute_checkpoint(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); prior = b'previous accepted universe'; folders = []
+            (root / 'universe.parquet').write_bytes(prior)
+            def fail_write(frame, path, **kwargs):
+                Path(path).write_bytes(b'partial parquet')
+                raise OSError('disk write failed')
+            with patch('v13_collection.Store.get', self.fetcher(
+                    {NSE_MASTER: [MAIN], NSE_SME_MASTER: [SME]}, folders)), \
+                    patch.object(pd.DataFrame, 'to_parquet', fail_write), \
+                    self.assertRaisesRegex(OSError, 'disk write failed'):
+                universe(root, '2026-10-22')
+            self.assertEqual((root / 'universe.parquet').read_bytes(), prior)
+            self.assertFalse((root / 'universe.parquet.tmp').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

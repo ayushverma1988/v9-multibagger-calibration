@@ -265,7 +265,11 @@ def universe(root,asof):
     if d.nse_current_symbol.duplicated().any():
         record('CROSS_MASTER_SYMBOL_CONFLICT');raise ValueError('Public universe symbol conflict')
     path=root/'universe.parquet';temp=path.with_suffix('.parquet.tmp')
-    d.to_parquet(temp,index=False);temp.replace(path);record('ACCEPTED')
+    try:
+        d.to_parquet(temp,index=False);temp.replace(path)
+    finally:
+        temp.unlink(missing_ok=True)
+    record('ACCEPTED')
     return d
 
 def public_history_refresh_priority(history):
