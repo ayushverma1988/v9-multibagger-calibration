@@ -23,8 +23,13 @@ provider stop. Replaying the 23 October error list shows **no observed rate
 limit**; the material failure was delayed/missing source-date provider bars.
 
 Local validation on the current deployed lineage: **38 focused tests and 687
-full tests passed**. GitHub checks and a replacement worker artifact remain
-required before the operational workflow is repinned.
+full tests passed**. GitHub contract run
+`40056336496` also passed. Correction commit
+`9f08d9d818cd71eaa850be1a2a5e03fdd7e5ee5f` is PR 23 and the operational
+workflow was repinned to it in main commit
+`bd39ee33bf9a5f5dd60618d6d1d94c98212a8cb3` only after those checks passed.
+Deployment worker `40056471417` is in progress; its replacement artifact
+still requires post-run integrity and gate verification.
 
 ## Six-area evidence coverage
 
@@ -55,6 +60,11 @@ heads and 25 immutable registered files were unchanged.
 
 ## Source, checkpoint and evidence audit
 
+- PR 14 remains open/draft and mergeable at
+  `b8912a7c1a1d72ed3834c70030b69aa0586f2c7f`; branch
+  `v13-nse-self-learning-20261011` is unchanged at the same SHA. PR 22 remains
+  open on the current recovery lineage. PR 18 was closed as superseded by the
+  current-lineage PR 23.
 - Artifact `12533475632` has ZIP SHA-256
   `5459d3163b106e126f4a133ed19db5a03ef6ad2591bad14588219fd627fda9f2`.
 - Private checkpoint `20261023T212633Z_003f0524501b` and manifest
@@ -101,8 +111,8 @@ instability; it is not an economic regime signal.
 
 | Area | Tested/deployed engineering | Remaining evidence or work | Qualified timing |
 |---|---|---|---|
-| Collapsed-cohort guard | 687 local tests pass on current pin lineage | GitHub checks, repin and replacement artifact audit | One CI + worker cycle if external sources respond |
-| Provider status flag | Actual 429/403 detection tested | Confirm in a live artifact | Same replacement cycle |
+| Collapsed-cohort guard | 687 local tests and GitHub CI pass; operational pin deployed | Replacement artifact audit | Active worker `40056471417`; normally within the 120-minute job limit if external sources respond |
+| Provider status flag | Actual 429/403 detection tested and deployed | Confirm in the same live artifact | Same active worker cycle |
 | Dated financial inputs | 68,789 period/basis/version rows; 699,849 numeric observations | 12,357 master cells unresolved; 581 bounded errors in this pass | Multiple rotating passes; no fixed source-completion date |
 | Catalyst economics | 4,076 documents; 803 candidates | Zero complete execution bundles; 63,108 catalogue backlog | Source disclosure and review dependent |
 | Source-supported net 2× | Zero qualifying cases | Recurring earnings, dilution, execution economics and justified valuation | No honest fixed ETA |
