@@ -1,0 +1,40 @@
+name: Requested read-only V13 algorithm rerun 24 October 2026
+on:
+  workflow_dispatch:
+  push:
+    branches: [v13-requested-rerun-20261024]
+    paths: ['.github/workflows/v13_requested_rerun_20261024.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const r = await github.rest.actions.downloadArtifact({...context.repo, artifact_id:12547364576, archive_format:'zip'});
+            fs.writeFileSync('latest_worker.zip', Buffer.from(r.data));
+      - name: Execute fixed heads and inclusive RSI50 ranking on latest complete inputs
+        run: python -m v13_requested_rerun_20261024
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: requested-v13-rerun-20261024-${{ github.run_id }}
+          path: requested_rerun/*
+          retention-days: 30
