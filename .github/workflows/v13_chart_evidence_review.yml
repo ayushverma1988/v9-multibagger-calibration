@@ -1,0 +1,60 @@
+name: V13 chart evidence contract and read-only replay
+on:
+  push:
+    branches: [v13-chart-evidence-20261024]
+    paths: ['.github/workflows/v13_chart_evidence_review.yml', 'src/v13_chart*.py', 'tests/test_v13_chart*.py', 'src/v13_redevelopment.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - run: python -m unittest discover -s tests
+  replay:
+    needs: contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            for (const [artifact_id, file] of [[12547364576,'worker.zip'],[12561555006,'rerun.zip']]) {
+              const result = await github.rest.actions.downloadArtifact({...context.repo,artifact_id,archive_format:'zip'});
+              fs.writeFileSync(file,Buffer.from(result.data));
+            }
+      - name: Read verified saved prices and annotate unchanged forecasts
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_chart_replay_20261024
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-chart-review-${{ github.run_id }}
+          path: chart_replay/chart_interpretation/
+          retention-days: 30

@@ -176,6 +176,11 @@ def export(scored,root,replay_receipt):
     bottom_summary=export_bottom_recovery(d,root,replay_receipt)
     from v13_early_potential import export as export_early_potential
     early_summary=export_early_potential(d,root,replay_receipt)
+    from v13_chart_interpretation import export as export_chart_interpretation
+    try:
+        chart_summary=export_chart_interpretation(scored,root,replay_receipt)
+    except Exception as exc:
+        chart_summary={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
     d,audit=select(d)
     audit['prediction_replay']=replay_receipt
     audit['probabilities_recalibrated']=False
@@ -188,4 +193,6 @@ def export(scored,root,replay_receipt):
     result={k:v for k,v in audit.items() if k not in ('records','prediction_replay')}
     result['bottom_recovery_shadow']=bottom_summary
     result['early_potential_shadow']=early_summary
+    result['chart_interpretation_shadow']=chart_summary
     return result
+
