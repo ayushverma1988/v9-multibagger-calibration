@@ -38,3 +38,5 @@ jobs:
           name: requested-v13-rerun-20261024-${{ github.run_id }}
           path: requested_rerun/*
           retention-days: 30
+
+# Carry previously admitted, period-matched original facts into missing research inputs.

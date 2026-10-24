@@ -7,6 +7,101 @@ from v13_paired_forecasts import scored
 from v13_research_selection import screen, RSI_MIN
 from v13_early_potential import select as early_select
 
+def supplement_inputs(frame, financial_wide, master_inputs, packet_path):
+    import base64, gzip
+    from v12_5_features import features, preferred_reporting_basis, pick, owner_profit_status
+    from v13_financial_evidence import financial_quality
+    packet = json.loads(gzip.decompress(base64.b64decode(Path(packet_path).read_text())))
+    assert len(packet['observations']) == 1764
+    w = financial_wide.copy()
+    w['period'] = pd.to_datetime(w.period_end)
+    w['available'] = pd.to_datetime(w.available_at_utc, utc=True, format='mixed')
+    result = frame.copy()
+    changes = []; admitted = []
+    by_isin = {}
+    for obs in packet['observations']:
+        by_isin.setdefault(obs['isin'], []).append(obs)
+    preferred = {r['isin']:r.get('preferred_reporting_basis') for r in master_inputs}
+    for i, original in result.iterrows():
+        isin = original['isin']
+        if isin not in by_isin:
+            continue
+        cutoff = pd.Timestamp(original['information_cutoff_utc'])
+        date = pd.Timestamp(original['date'])
+        known = w[w.security_isin.eq(isin) & w.available.le(cutoff) & w.period.le(date)].copy()
+        groups = {}
+        for obs in by_isin[isin]:
+            observed = pd.Timestamp(obs['first_observed_utc'])
+            if observed > cutoff or pd.Timestamp(obs['period_end']) > date:
+                continue
+            key = (obs['reporting_mode'], obs['period_kind'], obs['period_end'])
+            groups.setdefault(key, []).append(obs)
+        new_rows = []
+        for (basis, kind, end), observations in groups.items():
+            candidates = known[known.reporting_mode.eq(basis) & known.period_kind.eq(kind) & known.period.eq(pd.Timestamp(end))]
+            if len(candidates):
+                last = candidates[candidates.available.eq(candidates.available.max())]
+                if len(last) == 1:
+                    base = last.iloc[0].to_dict()
+                else:
+                    base = {'symbol':original.symbol,'security_isin':isin,'reporting_mode':basis,
+                        'period_kind':kind,'period_end':end,'period':pd.Timestamp(end),
+                        'available':last.available.max(),'source_sha256':'AMBIGUOUS_PRIOR_SOURCE'}
+                    for c in last.select_dtypes(include='number'):
+                        values = last[c].dropna().unique()
+                        if len(values) == 1:
+                            base[c] = values[0]
+            else:
+                base = {'symbol':original.symbol,'security_isin':isin,'reporting_mode':basis,
+                    'period_kind':kind,'period_end':end,'period':pd.Timestamp(end)}
+            used = []
+            for obs in observations:
+                value = base.get(obs['metric'], np.nan)
+                if value is None or pd.isna(value):
+                    base[obs['metric']] = obs['value_INR']
+                    used.append(obs)
+            if not used:
+                continue
+            available = max([pd.Timestamp(x['first_observed_utc']) for x in used] +
+                ([pd.Timestamp(base['available'])] if base.get('available') is not None else []))
+            assert available <= cutoff
+            base['available'] = available
+            base['available_at_utc'] = available.isoformat()
+            base['source_sha256'] = hashlib.sha256(json.dumps({
+                'prior':str(base.get('source_sha256')), 'period':end,
+                'added':[(x['metric'],x['source_sha256']) for x in used]},
+                sort_keys=True).encode()).hexdigest()
+            base['source_url'] = '; '.join(sorted(set(x['source_url'] for x in used)))
+            new_rows.append(base); admitted.extend(used)
+        if new_rows:
+            known = pd.concat([known,pd.DataFrame(new_rows)], ignore_index=True)
+        basis = preferred.get(isin) or preferred_reporting_basis(known, date)
+        known = known[known.reporting_mode.eq(basis)]
+        if known.empty:
+            continue
+        fv, sources = features(known, date)
+        for feature, value in fv.items():
+            previous = result.at[i,feature] if feature in result else np.nan
+            if pd.isna(previous) and value is not None and np.isfinite(value):
+                result.at[i,feature] = value
+                changes.append({'isin':isin,'symbol':original.symbol,'feature':feature,
+                    'value':float(value),'reporting_basis':basis,
+                    'source_hashes':sorted(set(str(x.get('source_sha256')) for x in sources))})
+        quality = financial_quality(result.loc[i].to_dict())
+        result.at[i,'financial_complete'] = quality['complete']
+        result.at[i,'financial_quality_pass'] = quality['quality_pass']
+        result.at[i,'financial_quality_status'] = quality['status']
+        result.at[i,'financial_unknown_fields'] = '|'.join(quality['unknown_fields'])
+        old_status = str(original.get('current_owner_profit_status',''))
+        status = owner_profit_status(pick(known,'quarter'))
+        if old_status.startswith('UNKNOWN_') and 'DOES_NOT_RECONCILE' not in old_status and status.startswith('ORIGINAL_'):
+            result.at[i,'current_owner_profit_status'] = status
+    result['earnings_market_confirmation'] = result.quarter_pat_yoy * result.relative_strength63
+    return result, {'raw_original_facts_overwritten':False,
+        'existing_numeric_model_inputs_overwritten':False,
+        'filled_model_inputs':len(changes),'issuers_with_filled_inputs':len(set(x['isin'] for x in changes)),
+        'changes':changes,'admitted_observations_considered':admitted}
+
 def run(artifact, outdir):
     out = Path(outdir); out.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(artifact) as z:
@@ -21,6 +116,8 @@ def run(artifact, outdir):
         assert hashlib.sha256(headraw).hexdigest() == receipt['model_sha256']
         heads = joblib.load(io.BytesIO(headraw))
         rd = pd.DataFrame(json.loads(z.read('v13_state/redevelopment/latest.json'))['records'])
+        financial_wide = pd.read_parquet(io.BytesIO(z.read('v13_state/financial_wide.parquet')))
+        master_inputs = json.loads(z.read('v13_state/master_data/master_inputs.json'))
         previous_predictions = None
         prefix = 'v13_state/prediction_replay/' + key + '/'
         for name in z.namelist():
@@ -44,6 +141,18 @@ def run(artifact, outdir):
         for k in ('p6','p12','loss12','joint12'):
             diff = np.max(np.abs(predictions[k].to_numpy(float) - np.asarray(previous_predictions[k], float)))
             assert diff < 1e-12, (k, diff)
+    baseline_columns = ['symbol','isin','source_close_INR','rsi14','p6','p12','loss12','joint12','research_rank','research_financial_tier']
+    rows[baseline_columns].to_csv(out/'Exact_Saved_Input_Top20_2026-10-24.csv',index=False)
+    repaired_frame, bridge = supplement_inputs(frame, financial_wide, master_inputs,
+        'v13_evidence_seed/precision_gap_sources_20261021.json.gz.b64')
+    predictions = scored(heads, repaired_frame)
+    selected, audit = screen(predictions)
+    rows = selected[selected.research_selected].sort_values('research_rank').copy()
+    assert rows.rsi14.ge(50).all()
+    (out/'Recovered_Financial_Input_Bridge_2026-10-24.json').write_text(json.dumps(bridge,indent=2))
+    for c in repaired_frame.columns:
+        if c in rd.columns and c not in ['date','isin','symbol']:
+            rd[c] = rd['isin'].map(repaired_frame.set_index('isin')[c])
     assert set(rd['isin']) == set(selected['isin'])
     for k in ('p6','p12','loss12','joint12'):
         rd[k] = rd['isin'].map(selected.set_index('isin')[k])
@@ -73,6 +182,8 @@ def run(artifact, outdir):
         'selected_incomplete_names':rows[rows.research_financial_tier.ne('PASS_AVAILABLE_SEVEN_CHECKS')].symbol.tolist(),
         'maximum_selected_probability_difference_from_saved_run':largest,
         'full_saved_probability_arrays_compared':previous_predictions is not None,
+        'research_input_mode':'FILL_MISSING_DATED_FINANCIAL_INPUTS_FROM_PREVIOUSLY_ADMITTED_ORIGINAL_FACTS',
+        'financial_bridge':{k:v for k,v in bridge.items() if k not in ['changes','admitted_observations_considered']},
         'model_retrained':False,'formal_forecasts_or_checkpoints_modified':False,
         'probability_accuracy_validated':False,
         'records':json.loads(rows[columns].to_json(orient='records')),
