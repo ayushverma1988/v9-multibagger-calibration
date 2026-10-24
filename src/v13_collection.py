@@ -13,6 +13,11 @@ import numpy as np
 from v13_price_policy import valid_price
 import time
 
+def _rate_limit_observed(errors):
+    """Report an actual provider stop, not a configured possibility."""
+    tokens=('429','too many requests','403','forbidden')
+    return any(any(token in str(item.get('error','')).lower() for token in tokens) for item in errors)
+
 def financial_wide(extra):
     keys=['symbol','security_isin','reporting_mode','period_kind','period_end','available_at_utc','source_sha256']
     x=extra.drop_duplicates(keys+['metric','value'])
@@ -378,7 +383,7 @@ def collect_histories(root,asof,budget=3200):
       'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
       'already_source_aligned_histories_not_refetched':sum(not q[6] for q in queue),
       'same_day_unreconciled_bars_can_be_retried':True,'raw_response_vintage':vintage,
-      'source_workers':4,'source_rate_limited':True,'partial_coverage_is_not_full_NSE':True}
+      'source_workers':4,'source_rate_limited':_rate_limit_observed(errors),'partial_coverage_is_not_full_NSE':True}
 
 def history_needs_refresh(history,official,asof,symbol,isin):
     """Only exact current official matches establish a completed refresh."""
@@ -488,7 +493,7 @@ def collect_financials(root,asof,budget=800):
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,
-      'source_workers':4,'source_rate_limited':True,'owner_PAT_is_not_recurring_EPS':True,
+      'source_workers':4,'source_rate_limited':_rate_limit_observed(errors),'owner_PAT_is_not_recurring_EPS':True,
       'official_rename_reference_error':identity_error,'official_rename_edges':len(changes),
       'mapped_fact_observations':sum('identity_mapping_source_sha256' in r for r in rows)}
 
