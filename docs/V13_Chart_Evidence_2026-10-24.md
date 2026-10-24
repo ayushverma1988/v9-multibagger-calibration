@@ -103,3 +103,12 @@ matched coverage, Brier/log loss, turnover, slippage and uncertainty by date
 blocks. ATR exit policies require a separate next-session execution experiment;
 they cannot rewrite frozen target labels. Improved engineering tests are not
 evidence of improved predictive accuracy.
+
+## Daily operation
+
+The generic snapshot postprocessor reads an exact completed collector artifact,
+verifies its model and checkpoint identities, restores only the required saved
+histories and writes separate chart diagnostics. It has no archive save call.
+This lets the chart layer run after the daily collector without refitting or
+changing a frozen forecast. Its outputs describe that collector's original
+cohort; the separately requested financial-input rerun retains its own lineage.

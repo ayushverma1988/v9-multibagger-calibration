@@ -52,9 +52,15 @@ jobs:
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: python -m v13_chart_replay_20261024
+      - name: Verify generic daily-snapshot postprocessor on the same saved histories
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_chart_snapshot --artifact worker.zip --output chart_daily_replay --restore-root chart_replay
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: v13-chart-review-${{ github.run_id }}
-          path: chart_replay/chart_interpretation/
+          path: |
+            chart_replay/chart_interpretation/
+            chart_daily_replay/chart_interpretation/
           retention-days: 30
