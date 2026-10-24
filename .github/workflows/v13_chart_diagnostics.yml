@@ -1,0 +1,64 @@
+name: V13 daily chart diagnostics
+on:
+  workflow_run:
+    workflows: [V13 NSE Research Collector and Learner]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v13_chart_diagnostics.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-chart-diagnostics
+  cancel-in-progress: false
+jobs:
+  chart:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 91d9513dfce90f2a8aa6159a3a39224139a90643
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Read the completed collector artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let run_id = context.payload.workflow_run?.id;
+            if (!run_id) {
+              const runs = await github.rest.actions.listWorkflowRuns({...context.repo,workflow_id:'v13_research_worker.yml',branch:'main',status:'completed',per_page:20});
+              const completed = runs.data.workflow_runs.find(r => r.conclusion === 'success');
+              if (!completed) throw new Error('No successful collector snapshot');
+              run_id = completed.id;
+            }
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id,per_page:100});
+            const artifact = artifacts.data.artifacts.find(a => a.name === `v13-private-research-state-${run_id}` && !a.expired);
+            if (!artifact) throw new Error('Completed collector artifact unavailable');
+            const download = await github.rest.actions.downloadArtifact({...context.repo,artifact_id:artifact.id,archive_format:'zip'});
+            fs.writeFileSync('worker.zip',Buffer.from(download.data));
+            fs.writeFileSync('source_worker_run.json',JSON.stringify({run_id,artifact_id:artifact.id,chart_code:'91d9513dfce90f2a8aa6159a3a39224139a90643'},null,2));
+      - name: Annotate frozen forecasts using exact saved histories
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_chart_snapshot --artifact worker.zip --output chart_snapshot
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-chart-diagnostics-${{ github.run_id }}
+          path: |
+            source_worker_run.json
+            chart_snapshot/chart_interpretation/
+          retention-days: 30
