@@ -13,13 +13,34 @@ import v13_collection as collection
 import v13_features as features
 import v13_model as model
 from v13_lifecycle import register,adjudicate,promotion_gate,paired_observations,validate_registry
-from v13_paired_forecasts import scored,register_pair,export_watchlists,promotion_coverage
+from v13_paired_forecasts import COMPARISON_CONTRACT,scored,register_pair,export_watchlists,promotion_coverage
 import v13_financial_evidence as financial_evidence
 import v13_catalyst_execution as catalyst_execution
 import v13_action_audit as action_audit
 import v13_research_evaluation as evaluation
 
 ARCHIVE='ayushverma1988/v10-multibagger-archive'
+
+def paired_registration_coverage_gate(root,current_rows):
+    """Prevent a collapsed source-day scan from becoming a formal cohort.
+
+    Recent committed cohorts define a relative breadth baseline. The guard is
+    prospective only: it never edits, enlarges or deletes an existing cohort.
+    """
+    prior=[]
+    for path in sorted((Path(root)/'paired_cohorts').glob('*.json')):
+        obj=json.loads(path.read_text())
+        if obj.get('comparison_contract')!=COMPARISON_CONTRACT:continue
+        prior.append((pd.Timestamp(obj['registered_at_utc']),int(obj['rows_per_model'])))
+    prior=[rows for _,rows in sorted(prior)[-3:]]
+    if not prior:
+        return {'passed':True,'current_rows':int(current_rows),'minimum_rows':None,
+          'reference_recent_rows':[],'status':'FIRST_COHORT_BASELINE'}
+    reference=float(np.median(prior));minimum=max(20,int(np.ceil(reference*.5)))
+    passed=int(current_rows)>=minimum
+    return {'passed':passed,'current_rows':int(current_rows),'minimum_rows':minimum,
+      'reference_recent_rows':prior,'reference_median_rows':reference,
+      'status':'PASS' if passed else 'BLOCKED_COLLAPSED_CURRENT_COVERAGE'}
 
 def restore(root):
     from v13_checkpoint import restore as restore_incremental
@@ -346,10 +367,15 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                     report['two_x_research']=export_two_x(root,report['exact_prediction_replay']['champion'])
                 except Exception as exc:
                     report['two_x_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
-                pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
-                export_watchlists(root,pair)
-                report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
-                report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
+                coverage_gate=paired_registration_coverage_gate(root,len(frame))
+                report['paired_registration_coverage_gate']=coverage_gate
+                if coverage_gate['passed']:
+                    pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
+                    export_watchlists(root,pair)
+                    report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
+                    report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
+                else:
+                    report['paired_registration']={'status':'BLOCKED_LOW_CURRENT_COVERAGE',**coverage_gate}
             else:report['paired_registration']={'status':'BLOCKED_NO_COMPLETE_CHALLENGER'}
         try:
             from v13_example_history_audit import audit as audit_examples
@@ -391,7 +417,6 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             freeze=json.loads(freeze_path.read_text()) if freeze_path.exists() else {'sha256':challenger_sha,'frozen_at_utc':datetime.now(timezone.utc).isoformat()}
             if freeze['sha256']!=challenger_sha:raise ValueError('Formal challenger freeze changed')
             freeze_path.write_text(json.dumps(freeze,indent=2))
-            from v13_paired_forecasts import COMPARISON_CONTRACT
             paired=paired_observations(pd.DataFrame(observations),challenger_sha,comparison_contract=COMPARISON_CONTRACT)
             paired.to_parquet(root/'paired_mature_observations.parquet',index=False)
             report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha),require_baseline=True)
