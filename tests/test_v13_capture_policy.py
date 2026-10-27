@@ -84,5 +84,53 @@ class CapturePolicy(unittest.TestCase):
         self.assertLess(capture_priority({'headline':'Bagging/Receiving of orders/contracts'}),
                         capture_priority({'headline':'Newspaper publication'}))
 
+    def test_explicit_half_year_difference_fills_quarter_without_eps_math(self):
+        from v13_financial_evidence import balancing_quarters
+        common={'symbol':'A','security_isin':'INE000000001','reporting_mode':'consolidated',
+            'period_start':'2025-04-01','available':pd.Timestamp('2025-11-01T12:00Z'),
+            'available_at_utc':'2025-11-01T12:00Z','source_url':'https://nsearchives.nseindia.com/a.xml'}
+        rows=[{**common,'period_kind':'quarter','period':pd.Timestamp('2025-06-30'),'period_end':'2025-06-30',
+                'source_sha256':'a'*64,'revenue':100.,'pat':10.,'eps_diluted_continuing':1.},
+              {**common,'period_kind':'ytd','period':pd.Timestamp('2025-09-30'),'period_end':'2025-09-30',
+                'source_sha256':'b'*64,'revenue':250.,'pat':35.,'eps_diluted_continuing':3.5}]
+        source=pd.DataFrame(rows);out=balancing_quarters(source)
+        derived=out[out.period.eq(pd.Timestamp('2025-09-30'))&out.period_kind.eq('quarter')].iloc[0]
+        self.assertEqual(derived.pat,25.);self.assertEqual(derived.revenue,150.)
+        self.assertTrue(pd.isna(derived.eps_diluted_continuing))
+        self.assertEqual(set(json.loads(derived.input_source_sha256)),{'a'*64,'b'*64})
+        pd.testing.assert_frame_equal(out.iloc[:2][source.columns].reset_index(drop=True),source)
+        for key,value in [('period_start','2025-05-01'),('reporting_mode','standalone')]:
+            wrong=source.copy();wrong.at[1,key]=value
+            self.assertEqual(len(balancing_quarters(wrong)),2)
+
+    def test_ytd_math_never_overrides_reported_quarter_or_moves_clock_back(self):
+        from v13_financial_evidence import balancing_quarters
+        common={'symbol':'A','security_isin':'INE000000001','reporting_mode':'consolidated',
+            'period_start':'2025-04-01','source_url':'https://nsearchives.nseindia.com/a.xml'}
+        a={**common,'period_kind':'quarter','period':pd.Timestamp('2025-06-30'),'period_end':'2025-06-30',
+            'source_sha256':'a'*64,'pat':10.,'available':pd.Timestamp('2025-12-01T12:00Z'),'available_at_utc':'2025-12-01T12:00Z'}
+        b={**common,'period_kind':'ytd','period':pd.Timestamp('2025-09-30'),'period_end':'2025-09-30',
+            'source_sha256':'b'*64,'pat':35.,'available':pd.Timestamp('2025-11-01T12:00Z'),'available_at_utc':'2025-11-01T12:00Z'}
+        result=balancing_quarters(pd.DataFrame([a,b]))
+        q=result[result.get('derived_balancing_quarter',False).eq(True)].iloc[0]
+        self.assertEqual(q.available,a['available'])
+        explicit={**b,'period_kind':'quarter','pat':99.,'period_start':'2025-07-01'}
+        result=balancing_quarters(pd.DataFrame([a,b,explicit]))
+        self.assertEqual(result[result.period.eq(b['period'])&result.period_kind.eq('quarter')].pat.tolist(),[99.])
+
+    def test_nine_month_minus_half_year_is_only_one_quarter(self):
+        from v13_financial_evidence import balancing_quarters
+        common={'symbol':'A','security_isin':'INE000000001','reporting_mode':'consolidated',
+            'period_start':'2025-04-01','source_url':'https://nsearchives.nseindia.com/a.xml',
+            'available':pd.Timestamp('2026-02-01T12:00Z'),'available_at_utc':'2026-02-01T12:00Z'}
+        half={**common,'period_kind':'ytd','period':pd.Timestamp('2025-09-30'),'period_end':'2025-09-30','pat':35.,'source_sha256':'a'*64}
+        nine={**common,'period_kind':'ytd','period':pd.Timestamp('2025-12-31'),'period_end':'2025-12-31','pat':60.,'source_sha256':'b'*64}
+        out=balancing_quarters(pd.DataFrame([half,nine]))
+        q=out[out.period_kind.eq('quarter')].iloc[0]
+        self.assertEqual(q.pat,25.);self.assertEqual(q.period_start,'2025-10-01')
+        self.assertEqual(q.derived_quarter_method,'NINE_MONTHS_MINUS_HALF_YEAR')
+        wrong={**half,'period':pd.Timestamp('2025-06-30'),'period_end':'2025-06-30','period_kind':'quarter'}
+        self.assertEqual(len(balancing_quarters(pd.DataFrame([wrong,nine]))),2)
+
 
 if __name__=='__main__':unittest.main()

@@ -64,7 +64,7 @@ def financial_readiness(known,date,f):
       'reported_EPS_is_not_recurring_or_action_reconciled':True,'owner_earnings_source_status':owner_profit_status(q)}
 
 def balancing_quarters(wide):
-    """Explicit annual minus nine-month amounts; never subtract EPS/shares.
+    """Explicit fiscal cumulative differences; never subtract EPS/shares.
 
     Same issuer, basis and economic start are mandatory. This is a balancing
     quarter reconstructed at the later original availability clock, not an
@@ -95,7 +95,51 @@ def balancing_quarters(wide):
                     av=number(a,key);yv=number(z,key)
                     if np.isfinite(av) and np.isfinite(yv):row[key]=av-yv
                 if 'pat' in row or 'revenue' in row:derived.append(row)
-    if not derived:return wide.copy()
+    if derived:
+        add=pd.DataFrame(derived).drop_duplicates(['security_isin','reporting_mode','period_end','available_at_utc','input_source_sha256'])
+        result=pd.concat([wide,add],ignore_index=True)
+    else:result=wide.copy()
+    return cumulative_quarters(result)
+
+def cumulative_quarters(wide):
+    """H1 minus Q1 and nine months minus H1, on one explicit fiscal basis.
+
+    Some originals provide the half-year cumulative statement but no separate
+    September-quarter context. The amount difference supplies that quarter.
+    Both originals, their later availability and an unverified revision flag
+    remain attached. This does not reconstruct per-share earnings.
+    """
+    derived=[]
+    flows=('revenue','pat','pat_owners','pat_noncontrolling','pbt','finance_cost',
+           'depreciation','exceptional_items','other_income')
+    for _,g in wide.groupby(['security_isin','reporting_mode']):
+        for end in g[g.period_kind.eq('ytd')].to_dict('records'):
+            start=pd.to_datetime(end.get('period_start'),errors='coerce')
+            if pd.isna(start):continue
+            days=(end['period']-start).days
+            if not (150<=days<=210 or 240<=days<=310):continue
+            earlier=g[g.period_start.eq(end['period_start'])&
+                (end['period']-g.period).dt.days.between(60,120)&
+                g.period_kind.isin(['quarter','ytd'])]
+            for prev in earlier.to_dict('records'):
+                prior_days=(prev['period']-start).days
+                if not (150<=days<=210 and 60<=prior_days<=120 or
+                        240<=days<=310 and 150<=prior_days<=210):continue
+                available=max(end['available'],prev['available'])
+                explicit=g[g.period_kind.eq('quarter')&g.period.eq(end['period'])&g.available.le(available)]
+                if not explicit.empty:continue
+                row={k:end[k] for k in ('symbol','security_isin','reporting_mode','period_end','period','source_sha256')}
+                row.update(period_kind='quarter',period_start=str((prev['period']+pd.Timedelta(days=1)).date()),
+                    available=available,available_at_utc=available.isoformat(),derived_balancing_quarter=True,
+                    derived_quarter_method='HALF_YEAR_MINUS_Q1' if days<=210 else 'NINE_MONTHS_MINUS_HALF_YEAR',
+                    source_url=end.get('source_url'),input_source_sha256=json.dumps([end['source_sha256'],prev['source_sha256']]),
+                    input_source_urls=json.dumps([end.get('source_url'),prev.get('source_url')]),
+                    historical_revision_integrity_independently_proven=False)
+                for key in flows:
+                    a=number(end,key);b=number(prev,key)
+                    if np.isfinite(a) and np.isfinite(b):row[key]=a-b
+                if 'pat' in row or 'revenue' in row:derived.append(row)
+    if not derived:return wide
     add=pd.DataFrame(derived).drop_duplicates(['security_isin','reporting_mode','period_end','available_at_utc','input_source_sha256'])
     return pd.concat([wide,add],ignore_index=True)
 
@@ -288,6 +332,7 @@ def enrich_evidence(frame,wide,root,asof):
               'reporting_mode':z['reporting_mode'],'available_at_utc':z['available_at_utc'],
               'source_sha256':z['source_sha256'],'source_url':z.get('source_url'),
               'derived_balancing_quarter':bool(z.get('derived_balancing_quarter') is True),
+              'derived_quarter_method':z.get('derived_quarter_method'),
               'input_source_sha256':z.get('input_source_sha256'),'input_source_urls':z.get('input_source_urls')}
             links.append({k:None if isinstance(v,float) and not np.isfinite(v) else v for k,v in item.items()})
         if w.empty:continue

@@ -58,3 +58,34 @@ promotion requirements are preserved. Tests and isolated source probes are
 reported separately from measured coverage in a completed production worker.
 Financial-source completion has no guaranteed calendar deadline; independently
 mature future outcomes still need six/twelve months of actual market time.
+
+## Measured quarter capture repair
+
+Several original half-year statements contain cumulative H1 results but omit
+the separate September-quarter context. The existing derivation handled only
+annual minus nine months. It now also handles H1 minus Q1 and nine months
+minus H1, requiring the same issuer, reporting basis and explicit fiscal start,
+and a 60–120-day difference. Only additive monetary flows are subtracted;
+EPS, shares, cash stocks and balance-sheet amounts are not. Explicit original
+quarter statements keep precedence. Both input hashes/URLs, the later source
+availability and the fact that independent revision comparability is unproven
+remain attached. Canonical originals and registered model inputs are unchanged.
+
+On the SAME source-26 population and original snapshot, an isolated recompute
+increases financial completeness **374 to 408 of 613** (61.01% to 66.56%) and
+quality passes **185 to 200**, with zero complete-row regressions. The 34 newly
+complete rows are data-readiness gains, not 34 investment selections or proved
+future winners. Old frozen forecasts were not rescored. The completed worker
+artifact must independently verify deployed results on its own source day.
+
+The separate live 200-request original-source probe accepted 164 filing versions
+and extracted 2432 fact observations, mostly already present: net source-period
+rows increased by seven and nonmissing numeric observations by sixty. Complete
+whole-universe issuers stayed 1285. Thirty-four timeouts and two identity
+conflicts were retained as failures; 576 structurally unresolved versions were
+deferred rather than deleted. It reverified eight complete PDF/text receipts
+from twenty attempts; eleven identical original PDFs had a different extraction
+vintage and one request timed out. Four documents yielded seven source-bound
+field candidates (five capacity, one utilisation and one firm-order statement).
+None completes an execution chain. These honest incremental measurements are
+separate from the quarter-repair comparison and production coverage.
