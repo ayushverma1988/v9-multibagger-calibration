@@ -418,6 +418,12 @@ def collect_financials(root,asof,budget=800):
     attempts=json.loads(attempts_path.read_text()) if attempts_path.exists() else {}
     queue=cat[~cat.version_key.isin(parsed)].copy()
     queue['last_attempt']=queue.version_key.map(lambda k:attempts.get(k,'0000'))
+    from v13_capture_policy import signature,bootstrap,ready_queue,note_failure,atomic_json
+    from datetime import datetime,timezone
+    parser_signature,identity_signature=signature(master,changes)
+    retry_path=root/'evidence'/'financial_retry_queue.json'
+    journal=json.loads(retry_path.read_text()) if retry_path.exists() else bootstrap(root,cat,parser_signature,identity_signature)
+    queue,retry_audit=ready_queue(queue,journal,datetime.now(timezone.utc),parser_signature,identity_signature)
     # Complete public-cohort queue, newest disclosures first. No query uses
     # private model picks. Accepted URLs keep immutable original-byte hashes.
     from v13_financial_evidence import priority_queue,completion_queue,owner_completion_queue,basis_completion_queue,balancing_quarters
@@ -471,12 +477,16 @@ def collect_financials(root,asof,budget=800):
         except Exception as e:return {'error':str(e)[:160]}
     from v13_parallel_collection import bounded_map
     # A URL/publication is parsed once, avoiding concurrent mode duplicates.
-    for r,result in bounded_map(queue.drop_duplicates('version_key').to_dict('records'),fetch,workers=4,seconds=600):
+    for r,result in bounded_map(queue.drop_duplicates('version_key').to_dict('records'),fetch,workers=4,seconds=900):
         attempted+=1
         if result.get('facts'):
             rows.extend(result['facts']);accepted.add(r['version_key']);parsed.add(r['version_key'])
-        else:errors.append({'source_url':r['source_url'],'error':result['error']})
+            journal.pop(r['version_key'],None)
+        else:
+            errors.append({'source_url':r['source_url'],'error':result['error']})
+            journal[r['version_key']]=note_failure(result['error'],datetime.now(timezone.utc),parser_signature,identity_signature.get(r['symbol']))
         attempts[r['version_key']]=asof
+        if attempted%100==0:atomic_json(retry_path,journal)
     if rows:
         fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
@@ -485,7 +495,9 @@ def collect_financials(root,asof,budget=800):
     accepted_path.write_text(json.dumps(sorted(accepted)))
     parsed_path.write_text(json.dumps(sorted(parsed)))
     attempts_path.write_text(json.dumps(attempts))
+    atomic_json(retry_path,journal)
     return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
+      'retry_queue':retry_audit,'budget':budget,'seconds_budget':900,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
       'reserved_owner_earnings_filings':len(owner_completion),'owner_queue_does_not_infer_recurring_EPS':True,
       'reserved_reporting_basis_recovery_filings':len(basis_completion),

@@ -1,7 +1,7 @@
 name: V13 NSE Learning Contract
 on:
   push:
-    branches: [v13-nse-self-learning-20261011, v13-data-reliability-20261020, fix/v13-nse-master-identity-20261023]
+    branches: [v13-nse-self-learning-20261011, v13-data-reliability-20261020, fix/v13-nse-master-identity-20261023, v13-capture-coverage-20261028]
     paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_contract.yml']
   pull_request:
     paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_contract.yml']
