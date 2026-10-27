@@ -195,7 +195,9 @@ def collect(root,asof,budget=120):
     queue['last_attempt']=queue.attachment_url.map(lambda s:attempts.get(s,'0000'))
     from v13_source_quality import business_order_status
     queue['legal']=[business_order_status(z.get('text',''),z.get('headline',''))=='LEGAL_REGULATORY_NOT_BUSINESS_ORDER' for z in queue.to_dict('records')]
-    ordered=queue.sort_values(['last_attempt','available_at_utc','symbol'],ascending=[True,False,True])
+    from v13_catalyst_field_capture import capture_priority
+    queue['capture_priority']=[capture_priority(r) for r in queue.to_dict('records')]
+    ordered=queue.sort_values(['last_attempt','capture_priority','available_at_utc','symbol'],ascending=[True,True,False,True])
     positive=ordered[~ordered.legal].head(budget*3//4);risk=ordered[ordered.legal].head(budget-len(positive))
     queue=pd.concat([positive,risk]);queue=pd.concat([queue,ordered[~ordered.attachment_url.isin(queue.attachment_url)].head(max(0,budget-len(queue)))])
     store=Store(out/'raw');errors=[];start=time.monotonic()
@@ -208,7 +210,7 @@ def collect(root,asof,budget=120):
               'publication_time_status':'CATALOG_BROADCAST','review_status':'NEEDS_QUANTIFIED_EXECUTION_REVIEW','unknown_fields':list(FIELDS)}}
         except Exception as exc:return {'error':str(exc)[:200]}
     from v13_parallel_collection import bounded_map
-    for r,result in bounded_map(queue.to_dict('records'),fetch,workers=4,seconds=300):
+    for r,result in bounded_map(queue.to_dict('records'),fetch,workers=4,seconds=360):
         attempts[r['attachment_url']]=asof
         if result.get('document'):docs.append(result['document'])
         else:errors.append({'source_url':r['attachment_url'],'error':result['error']})
@@ -222,7 +224,8 @@ def collect(root,asof,budget=120):
     legal=sum(business_order_status(z.get('text',''),z.get('headline',''))=='LEGAL_REGULATORY_NOT_BUSINESS_ORDER' for z in docs)
     summary={'documents':len(docs),'issuer_matched':sum(r.get('issuer_identity_read') is True for r in docs),'legal_regulatory_disclosures_not_business_orders':legal,
       'quantified_review_candidates':sum(len(r.get('quantified_evidence',[])) for r in docs),'backlog':len(e)-len(known),
-      'errors':errors,'catalogue_complete':False,'automatic_future_profit_claims':0}
+      'errors':errors,'catalogue_complete':False,'automatic_future_profit_claims':0,'budget':budget,
+      'seconds_budget':360,'public_business_disclosure_priority':True}
     (out/'coverage.json').write_text(json.dumps(summary,indent=2));return summary
 
 def project_bundles(records,isin,cut):

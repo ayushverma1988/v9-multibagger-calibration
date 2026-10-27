@@ -324,6 +324,18 @@ def enrich_evidence(frame,wide,root,asof):
       'required_checks':list(REQUIRED),'quality_is_not_future_profitability':True,'issuer_backlog':coverage,
       'reported_EPS_is_not_recurring_EPS':True},indent=2))
     (out/'financial_source_links.json').write_text(json.dumps(links,indent=2,default=str))
+    # Missing ratios can reflect known losses/zero denominators rather than a
+    # missing document. Expose both causes so downloads target actual gaps.
+    from collections import Counter
+    from v13_capture_policy import atomic_json
+    reasons=Counter(reason for row in coverage for reason in row.get('unknown_reasons',{}).values())
+    missing=Counter(field for row in coverage for field in row['unknown_fields'])
+    atomic_json(out/'financial_capture_gaps.json',{'source_asof':asof,'current_market_rows':len(d),
+      'complete_seven_check_rows':int(d.financial_complete.sum()),
+      'raw_required_facts_complete_rows':sum(row['underlying_required_facts_complete'] for row in coverage),
+      'missing_check_counts':dict(missing),'unknown_reason_counts':dict(reasons),
+      'counts_are_fields_not_unique_issuers':True,'nonpositive_denominators_are_not_missing_downloads':True,
+      'missing_fields_never_filled_with_zero':True})
     # Reverse arithmetic, explicitly hypothetical; it does not assign a PE,
     # forward margin or earnings growth to any company.
     target=2*1.005/.995
