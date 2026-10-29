@@ -120,3 +120,5 @@ jobs:
 # Preserve earlier valid financial availability vintages on later identity reviews.
 
 # Resume after correcting financial master ISIN column access.
+
+# Resume the remaining data queue after the authorised status check.
