@@ -1,0 +1,22 @@
+{
+  "version": "V13_CHART_EVIDENCE_SHADOW_20261024",
+  "status": "PREDECLARED_UNVALIDATED",
+  "purpose": "Measure incremental NSE 6/12 month doubling information from causal chart features",
+  "rsi_minimum_inclusive": 50,
+  "nominal_price_band": null,
+  "dma200_within_10_percent": "OPTIONAL_CONTEXT_ONLY",
+  "candidate_feature_families": ["relative_momentum_and_completed_week_trend", "bollinger_width_and_range_contraction", "prior_resistance_volume_retest_and_failure", "rounded_base_handle_proxy", "ATR_risk_and_price_extension"],
+  "comparison": "SAME_ISSUERS_DATES_CUTOFFS_ENTRIES_COSTS_AND_OUTCOMES",
+  "split": "CHRONOLOGICAL_WALK_FORWARD_TRAIN_CALIBRATION_TEST_WITH_12_MONTH_LABEL_PURGE",
+  "parameter_selection": "TRAIN_AND_CALIBRATION_ONLY_NEVER_OUTER_TEST",
+  "multiple_testing": "FAMILY_ABLATIONS_WITH_DATE_BLOCK_UNCERTAINTY_AND_DISCLOSED_FULL_RULE_SET",
+  "covid": "REUSE_EXISTING_EXCLUSION_CONTRACT_BEFORE_OUTCOME_INSPECTION",
+  "entry": "NEXT_TRADABLE_SESSION_OPEN_PLUS_EXISTING_COSTS_NEVER_SIGNAL_CLOSE_FILL",
+  "loss_event": "DAILY_LOW_MINUS_30_PERCENT_BEFORE_DOUBLING_OR_12_MONTH_DEADLINE_LOSS_FIRST_ON_SAME_DAY",
+  "ATR_exits": "SEPARATE_EXECUTION_EXPERIMENT_WITH_PRIOR_SESSION_REFERENCE_AND_GAP_SLIPPAGE",
+  "metrics": ["2x_precision_at_matched_coverage_6m_12m", "loss_first_incidence", "Brier_score", "log_loss", "turnover_costs_slippage", "date_block_confidence_intervals", "sector_size_regime_stability"],
+  "report_limitations": ["survivorship", "provider_adjustment_revisions", "unverified_corporate_actions", "missing_financials", "thin_and_circuit_locked_trading"],
+  "promotion_requires": ["positive_incremental_out_of_sample_evidence", "acceptable_calibration_and_risk", "sufficient_paired_unseen_mature_outcomes", "existing_independent_source_promotion_gate"],
+  "frozen_forecasts_or_model_heads_may_be_rewritten": false,
+  "promotion_approved": false
+}

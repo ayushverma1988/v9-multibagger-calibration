@@ -94,7 +94,15 @@ class VerifiedObjectDownloader:
     according to the server's reset header. Credentials are never logged.
     """
     def __init__(self,items,folder,token,requests_per_second=8):
-        self.items={r['object_path']:r for r in items};self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
+        # Format-2 members resolve through their hash-bound storage pack.
+        # One lock/cache entry per pack avoids duplicate concurrent downloads.
+        self.items={};self.pack_paths=set()
+        for item in items:
+            validate_object(item)
+            stored=item.get('storage_pack') or item
+            path=stored['object_path'];self.items[path]=dict(stored)
+            if item.get('storage_pack'):self.pack_paths.add(path)
+        self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
         self.token=token;self.interval=1/requests_per_second;self.lock=threading.Lock();self.next=0.;self.blocked=0.;self.local=threading.local();self.done=0
         self.object_locks={path:threading.Lock() for path in self.items}
     def __call__(self,path):
@@ -102,7 +110,13 @@ class VerifiedObjectDownloader:
     def download(self,path):
         from huggingface_hub import hf_hub_url
         import requests
-        item=self.items[path];validate_object(item);out=self.folder/(item['sha256']+'.bin')
+        item=self.items[path]
+        if path in self.pack_paths:
+            from v13_checkpoint_packs import pack_path,MAX_PACK_BYTES
+            if item['object_path']!=pack_path(item['sha256']) or type(item['bytes']) is not int or not 0<=item['bytes']<=MAX_PACK_BYTES:
+                raise ValueError('Checkpoint download pack identity or size mismatch')
+        else:validate_object(item)
+        out=self.folder/(item['sha256']+'.bin')
         if out.exists() and out.stat().st_size==item['bytes'] and hashlib.sha256(out.read_bytes()).hexdigest()==item['sha256']:return out
         if not hasattr(self.local,'session'):self.local.session=requests.Session()
         last_error='rate limit'
