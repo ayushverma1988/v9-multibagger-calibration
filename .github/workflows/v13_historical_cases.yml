@@ -1,0 +1,34 @@
+name: V13 historical winner case study
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/v13-historical-cases-20261030]
+    paths: ['src/v13_historical_cases.py', 'tests/test_v13_historical_cases.py', 'docs/v13_historical_cases_20261030.json', '.github/workflows/v13_historical_cases.yml']
+permissions:
+  contents: read
+concurrency:
+  group: v13-historical-cases-read-only
+  cancel-in-progress: false
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check causal entry, maturity, identity and missing-data rules
+        run: python -m unittest discover -s tests -p test_v13_historical_cases.py -v
+      - name: Collect public histories and audit fixed monthly decisions
+        run: python -m v13_historical_cases --manifest docs/v13_historical_cases_20261030.json --output historical_case_study
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-historical-case-study-${{ github.run_id }}-${{ github.run_attempt }}
+          path: historical_case_study/
+          retention-days: 30
