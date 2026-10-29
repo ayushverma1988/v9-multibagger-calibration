@@ -44,6 +44,13 @@ the whole historical identity chain. Both original responses and SHA-256
 receipts are retained. Provider metadata, split/dividend events and rejected
 rows are exported. Access limitations remain explicit, with no fabricated bars.
 
+The first capture found KPIGREEN's NSE history starts on its official NSE
+listing date, 27 July 2021. Its earlier BSE security code 542323 is identified
+by the exchange-hosted issuer filing in the intake sources. A separate BSE
+panel and SENSEX session calendar cover pre-NSE decision dates; no automatic
+cross-venue splice or historical identity certificate is claimed. Requested
+cutoffs and actual latest returned price dates are reported separately.
+
 Every completed calendar month supplies its last observed session as a fixed
 decision. Indicators use only prior/current observations. Entries use the next
 session open, checked against the downloaded NIFTY 50 session calendar. Missing

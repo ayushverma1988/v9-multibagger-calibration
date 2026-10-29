@@ -2,7 +2,7 @@ from datetime import date,timedelta
 import json
 import unittest
 
-from v13_historical_cases import add_months,bind_identity,decode_history,features,outcome
+from v13_historical_cases import add_months,bind_identity,decode_history,features,month_decisions,outcome
 
 
 def bars():
@@ -59,3 +59,15 @@ class HistoricalCaseAudit(unittest.TestCase):
 
     def test_calendar_month_end_handles_leap_year(self):
         self.assertEqual(add_months(date(2023,8,31),6),date(2024,2,29))
+
+    def test_stale_benchmark_does_not_certify_a_later_deadline(self):
+        rows=bars();deadline=add_months(rows[11]['date'],6)
+        grid=[r['date'] for r in rows if r['date']<deadline-timedelta(days=4)]
+        result=outcome(rows,10,6,date(2024,1,1),grid)
+        self.assertEqual(result['status'],'UNKNOWN_CALENDAR_THROUGH_DEADLINE')
+        self.assertIsNone(result['hit2'])
+
+    def test_venue_cutoff_never_creates_a_partial_month_decision(self):
+        rows=bars()
+        decisions=month_decisions(rows,date(2023,1,1),date(2024,1,1),before=date(2023,7,27))
+        self.assertEqual(rows[decisions[-1]]['date'],date(2023,6,30))

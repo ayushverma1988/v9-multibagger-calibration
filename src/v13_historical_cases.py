@@ -71,12 +71,12 @@ def history_url(symbol, start, asof):
     return 'https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol,safe='')+'?'+urlencode(params)
 
 
-def decode_history(raw, expected_symbol, asof, index=False):
+def decode_history(raw, expected_symbol, asof, index=False, expected_exchange='NSI'):
     payload=json.loads(raw)['chart']
     if payload.get('error') or len(payload.get('result') or [])!=1:raise ValueError('History unavailable')
     data=payload['result'][0];meta=data['meta']
     if (meta.get('symbol')!=expected_symbol or meta.get('currency')!='INR' or
-        meta.get('instrumentType')!=('INDEX' if index else 'EQUITY') or meta.get('exchangeName')!='NSI'):
+        meta.get('instrumentType')!=('INDEX' if index else 'EQUITY') or meta.get('exchangeName')!=expected_exchange):
         raise ValueError('Provider security, exchange, instrument or currency mismatch')
     quotes=data['indicators']['quote'][0]
     adjusted=data['indicators'].get('adjclose',[{}])[0].get('adjclose',[])
@@ -127,6 +127,16 @@ def features(rows, i):
         'financial_and_catalyst_inputs_asof_decision':'NOT_RECONSTRUCTED_IN_THIS_PRICE_STUDY'}
 
 
+def month_decisions(rows, analysis_start, asof, before=None):
+    month_ends={}
+    for i,row in enumerate(rows):
+        day=row['date']
+        if day>=analysis_start and (day.year,day.month)<(asof.year,asof.month):month_ends[(day.year,day.month)]=i
+    # Find the actual month end first; never turn a venue cutoff into a new
+    # conveniently selected partial-month decision.
+    return [i for i in month_ends.values() if before is None or rows[i]['date']<before]
+
+
 def outcome(rows, decision_i, months, asof, calendar_dates, cost=.005):
     base={'horizon_months':months,'entry_date':None,'status':'UNKNOWN_ENTRY',
         'hit2':None,'loss30_before_double_or_deadline':None,'double_before_loss30':None}
@@ -135,6 +145,10 @@ def outcome(rows, decision_i, months, asof, calendar_dates, cost=.005):
     base.update(entry_date=entry['date'].isoformat(),deadline=deadline.isoformat())
     if asof<deadline:base['status']='IMMATURE';return base
     if calendar_dates is None:base['status']='UNKNOWN_BENCHMARK_CALENDAR';return base
+    last_weekday=deadline
+    while last_weekday.weekday()>4:last_weekday-=timedelta(days=1)
+    if not calendar_dates or max(calendar_dates)<last_weekday:
+        base['status']='UNKNOWN_CALENDAR_THROUGH_DEADLINE';return base
     expected=[d for d in calendar_dates if rows[decision_i]['date']<d<=deadline]
     if not expected or expected[0]!=entry['date']:
         base['status']='UNKNOWN_FIRST_ENTRY_SESSION';return base
@@ -204,14 +218,10 @@ def audit_cases(manifest_path, output):
                 last_provider_close=active[-1]['close'],start_to_end_provider_adjusted_multiple=active[-1]['adj_close']/active[0]['adj_close'],
                 full_requested_start_coverage=active[0]['date']<=analysis_start+timedelta(days=7),
                 historical_identity_chain_verified=False)
-            month_ends={}
-            for i,row in enumerate(rows):
-                day=row['date']
-                if day>=analysis_start and (day.year,day.month)<(asof.year,asof.month):month_ends[(day.year,day.month)]=i
-            for i in month_ends.values():
+            for i in month_decisions(rows,analysis_start,asof):
                 f=features(rows,i)
                 for months in manifest['horizons_months']:
-                    observations.append({'symbol':symbol,'decision_date':rows[i]['date'].isoformat(),
+                    observations.append({'symbol':symbol,'exchange':'NSE','decision_date':rows[i]['date'].isoformat(),
                         'covid_2020_case_study_only':rows[i]['date'].year==2020,**f,
                         **outcome(rows,i,months,asof,calendar_dates,manifest['cost_per_side'])})
             print(json.dumps({'case':symbol,'bars':len(rows),'first':item['first_analysis_date'],'last':item['last_analysis_date']}),flush=True)
@@ -220,7 +230,51 @@ def audit_cases(manifest_path, output):
             item['collection_status']='SOURCE_COLLECTION_FAILED';item['error_type']=type(exc).__name__;item['error']=str(exc)[:180]
             report['errors'].append({'scope':symbol,'error_type':type(exc).__name__,'message':str(exc)[:180]})
         time.sleep(.3)
+    # A pre-NSE history is a separate venue panel, never an invented NSE bar
+    # or an automatic splice across an unreviewed identity/action interval.
+    report['supplemental_histories']=[]
+    bse_calendar=None
+    supplements=[(case,case['supplemental_bse_history']) for case in manifest['cases'] if case.get('supplemental_bse_history')]
+    if supplements and not access_limited:
+        try:
+            raw,receipt=capture(history_url('^BSESN',start,asof),out/'sources','sensex_calendar')
+            index,meta=decode_history(raw,'^BSESN',asof,index=True,expected_exchange='BSE')
+            bse_calendar=[r['date'] for r in index];report['bse_calendar_receipt']=receipt
+        except Exception as exc:report['errors'].append({'scope':'bse_calendar','error_type':type(exc).__name__,'message':str(exc)[:180]})
+    for case,supplement in supplements:
+        item={'symbol':case['symbol'],'exchange':'BSE','provider_symbol':supplement['provider_symbol'],
+            'automatic_cross_venue_splice':False,'historical_identity_chain_verified':False,'history_collected':False}
+        report['supplemental_histories'].append(item)
+        if access_limited:item['status']='PENDING_SOURCE_ACCESS_LIMIT';continue
+        try:
+            tag=case['symbol']+'_BSE'
+            raw,receipt=capture(history_url(supplement['provider_symbol'],start,asof),out/'sources',tag)
+            rows,meta=decode_history(raw,supplement['provider_symbol'],asof,expected_exchange='BSE')
+            folder=out/'histories';folder.mkdir(exist_ok=True)
+            with (folder/(tag+'.csv')).open('w',newline='') as f:
+                writer=csv.DictWriter(f,fieldnames=['date','open','high','low','close','volume','adj_close']);writer.writeheader();writer.writerows(rows)
+            (folder/(tag+'.provider_metadata.json')).write_text(json.dumps(meta,indent=2,allow_nan=False))
+            active=[r for r in rows if r['date']>=analysis_start]
+            if not active:raise ValueError('No requested supplemental period')
+            item.update(history_collected=True,status='PROVISIONAL_PRE_NSE_VENUE_PANEL',receipt=receipt,
+                history_rows=len(rows),first_analysis_date=active[0]['date'].isoformat(),last_analysis_date=active[-1]['date'].isoformat())
+            limit=date.fromisoformat(supplement['decision_before'])
+            for i in month_decisions(rows,analysis_start,asof,before=limit):
+                f=features(rows,i)
+                for months in manifest['horizons_months']:
+                    observations.append({'symbol':case['symbol'],'exchange':'BSE','venue_role':'PRE_NSE_LISTING',
+                        'decision_date':rows[i]['date'].isoformat(),'covid_2020_case_study_only':rows[i]['date'].year==2020,
+                        **f,**outcome(rows,i,months,asof,bse_calendar,manifest['cost_per_side'])})
+            print(json.dumps({'case':case['symbol'],'venue':'BSE','bars':len(rows),'first':item['first_analysis_date'],'last':item['last_analysis_date']}),flush=True)
+        except Exception as exc:
+            access_limited=isinstance(exc,AccessLimited)
+            item.update(status='SOURCE_COLLECTION_FAILED',error_type=type(exc).__name__,error=str(exc)[:180])
+            report['errors'].append({'scope':case['symbol']+'_BSE','error_type':type(exc).__name__,'message':str(exc)[:180]})
     report['histories_collected']=sum(r['history_collected'] for r in report['cases'])
+    report['latest_primary_price_dates']={r['symbol']:r.get('last_analysis_date') for r in report['cases']}
+    dates=[r['last_analysis_date'] for r in report['cases'] if r.get('last_analysis_date')]
+    report['available_common_primary_price_asof']=min(dates) if len(dates)==len(manifest['cases']) else None
+    report['requested_asof_is_not_a_claim_of_fresh_prices']=True
     report['current_official_identities_matched']=sum('current_identity' in r for r in report['cases'])
     report['month_end_horizon_observations']=len(observations)
     report['outcome_status_counts']={s:sum(r['status']==s for r in observations) for s in sorted({r['status'] for r in observations})}

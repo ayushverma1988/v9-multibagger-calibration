@@ -202,7 +202,14 @@
       "expected_current_isin": "INE542W01025",
       "identity_source_url": "https://nsearchives.nseindia.com/corporate/ixbrl/INTEGRATED_FILING_INDAS_185281_11082026184222_iXBRL_WEB.html",
       "historical_identity_chain_verified": false,
-      "full_corporate_action_interval_verified": false
+      "full_corporate_action_interval_verified": false,
+      "supplemental_bse_history": {
+        "provider_symbol": "542323.BO",
+        "exchange": "BSE",
+        "decision_before": "2021-07-27",
+        "role": "PRE_NSE_LISTING_EVIDENCE_ONLY_NO_AUTOMATIC_SPLICE",
+        "identity_source_url": "https://nsearchives.nseindia.com/corporate/ixbrl/INTEGRATED_FILING_INDAS_185281_11082026184222_iXBRL_WEB.html"
+      }
     },
     {
       "symbol": "JWL",
