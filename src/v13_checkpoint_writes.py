@@ -36,7 +36,12 @@ def temporary(exc):
         any(word in name for word in ('Timeout', 'Connection', 'Connect', 'ReadError', 'Transport', 'RemoteProtocol')))
 
 
-def pause(exc, attempt):
+def check_deadline(deadline):
+    if deadline is not None and time.monotonic() >= deadline:
+        raise CheckpointTemporaryError('Checkpoint save time budget exhausted; local recovery delta retained')
+
+
+def pause(exc, attempt, deadline=None):
     headers = getattr(getattr(exc, 'response', None), 'headers', {}) or {}
     seconds = None
     value = headers.get('Retry-After')
@@ -55,6 +60,7 @@ def pause(exc, attempt):
         seconds = min(2 ** attempt, 30)
     # Honor throttling without one long uninterruptible sleep.
     while seconds > 0:
+        check_deadline(deadline)
         chunk = min(seconds, 30.)
         time.sleep(chunk)
         seconds -= chunk
@@ -91,11 +97,12 @@ def committed(api, archive, specs):
     return True
 
 
-def write(api, archive, specs, message, operation_type, confirmed=None, split=True):
+def write(api, archive, specs, message, operation_type, confirmed=None, split=True, deadline=None):
     """Fresh operations per request; never split an atomic manifest publish."""
     if not specs:
         return
     for attempt in range(MAX_ATTEMPTS):
+        check_deadline(deadline)
         # create_commit mutates CommitOperationAdd; do not reuse after failure.
         operations = []
         for s in specs:
@@ -114,6 +121,7 @@ def write(api, archive, specs, message, operation_type, confirmed=None, split=Tr
             # first; never treat an unreadable postcondition as success.
             seen = None
             for inspection in range(MAX_ATTEMPTS):
+                check_deadline(deadline)
                 try:
                     seen = committed(api, archive, specs)
                     break
@@ -122,21 +130,21 @@ def write(api, archive, specs, message, operation_type, confirmed=None, split=Tr
                         raise
                     if inspection == MAX_ATTEMPTS - 1:
                         raise CheckpointTemporaryError('Checkpoint commit status remains unavailable') from None
-                    pause(check_exc, inspection)
+                    pause(check_exc, inspection, deadline)
             if seen:
                 if confirmed is not None:
                     confirmed(specs)
                 return
             if split and len(specs) > 1 and status(exc) in {408, 500, 502, 503, 504}:
                 middle = len(specs) // 2
-                write(api, archive, specs[:middle], message, operation_type, confirmed, True)
-                write(api, archive, specs[middle:], message, operation_type, confirmed, True)
+                write(api, archive, specs[:middle], message, operation_type, confirmed, True, deadline)
+                write(api, archive, specs[middle:], message, operation_type, confirmed, True, deadline)
                 return
             if attempt == MAX_ATTEMPTS - 1:
                 code = status(exc)
                 raise CheckpointTemporaryError('Checkpoint upload failed after bounded attempts: ' +
                     ('HTTP ' + str(code) if code else type(exc).__name__)) from None
-            pause(exc, attempt)
+            pause(exc, attempt, deadline)
         else:
             if confirmed is not None:
                 confirmed(specs)
@@ -181,7 +189,7 @@ def recovery_delta(root, data, entries, base_raw):
         'base_manifest_sha256':hashlib.sha256(base_raw).hexdigest(),
         'planned_manifest_sha256':hashlib.sha256(planned).hexdigest(),
         'delta_objects':len(entries), 'remote_publication_confirmed':False}
-    with temporary_path.open('wb') as dest, gzip.GzipFile(filename='', mode='wb', fileobj=dest, mtime=0) as gz, tarfile.open(fileobj=gz, mode='w|') as tar:
+    with temporary_path.open('wb') as dest, gzip.GzipFile(filename='', mode='wb', fileobj=dest, mtime=0, compresslevel=1) as gz, tarfile.open(fileobj=gz, mode='w|') as tar:
         payloads = [('recovery.json', json.dumps(metadata, sort_keys=True).encode()),
             ('base_manifest.json', base_raw), ('planned_manifest.json', planned)]
         for name, raw in payloads:

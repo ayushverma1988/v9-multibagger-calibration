@@ -175,7 +175,13 @@ class CheckpointWrites(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             root=Path(t)/'state';root.mkdir();(root/'new').write_bytes(b'new')
             api=Api(failures=[403])
-            with self.hf(api),patch.dict('os.environ',{'HF_ARCHIVE_TOKEN':'test'}),patch.object(writes,'recovery_delta',side_effect=OSError):
+            original=writes.recovery_delta
+            calls=[0]
+            def fail_second(*args):
+                calls[0]+=1
+                if calls[0]>1:raise OSError
+                return original(*args)
+            with self.hf(api),patch.dict('os.environ',{'HF_ARCHIVE_TOKEN':'test'}),patch.object(writes,'recovery_delta',side_effect=fail_second):
                 with self.assertRaises(HttpFailure):checkpoint.save(root)
             error=json.loads((Path(t)/'v13_checkpoint_recovery_error.json').read_text())
             self.assertEqual(error['archive_error_type'],'HttpFailure')

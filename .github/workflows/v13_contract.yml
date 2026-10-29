@@ -22,27 +22,41 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
       - run: python -m unittest discover -s tests
-      - name: Verify private Hub file-digest postcondition metadata
+      - name: Verify private Hub byte-pack round trip without changing checkpoint pointers
         if: github.event_name == 'push' && github.ref == 'refs/heads/fix/v13-checkpoint-timeouts-20261029'
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: |
           python - <<'PY'
-          import hashlib,json,os
+          import hashlib,json,os,tempfile
           from pathlib import Path
-          from huggingface_hub import HfApi,hf_hub_download
-          from v13_checkpoint import ARCHIVE,validate_object
-          from v13_checkpoint_writes import spec,committed
+          from huggingface_hub import HfApi,hf_hub_download,CommitOperationAdd
+          from v13_checkpoint import ARCHIVE,object_bytes,manifest
+          from v13_checkpoint_packs import build_packs
+          from v13_checkpoint_writes import spec,committed,write
           token=os.environ['HF_ARCHIVE_TOKEN']
           api=HfApi(token=token)
           assert api.repo_info(ARCHIVE,repo_type='dataset').private
           mf=hf_hub_download(ARCHIVE,'v13/state/latest_manifest.json',repo_type='dataset',token=token)
           data=json.loads(Path(mf).read_text())
-          item=next(r for r in data['files'] if r['path']=='active_heads.joblib')
-          validate_object(item)
-          file=hf_hub_download(ARCHIVE,item['object_path'],repo_type='dataset',token=token)
-          expected=spec(item['object_path'],file,item['sha256'],item['bytes'])
-          assert committed(api,ARCHIVE,[expected])
-          print(json.dumps({'live_archive_postcondition_verified':True,'bytes':item['bytes'],'sha256':item['sha256']}))
+          before=hashlib.sha256(Path(mf).read_bytes()).hexdigest()
+          fetch=lambda key:hf_hub_download(ARCHIVE,key,repo_type='dataset',token=token)
+          items=[r for r in data['files'] if r['raw_source'] and 0<r['bytes']<200000][:3]
+          assert len(items)==3
+          with tempfile.TemporaryDirectory() as t:
+              root=Path(t)/'test';root.mkdir()
+              for i,item in enumerate(items):(root/str(i)).write_bytes(object_bytes(item,fetch))
+              records=manifest(root)['files']
+              uploads,members=build_packs(root,records,Path(t)/'packs')
+              for upload in uploads:
+                  expected=spec(upload['object_path'],upload['file'],upload['sha256'],upload['bytes'])
+                  write(api,ARCHIVE,[expected],'Verify V13 immutable byte-pack round trip',CommitOperationAdd)
+                  assert committed(api,ARCHIVE,[expected])
+              for item in records:
+                  item.update(members[item['sha256']])
+                  assert object_bytes(item,fetch)==(root/item['path']).read_bytes()
+          after=hf_hub_download(ARCHIVE,'v13/state/latest_manifest.json',repo_type='dataset',token=token,force_download=True)
+          assert hashlib.sha256(Path(after).read_bytes()).hexdigest()==before
+          print(json.dumps({'live_pack_round_trip_verified':True,'members':len(records),'latest_pointer_unchanged':True}))
           PY
 

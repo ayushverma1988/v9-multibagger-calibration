@@ -86,14 +86,12 @@ def main(artifact, output):
     # Read only the needed immutable checkpoint objects, not the whole archive.
     try:
         from huggingface_hub import hf_hub_download
-        from v13_checkpoint import validate_object, ARCHIVE
+        from v13_checkpoint import object_bytes, ARCHIVE
         subset=['catalog.parquet','universe.parquet']
         items={r['path']:r for r in manifest['files']}
         for name in subset:
-            item=items[name];validate_object(item)
-            p=hf_hub_download(ARCHIVE,item['object_path'],repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN'))
-            raw=Path(p).read_bytes()
-            if hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Checkpoint hash mismatch')
+            item=items[name]
+            raw=object_bytes(item,lambda key:hf_hub_download(ARCHIVE,key,repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN')))
             (out/name).write_bytes(raw)
         cat=pd.read_parquet(out/'catalog.parquet');cat=cat[cat.symbol.isin(EXAMPLES)]
         cat.to_parquet(out/'earlier_name_catalog.parquet',index=False)

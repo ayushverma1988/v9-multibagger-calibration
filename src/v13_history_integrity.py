@@ -43,7 +43,7 @@ def recover_known_entries(root,config,fetch):
     fetch takes only an approved immutable archive object path. Unit tests can
     inject an offline fetcher; operational access uses the existing worker.
     """
-    from v13_checkpoint import validate_object
+    from v13_checkpoint import object_bytes
     root=Path(root);out=root/'action_audit';out.mkdir(exist_ok=True)
     marker=out/'entry_history_recovery.json'
     if marker.exists():
@@ -54,9 +54,7 @@ def recover_known_entries(root,config,fetch):
     if hashlib.sha256(raw).hexdigest()!=config['manifest_sha256']:raise ValueError('Entry recovery manifest hash mismatch')
     manifest=json.loads(raw);items={z['path']:z for z in manifest['files']}
     def original(item):
-        validate_object(item);data=Path(fetch(item['object_path'])).read_bytes()
-        if len(data)!=item['bytes'] or hashlib.sha256(data).hexdigest()!=item['sha256']:raise ValueError('Entry recovery original mismatch')
-        return data
+        return object_bytes(item,fetch)
     audits=sorted(k for k in items if re.fullmatch(r'action_audit/\d{4}-\d{2}-\d{2}_audit.json',k))
     if not audits:raise ValueError('Known entry checkpoint has no original audit')
     reference=json.loads(original(items[audits[-1]]));observations=pd.read_parquet(root/'prospective_observations.parquet')
