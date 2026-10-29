@@ -199,6 +199,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         if not local:
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
+            phase('SAVING_HISTORY_CHECKPOINT')
             save(root)
         phase('ORIGINAL_FINANCIAL_COLLECTION')
         from v13_financial_recovery_seed import apply as apply_financial_recovery_seed
@@ -256,6 +257,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         if not local:
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
+            phase('SAVING_FINANCIAL_CHECKPOINT')
             save(root)
         phase('CURRENT_SOURCE_ALIGNED_MODEL_INPUTS')
         frame,history=current_frame(root,asof)

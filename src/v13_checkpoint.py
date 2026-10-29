@@ -19,25 +19,36 @@ def validate_object(item):
     digest=item['sha256'];sharded=object_path(digest)
     if item['object_path'] not in {sharded,'v13/objects/'+digest+'.bin'}:
         raise ValueError('Object identity mismatch')
+    from v13_checkpoint_packs import validate_pack_member
+    validate_pack_member(item)
 
 def manifest(root):
     root=Path(root);old=root/'remote_manifest.json'
     prior=json.loads(old.read_text())['files'] if old.exists() else []
     for item in prior:validate_object(item)
-    known={r['sha256']:r['object_path'] for r in prior}
+    known={r['sha256']:r for r in prior}
     files={r['path']:r for r in prior}
     for p in sorted(root.rglob('*')):
         if not p.is_file() or p.name in {'state_manifest.json','remote_manifest.json'}:continue
         rel=str(p.relative_to(root));digest=hashlib.sha256(p.read_bytes()).hexdigest()
-        files[rel]={'path':rel,'sha256':digest,'bytes':p.stat().st_size,'object_path':known.get(digest,object_path(digest)),'raw_source':is_raw(rel)}
+        stored=known.get(digest,{})
+        files[rel]={'path':rel,'sha256':digest,'bytes':p.stat().st_size,'object_path':stored.get('object_path',object_path(digest)),'raw_source':is_raw(rel),
+          **{k:stored[k] for k in ('storage_pack','pack_offset') if k in stored}}
     return {'format':'V13-content-addressed-checkpoint-1','saved_at_utc':datetime.now(timezone.utc).isoformat(),'files':sorted(files.values(),key=lambda r:r['path'])}
+
+def object_bytes(item,fetch):
+    validate_object(item)
+    if item.get('storage_pack'):
+        from v13_checkpoint_packs import read_member
+        return read_member(item,fetch)
+    raw=Path(fetch(item['object_path'])).read_bytes()
+    if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Checkpoint object integrity failure')
+    return raw
 
 def materialize_one(item,root,fetch):
     rel=Path(item['path'])
     if rel.is_absolute() or '..' in rel.parts:raise ValueError('Unsafe checkpoint path')
-    validate_object(item)
-    raw=Path(fetch(item['object_path'])).read_bytes()
-    if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Checkpoint object integrity failure')
+    raw=object_bytes(item,fetch)
     target=Path(root)/rel;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
 
 def build_derived_bundle(root,data,path):
@@ -83,7 +94,15 @@ class VerifiedObjectDownloader:
     according to the server's reset header. Credentials are never logged.
     """
     def __init__(self,items,folder,token,requests_per_second=8):
-        self.items={r['object_path']:r for r in items};self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
+        # Format-2 members resolve through their hash-bound storage pack.
+        # One lock/cache entry per pack avoids duplicate concurrent downloads.
+        self.items={};self.pack_paths=set()
+        for item in items:
+            validate_object(item)
+            stored=item.get('storage_pack') or item
+            path=stored['object_path'];self.items[path]=dict(stored)
+            if item.get('storage_pack'):self.pack_paths.add(path)
+        self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
         self.token=token;self.interval=1/requests_per_second;self.lock=threading.Lock();self.next=0.;self.blocked=0.;self.local=threading.local();self.done=0
         self.object_locks={path:threading.Lock() for path in self.items}
     def __call__(self,path):
@@ -91,7 +110,13 @@ class VerifiedObjectDownloader:
     def download(self,path):
         from huggingface_hub import hf_hub_url
         import requests
-        item=self.items[path];validate_object(item);out=self.folder/(item['sha256']+'.bin')
+        item=self.items[path]
+        if path in self.pack_paths:
+            from v13_checkpoint_packs import pack_path,MAX_PACK_BYTES
+            if item['object_path']!=pack_path(item['sha256']) or type(item['bytes']) is not int or not 0<=item['bytes']<=MAX_PACK_BYTES:
+                raise ValueError('Checkpoint download pack identity or size mismatch')
+        else:validate_object(item)
+        out=self.folder/(item['sha256']+'.bin')
         if out.exists() and out.stat().st_size==item['bytes'] and hashlib.sha256(out.read_bytes()).hexdigest()==item['sha256']:return out
         if not hasattr(self.local,'session'):self.local.session=requests.Session()
         last_error='rate limit'
@@ -148,7 +173,7 @@ def restore(root):
         from v13_runner import verify_manifest
         verify_manifest(root);return True
     data=json.loads(Path(path).read_text())
-    if data.get('format')!='V13-content-addressed-checkpoint-1':raise ValueError('Unknown private checkpoint format')
+    if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2'}:raise ValueError('Unknown private checkpoint format')
     root.mkdir(parents=True,exist_ok=True)
     active=[r for r in data['files'] if not r['raw_source']]
     # Original source objects remain immutable in the private archive. They
@@ -158,6 +183,7 @@ def restore(root):
         count=materialize_bundle(data['derived_state_bundle'],data,root,fetch)
         method='HASH_VERIFIED_DERIVED_STATE_BUNDLE'
     else:
+        if any(r.get('storage_pack') for r in active):raise ValueError('Packed checkpoint requires verified restart bundle')
         paced=VerifiedObjectDownloader(active,root.parent/'v13_restore_objects',token)
         # Resolver/CDN round trips can exceed one second. More bounded I/O
         # workers fill that latency while the shared eight-request/second
@@ -173,27 +199,69 @@ def restore(root):
 
 def save(root):
     from huggingface_hub import HfApi,CommitOperationAdd
+    from v13_checkpoint_writes import MAX_BATCH,UploadProgress,spec,write,recovery_delta
+    from v13_checkpoint_packs import MAX_PACK_BYTES,build_packs
     root=Path(root);token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
     if not api.repo_info(ARCHIVE,repo_type='dataset').private:raise RuntimeError('Checkpoint archive must be private')
     data=manifest(root);old=root/'remote_manifest.json'
-    known={r['sha256'] for r in json.loads(old.read_text())['files']} if old.exists() else set()
+    base_raw=old.read_bytes() if old.exists() else json.dumps({'format':'V13-content-addressed-checkpoint-1','files':[]}).encode()
+    previous=json.loads(base_raw)
+    known={r['sha256'] for r in previous['files']}
     objects={r['sha256']:r for r in data['files'] if r['sha256'] not in known}
     entries=list(objects.values())
-    for start in range(0,len(entries),200):
-        operations=[CommitOperationAdd(path_in_repo=r['object_path'],path_or_fileobj=root/r['path']) for r in entries[start:start+200]]
-        api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 immutable source/model objects',operations=operations)
-    bundle_path=root.parent/'v13_derived_state_bundle.tar.gz'
-    bundle=build_derived_bundle(root,data,bundle_path);data['derived_state_bundle']=bundle
-    previous_bundle=json.loads(old.read_text()).get('derived_state_bundle',{}) if old.exists() else {}
-    if previous_bundle.get('sha256')!=bundle['sha256']:
-        api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 verified derived restart bundle',
-          operations=[CommitOperationAdd(path_in_repo=bundle['object_path'],path_or_fileobj=bundle_path)])
-    raw=json.dumps(data,sort_keys=True,indent=2).encode();sha=hashlib.sha256(raw).hexdigest()
-    path=root.parent/'v13_checkpoint_manifest.json';path.write_bytes(raw)
-    key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+sha[:12]
-    api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 checkpoint '+key,
-      operations=[CommitOperationAdd(path_in_repo='v13/state/snapshots/'+key+'.json',path_or_fileobj=path),
-                  CommitOperationAdd(path_in_repo='v13/state/latest_manifest.json',path_or_fileobj=path)])
+    progress=UploadProgress(root.parent/'v13_checkpoint_upload_progress.json',ARCHIVE)
+    pending=[r for r in entries if not progress.contains(r)]
+    uploads=[];members={}
+    if len(pending)>=MAX_BATCH*2:
+        small=[r for r in pending if r['bytes']<=MAX_PACK_BYTES]
+        uploads,members=build_packs(root,small,root.parent/'v13_upload_packs')
+        for item in data['files']:
+            if item['sha256'] in members:item.update(members[item['sha256']])
+    if members or any(r.get('storage_pack') for r in data['files']):
+        # Old writers must fail closed rather than drop packed storage metadata.
+        data['format']='V13-content-addressed-checkpoint-2'
+    direct=[r for r in pending if r['sha256'] not in members]
+    uploads += [dict(r,file=str(root/r['path'])) for r in direct]
+    all_uploads=len(uploads)
+    uploads=[r for r in uploads if not progress.contains(r)]
+    print('Checkpoint upload plan',json.dumps({'new_objects':len(entries),'packed_objects':len(members),
+      'archive_files_to_upload':len(uploads),'maximum_commit_files':MAX_BATCH}),flush=True)
+    # Create this before any remote write. SIGKILL/job timeout cannot execute
+    # an exception handler; the complete local delta must already exist.
+    recovery=recovery_delta(root,data,entries,base_raw)
+    print('Checkpoint recovery delta ready',json.dumps({'bytes':recovery['bytes'],
+      'sha256':recovery['sha256'],'delta_objects':recovery['delta_objects']}),flush=True)
+    deadline=time.monotonic()+900
+    try:
+        for start in range(0,len(uploads),MAX_BATCH):
+            specs=[spec(r['object_path'],r['file'],r['sha256'],r['bytes']) for r in uploads[start:start+MAX_BATCH]]
+            write(api,ARCHIVE,specs,'V13 immutable source/model objects',CommitOperationAdd,progress.confirm,deadline=deadline)
+            print('Checkpoint upload progress',json.dumps({'confirmed_archive_files':min(start+MAX_BATCH,len(uploads)),
+              'planned_archive_files':len(uploads)}),flush=True)
+        bundle_path=root.parent/'v13_derived_state_bundle.tar.gz'
+        bundle=build_derived_bundle(root,data,bundle_path);data['derived_state_bundle']=bundle
+        previous_bundle=previous.get('derived_state_bundle',{})
+        if previous_bundle.get('sha256')!=bundle['sha256'] and not progress.contains(bundle):
+            write(api,ARCHIVE,[spec(bundle['object_path'],bundle_path,bundle['sha256'],bundle['bytes'])],
+                'V13 verified derived restart bundle',CommitOperationAdd,progress.confirm,deadline=deadline)
+        raw=json.dumps(data,sort_keys=True,indent=2).encode();sha=hashlib.sha256(raw).hexdigest()
+        path=root.parent/'v13_checkpoint_manifest.json';path.write_bytes(raw)
+        key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+sha[:12]
+        # Keep the immutable snapshot and latest pointer in one transaction.
+        write(api,ARCHIVE,[spec('v13/state/snapshots/'+key+'.json',path),
+            spec('v13/state/latest_manifest.json',path)],'V13 checkpoint '+key,
+            CommitOperationAdd,split=False,deadline=deadline)
+    except Exception as exc:
+        try:
+            recovery=recovery_delta(root,data,entries,base_raw)
+            print('Checkpoint recovery delta preserved',json.dumps({
+                'bytes':recovery['bytes'],'sha256':recovery['sha256'],
+                'delta_objects':recovery['delta_objects']}),flush=True)
+        except Exception as recovery_exc:
+            (root.parent/'v13_checkpoint_recovery_error.json').write_text(json.dumps({
+                'archive_error_type':type(exc).__name__,
+                'recovery_error_type':type(recovery_exc).__name__}))
+        raise
     (root/'remote_manifest.json').write_bytes(raw)
     (root/'state_manifest.json').write_text(json.dumps({'files':[r for r in data['files'] if (root/r['path']).exists()]},indent=2))
     # Small second checkpoint for GitHub artifacts; full immutable objects stay
@@ -202,8 +270,17 @@ def save(root):
     with tarfile.open(archive,'w:gz') as tar:
         tar.add(path,arcname='v13_checkpoint_manifest.json')
         if (root/'latest_run.json').exists():tar.add(root/'latest_run.json',arcname='latest_run.json')
+    # All delta objects and the atomic pointer now have a successful or
+    # digest-reconciled remote receipt. Earlier emergency bytes are redundant.
+    for name in ('v13_checkpoint_recovery.tar.gz','v13_checkpoint_recovery.json',
+                 'v13_checkpoint_recovery_error.json','v13_checkpoint_upload_progress.json'):
+        (root.parent/name).unlink(missing_ok=True)
     return {'archive':ARCHIVE,'snapshot':key,'manifest_sha256':sha,'new_objects':len(entries),'total_objects':len({r['sha256'] for r in data['files']}),
-      'derived_bundle_bytes':bundle['bytes'],'derived_bundle_files':bundle['files']}
+      'derived_bundle_bytes':bundle['bytes'],'derived_bundle_files':bundle['files'],
+      'maximum_object_commit_files':MAX_BATCH,'resumed_confirmed_objects':len(entries)-len(pending),
+      'packed_objects':len(members),'archive_files_uploaded':len(uploads),
+      'resumed_confirmed_archive_files':all_uploads-len(uploads),
+      'save_seconds_budget':900,'format':data['format']}
 
 def restore_review_originals(root,additional_hashes=None):
     """Fetch only original hashes required by reviewed evidence, using the
@@ -222,3 +299,4 @@ def restore_review_originals(root,additional_hashes=None):
     for item in json.loads(mp.read_text())['files']:
         if item['sha256'] in required and not (root/item['path']).exists():
             materialize_one(item,root,lambda key:hf_hub_download(ARCHIVE,key,repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN')))
+
