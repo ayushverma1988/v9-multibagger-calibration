@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 25a4c071ca9f0d10d2c56614bb37e330c07faa1a
+          ref: 5f9568244ca33d7a03a58fd52a8137eb0ea95d33
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -48,6 +48,10 @@ jobs:
             v13_state.tar.gz
             archive_receipt.json
             v13_worker_attempt.json
+            v13_checkpoint_recovery.tar.gz
+            v13_checkpoint_recovery.json
+            v13_checkpoint_recovery_error.json
+            v13_checkpoint_upload_progress.json
             v13_state/latest_run.json
             v13_state/champion_latest_watchlist.json
             v13_state/challenger_latest_watchlist.json
