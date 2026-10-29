@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 91d9513dfce90f2a8aa6159a3a39224139a90643
+          ref: 5b11d398e302c059dc1f71b9171b72020cb1e963
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -49,7 +49,7 @@ jobs:
             if (!artifact) throw new Error('Completed collector artifact unavailable');
             const download = await github.rest.actions.downloadArtifact({...context.repo,artifact_id:artifact.id,archive_format:'zip'});
             fs.writeFileSync('worker.zip',Buffer.from(download.data));
-            fs.writeFileSync('source_worker_run.json',JSON.stringify({run_id,artifact_id:artifact.id,chart_code:'91d9513dfce90f2a8aa6159a3a39224139a90643'},null,2));
+            fs.writeFileSync('source_worker_run.json',JSON.stringify({run_id,artifact_id:artifact.id,chart_code:'5b11d398e302c059dc1f71b9171b72020cb1e963'},null,2));
       - name: Annotate frozen forecasts using exact saved histories
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
