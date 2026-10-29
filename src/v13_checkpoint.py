@@ -173,27 +173,45 @@ def restore(root):
 
 def save(root):
     from huggingface_hub import HfApi,CommitOperationAdd
+    from v13_checkpoint_writes import MAX_BATCH,UploadProgress,spec,write,recovery_delta
     root=Path(root);token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
     if not api.repo_info(ARCHIVE,repo_type='dataset').private:raise RuntimeError('Checkpoint archive must be private')
     data=manifest(root);old=root/'remote_manifest.json'
-    known={r['sha256'] for r in json.loads(old.read_text())['files']} if old.exists() else set()
+    base_raw=old.read_bytes() if old.exists() else json.dumps({'format':'V13-content-addressed-checkpoint-1','files':[]}).encode()
+    previous=json.loads(base_raw)
+    known={r['sha256'] for r in previous['files']}
     objects={r['sha256']:r for r in data['files'] if r['sha256'] not in known}
     entries=list(objects.values())
-    for start in range(0,len(entries),200):
-        operations=[CommitOperationAdd(path_in_repo=r['object_path'],path_or_fileobj=root/r['path']) for r in entries[start:start+200]]
-        api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 immutable source/model objects',operations=operations)
-    bundle_path=root.parent/'v13_derived_state_bundle.tar.gz'
-    bundle=build_derived_bundle(root,data,bundle_path);data['derived_state_bundle']=bundle
-    previous_bundle=json.loads(old.read_text()).get('derived_state_bundle',{}) if old.exists() else {}
-    if previous_bundle.get('sha256')!=bundle['sha256']:
-        api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 verified derived restart bundle',
-          operations=[CommitOperationAdd(path_in_repo=bundle['object_path'],path_or_fileobj=bundle_path)])
-    raw=json.dumps(data,sort_keys=True,indent=2).encode();sha=hashlib.sha256(raw).hexdigest()
-    path=root.parent/'v13_checkpoint_manifest.json';path.write_bytes(raw)
-    key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+sha[:12]
-    api.create_commit(repo_id=ARCHIVE,repo_type='dataset',commit_message='V13 checkpoint '+key,
-      operations=[CommitOperationAdd(path_in_repo='v13/state/snapshots/'+key+'.json',path_or_fileobj=path),
-                  CommitOperationAdd(path_in_repo='v13/state/latest_manifest.json',path_or_fileobj=path)])
+    progress=UploadProgress(root.parent/'v13_checkpoint_upload_progress.json',ARCHIVE)
+    pending=[r for r in entries if not progress.contains(r)]
+    try:
+        for start in range(0,len(pending),MAX_BATCH):
+            specs=[spec(r['object_path'],root/r['path'],r['sha256'],r['bytes']) for r in pending[start:start+MAX_BATCH]]
+            write(api,ARCHIVE,specs,'V13 immutable source/model objects',CommitOperationAdd,progress.confirm)
+        bundle_path=root.parent/'v13_derived_state_bundle.tar.gz'
+        bundle=build_derived_bundle(root,data,bundle_path);data['derived_state_bundle']=bundle
+        previous_bundle=previous.get('derived_state_bundle',{})
+        if previous_bundle.get('sha256')!=bundle['sha256'] and not progress.contains(bundle):
+            write(api,ARCHIVE,[spec(bundle['object_path'],bundle_path,bundle['sha256'],bundle['bytes'])],
+                'V13 verified derived restart bundle',CommitOperationAdd,progress.confirm)
+        raw=json.dumps(data,sort_keys=True,indent=2).encode();sha=hashlib.sha256(raw).hexdigest()
+        path=root.parent/'v13_checkpoint_manifest.json';path.write_bytes(raw)
+        key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+sha[:12]
+        # Keep the immutable snapshot and latest pointer in one transaction.
+        write(api,ARCHIVE,[spec('v13/state/snapshots/'+key+'.json',path),
+            spec('v13/state/latest_manifest.json',path)],'V13 checkpoint '+key,
+            CommitOperationAdd,split=False)
+    except Exception as exc:
+        try:
+            recovery=recovery_delta(root,data,entries,base_raw)
+            print('Checkpoint recovery delta preserved',json.dumps({
+                'bytes':recovery['bytes'],'sha256':recovery['sha256'],
+                'delta_objects':recovery['delta_objects']}),flush=True)
+        except Exception as recovery_exc:
+            (root.parent/'v13_checkpoint_recovery_error.json').write_text(json.dumps({
+                'archive_error_type':type(exc).__name__,
+                'recovery_error_type':type(recovery_exc).__name__}))
+        raise
     (root/'remote_manifest.json').write_bytes(raw)
     (root/'state_manifest.json').write_text(json.dumps({'files':[r for r in data['files'] if (root/r['path']).exists()]},indent=2))
     # Small second checkpoint for GitHub artifacts; full immutable objects stay
@@ -202,8 +220,14 @@ def save(root):
     with tarfile.open(archive,'w:gz') as tar:
         tar.add(path,arcname='v13_checkpoint_manifest.json')
         if (root/'latest_run.json').exists():tar.add(root/'latest_run.json',arcname='latest_run.json')
+    # All delta objects and the atomic pointer now have a successful or
+    # digest-reconciled remote receipt. Earlier emergency bytes are redundant.
+    for name in ('v13_checkpoint_recovery.tar.gz','v13_checkpoint_recovery.json',
+                 'v13_checkpoint_recovery_error.json','v13_checkpoint_upload_progress.json'):
+        (root.parent/name).unlink(missing_ok=True)
     return {'archive':ARCHIVE,'snapshot':key,'manifest_sha256':sha,'new_objects':len(entries),'total_objects':len({r['sha256'] for r in data['files']}),
-      'derived_bundle_bytes':bundle['bytes'],'derived_bundle_files':bundle['files']}
+      'derived_bundle_bytes':bundle['bytes'],'derived_bundle_files':bundle['files'],
+      'maximum_object_commit_files':MAX_BATCH,'resumed_confirmed_objects':len(entries)-len(pending)}
 
 def restore_review_originals(root,additional_hashes=None):
     """Fetch only original hashes required by reviewed evidence, using the
@@ -222,3 +246,4 @@ def restore_review_originals(root,additional_hashes=None):
     for item in json.loads(mp.read_text())['files']:
         if item['sha256'] in required and not (root/item['path']).exists():
             materialize_one(item,root,lambda key:hf_hub_download(ARCHIVE,key,repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN')))
+

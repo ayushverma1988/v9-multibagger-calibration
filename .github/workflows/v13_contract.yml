@@ -1,7 +1,7 @@
 name: V13 NSE Learning Contract
 on:
   push:
-    branches: [v13-nse-self-learning-20261011, v13-data-reliability-20261020, fix/v13-nse-master-identity-20261023, v13-capture-coverage-20261028]
+    branches: [v13-nse-self-learning-20261011, v13-data-reliability-20261020, fix/v13-nse-master-identity-20261023, v13-capture-coverage-20261028, fix/v13-checkpoint-timeouts-20261029]
     paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_contract.yml']
   pull_request:
     paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_contract.yml']
@@ -22,3 +22,27 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
       - run: python -m unittest discover -s tests
+      - name: Verify private Hub file-digest postcondition metadata
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/v13-checkpoint-timeouts-20261029'
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          from v13_checkpoint import ARCHIVE,validate_object
+          from v13_checkpoint_writes import spec,committed
+          token=os.environ['HF_ARCHIVE_TOKEN']
+          api=HfApi(token=token)
+          assert api.repo_info(ARCHIVE,repo_type='dataset').private
+          mf=hf_hub_download(ARCHIVE,'v13/state/latest_manifest.json',repo_type='dataset',token=token)
+          data=json.loads(Path(mf).read_text())
+          item=next(r for r in data['files'] if r['path']=='active_heads.joblib')
+          validate_object(item)
+          file=hf_hub_download(ARCHIVE,item['object_path'],repo_type='dataset',token=token)
+          expected=spec(item['object_path'],file,item['sha256'],item['bytes'])
+          assert committed(api,ARCHIVE,[expected])
+          print(json.dumps({'live_archive_postcondition_verified':True,'bytes':item['bytes'],'sha256':item['sha256']}))
+          PY
+
