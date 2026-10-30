@@ -5,10 +5,10 @@
   "warnings": [],
   "automatic_retuning": false,
   "production_model": "V10.2 integrity-corrected V9.4.1",
-  "latest_prediction_date": "2026-10-29",
+  "latest_prediction_date": "2026-10-30",
   "market_data_age_days": 0,
-  "ledger_rows": 190,
-  "ledger_batches": 19,
+  "ledger_rows": 200,
+  "ledger_batches": 20,
   "model_rules_frozen": true,
   "p50_p25_production_weight": 0.0
 }
