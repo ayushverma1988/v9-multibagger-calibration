@@ -10,6 +10,7 @@ from v12_public_history import bounds,parse_chart
 from v11_4_exchange_reference_universe import NSE_MASTER,NSE_SME_MASTER,parse_nse_master
 from urllib.parse import quote
 import numpy as np
+import requests
 from v13_price_policy import valid_price
 import time
 
@@ -230,6 +231,15 @@ def stable_event_windows(asof):
         (full if a==start and b==end else partial).append((a,b));start=end+pd.Timedelta(days=1)
     return sorted(full,reverse=True)+sorted(partial,reverse=True)
 
+def _transient_universe_fetch_error(exc):
+    """Retry temporary public-source failures, never access or identity errors."""
+    if isinstance(exc,(requests.exceptions.SSLError,requests.exceptions.ProxyError)):
+        return False
+    if isinstance(exc,(requests.exceptions.Timeout,requests.exceptions.ConnectionError)):
+        return True
+    response=getattr(exc,'response',None)
+    return isinstance(exc,requests.exceptions.HTTPError) and response is not None and response.status_code in {408,500,502,503,504}
+
 def universe(root,asof):
     from datetime import datetime,timezone
     root=Path(root);frames=[];attempts=[]
@@ -249,11 +259,19 @@ def universe(root,asof):
             try:
                 raw,proof=store.get(url)
             except Exception as exc:
-                # Access limits and network failures retain their existing
-                # fail-closed behaviour; no repeated permission probing.
+                # A single slow exchange reply must not abort the whole daily
+                # run. Each bounded retry gets a fresh cache vintage; permanent
+                # access failures and exhausted retries still stop collection.
+                retryable=_transient_universe_fetch_error(exc)
+                will_retry=retryable and number<3
                 attempts.append({'url':url,'attempt':number,'status':'FETCH_FAILED',
-                  'error':type(exc).__name__})
-                record('SOURCE_FETCH_FAILED');raise
+                  'error':type(exc).__name__,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
+                  'transient':retryable,'will_retry':will_retry})
+                record('RETRYING_TRANSIENT_FETCH' if will_retry else 'SOURCE_FETCH_FAILED')
+                if not will_retry:raise
+                print('Public NSE universe transient fetch; retrying',url,'attempt',number+1,'of 3',flush=True)
+                time.sleep(number)
+                continue
             attempt={'url':url,'attempt':number,'source_sha256':proof['sha256'],
               'retrieved_at_utc':proof['first_retrieved_utc'],'bytes':len(raw)}
             try:
