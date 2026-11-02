@@ -1,0 +1,83 @@
+name: V13 matched model and ranking benchmark
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/v13-predictive-adoption-20261103]
+    paths: ['.github/workflows/v13_policy_benchmark.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    # Preparation can use 90 minutes. Keep a separate 90-minute allowance
+    # for evaluation rather than expiring its dependency wait at 30 minutes.
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - run: python -m unittest discover -s tests -p test_v13_policy_evaluation.py
+      - name: Obtain the prepared hash-verified research dataset
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const run_id = 41513931108;
+            let run;
+            for (let i=0;i<270;i++) {
+              run=(await github.rest.actions.getWorkflowRun({...context.repo,run_id})).data;
+              if (run.status==='completed') break;
+              await new Promise(resolve=>setTimeout(resolve,20000));
+            }
+            if (run.status!=='completed') throw new Error(`Preparation run ${run_id} is still running after 90 minutes; no evaluation was started`);
+            if (run.conclusion!=='success') throw new Error(`Preparation run ${run_id} ended with ${run.conclusion}; no unverified input was used`);
+            const items=(await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id})).data.artifacts;
+            const a=items.find(x=>x.name===`v13-adoption-inputs-${run_id}` && !x.expired);
+            if (!a) throw new Error('Missing prepared dataset artifact');
+            const response=await github.rest.actions.downloadArtifact({...context.repo,artifact_id:a.id,archive_format:'zip'});
+            const bytes=Buffer.from(response.data);
+            const digest='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
+            if (digest!==a.digest) throw new Error('Prepared dataset artifact hash mismatch');
+            fs.writeFileSync('prepared.zip',bytes);
+            fs.writeFileSync('dataset_provenance.json',JSON.stringify({run_id,head_sha:run.head_sha,artifact_id:a.id,digest},null,2));
+      - name: Extract verified bounded dataset
+        run: |
+          python - <<'PY'
+          import zipfile,tarfile,io
+          from pathlib import Path
+          with zipfile.ZipFile('prepared.zip') as z:
+              name=next(n for n in z.namelist() if n.endswith('research_inputs.tar.gz'))
+              with tarfile.open(fileobj=io.BytesIO(z.read(name)),mode='r:gz') as t:
+                  expected={'matrix.parquet','current.parquet','active_heads.joblib','research_heads.joblib','prepared_summary.json'}
+                  if set(t.getnames())!=expected or any(not m.isfile() for m in t.getmembers()):raise ValueError('Unexpected research dataset member')
+                  t.extractall('inputs',filter='data')
+          PY
+      - name: Compare chronological models, calibration, feature groups and rankings
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from v13_policy_evaluation import run
+          asof=json.loads(Path('inputs/prepared_summary.json').read_text())['source_date']
+          result=run('inputs/matrix.parquet','inputs/current.parquet','evaluation',asof,max_dates=12)
+          print(json.dumps({'version':result['version'],'models':list(result['models']),'comparisons':result['paired_comparisons'],'decision':result['decision']},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-matched-policy-evaluation-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            evaluation/**
+            dataset_provenance.json
+            inputs/prepared_summary.json
+          retention-days: 30

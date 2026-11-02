@@ -25,7 +25,7 @@ from v13_information_clock import cutoff
 from v13_price_policy import valid_price
 import v13_model as model
 
-POLICY = 'V13_AVAILABLE_FINANCIALS_RSI_GT70_NO_PRICE_BAND_20261102'
+POLICY = 'V13_AVAILABLE_FINANCIALS_SECTOR_AWARE_RSI_GT70_20261103'
 RSI_MIN = 70
 WEIGHTS = {'joint12_percentile': .75, 'financial_evidence': .10,
            'complete_execution': .05, 'source_supported_net_2x': .05,
@@ -59,9 +59,12 @@ def _ambiguous_latest(d, kind, date, max_age):
     return int(q.available.eq(q.available.max()).sum()) > 1
 
 
-def assess(known, date):
+def assess(known, date, sector='UNKNOWN'):
     """One issuer, one cutoff-filtered basis. Never infer owner PAT or EPS."""
     date = pd.Timestamp(date)
+    if sector=='UNKNOWN' and not known.empty and 'source_url' in known:
+        if known.source_url.fillna('').map(lambda u:urlsplit(str(u)).hostname in {'nsearchives.nseindia.com','www.nseindia.com'} and 'INTEGRATED_FILING_BANKING' in str(u).upper()).any():
+            sector='BANK'
     basis = preferred_reporting_basis(known, date)
     d = known[known.reporting_mode.eq(basis)] if not known.empty else known
     f, _ = features(known, date) if not known.empty else ({}, [])
@@ -85,12 +88,12 @@ def assess(known, date):
     for key in ('current_revenue', 'current_PAT', 'balance_equity'):
         if np.isfinite(values[key]) and values[key] <= 0:
             failures.append('OBSERVED_NONPOSITIVE_'+key.upper())
-    for key in ('annual_CFO', 'balance_cash'):
+    for key in (('balance_cash',) if sector in {'BANK','INSURER','OTHER_FINANCIAL'} else ('annual_CFO','balance_cash')):
         if np.isfinite(values[key]) and values[key] < 0:
             failures.append('OBSERVED_NEGATIVE_'+key.upper())
-    if f.get('dated_debt_equity', np.nan) > 1.5:
+    if sector not in {'BANK','INSURER','OTHER_FINANCIAL'} and f.get('dated_debt_equity', np.nan) > 1.5:
         failures.append('OBSERVED_DEBT_EQUITY_ABOVE_1_5')
-    if f.get('annual_EBIT_proxy_interest_coverage', np.nan) < 1.5:
+    if sector not in {'BANK','INSURER','OTHER_FINANCIAL'} and f.get('annual_EBIT_proxy_interest_coverage', np.nan) < 1.5:
         failures.append('OBSERVED_INTEREST_COVER_BELOW_1_5')
     owner_status = owner_profit_status(q)
     conflict = owner_status == 'UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT'
@@ -122,6 +125,22 @@ def assess(known, date):
             state = 'MISSING_OR_AMBIGUOUS_INPUT'
         states[key] = state
     interest_ready = np.isfinite(f.get('annual_EBIT_proxy_interest_coverage', np.nan)) or zero_interest
+    sector_states={};sector_score=None
+    if sector in {'BANK','INSURER','OTHER_FINANCIAL'}:
+        tests={'bank_roa':lambda x:x>0,'bank_capital_buffer_pp':lambda x:x>=0,
+          'bank_net_npa_change_pp':lambda x:x<=0} if sector=='BANK' else {
+          'insurer_solvency_buffer_pp':lambda x:x>=0,'insurer_underwriting_or_vnb_margin':lambda x:x>0} if sector=='INSURER' else {}
+        core_missing=[k for k in ('current_revenue','current_PAT','balance_equity') if not np.isfinite(values[k])]
+        for key,test in tests.items():
+            value=number(q,key);values[key]=value
+            sector_states[key]='MISSING_OR_AMBIGUOUS_INPUT' if not np.isfinite(value) else 'OBSERVED_PASS' if test(value) else 'OBSERVED_WEAKNESS'
+            if not np.isfinite(value):core_missing.append(key)
+            elif not test(value):failures.append('OBSERVED_SECTOR_WEAKNESS_'+key.upper())
+        if not tests:core_missing.append('dated_financial_sector_safety_rules')
+        for key in ('annual_CFO_PAT','dated_debt_equity','annual_EBIT_proxy_interest_coverage'):
+            states[key]='NOT_APPLICABLE_INDUSTRIAL_RATIO_FOR_FINANCIAL_SECTOR'
+        interest_ready=True
+        sector_score=(sum(v=='OBSERVED_PASS' for v in sector_states.values())+sum(np.isfinite(values[k]) and values[k]>0 for k in ('current_revenue','current_PAT','balance_equity')))/(len(tests)+3) if tests else 0.
     if conflict:
         tier = 'QUARANTINED_SOURCE_CONFLICT'
     elif failures:
@@ -130,7 +149,7 @@ def assess(known, date):
         tier = DISCOVERY
     elif turnaround:
         tier = TURNAROUND
-    elif quality['quality_pass']:
+    elif quality['quality_pass'] and sector not in {'BANK','INSURER','OTHER_FINANCIAL'}:
         tier = 'AVAILABLE_SEVEN_CHECK_PASS_RESEARCH'
     else:
         tier = 'AVAILABLE_CURRENT_FINANCIALS_RESEARCH'
@@ -171,7 +190,8 @@ def assess(known, date):
             'annual_loss_to_current_quarter_profit_is_not_same_period_growth': True,
             'QoQ_is_not_seasonally_adjusted': True,
             'owner_PAT_is_not_recurring_EPS': True,
-            'single_source_allowed': True}
+            'single_source_allowed': True, 'sector_kind':sector, 'sector_check_states':sector_states,
+            'sector_evidence_score':sector_score}
 
 
 def enrich(scored, wide):
@@ -199,14 +219,14 @@ def enrich(scored, wide):
                 # now, rather than deriving every past version combination.
                 latest = known.groupby(['reporting_mode', 'period_kind', 'period'])['available'].transform('max')
                 known = balancing_quarters(known[known.available.eq(latest)])
-        assessment = assess(known, date)
+        assessment = assess(known, date, row.get('available_sector_kind', 'UNKNOWN'))
         assessment.update(isin=row['isin'], symbol=row['symbol'], source_asof=str(date.date()),
                           information_cutoff_utc=cut.isoformat())
         rows.append(assessment)
     overlay = pd.DataFrame(index=d.index)
     overlay['available_financial_tier'] = [r['tier'] for r in rows]
     overlay['available_financial_core_observed_fraction'] = [1-len(r['core_missing_fields'])/len(CORE) for r in rows]
-    overlay['available_financial_evidence_score'] = [sum(v in ('OBSERVED_PASS',
+    overlay['available_financial_evidence_score'] = [r['sector_evidence_score'] if r.get('sector_evidence_score') is not None else sum(v in ('OBSERVED_PASS',
         'NOT_APPLICABLE_ZERO_INTEREST_AND_NO_BORROWINGS') for v in r['check_states'].values())/len(REQUIRED) for r in rows]
     overlay['available_financial_turnaround'] = [r['observed_turnaround'] for r in rows]
     overlay['available_financial_zero_interest_NA'] = [r['zero_interest_no_borrowings_NA'] for r in rows]
@@ -283,8 +303,8 @@ def screen(scored, wide):
         'new_head_trained_or_promoted': False}
 
 
-def export(scored, wide, root, replay_receipt):
-    """Immutable policy review including unselected names, linked to exact replay."""
+def validate_exact_replay(scored,root,replay_receipt):
+    """Bind every input and all four estimates to the immutable model replay."""
     if not replay_receipt.get('replay_verified') or replay_receipt.get('rows') != len(scored):
         raise ValueError('Available financial selection needs matching exact replay')
     root = Path(root)
@@ -312,6 +332,12 @@ def export(scored, wide, root, replay_receipt):
     for key in ('p6', 'p12', 'loss12', 'joint12'):
         if not np.allclose(ordered[key], recorded['probabilities'][key], rtol=0, atol=1e-12, equal_nan=False):
             raise ValueError('Available financial policy must preserve exact replay probabilities')
+
+
+def export(scored, wide, root, replay_receipt):
+    """Immutable policy review including unselected names, linked to exact replay."""
+    validate_exact_replay(scored,root,replay_receipt)
+    root=Path(root)
     d, rows, audit = screen(scored, wide)
     now = datetime.now(timezone.utc).isoformat()
     obj = {**audit, 'source_asof': str(pd.Timestamp(d.date.max()).date()),
