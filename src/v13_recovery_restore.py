@@ -52,3 +52,26 @@ def restore_delta(bundle, root, fetch, expected_sha256=None):
     result={'archive_sha256':actual,'base_manifest_sha256':digest(base_raw),'planned_manifest_sha256':digest(planned_raw),
       'delta_objects':len(needed),'remote_publication_confirmed':False,'restored_local_state_verified':True}
     (root/'recovery_restore_receipt.json').write_text(json.dumps(result,indent=2));return result
+
+def restore_artifact(archive,root,fetch):
+    import zipfile
+    root=Path(root)
+    with zipfile.ZipFile(archive) as z:
+        if 'v13_checkpoint_recovery.json' not in z.namelist():return {'recovery_present':False}
+        desc=json.loads(z.read('v13_checkpoint_recovery.json'));raw=z.read('v13_checkpoint_recovery.tar.gz')
+        if len(raw)!=desc['bytes'] or digest(raw)!=desc['sha256']:raise ValueError('Artifact recovery receipt mismatch')
+        path=root.parent/'previous_verified_recovery.tar.gz';path.write_bytes(raw)
+        result=restore_delta(path,root,fetch,desc['sha256'])
+        if 'v13_archive_capacity.json' in z.namelist():
+            quota=json.loads(z.read('v13_archive_capacity.json'))
+            if quota.get('archive_capacity_blocked') is True:(root.parent/'v13_archive_capacity.json').write_text(json.dumps(quota))
+    return {'recovery_present':True,**result}
+
+if __name__=='__main__':
+    import argparse,os
+    from huggingface_hub import HfApi,hf_hub_download
+    from v13_checkpoint import ARCHIVE
+    p=argparse.ArgumentParser();p.add_argument('--artifact',required=True);p.add_argument('--state',required=True);a=p.parse_args()
+    token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
+    if not api.repo_info(ARCHIVE,repo_type='dataset').private:raise RuntimeError('Private archive required')
+    print(json.dumps(restore_artifact(a.artifact,a.state,lambda x:hf_hub_download(ARCHIVE,x,repo_type='dataset',token=token))))

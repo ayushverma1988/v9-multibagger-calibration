@@ -43,6 +43,9 @@ def paired_registration_coverage_gate(root,current_rows):
       'status':'PASS' if passed else 'BLOCKED_COLLAPSED_CURRENT_COVERAGE'}
 
 def restore(root):
+    if (Path(root)/'recovery_restore_receipt.json').exists():
+        verify_manifest(Path(root))
+        return True
     from v13_checkpoint import restore as restore_incremental
     return restore_incremental(root)
 
@@ -69,7 +72,8 @@ def initialize(root,seed):
 
 def save(root):
     from v13_checkpoint import save as save_incremental
-    return save_incremental(root)
+    from v13_artifact_checkpoint import save_with_quota_fallback
+    return save_with_quota_fallback(root,save_incremental)
 
 def last_completed_session(root,day):
     errors=[]
@@ -87,9 +91,18 @@ def current_frame(root,asof,primary_volume_research=False):
     funnel={'history_files':0,'empty_after_window':0,'no_source_date_bar':0,'source_date_feature_ineligible':0,'feature_eligible_source_date':0}
     primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
     volume_overlays=0
-    for path in sorted((root/'history'/'securities').glob('*.parquet')):
-        funnel['history_files']+=1
-        bars=pd.read_parquet(path);bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
+    from v13_history_views import histories
+    wanted=None
+    if (root/'universe.parquet').exists():
+        u=pd.read_parquet(root/'universe.parquet')
+        symbol_col='nse_current_symbol' if 'nse_current_symbol' in u else 'symbol'
+        wanted=set(zip(u['isin'],u[symbol_col]))
+    canonical,identity_audit=histories(root/'history'/'securities',wanted)
+    funnel['history_files']=identity_audit['files']
+    funnel['conflicting_history_identities']=len(identity_audit['quarantined'])
+    funnel['redundant_history_files']=identity_audit['redundant_files']
+    for path,bars in canonical.values():
+        bars=bars.copy();bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
         if bars.empty:funnel['empty_after_window']+=1;continue
         history[bars['isin'].iloc[0]]=bars
         if primary_volume_research:
@@ -338,6 +351,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
+            from v13_dated_sector import attach as attach_dated_sector
+            frame=attach_dated_sector(frame,root)
             frame=statement_eps.enrich(frame,root)
             frame=catalyst_execution.join(frame,root)
             frame=financial_evidence.apply_scenarios(frame,root)
@@ -377,6 +392,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                         a,wide,root,report['exact_prediction_replay']['champion'])
                 except Exception as exc:
                     report['available_financial_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
+                try:
+                    from v13_priority_research import export as export_priority
+                    report['priority_research']=export_priority(a,wide,root,report['exact_prediction_replay']['champion'])
+                except Exception as exc:
+                    report['priority_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
                 from v13_redevelopment import export as export_redevelopment
                 try:
                     report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])

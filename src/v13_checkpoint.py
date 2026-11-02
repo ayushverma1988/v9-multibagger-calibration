@@ -29,7 +29,8 @@ def manifest(root):
     known={r['sha256']:r for r in prior}
     files={r['path']:r for r in prior}
     for p in sorted(root.rglob('*')):
-        if not p.is_file() or p.name in {'state_manifest.json','remote_manifest.json'}:continue
+        if not p.is_file() or p.name in {'state_manifest.json','remote_manifest.json',
+            'pending_checkpoint_manifest.json','recovery_restore_receipt.json'}:continue
         rel=str(p.relative_to(root));digest=hashlib.sha256(p.read_bytes()).hexdigest()
         stored=known.get(digest,{})
         files[rel]={'path':rel,'sha256':digest,'bytes':p.stat().st_size,'object_path':stored.get('object_path',object_path(digest)),'raw_source':is_raw(rel),

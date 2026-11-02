@@ -14,6 +14,25 @@ from v13_model import transform
 
 
 class AvailableFinancials(unittest.TestCase):
+    def test_bank_uses_bank_safety_fields_not_industrial_cashflow_leverage(self):
+        w=self.wide();w.loc[w.period_kind.eq('annual'),'cfo']=-25.
+        w.loc[w.period_kind.eq('instant'),'borrowings_current']=500.
+        for k,v in {'bank_roa':1.2,'bank_capital_buffer_pp':3.,'bank_net_npa_change_pp':-.2}.items():
+            w.loc[w.period_kind.eq('quarter'),k]=v
+        r=assess(w,pd.Timestamp('2026-10-30'),'BANK')
+        self.assertEqual(r['tier'],'AVAILABLE_CURRENT_FINANCIALS_RESEARCH')
+        self.assertFalse(r['current_safety_failures'])
+        self.assertEqual(r['check_states']['annual_CFO_PAT'],'NOT_APPLICABLE_INDUSTRIAL_RATIO_FOR_FINANCIAL_SECTOR')
+        self.assertEqual(r['sector_evidence_score'],1.)
+
+    def test_missing_bank_safety_is_discovery_and_observed_weakness_still_excluded(self):
+        w=self.wide();r=assess(w,pd.Timestamp('2026-10-30'),'BANK')
+        self.assertEqual(r['tier'],DISCOVERY)
+        self.assertIn('bank_capital_buffer_pp',r['core_missing_fields'])
+        w.loc[w.period_kind.eq('quarter'),'bank_capital_buffer_pp']=-1.
+        r=assess(w,pd.Timestamp('2026-10-30'),'BANK')
+        self.assertEqual(r['tier'],'OBSERVED_CURRENT_FINANCIAL_WEAKNESS')
+
     def wide(self, **changes):
         base = {'security_isin': 'INE000000001', 'symbol': 'A',
             'reporting_mode': 'standalone', 'available': pd.Timestamp('2026-08-01T00:00Z'),

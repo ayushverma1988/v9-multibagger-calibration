@@ -96,6 +96,20 @@ def _reasons(r):
 
 def export(root, replay_receipt, classification_dir=None, review_asof=None):
     root = Path(root)
+    priority=root/'priority_research/latest.json'
+    if priority.exists():
+        current=json.loads(priority.read_text())
+        if current['prediction_replay']!=replay_receipt:
+            raise ValueError('2x priority report inputs must share the same model replay')
+        # New source-bound policy reports do not depend on an expired external
+        # classification snapshot. The legacy refined report remains below for
+        # callers explicitly replaying that historical policy.
+        out=root/'two_x_research';out.mkdir(exist_ok=True)
+        from v13_capture_policy import atomic_json
+        atomic_json(out/'latest.json',current)
+        (out/'latest.md').write_bytes((root/'priority_research/latest.md').read_bytes())
+        return {'source_date':current['source_asof'],'ranked_count':current['selected'],
+          'policy':current['policy'],'status':'RESEARCH_ONLY_ACCURACY_UNVALIDATED'}
     selection = json.loads((root / 'research_selection' / 'latest.json').read_text())
     redevelopment = json.loads((root / 'redevelopment' / 'latest.json').read_text())
     if not replay_receipt.get('replay_verified'):
