@@ -8,6 +8,7 @@ on:
     paths: ['.github/workflows/v13_research_worker.yml']
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: v13-private-research-state
   cancel-in-progress: false
@@ -20,10 +21,11 @@ jobs:
       OPENBLAS_NUM_THREADS: '2'
       PYTHONPATH: src
       INDIAN_STOCK_API_CHECKOUT: ${{ github.workspace }}/api_source
+      V13_ARTIFACT_CHECKPOINT_FALLBACK: '1'
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d4f465a9d40157bb8fec03e6a81716746c636bf7
+          ref: d956428203daed4ca0517242b99de0fd7141bba4
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -35,6 +37,38 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Recover the latest preserved worker delta before source refresh
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const {execFileSync} = require('child_process');
+            const runs = (await github.rest.actions.listWorkflowRuns({...context.repo, workflow_id:'v13_research_worker.yml', status:'completed', per_page:8})).data.workflow_runs;
+            for (const run of runs.filter(r => r.head_branch === 'main')) {
+              const items = (await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id:run.id})).data.artifacts;
+              const a = items.find(x => !x.expired && x.name === `v13-private-research-state-${run.id}`);
+              if (!a) continue;
+              const response = await github.rest.actions.downloadArtifact({...context.repo,artifact_id:a.id,archive_format:'zip'});
+              const bytes = Buffer.from(response.data);
+              const digest = 'sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
+              if (digest !== a.digest) throw new Error('Previous worker artifact hash mismatch');
+              fs.writeFileSync('previous_worker.zip',bytes);
+              const members=execFileSync('unzip',['-Z1','previous_worker.zip'],{encoding:'utf8'}).trim().split('\n');
+              if (!members.includes('v13_checkpoint_recovery.json')) {
+                fs.unlinkSync('previous_worker.zip');
+                continue;
+              }
+              fs.writeFileSync('previous_worker_receipt.json',JSON.stringify({run_id:run.id,artifact_id:a.id,digest},null,2));
+              break;
+            }
+      - name: Verify and restore preserved recovery bytes
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          if [ -f previous_worker.zip ]; then
+            python -m v13_recovery_restore --artifact previous_worker.zip --state v13_state
+          fi
       - name: Run resumable whole-public-NSE research worker
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
@@ -52,6 +86,8 @@ jobs:
             v13_checkpoint_recovery.json
             v13_checkpoint_recovery_error.json
             v13_checkpoint_upload_progress.json
+            v13_archive_capacity.json
+            previous_worker_receipt.json
             v13_state/latest_run.json
             v13_state/champion_latest_watchlist.json
             v13_state/challenger_latest_watchlist.json
@@ -64,6 +100,8 @@ jobs:
             v13_state/financial_wide.parquet
             v13_state/research_selection/*.json
             v13_state/available_financial_research/*.json
+            v13_state/priority_research/*.json
+            v13_state/priority_research/*.md
             v13_state/redevelopment/*.json
             v13_state/bottom_recovery/*.json
             v13_state/retest_recovery/*.json
@@ -107,7 +145,11 @@ jobs:
             const fresh = String(report.workflow_run || '') === String(context.runId);
             const previous = report;
             if (!fresh) report = {};
-            const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, job_state: '${{ job.status }}', attempt_phase: attempt.phase || null, result_is_from_this_run: fresh, previous_completed_source_asof: fresh ? null : previous.asof || null, previous_completed_market_rows: fresh ? null : previous.current_verified_market_rows || null, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', accuracy_approved: false, errors: fresh ? (report.errors || []).length : null, market_rows: fresh ? report.current_verified_market_rows ?? null : null, public_universe_rows: report.public_universe_rows ?? null, financial_errors: report.steps?.financials?.errors?.length ?? null, financial_complete_rows: report.financial_complete_rows ?? null, financial_quality_pass_rows: report.financial_quality_pass_rows ?? null, financial_known_failure_rows: report.financial_known_failure_rows ?? null, available_financial_research: report.available_financial_research ?? null, history_errors: report.steps?.history?.errors?.length ?? null, history_usable: report.steps?.history?.usable ?? null, history_fresh_official_aligned: report.steps?.history?.fresh_official_aligned ?? null, universe_financial_coverage: report.universe_financial_coverage ?? null, financial_crosschecks: report.steps?.financial_crosschecks ?? null, master_issuers: report.master_data?.issuers ?? null, master_original_cells: report.master_data?.original_observed_cells ?? null, master_original_missing_cells: report.master_data?.missing_or_ambiguous_original_cells ?? null, master_missing_cells: report.master_data?.remaining_missing_or_unresolved_cells ?? report.master_data?.missing_or_ambiguous_original_cells ?? null, master_recovered_cells: report.master_data?.recovered_missing_original_cells ?? null, master_current_two_source_cells: report.master_data?.current_two_source_input_cells ?? null, required_additional_sources: report.master_data?.required_additional_sources ?? null, master_current_three_source_cells: report.master_data?.current_three_source_input_cells ?? null, master_current_usable_cells: report.master_data?.current_usable_input_cells ?? null, cross_source_validation_required: report.master_data?.cross_source_validation_required ?? null, master_validation_complete: report.master_data?.cross_source_validation_required === false ? null : report.master_data?.analysis_ready_under_two_source_requirement ?? false, three_source_sector_issuers: report.master_data?.three_source_sector_issuers ?? null, paired_rows_per_model: report.paired_registration?.rows_per_model ?? null, catalyst_documents: report.steps?.catalysts?.documents ?? null, verified_entries: report.steps?.independent_entry_actions?.verified_entries ?? null, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes ?? null };
+            const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, job_state: '${{ job.status }}', attempt_phase: attempt.phase || null, result_is_from_this_run: fresh, previous_completed_source_asof: fresh ? null : previous.asof || null, previous_completed_market_rows: fresh ? null : previous.current_verified_market_rows || null, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', accuracy_approved: false, errors: fresh ? (report.errors || []).length : null, market_rows: fresh ? report.current_verified_market_rows ?? null : null, public_universe_rows: report.public_universe_rows ?? null, financial_errors: report.steps?.financials?.errors?.length ?? null, financial_complete_rows: report.financial_complete_rows ?? null, financial_quality_pass_rows: report.financial_quality_pass_rows ?? null, financial_known_failure_rows: report.financial_known_failure_rows ?? null, available_financial_research: report.available_financial_research ?? null, priority_research: report.priority_research ?? null, history_errors: report.steps?.history?.errors?.length ?? null, history_usable: report.steps?.history?.usable ?? null, history_fresh_official_aligned: report.steps?.history?.fresh_official_aligned ?? null, universe_financial_coverage: report.universe_financial_coverage ?? null, financial_crosschecks: report.steps?.financial_crosschecks ?? null, master_issuers: report.master_data?.issuers ?? null, master_original_cells: report.master_data?.original_observed_cells ?? null, master_original_missing_cells: report.master_data?.missing_or_ambiguous_original_cells ?? null, master_missing_cells: report.master_data?.remaining_missing_or_unresolved_cells ?? report.master_data?.missing_or_ambiguous_original_cells ?? null, master_recovered_cells: report.master_data?.recovered_missing_original_cells ?? null, master_current_two_source_cells: report.master_data?.current_two_source_input_cells ?? null, required_additional_sources: report.master_data?.required_additional_sources ?? null, master_current_three_source_cells: report.master_data?.current_three_source_input_cells ?? null, master_current_usable_cells: report.master_data?.current_usable_input_cells ?? null, cross_source_validation_required: report.master_data?.cross_source_validation_required ?? null, master_validation_complete: report.master_data?.cross_source_validation_required === false ? null : report.master_data?.analysis_ready_under_two_source_requirement ?? false, three_source_sector_issuers: report.master_data?.three_source_sector_issuers ?? null, paired_rows_per_model: report.paired_registration?.rows_per_model ?? null, catalyst_documents: report.steps?.catalysts?.documents ?? null, verified_entries: report.steps?.independent_entry_actions?.verified_entries ?? null, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes ?? null };
+            const checkpoint = fs.existsSync('archive_receipt.json') ? JSON.parse(fs.readFileSync('archive_receipt.json','utf8')) : {};
+            health.checkpoint_storage_mode = checkpoint.storage_mode || (checkpoint.snapshot ? 'PRIVATE_ARCHIVE_PUBLISHED' : 'UNCONFIRMED');
+            health.remote_checkpoint_publication_confirmed = checkpoint.remote_publication_confirmed ?? Boolean(checkpoint.snapshot);
+            health.archive_capacity_blocked = checkpoint.archive_capacity_blocked ?? false;
             let sha;
             try { const old = await github.rest.repos.getContent({...context.repo, path, ref: 'main'}); sha = old.data.sha; } catch (error) { if (error.status !== 404) throw error; }
             await github.rest.repos.createOrUpdateFileContents({...context.repo, branch: 'main', path, sha, message: 'Record V13 collector health', content: Buffer.from(JSON.stringify(health, null, 2) + '\n').toString('base64')});
