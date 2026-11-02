@@ -143,7 +143,7 @@ def cumulative_quarters(wide):
     add=pd.DataFrame(derived).drop_duplicates(['security_isin','reporting_mode','period_end','available_at_utc','input_source_sha256'])
     return pd.concat([wide,add],ignore_index=True)
 
-def completion_queue(queue,wide,asof,budget):
+def completion_queue(queue,wide,asof,budget,issuer_priority=None):
     """Bounded issuer bundles, independent of forecast selections or returns.
 
     Breadth-only round robin can leave every issuer with just one quarter.
@@ -212,9 +212,10 @@ def completion_queue(queue,wide,asof,budget):
         missing=sum(reason!='OBSERVED_NONPOSITIVE_DENOMINATOR_NOT_MISSING_SOURCE' for reason in readiness['unknown_reasons'].values())
         if not missing:continue
         target=target.sort_values(['last_attempt','_period'],ascending=[True,False]).head(8)
-        bundles.append((missing,str(target.last_attempt.min()),__import__('hashlib').sha256(symbol.encode()).hexdigest(),target))
+        priority=(issuer_priority or {}).get(symbol,1)
+        bundles.append((priority,missing,str(target.last_attempt.min()),__import__('hashlib').sha256(symbol.encode()).hexdigest(),target))
     chosen=[];count=0
-    for _,_,_,bundle in sorted(bundles,key=lambda z:z[:3]):
+    for _,_,_,_,bundle in sorted(bundles,key=lambda z:z[:4]):
         room=budget-count
         if room<=0:break
         selected=bundle.head(room);chosen.append(selected);count+=len(selected)

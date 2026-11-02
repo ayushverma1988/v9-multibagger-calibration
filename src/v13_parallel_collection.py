@@ -16,13 +16,16 @@ def bounded_map(jobs,worker,workers=4,seconds=600):
             if delay:time.sleep(delay)
             last_launch[0]=time.monotonic()
         return worker(item)
-    with ThreadPoolExecutor(max_workers=max(1,min(int(workers),4))) as pool:
+    # More in-flight requests can overlap slow replies without increasing
+    # the existing one-launch-per-250ms ceiling or bypassing access stops.
+    limit=max(1,min(int(workers),8))
+    with ThreadPoolExecutor(max_workers=limit) as pool:
         def submit():
             if stopped or time.monotonic()-started>=seconds:return False
             try:item=next(iterator)
             except StopIteration:return False
             pending[pool.submit(invoke,item)]=item;return True
-        for _ in range(max(1,min(int(workers),4))):submit()
+        for _ in range(limit):submit()
         while pending:
             done,_=wait(pending,return_when=FIRST_COMPLETED)
             for future in done:

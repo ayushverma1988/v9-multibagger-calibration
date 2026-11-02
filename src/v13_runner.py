@@ -164,7 +164,8 @@ def forecasts(heads,frame,root,label):
     d[d.selected_verified|d.selected_discovery].to_json(root/(label+'_latest_watchlist.json'),orient='records',date_format='iso',indent=2)
     return str(path.name)
 
-def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=False,catalyst_budget=360):
+def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=False,catalyst_budget=360,
+        collection_workers=4,filing_seconds=900,catalyst_seconds=360):
     root=Path(root);seed=Path(seed)
     def phase(name):
         item={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'phase':name,'updated_at_utc':datetime.now(timezone.utc).isoformat()}
@@ -195,7 +196,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         # the unranked price/history-eligible population for this source date.
         # Previously a new session always prioritised yesterday's histories.
         phase('PUBLIC_PRICE_HISTORY_COLLECTION')
-        report['steps']['history']=collection.collect_histories(root,asof,history_budget)
+        report['steps']['history']=collection.collect_histories(root,asof,history_budget,workers=collection_workers)
         if not local:
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
@@ -204,7 +205,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         phase('ORIGINAL_FINANCIAL_COLLECTION')
         from v13_financial_recovery_seed import apply as apply_financial_recovery_seed
         report['steps']['verified_original_financial_recovery']=apply_financial_recovery_seed(root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261020.json',asof)
-        report['steps']['financials']=collection.collect_financials(root,asof,filing_budget)
+        report['steps']['financials']=collection.collect_financials(root,asof,filing_budget,
+          workers=collection_workers,seconds=filing_seconds)
         try:
             from v13_alternate_sources import collect as collect_alternates,sector_master
             report['steps']['additional_master_sources']=collect_alternates(root,budget=160,seconds=60,sources=('NSE',))
@@ -237,7 +239,8 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         import v13_statement_eps as statement_eps
         report['steps']['reviewed_statement_EPS']=statement_eps.collect(root,seed.parent/'v13_evidence_seed'/'statement_eps_reviews.json')
         report['steps']['historical_events']=collection.historical_event_backfill(root,asof,budget=2)
-        report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=catalyst_budget)
+        report['steps']['catalysts']=catalyst_execution.collect(root,asof,budget=catalyst_budget,
+          workers=collection_workers,seconds=catalyst_seconds)
         report['steps']['reviewed_primary_sources']=catalyst_execution.seed_primary_reviews(root,seed.parent/'v13_evidence_seed'/'primary_execution_sources.json')
         from v13_catalyst_field_capture import export as capture_catalyst_fields
         report['steps']['catalyst_field_capture']=capture_catalyst_fields(root,asof)
@@ -454,6 +457,11 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
     return report
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--seed',default='v13_seed');p.add_argument('--day');p.add_argument('--history-budget',type=int,default=800);p.add_argument('--filing-budget',type=int,default=800);p.add_argument('--catalyst-budget',type=int,default=360);p.add_argument('--retrain',action='store_true');p.add_argument('--local',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--state',default='v13_state');p.add_argument('--seed',default='v13_seed');p.add_argument('--day');p.add_argument('--history-budget',type=int,default=800);p.add_argument('--filing-budget',type=int,default=800);p.add_argument('--catalyst-budget',type=int,default=360);p.add_argument('--retrain',action='store_true');p.add_argument('--local',action='store_true')
+    p.add_argument('--collection-workers',type=int,choices=range(1,9),default=4)
+    p.add_argument('--filing-seconds',type=int,choices=range(1,1801),default=900)
+    p.add_argument('--catalyst-seconds',type=int,choices=range(1,901),default=360)
+    a=p.parse_args()
     day=a.day or str(pd.Timestamp.now(tz='Asia/Kolkata').date())
-    print(json.dumps(run(a.state,a.seed,day,a.history_budget,a.filing_budget,a.retrain,a.local,a.catalyst_budget),indent=2))
+    print(json.dumps(run(a.state,a.seed,day,a.history_budget,a.filing_budget,a.retrain,a.local,a.catalyst_budget,
+      a.collection_workers,a.filing_seconds,a.catalyst_seconds),indent=2))

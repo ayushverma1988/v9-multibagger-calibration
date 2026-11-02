@@ -177,7 +177,7 @@ def reviewed(record,evidence,text):
     return {**record,**derived,'available_at_utc':available.isoformat(),'publication_time_status':'VERIFIED_BROADCAST' if published else 'UNKNOWN_USING_FIRST_RETRIEVAL',
       'unknown_fields':[k for k in FIELDS if record.get(k) is None],'future_profit_verified':False}
 
-def collect(root,asof,budget=120):
+def collect(root,asof,budget=120,workers=4,seconds=360):
     root=Path(root);out=root/'catalyst_evidence';out.mkdir(exist_ok=True)
     paths=list((root/'sources').glob('*/events.parquet'))
     if not paths:return {'documents':0,'backlog':0,'errors':[],'catalogue_complete':False}
@@ -210,7 +210,7 @@ def collect(root,asof,budget=120):
               'publication_time_status':'CATALOG_BROADCAST','review_status':'NEEDS_QUANTIFIED_EXECUTION_REVIEW','unknown_fields':list(FIELDS)}}
         except Exception as exc:return {'error':str(exc)[:200]}
     from v13_parallel_collection import bounded_map
-    for r,result in bounded_map(queue.to_dict('records'),fetch,workers=4,seconds=360):
+    for r,result in bounded_map(queue.to_dict('records'),fetch,workers=workers,seconds=seconds):
         attempts[r['attachment_url']]=asof
         if result.get('document'):docs.append(result['document'])
         else:errors.append({'source_url':r['attachment_url'],'error':result['error']})
@@ -225,7 +225,8 @@ def collect(root,asof,budget=120):
     summary={'documents':len(docs),'issuer_matched':sum(r.get('issuer_identity_read') is True for r in docs),'legal_regulatory_disclosures_not_business_orders':legal,
       'quantified_review_candidates':sum(len(r.get('quantified_evidence',[])) for r in docs),'backlog':len(e)-len(known),
       'errors':errors,'catalogue_complete':False,'automatic_future_profit_claims':0,'budget':budget,
-      'seconds_budget':360,'public_business_disclosure_priority':True}
+      'seconds_budget':seconds,'source_workers':max(1,min(int(workers),8)),
+      'public_business_disclosure_priority':True}
     (out/'coverage.json').write_text(json.dumps(summary,indent=2));return summary
 
 def project_bundles(records,isin,cut):
