@@ -46,3 +46,5 @@ jobs:
             adoption/research_inputs.tar.gz
             adoption/prepared_summary.json
           retention-days: 14
+
+# Restore known immutable objects reused under additional local paths.

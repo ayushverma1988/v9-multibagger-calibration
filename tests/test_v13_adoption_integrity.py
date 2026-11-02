@@ -73,4 +73,15 @@ class AdoptionIntegrity(unittest.TestCase):
                 restore_delta(p/'v13_checkpoint_recovery.tar.gz',target,lambda k:objects[k],'0'*64)
             self.assertFalse(target.exists())
 
+    def test_known_object_reused_at_new_path_is_restored(self):
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t);root=p/'original';root.mkdir();(root/'old.json').write_bytes(b'unchanged')
+            base=manifest(root);base_raw=json.dumps(base).encode()
+            objects={r['object_path']:root/r['path'] for r in base['files']}
+            (root/'remote_manifest.json').write_bytes(base_raw);(root/'new.json').write_bytes(b'unchanged')
+            planned=manifest(root)
+            receipt=recovery_delta(root,planned,[],base_raw)
+            restore_delta(p/'v13_checkpoint_recovery.tar.gz',p/'restored',lambda k:objects[k],receipt['sha256'])
+            self.assertEqual((p/'restored/new.json').read_bytes(),b'unchanged')
+
 if __name__=='__main__':unittest.main()

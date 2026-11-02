@@ -39,7 +39,13 @@ def restore_delta(bundle, root, fetch, expected_sha256=None):
         for item in planned['files']:
             target=root/item['path']
             if not item['raw_source'] or item['sha256'] in objects:
-                if not target.is_file() or target.stat().st_size!=item['bytes'] or digest(target.read_bytes())!=item['sha256']:raise ValueError('Restored checkpoint differs from planned manifest')
+                valid=target.is_file() and target.stat().st_size==item['bytes'] and digest(target.read_bytes())==item['sha256']
+                if not valid and item['sha256'] in prior:
+                    # A known object can legitimately acquire a new local path.
+                    # The delta stores new hashes, not every changed pathname.
+                    materialize_one(item,root,fetch)
+                    valid=target.is_file() and target.stat().st_size==item['bytes'] and digest(target.read_bytes())==item['sha256']
+                if not valid:raise ValueError('Restored checkpoint differs from planned manifest: '+item['path'])
         (root/'remote_manifest.json').write_bytes(base_raw)
         (root/'pending_checkpoint_manifest.json').write_bytes(planned_raw)
         (root/'state_manifest.json').write_text(json.dumps({'files':[x for x in planned['files'] if (root/x['path']).is_file()]},indent=2))
