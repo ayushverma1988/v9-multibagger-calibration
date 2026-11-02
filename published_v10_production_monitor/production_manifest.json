@@ -2,7 +2,7 @@
   "production_model": "V10.2 integrity-corrected V9.4.1",
   "production_rules_frozen": true,
   "data_start": "2003-01-01",
-  "data_end": "2026-10-30",
+  "data_end": "2026-11-02",
   "eligible_current_rows": 1454,
   "selected_rows": 10,
   "selector": {
@@ -25,8 +25,8 @@
     "hit_fold_rate_100": 0.6111111111111112,
     "mean_capped_lift_100": 3.1534736826731713,
     "mean_dd30_rate": 0.38888888888888895,
-    "p100_brier": 0.04048449397001571,
-    "p100_calibration_slope": 0.7717294765539963
+    "p100_brier": 0.040287263682947654,
+    "p100_calibration_slope": 0.77894430635052
   },
   "frozen_blob_shas_verified": true,
   "anti_overfit": {
