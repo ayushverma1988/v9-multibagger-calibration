@@ -303,8 +303,8 @@ def screen(scored, wide):
         'new_head_trained_or_promoted': False}
 
 
-def export(scored, wide, root, replay_receipt):
-    """Immutable policy review including unselected names, linked to exact replay."""
+def validate_exact_replay(scored,root,replay_receipt):
+    """Bind every input and all four estimates to the immutable model replay."""
     if not replay_receipt.get('replay_verified') or replay_receipt.get('rows') != len(scored):
         raise ValueError('Available financial selection needs matching exact replay')
     root = Path(root)
@@ -332,6 +332,12 @@ def export(scored, wide, root, replay_receipt):
     for key in ('p6', 'p12', 'loss12', 'joint12'):
         if not np.allclose(ordered[key], recorded['probabilities'][key], rtol=0, atol=1e-12, equal_nan=False):
             raise ValueError('Available financial policy must preserve exact replay probabilities')
+
+
+def export(scored, wide, root, replay_receipt):
+    """Immutable policy review including unselected names, linked to exact replay."""
+    validate_exact_replay(scored,root,replay_receipt)
+    root=Path(root)
     d, rows, audit = screen(scored, wide)
     now = datetime.now(timezone.utc).isoformat()
     obj = {**audit, 'source_asof': str(pd.Timestamp(d.date.max()).date()),

@@ -5,7 +5,9 @@ The basic selector remains available as a diagnostic, not the headline list.
 """
 import base64
 import gzip
+import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -99,8 +101,13 @@ def export(root, replay_receipt, classification_dir=None, review_asof=None):
     priority=root/'priority_research/latest.json'
     if priority.exists():
         current=json.loads(priority.read_text())
-        if current['prediction_replay']!=replay_receipt:
+        if not replay_receipt.get('replay_verified') or current['prediction_replay']!=replay_receipt:
             raise ValueError('2x priority report inputs must share the same model replay')
+        key=current['snapshot_sha256']
+        if not re.fullmatch('[0-9a-f]{64}',str(key)):raise ValueError('Invalid priority snapshot hash')
+        raw=(priority.parent/(key+'.json')).read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=key or current!={**json.loads(raw),'snapshot_sha256':key}:
+            raise ValueError('Priority report differs from its immutable snapshot')
         # New source-bound policy reports do not depend on an expired external
         # classification snapshot. The legacy refined report remains below for
         # callers explicitly replaying that historical policy.

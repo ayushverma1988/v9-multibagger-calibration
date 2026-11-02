@@ -2,7 +2,7 @@
 import hashlib,json
 from pathlib import Path
 import numpy as np,pandas as pd
-from v13_available_financials import screen as available_screen
+from v13_available_financials import screen as available_screen,validate_exact_replay
 
 POLICY='V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103'
 WEIGHTS={'p6_percentile':.70,'joint12_percentile':.25,'optional_dma200':.05}
@@ -18,8 +18,7 @@ def rank(d,eligible,loss_ceiling=.95):
 
 def export(scored,wide,root,replay_receipt):
     root=Path(root)
-    # The preceding financial exporter independently validates original bytes,
-    # identities and all four probability arrays against this same receipt.
+    validate_exact_replay(scored,root,replay_receipt)
     p=root/'available_financial_research/latest.json'
     prior=json.loads(p.read_text())
     if not replay_receipt.get('replay_verified') or prior['prediction_replay']!=replay_receipt:
@@ -41,7 +40,9 @@ def export(scored,wide,root,replay_receipt):
       'historical_validation_required_before_model_promotion':True}
     out=root/'priority_research';out.mkdir(exist_ok=True)
     raw=json.dumps(obj,sort_keys=True,indent=2).encode();key=hashlib.sha256(raw).hexdigest()
-    (out/(key+'.json')).write_bytes(raw)
+    immutable=out/(key+'.json')
+    if immutable.exists() and immutable.read_bytes()!=raw:raise ValueError('Immutable priority ranking changed')
+    if not immutable.exists():immutable.write_bytes(raw)
     from v13_capture_policy import atomic_json
     atomic_json(out/'latest.json',{**obj,'snapshot_sha256':key})
     lines=[f"# Six-month-priority research — {obj['source_asof']}",'',

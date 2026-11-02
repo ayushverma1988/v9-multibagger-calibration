@@ -213,6 +213,35 @@ class AvailableFinancials(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'inputs'):
                 export(changed, self.wide(), root, receipt)
 
+    def test_priority_and_two_x_report_reject_changed_forecasts_or_snapshot(self):
+        from v13_priority_research import export as export_priority
+        from v13_2x_report import export as export_two_x
+        f=self.frame()
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);buf=io.BytesIO()
+            f.drop(columns=['p6','p12','loss12','joint12']).to_parquet(buf,index=False)
+            inputs=buf.getvalue();input_sha=hashlib.sha256(inputs).hexdigest()
+            folder=root/'prediction_replay'/input_sha;folder.mkdir(parents=True)
+            (folder/'inputs.parquet').write_bytes(inputs)
+            payload={'model_sha256':'c'*64,'isins':f['isin'].tolist(),
+              'probabilities':{k:f[k].tolist() for k in ('p6','p12','loss12','joint12')}}
+            raw=json.dumps(payload).encode();key=hashlib.sha256(raw).hexdigest()
+            (folder/('champion_'+key+'.json')).write_bytes(raw)
+            receipt={'rows':1,'replay_verified':True,'input_parquet_sha256':input_sha,
+              'model_sha256':'c'*64,'receipt_sha256':key}
+            export(f,self.wide(),root,receipt)
+            result=export_priority(f,self.wide(),root,receipt)
+            self.assertFalse(result['frozen_probabilities_changed'])
+            self.assertEqual(result['selected'],1)
+            self.assertEqual(export_two_x(root,receipt)['ranked_count'],1)
+            changed=f.copy();changed['p6']=.11
+            with self.assertRaisesRegex(ValueError,'probabilities'):
+                export_priority(changed,self.wide(),root,receipt)
+            path=root/'priority_research/latest.json';obj=json.loads(path.read_text())
+            obj['records'][0]['p6']=.99;path.write_text(json.dumps(obj))
+            with self.assertRaisesRegex(ValueError,'immutable snapshot'):
+                export_two_x(root,receipt)
+
     def test_unknown_original_information_clock_is_never_retrofitted(self):
         f = self.frame();f['information_cutoff_utc'] = None
         with self.assertRaisesRegex(ValueError, 'cutoff'):
