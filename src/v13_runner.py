@@ -289,7 +289,10 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         if (retrain or not marker.exists() or marker.read_text()!=month) and len(history)>=500:
             try:
                 blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False)
-                market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof)
+                master=pd.read_parquet(root/'universe.parquet')
+                symbol_col='nse_current_symbol' if 'nse_current_symbol' in master else 'symbol'
+                market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof,
+                    current_pairs=set(zip(master['isin'],master[symbol_col])))
                 from v13_information_clock import research_cutoffs
                 market=research_cutoffs(market,datetime.now(timezone.utc))
                 matrix=collection.enrich(market,pd.read_parquet(root/'financial_wide.parquet'))

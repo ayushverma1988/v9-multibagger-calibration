@@ -5,7 +5,7 @@ import pandas as pd
 from v13_checkpoint import manifest
 from v13_checkpoint_writes import recovery_delta
 from v13_recovery_restore import restore_delta
-from v13_history_views import histories
+from v13_history_views import histories,canonical_histories
 from v13_redevelopment import attach
 
 class AdoptionIntegrity(unittest.TestCase):
@@ -45,6 +45,18 @@ class AdoptionIntegrity(unittest.TestCase):
             p=Path(t);a=self.bars();a.iloc[:200].to_parquet(p/'a.parquet');a.iloc[60:].to_parquet(p/'b.parquet')
             h,audit=histories(p)
             self.assertFalse(h);self.assertEqual(len(audit['quarantined']),1)
+
+    def test_refit_aliases_require_unique_current_symbol_without_dropping_other_isins(self):
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t)
+            self.bars().to_parquet(p/'a.parquet')
+            self.bars('OLD').to_parquet(p/'old.parquet')
+            self.bars('HISTORICAL','INE000000002').to_parquet(p/'historical.parquet')
+            chosen,audit=canonical_histories(p,{('INE000000001','A')})
+            self.assertEqual(set(chosen),{('INE000000001','A'),('INE000000002','HISTORICAL')})
+            ambiguous,audit=canonical_histories(p)
+            self.assertEqual(set(ambiguous),{('INE000000002','HISTORICAL')})
+            self.assertEqual(len(audit['quarantined']),2)
 
     def recovery(self,p):
         root=p/'original';root.mkdir();(root/'active_heads.joblib').write_bytes(b'fixed-head')

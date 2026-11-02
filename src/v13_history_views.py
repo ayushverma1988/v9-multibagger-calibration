@@ -31,3 +31,16 @@ def histories(folder,wanted=None):
         if not valid:audit['quarantined'][key]='CONFLICTING_HISTORY_VINTAGES';continue
         chosen[key]=(path,bars);audit['redundant_files']+=len(options)-1
     return chosen,audit
+
+def canonical_histories(folder,current_pairs=None):
+    """One whole history per ISIN, with an explicit current-alias preference."""
+    matched,audit=histories(folder);by_isin={};chosen={}
+    current_pairs=set(current_pairs or [])
+    for key,item in matched.items():by_isin.setdefault(key[0],[]).append((key,item))
+    for isin,items in by_isin.items():
+        current=[(key,item) for key,item in items if key in current_pairs]
+        if len(items)==1:chosen.update(items)
+        elif len(current)==1:chosen.update(current)
+        else:
+            for key,item in items:audit['quarantined'][key]='AMBIGUOUS_ISIN_ALIASES'
+    return chosen,audit

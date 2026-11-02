@@ -112,7 +112,7 @@ def attach(frame,history):
 def shrink_calibration(raw,y,train_y):
     """Monotone Platt fit regularized toward the training event-rate prior.
 
-    Fit only the final chronological calibration date; no test labels used.
+    The caller supplies separate chronological calibration rows; no test labels used.
     Conditional heads preserve nested horizons and competing event coherence.
     """
     x=logit(np.clip(np.asarray(raw,float),1e-5,1-1e-5));y=np.asarray(y,float)

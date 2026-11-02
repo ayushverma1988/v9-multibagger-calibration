@@ -42,10 +42,13 @@ def daily_features(bars, asof):
        &d.gap_max63.le(10)&d.jump_max63.le(np.log(1.4))&d.observed_sessions35d.ge(18)&d.history_start_used.notna())
     return d.replace([np.inf,-np.inf],np.nan)
 
-def build(history_path, previous_matrix, output, asof):
+def build(history_path, previous_matrix, output, asof,current_pairs=None):
     out=Path(output);out.mkdir(parents=True,exist_ok=True)
     old=pd.read_parquet(previous_matrix).set_index(['date','isin'])
-    sources=[pd.read_parquet(p) for p in sorted((Path(history_path)/'securities').glob('*.parquet'))]
+    from v13_history_views import canonical_histories
+    selected,identity_audit=canonical_histories(Path(history_path)/'securities',current_pairs)
+    sources=[bars for path,bars in selected.values()]
+    if not sources:raise ValueError('No unambiguous whole histories available for refit')
     counts=pd.concat([x[['date']] for x in sources]).groupby('date').size()
     calendar=pd.DatetimeIndex(counts[counts.ge(20)].index).sort_values()
     decisions=set(pd.Series(calendar,index=calendar).resample('ME').max().dropna())|{pd.Timestamp(asof)}
@@ -84,7 +87,9 @@ def build(history_path, previous_matrix, output, asof):
     summary={'asof':asof,'four_year_start':str(bounds(asof)[0].date()),'rows':len(x),
        'current_scored':int(x.date.eq(pd.Timestamp(asof)).sum()),'minimum_turnover_INR':MIN_TURNOVER,
        'new_features':list(EXTRA),'new_row_fundamentals':'UNKNOWN_until_dated_original_filing',
-       'survivor_bias_current_listings':True,'corporate_actions_independently_verified':False}
+       'survivor_bias_current_listings':True,'corporate_actions_independently_verified':False,
+       'history_identity_quarantined':len(identity_audit['quarantined']),
+       'redundant_whole_histories':identity_audit['redundant_files']}
     (out/'coverage.json').write_text(json.dumps(summary,indent=2));print(summary,flush=True)
     return x
 
