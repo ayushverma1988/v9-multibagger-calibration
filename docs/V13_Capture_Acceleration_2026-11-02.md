@@ -37,6 +37,23 @@ into invented growth, profitability or completed catalyst proof.
   instead of 5,000. This removes the former cap at the current inventory size.
   Candidate fields still require source hash, text hash and issuer checks;
   a text candidate does not certify project execution, profit or net 2×.
+* Added a reviewed primary-PDF fallback for a quarter omitted by XBRL. It
+  verifies original NSE attachment identity/publication, original PDF bytes,
+  issuer, explicit reporting basis, table units, ordered printed cells and
+  quarterly dates. Dash/nil placeholders, annual columns, inferred owner
+  profit and EPS reconstruction are rejected. Existing quarters are never
+  overwritten. Actual publication, review and retrieval clocks stay distinct;
+  accepted availability is their maximum. Transient reads have three bounded
+  attempts, while access/integrity failures are not retried.
+
+The first reviewed case is MIDWESTLTD's consolidated June-2025 comparative
+quarter in the original 12 August 2026 board-result PDF, page 8. Six explicit
+monetary fields were recovered, including separate owner and non-controlling
+PAT; the actual review occurred on 2 November 2026. Its financial-only input
+check at that later information time changes from two missing growth fields
+to all seven checks available/passing. This is not a source-30 October model
+rerun, recurring EPS proof, a completed catalyst, a 2× probability update or
+prospective accuracy evidence. The original source-30 bars remain unchanged.
 
 ## Operational configuration
 
@@ -59,11 +76,13 @@ can require more. The 180-minute workflow ceiling and existing schedule remain.
 
 ## Validation and release limits
 
-Full local suite: **746 tests passed** (731 existing + 15 new), with the frozen
+Full local suite: **761 tests passed** (731 existing + 30 new), with the frozen
 runtime dependency versions. Tests cover real financial readiness/ISIN/date
 filtering, nonpositive bases, fixed-cohort recoveries and regressions, request
-priority, six simultaneous jobs, access-limit stopping and terminal-history
-request suppression. GitHub exact-commit CI and live recovery are separate
+priority, six simultaneous jobs, access-limit stopping, terminal-history
+request suppression and reviewed-PDF source/clock/basis/column safeguards.
+The prior 803cc33 commit passed both GitHub contract runs; the final PDF-fallback
+revision requires its own exact-commit checks before repinning. GitHub CI and live recovery are separate
 release checks; their receipts must be recorded before claiming deployment or
 increased verified coverage.
 
