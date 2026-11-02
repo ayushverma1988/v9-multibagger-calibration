@@ -20,6 +20,8 @@ def snapshot(root,report,observations):
       'areas':areas,'financial_quality_pass_rows':report.get('financial_quality_pass_rows'),
       'underlying_required_facts_complete_rows':details.get('underlying_required_facts_complete_rows'),
       'latest_reported_diluted_EPS_available_rows':details.get('latest_reported_diluted_EPS_available_rows'),
+      'available_financial_research':report.get('available_financial_research'),
+      'research_eligibility_or_gap_classification_does_not_increase_verified_bars':True,
       'six_twelve_month_validation_requires_elapsed_market_time':True,'accuracy_approved':False,
       'engineering_eta_not_a_data_or_validation_deadline':True,'current_paired_cohort':report.get('paired_registration')}
     out=root/'evidence';out.mkdir(exist_ok=True);(out/'progress_status.json').write_text(json.dumps(result,indent=2));return result

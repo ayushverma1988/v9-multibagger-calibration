@@ -368,6 +368,15 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                   'challenger':replay_snapshot(frame,b,challenger_model,root,'challenger')}
                 from v13_research_selection import export as export_research
                 report['separate_research_selector']=export_research(a,root,report['exact_prediction_replay']['champion'])
+                # Additional available-input policy is a separately dated
+                # research overlay. It cannot alter heads, registered pairs,
+                # original financial features or strict evidence coverage.
+                try:
+                    from v13_available_financials import export as export_available_financials
+                    report['available_financial_research']=export_available_financials(
+                        a,wide,root,report['exact_prediction_replay']['champion'])
+                except Exception as exc:
+                    report['available_financial_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
                 from v13_redevelopment import export as export_redevelopment
                 try:
                     report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])
