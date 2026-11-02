@@ -466,8 +466,9 @@ def collect_financials(root,asof,budget=800,workers=4,seconds=900):
     # Complete same-basis fiscal bundles, rather than granting one recent
     # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
-    expanded=balancing_quarters(wide)
-    from v13_capture_acceleration import financial_profile,fixed_cohort_comparison
+    from v13_capture_acceleration import financial_profile,fixed_cohort_comparison,planning_financials
+    planning=planning_financials(wide,master,asof)
+    expanded=balancing_quarters(planning)
     before=financial_profile(expanded,master,scoreable_symbols,asof)
     priorities={r['symbol']:r['priority'] for r in before['rows']}
     # Reserve half the filing slots for real missing seven-check inputs in
@@ -489,7 +490,7 @@ def collect_financials(root,asof,budget=800,workers=4,seconds=900):
     public_completion=completion_queue(remainder,expanded,asof,max(0,budget-len(completion)))
     remainder=remainder[~remainder.version_key.isin(public_completion.version_key)]
     completion=pd.concat([completion,public_completion],ignore_index=True)
-    queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
+    queue=pd.concat([completion,priority_queue(remainder,planning,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
     def fetch(r):
         try:

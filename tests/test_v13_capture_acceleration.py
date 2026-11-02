@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from v13_capture_acceleration import financial_profile, fixed_cohort_comparison, terminal_history_error
+from v13_capture_acceleration import financial_profile, fixed_cohort_comparison, terminal_history_error, planning_financials
 from v13_financial_evidence import completion_queue
 from v13_parallel_collection import bounded_map
 from v13_collection import current_history
@@ -125,6 +125,37 @@ class CaptureAcceleration(unittest.TestCase):
                       'Fewer than 127 valid daily observations', 'Read timed out'):
             self.assertFalse(terminal_history_error(error))
         self.assertTrue(terminal_history_error('404 Client Error: Not Found'))
+
+    def test_old_isin_facts_cannot_hide_a_current_identity_download_gap(self):
+        old = self.wide(isin='INE000000002')
+        original = old.copy(deep=True)
+        view = planning_financials(old, self.master(), '2026-10-30')
+        self.assertTrue(view.empty)
+        queue = pd.DataFrame([{'symbol': 'A', 'period_end': '2026-06-30',
+            'reporting_mode': 'consolidated', 'available_at_utc': '2026-08-01T00:00Z',
+            'last_attempt': '0000', 'filed_period': ''}])
+        self.assertEqual(len(completion_queue(queue, view, '2026-10-30', 1)), 1)
+        pd.testing.assert_frame_equal(old, original)
+
+    def test_same_isin_rename_is_normalised_only_in_the_planning_copy(self):
+        old = self.wide(symbol='OLD')
+        result = planning_financials(old, self.master(), '2026-10-30')
+        self.assertEqual(set(result.symbol), {'A'})
+        self.assertEqual(set(old.symbol), {'OLD'})
+        self.assertEqual(set(result.source_sha256), {'a' * 64})
+
+    def test_planning_rejects_ambiguous_master_and_filters_unavailable_facts(self):
+        with self.assertRaises(ValueError):
+            planning_financials(self.wide(), pd.concat([self.master(), self.master()]), '2026-10-30')
+        source = self.wide().assign(available=pd.Timestamp('2026-11-01T00:00Z'))
+        self.assertTrue(planning_financials(source, self.master(), '2026-10-30').empty)
+
+    def test_unlabelled_integrated_filing_can_fill_observed_annual_cash_gap(self):
+        source = self.wide(missing_cfo=True)
+        queue = pd.DataFrame([{'symbol': 'A', 'period_end': '2026-03-31',
+            'reporting_mode': 'consolidated', 'available_at_utc': '2026-08-01T00:00Z',
+            'last_attempt': '0000', 'filed_period': ''}])
+        self.assertEqual(len(completion_queue(queue, source, '2026-10-30', 1)), 1)
 
 
 if __name__ == '__main__':

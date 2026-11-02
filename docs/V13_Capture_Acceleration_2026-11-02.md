@@ -19,6 +19,12 @@ into invented growth, profitability or completed catalyst proof.
   observed check failures stay distinct. The audit reports newly incomplete
   rows as well as recoveries. `evidence/financial_capture_acceleration.json`
   retains the field queue and the fixed-cohort comparison.
+* Request planning now filters exact current ISINs, information clocks and the
+  four-year window. Old-ISIN facts had incorrectly hidden current-identity gaps
+  in a symbol-grouped queue (197 old-identity rows across 27 of the 165 current
+  incomplete issuers). Original stored facts remain untouched. Integrated
+  filings with a blank Annual label can still target missing cash/debt at an
+  explicitly observed annual/balance endpoint; no fiscal period is guessed.
 * Bounded collection supports up to eight in-flight workers; deployment uses
   six. The existing 250 ms launch spacing and per-store host spacing remain,
   and a 403/429 stops new submissions. In-flight requests can finish; this is
@@ -53,7 +59,7 @@ can require more. The 180-minute workflow ceiling and existing schedule remain.
 
 ## Validation and release limits
 
-Full local suite: **742 tests passed** (731 existing + 11 new), with the frozen
+Full local suite: **746 tests passed** (731 existing + 15 new), with the frozen
 runtime dependency versions. Tests cover real financial readiness/ISIN/date
 filtering, nonpositive bases, fixed-cohort recoveries and regressions, request
 priority, six simultaneous jobs, access-limit stopping and terminal-history

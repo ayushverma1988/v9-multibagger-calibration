@@ -15,6 +15,27 @@ from v13_information_clock import research_cutoffs, cutoff
 NONPOSITIVE = 'OBSERVED_NONPOSITIVE_DENOMINATOR_NOT_MISSING_SOURCE'
 
 
+def planning_financials(wide, master, asof):
+    """Match model readiness identities without changing stored old facts.
+
+    Old-ISIN rows cannot fill a current-ISIN download gap. Same-ISIN symbol
+    changes are normalised only in this disposable request-planning view.
+    """
+    if wide.empty:
+        return wide.copy()
+    if master['isin'].duplicated().any() or master.nse_current_symbol.duplicated().any():
+        raise ValueError('Ambiguous current public identity for financial planning')
+    day = pd.Timestamp(asof)
+    low, _ = bounds(asof)
+    cut = cutoff(research_cutoffs(pd.DataFrame({'date': [day]}),
+                                 datetime.now(timezone.utc)).iloc[0])
+    names = dict(zip(master['isin'], master.nse_current_symbol))
+    view = wide[wide.security_isin.isin(names) & wide.available.le(cut)
+                & wide.period.between(low, day)].copy()
+    view['symbol'] = view.security_isin.map(names)
+    return view
+
+
 def financial_profile(wide, master, symbols, asof):
     """Classify the same unranked public price cohort before and after capture."""
     day = pd.Timestamp(asof)

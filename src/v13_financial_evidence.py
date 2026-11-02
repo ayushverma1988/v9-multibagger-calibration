@@ -196,6 +196,12 @@ def completion_queue(queue,wide,asof,budget,issuer_priority=None):
             if w.empty:return True
             quarter=pick(w,'quarter',period)
             if not quarter or any(not np.isfinite(number(quarter,k)) for k in ('revenue','pat')):return True
+            # Integrated catalogues often omit the Annual label. A parsed
+            # quarter must not hide cash/debt gaps at observed annual or
+            # balance-sheet endpoints in a newer original filing.
+            a=pick(w,'annual',period);b=pick(w,'instant',period)
+            if a and any(not np.isfinite(number(a,k)) for k in ('revenue','pat','cfo','pbt','finance_cost')):return True
+            if b and any(not np.isfinite(number(b,k)) for k in ('equity','borrowings_current','borrowings_noncurrent')):return True
             if period in set(pd.to_datetime(annual['_period'])):
                 a=pick(w,'annual',period);b=pick(w,'instant',period)
                 if not a or any(not np.isfinite(number(a,k)) for k in ('revenue','pat','cfo','pbt','finance_cost')):return True
