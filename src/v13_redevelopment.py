@@ -89,17 +89,22 @@ def daily(bars):
     return d.replace([np.inf,-np.inf],np.nan)
 
 def attach(frame,history):
-    """Join exact ISIN/date only; never substitute another date/security."""
-    wanted=set(frame['isin']);pieces=[]
-    for path in sorted(Path(history).glob('*.parquet')):
-        bars=pd.read_parquet(path)
-        if bars.empty or not set(bars['isin'])&wanted:continue
-        x=daily(bars);pieces.append(x[['date','isin',*MARKET_FEATURES,*BOTTOM_FEATURES]])
+    """Bind exact symbol/ISIN/date; quarantine conflicting whole histories."""
+    from v13_history_views import histories
+    wanted=set(zip(frame['isin'],frame['symbol']));pieces=[]
+    chosen,identity_audit=histories(history,wanted)
+    for path,bars in chosen.values():
+        x=daily(bars);pieces.append(x[['date','isin','symbol',*MARKET_FEATURES,*BOTTOM_FEATURES]])
     out=frame.copy();out['date']=pd.to_datetime(out.date)
+    out['rd_history_status']=[identity_audit['quarantined'].get((r['isin'],r['symbol']),
+      'NO_MATCHING_HISTORY') for r in out.to_dict('records')]
     if pieces:
         x=pd.concat(pieces,ignore_index=True);x['date']=pd.to_datetime(x.date)
-        if x.duplicated(['date','isin']).any():raise ValueError('Ambiguous history identity')
-        out=out.merge(x,on=['date','isin'],how='left',validate='one_to_one',sort=False)
+        if x.duplicated(['date','isin','symbol']).any():raise ValueError('Ambiguous history identity')
+        out=out.merge(x,on=['date','isin','symbol'],how='left',validate='one_to_one',sort=False,
+          indicator='_history_match',suffixes=('','_history'))
+        out.loc[out._history_match.eq('both'),'rd_history_status']='MATCHED_SYMBOL_ISIN_DATE'
+        out=out.drop(columns='_history_match')
     for name in MARKET_FEATURES+BOTTOM_FEATURES+EVIDENCE_FEATURES:
         if name not in out:out[name]=np.nan
     return out
