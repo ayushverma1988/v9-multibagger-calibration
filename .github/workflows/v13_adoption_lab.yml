@@ -48,3 +48,5 @@ jobs:
           retention-days: 14
 
 # Restore known immutable objects reused under additional local paths.
+
+# Preserve canonical master symbols and recover historical-only identities.

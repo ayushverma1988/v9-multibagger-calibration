@@ -30,8 +30,21 @@ def run(archive,out):
         recovery=restore_delta(bundle,root,lambda p:hf_hub_download(ARCHIVE,p,repo_type='dataset',token=token),descriptor['sha256'])
     guard=FrozenGuard(root)
     attempt=json.loads((root/'latest_run.json').read_text());asof=attempt['asof']
-    universe=pd.read_parquet(root/'universe.parquet');wanted=set(zip(universe['isin'],universe['symbol']))
-    chosen,audit=histories(root/'history/securities',wanted)
+    universe=pd.read_parquet(root/'universe.parquet')
+    symbol_col='nse_current_symbol' if 'nse_current_symbol' in universe else 'symbol'
+    wanted=set(zip(universe['isin'],universe[symbol_col]))
+    all_histories,audit=histories(root/'history/securities')
+    # Retain historical-only ISINs where an actual archived history exists.
+    # A current symbol wins only when several aliases share the same ISIN;
+    # primary historical sessions still must match the row's exact symbol.
+    by_isin={}
+    for key,item in all_histories.items():by_isin.setdefault(key[0],[]).append((key,item))
+    chosen={}
+    for isin,items in by_isin.items():
+        current=[(key,item) for key,item in items if key in wanted]
+        if len(items)==1:chosen.update(items)
+        elif len(current)==1:chosen.update(current)
+    historical_only=len({key[0] for key in chosen if key not in wanted})
     view=out/'history_view/securities';view.mkdir(parents=True,exist_ok=True)
     for i,(path,bars) in enumerate(chosen.values()):os.link(path,view/(str(i)+'.parquet'))
     blank=out/'empty.parquet';pd.DataFrame(columns=['date','isin']).to_parquet(blank,index=False)
@@ -91,7 +104,7 @@ def run(archive,out):
     summary={'source_date':asof,'prepared_at_utc':datetime.now(timezone.utc).isoformat(),
       'recovery':recovery,'current_rows':len(current),'historical_rows':len(matrix),
       'decision_dates':matrix.date.nunique(),'canonical_histories':len(chosen),
-      'quarantined_histories':len(audit['quarantined']),'frozen_integrity':integrity,
+      'quarantined_histories':len(audit['quarantined']),'historical_only_isins_retained':historical_only,'frozen_integrity':integrity,
       'current_listing_survivor_bias':True,'historical_price_vintage_limit':True,
       'historical_primary_session_checks':primary_audit,
       'historical_official_identity_independently_verified':False,
