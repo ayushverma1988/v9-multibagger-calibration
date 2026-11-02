@@ -10,7 +10,9 @@ permissions:
 jobs:
   evaluate:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Preparation can use 90 minutes. Keep a separate 90-minute allowance
+    # for evaluation rather than expiring its dependency wait at 30 minutes.
+    timeout-minutes: 180
     env:
       PYTHONPATH: src
       OMP_NUM_THREADS: '2'
@@ -32,12 +34,13 @@ jobs:
             const crypto = require('crypto');
             const run_id = 41513931108;
             let run;
-            for (let i=0;i<90;i++) {
+            for (let i=0;i<270;i++) {
               run=(await github.rest.actions.getWorkflowRun({...context.repo,run_id})).data;
               if (run.status==='completed') break;
               await new Promise(resolve=>setTimeout(resolve,20000));
             }
-            if (run.conclusion!=='success') throw new Error('Verified research dataset is not ready');
+            if (run.status!=='completed') throw new Error(`Preparation run ${run_id} is still running after 90 minutes; no evaluation was started`);
+            if (run.conclusion!=='success') throw new Error(`Preparation run ${run_id} ended with ${run.conclusion}; no unverified input was used`);
             const items=(await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id})).data.artifacts;
             const a=items.find(x=>x.name===`v13-adoption-inputs-${run_id}` && !x.expired);
             if (!a) throw new Error('Missing prepared dataset artifact');
@@ -72,7 +75,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v13-matched-policy-evaluation-${{ github.run_id }}
+          name: v13-matched-policy-evaluation-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             evaluation/**
             dataset_provenance.json
