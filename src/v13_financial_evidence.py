@@ -143,7 +143,7 @@ def cumulative_quarters(wide):
     add=pd.DataFrame(derived).drop_duplicates(['security_isin','reporting_mode','period_end','available_at_utc','input_source_sha256'])
     return pd.concat([wide,add],ignore_index=True)
 
-def completion_queue(queue,wide,asof,budget):
+def completion_queue(queue,wide,asof,budget,issuer_priority=None):
     """Bounded issuer bundles, independent of forecast selections or returns.
 
     Breadth-only round robin can leave every issuer with just one quarter.
@@ -196,6 +196,12 @@ def completion_queue(queue,wide,asof,budget):
             if w.empty:return True
             quarter=pick(w,'quarter',period)
             if not quarter or any(not np.isfinite(number(quarter,k)) for k in ('revenue','pat')):return True
+            # Integrated catalogues often omit the Annual label. A parsed
+            # quarter must not hide cash/debt gaps at observed annual or
+            # balance-sheet endpoints in a newer original filing.
+            a=pick(w,'annual',period);b=pick(w,'instant',period)
+            if a and any(not np.isfinite(number(a,k)) for k in ('revenue','pat','cfo','pbt','finance_cost')):return True
+            if b and any(not np.isfinite(number(b,k)) for k in ('equity','borrowings_current','borrowings_noncurrent')):return True
             if period in set(pd.to_datetime(annual['_period'])):
                 a=pick(w,'annual',period);b=pick(w,'instant',period)
                 if not a or any(not np.isfinite(number(a,k)) for k in ('revenue','pat','cfo','pbt','finance_cost')):return True
@@ -212,9 +218,10 @@ def completion_queue(queue,wide,asof,budget):
         missing=sum(reason!='OBSERVED_NONPOSITIVE_DENOMINATOR_NOT_MISSING_SOURCE' for reason in readiness['unknown_reasons'].values())
         if not missing:continue
         target=target.sort_values(['last_attempt','_period'],ascending=[True,False]).head(8)
-        bundles.append((missing,str(target.last_attempt.min()),__import__('hashlib').sha256(symbol.encode()).hexdigest(),target))
+        priority=(issuer_priority or {}).get(symbol,1)
+        bundles.append((priority,missing,str(target.last_attempt.min()),__import__('hashlib').sha256(symbol.encode()).hexdigest(),target))
     chosen=[];count=0
-    for _,_,_,bundle in sorted(bundles,key=lambda z:z[:3]):
+    for _,_,_,_,bundle in sorted(bundles,key=lambda z:z[:4]):
         room=budget-count
         if room<=0:break
         selected=bundle.head(room);chosen.append(selected);count+=len(selected)

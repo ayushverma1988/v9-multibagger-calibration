@@ -333,6 +333,10 @@ def current_history(store,symbol,isin,asof,previous,official):
         except Exception as exc:
             message=str(exc)[:180];attempts.append({'variant':variant,'error':message})
             if '429' in message or '403' in message:return {'error':message,'attempts':attempts}
+            from v13_capture_acceleration import terminal_history_error
+            if terminal_history_error(message):
+                return {'error':message,'attempts':attempts,'terminal_source_error':True,
+                  'redundant_variants_skipped':len(variants)-len(attempts)}
     if best is not None:
         # New cold histories can still be retained as partial evidence. An
         # older or shorter response cannot replace a previously valid series.
@@ -341,7 +345,7 @@ def current_history(store,symbol,isin,asof,previous,official):
           'coverage_status':'VALID_HISTORY_WITHOUT_SOURCE_ALIGNED_CURRENT_SESSION'}
     return {'error':attempts[-1].get('error','No usable source history'),'attempts':attempts}
 
-def collect_histories(root,asof,budget=3200):
+def collect_histories(root,asof,budget=3200,workers=4):
     root=Path(root);u=pd.read_parquet(root/'universe.parquet');low,high=bounds(asof)
     from datetime import datetime,timezone
     vintage=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
@@ -386,7 +390,7 @@ def collect_histories(root,asof,budget=3200):
         if bars is not None:bars.to_parquet(path,index=False)
         return result
     from v13_parallel_collection import bounded_map
-    for job,result in bounded_map(batch,fetch,workers=4,seconds=1800):
+    for job,result in bounded_map(batch,fetch,workers=workers,seconds=1800):
         attempted+=1;symbol=job[2]['nse_current_symbol']
         receipts.append({'symbol':symbol,**result})
         if result.get('info'):
@@ -401,7 +405,9 @@ def collect_histories(root,asof,budget=3200):
       'reserved_prior_technically_eligible_public_histories':sum(q[5] for q in refresh),
       'already_source_aligned_histories_not_refetched':sum(not q[6] for q in queue),
       'same_day_unreconciled_bars_can_be_retried':True,'raw_response_vintage':vintage,
-      'source_workers':4,'source_rate_limited':_rate_limit_observed(errors),'partial_coverage_is_not_full_NSE':True}
+      'source_workers':max(1,min(int(workers),8)),
+      'redundant_history_variants_skipped':sum(r.get('redundant_variants_skipped',0) for r in receipts),
+      'source_rate_limited':_rate_limit_observed(errors),'partial_coverage_is_not_full_NSE':True}
 
 def history_needs_refresh(history,official,asof,symbol,isin):
     """Only exact current official matches establish a completed refresh."""
@@ -415,7 +421,7 @@ def history_needs_refresh(history,official,asof,symbol,isin):
     if row.source_status!='VALID_POSITIVE_VOLUME_SESSION' or latest.volume!=row.volume:return True
     return any(not np.isfinite(latest.get(c,np.nan)) or abs(latest[c]-row[c])>.011 for c in ('open','high','low','close'))
 
-def collect_financials(root,asof,budget=800):
+def collect_financials(root,asof,budget=800,workers=4,seconds=900):
     root=Path(root);catalog_path=root/'catalog.parquet'
     if not catalog_path.exists():return {'requested':0,'errors':['financial_catalog_missing']}
     cat=pd.read_parquet(catalog_path);master=pd.read_parquet(root/'universe.parquet');symbols=set(master.nse_current_symbol)
@@ -460,25 +466,31 @@ def collect_financials(root,asof,budget=800):
     # Complete same-basis fiscal bundles, rather than granting one recent
     # filing to each of hundreds of issuers without completing any issuer.
     # Selection/ranking flags are neither read nor sent to a data source.
-    expanded=balancing_quarters(wide)
-    basis_completion=basis_completion_queue(queue,expanded,asof,budget//4)
-    queue=queue[~queue.version_key.isin(set(basis_completion.version_key))]
-    owner_public=queue[queue.symbol.isin(scoreable_symbols)]
-    owner_completion=owner_completion_queue(owner_public,expanded,asof,budget//4)
-    owner_keys=set(owner_completion.version_key)
-    queue=queue[~queue.version_key.isin(owner_keys)]
-    completion_budget=budget*3//4-len(owner_completion)-len(basis_completion)
-    scoreable_completion=completion_queue(queue[queue.symbol.isin(scoreable_symbols)],expanded,asof,completion_budget)
+    from v13_capture_acceleration import financial_profile,fixed_cohort_comparison,planning_financials
+    planning=planning_financials(wide,master,asof)
+    expanded=balancing_quarters(planning)
+    before=financial_profile(expanded,master,scoreable_symbols,asof)
+    priorities={r['symbol']:r['priority'] for r in before['rows']}
+    # Reserve half the filing slots for real missing seven-check inputs in
+    # the unranked current public population, before expanded owner features.
+    completion_budget=max(0,budget//2)
+    scoreable_completion=completion_queue(queue[queue.symbol.isin(scoreable_symbols)],expanded,asof,completion_budget,priorities)
     raw_completion=completion_queue(queue[queue.symbol.isin(fresh_symbols)&~queue.version_key.isin(scoreable_completion.version_key)],expanded,asof,max(0,completion_budget-len(scoreable_completion)))
     fresh_completion=pd.concat([scoreable_completion,raw_completion],ignore_index=True)
+    queue=queue[~queue.version_key.isin(fresh_completion.version_key)]
+    owner_public=queue[queue.symbol.isin(scoreable_symbols)]
+    owner_completion=owner_completion_queue(owner_public,expanded,asof,budget//5)
+    queue=queue[~queue.version_key.isin(owner_completion.version_key)]
+    basis_completion=basis_completion_queue(queue,expanded,asof,budget*3//20)
+    queue=queue[~queue.version_key.isin(basis_completion.version_key)]
     other=queue[queue.symbol.isin(public_history_symbols)&~queue.version_key.isin(fresh_completion.version_key)]
     warm_completion=completion_queue(other,expanded,asof,max(0,completion_budget-len(fresh_completion)))
-    completion=pd.concat([basis_completion,owner_completion,fresh_completion,warm_completion],ignore_index=True)
+    completion=pd.concat([fresh_completion,owner_completion,basis_completion,warm_completion],ignore_index=True)
     remainder=queue[~queue.version_key.isin(completion.version_key)]
     public_completion=completion_queue(remainder,expanded,asof,max(0,budget-len(completion)))
     remainder=remainder[~remainder.version_key.isin(public_completion.version_key)]
     completion=pd.concat([completion,public_completion],ignore_index=True)
-    queue=pd.concat([completion,priority_queue(remainder,wide,asof,max(0,budget-len(completion)))],ignore_index=True)
+    queue=pd.concat([completion,priority_queue(remainder,planning,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
     def fetch(r):
         try:
@@ -495,7 +507,7 @@ def collect_financials(root,asof,budget=800):
         except Exception as e:return {'error':str(e)[:160]}
     from v13_parallel_collection import bounded_map
     # A URL/publication is parsed once, avoiding concurrent mode duplicates.
-    for r,result in bounded_map(queue.drop_duplicates('version_key').to_dict('records'),fetch,workers=4,seconds=900):
+    for r,result in bounded_map(queue.drop_duplicates('version_key').to_dict('records'),fetch,workers=workers,seconds=seconds):
         attempted+=1
         if result.get('facts'):
             rows.extend(result['facts']);accepted.add(r['version_key']);parsed.add(r['version_key'])
@@ -514,8 +526,17 @@ def collect_financials(root,asof,budget=800):
     parsed_path.write_text(json.dumps(sorted(parsed)))
     attempts_path.write_text(json.dumps(attempts))
     atomic_json(retry_path,journal)
+    current=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
+    after=financial_profile(balancing_quarters(current),master,scoreable_symbols,asof)
+    comparison=fixed_cohort_comparison(before,after)
+    atomic_json(root/'evidence'/'financial_capture_acceleration.json',
+      {'recorded_at_utc':datetime.now(timezone.utc).isoformat(),'before':before,'after':after,
+       'fixed_cohort_comparison':comparison,'pool_policy':'50_PERCENT_BASIC_20_OWNER_15_BASIS_PUBLIC_REMAINDER',
+       'source_workers':max(1,min(int(workers),8)),'launch_interval_seconds':.25,
+       'source_rate_limited':_rate_limit_observed(errors),'frozen_forecasts_changed':False})
     return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
-      'retry_queue':retry_audit,'budget':budget,'seconds_budget':900,
+      'retry_queue':retry_audit,'budget':budget,'seconds_budget':seconds,
+      'fixed_public_cohort_recovery':comparison,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),
       'reserved_owner_earnings_filings':len(owner_completion),'owner_queue_does_not_infer_recurring_EPS':True,
       'reserved_reporting_basis_recovery_filings':len(basis_completion),
@@ -523,7 +544,7 @@ def collect_financials(root,asof,budget=800):
       'fresh_public_price_completion_filings':len(fresh_completion),'fresh_public_price_symbols':len(fresh_symbols),
       'scoreable_public_price_completion_filings':len(scoreable_completion),'scoreable_public_price_symbols':len(scoreable_symbols),
       'parser_owner_v2_completed_versions':len(parsed),'new_facts_include_explicit_ytd':True,
-      'source_workers':4,'source_rate_limited':_rate_limit_observed(errors),'owner_PAT_is_not_recurring_EPS':True,
+      'source_workers':max(1,min(int(workers),8)),'source_rate_limited':_rate_limit_observed(errors),'owner_PAT_is_not_recurring_EPS':True,
       'official_rename_reference_error':identity_error,'official_rename_edges':len(changes),
       'mapped_fact_observations':sum('identity_mapping_source_sha256' in r for r in rows)}
 

@@ -73,7 +73,7 @@ def capture(text, document, clock):
         'reported_margin_is_not_expected_project_margin':True}
 
 
-def export(root, asof, max_documents=5000):
+def export(root, asof, max_documents=12000):
     root=Path(root);out=root/'catalyst_evidence'
     dp=out/'document_evidence.json'
     documents=json.loads(dp.read_text()) if dp.exists() else []
