@@ -13,8 +13,11 @@
   "zero_byte_original_files_retained": 1,
   "remaining_batches": 0,
   "completed_batches_this_attempt": 1219,
-  "head": "a770faf3b6c45c690ede75fa38f51ed4898fce99",
+  "head": "b78360d336c3b4c777c5f447b6ba5bd3741ad573",
   "intermediate_history_prunes": 13,
-  "checked_at_utc": "2026-11-03T12:21:54.290507+00:00",
+  "metadata_files_compressed": 1,
+  "metadata_original_bytes": 1134912494,
+  "metadata_stored_bytes": 11763439,
+  "checked_at_utc": "2026-11-03T12:22:12.466648+00:00",
   "workflow_run": "41616377732"
 }
