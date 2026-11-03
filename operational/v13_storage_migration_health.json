@@ -13,11 +13,11 @@
   "zero_byte_original_files_retained": 1,
   "remaining_batches": 0,
   "completed_batches_this_attempt": 1219,
-  "head": "03ace31862833460cb81cfa286223922e79002ce",
+  "head": "bbc340c4694f65b266b5bbf42b2cada1aee409c0",
   "intermediate_history_prunes": 13,
-  "metadata_files_compressed": 12,
-  "metadata_original_bytes": 4488346443,
-  "metadata_stored_bytes": 60639768,
-  "checked_at_utc": "2026-11-03T12:23:24.896226+00:00",
+  "metadata_files_compressed": 14,
+  "metadata_original_bytes": 5690032635,
+  "metadata_stored_bytes": 74071414,
+  "checked_at_utc": "2026-11-03T12:23:46.410971+00:00",
   "workflow_run": "41616377732"
 }
