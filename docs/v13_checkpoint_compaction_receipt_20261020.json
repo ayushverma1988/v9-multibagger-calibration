@@ -1,0 +1,16 @@
+{
+  "started_at_utc": "2026-10-20T08:30:48.896155+00:00",
+  "completed_at_utc": "2026-10-20T08:45:37.195377+00:00",
+  "passed": true,
+  "original_checkpoint_records_unchanged": true,
+  "frozen_forecasts_and_heads_changed": false,
+  "bundle_restore_verified": true,
+  "checkpoint_files": 121437,
+  "archive": "ayushverma1988/v10-multibagger-archive",
+  "snapshot": "20261020T084512Z_aa59aac8d232",
+  "manifest_sha256": "aa59aac8d2325fe6f807322bff746305957a5655d70a64d9f2872e4f71b0152a",
+  "new_objects": 0,
+  "total_objects": 116935,
+  "derived_bundle_bytes": 269225963,
+  "derived_bundle_files": 6885
+}

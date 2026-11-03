@@ -1,0 +1,94 @@
+name: V11.4 Older June2024 Three-FY Chronological Replication Research
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_older_June_2024_replicate.yml
+      - src/v11_4_threeFY_older_June_2024_holdout.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  historical-replication-not-newly-blinded-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official fiscal and historic model feature dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Enforce fixed older chronological research logic and original as-of June dates
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_threeFY_older_June_2024_holdout.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_June_clean_out_of_sample_ML.py -v
+      - name: Download privately retained 2022/2023/2024 June ORIGINAL source data; exclude all 2025
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,shutil
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          repo="ayushverma1988/v10-multibagger-archive"
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          files={
+            2022:"v11_4/historical_source_original_NSE/FY2020_FY2021_FY2022_asof_2022_June/run_37940351199/original_2022_June_stocks_FY2020_2022_verified_pre_close_3FY_PRIVATE.parquet",
+            2023:"v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_37938677845/original_NSE_June_2023_verified_3FY_asof_1530_IST_PRIVATE.parquet",
+            2024:"v11_4/historical_source_original_NSE/2023_2024_2025_June_threeFY_original_source_clocks/run_37938677845/original_NSE_June_2024_verified_3FY_asof_1530_IST_PRIVATE.parquet"
+          }
+          dest=Path("only_2022_2023_2024_orig_June");dest.mkdir(exist_ok=True)
+          for year,name in files.items():
+           p=hf_hub_download(repo_id=repo,repo_type="dataset",filename=name,token=token)
+           shutil.copy2(p,dest/f"original_June{year}_private.parquet")
+          print("Original 2022/23/24 strict June PIT financial cohorts restored privately. No 2025 forward or holdout data accessed.")
+          PY
+      - name: Train June2022 fiscal, calibrate June2023 fiscal, evaluate older June2024 replication
+        run: |
+          set -euo pipefail
+          python src/v11_4_threeFY_older_June_2024_holdout.py \
+            --june-2022 only_2022_2023_2024_orig_June/original_June2022_private.parquet \
+            --june-2023 only_2022_2023_2024_orig_June/original_June2023_private.parquet \
+            --june-2024 only_2022_2023_2024_orig_June/original_June2024_private.parquet \
+            --out private_older_June2024_threeFY_research_replication
+      - name: Save company ranking only to private archive and announce prior calibration exposure
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from huggingface_hub import HfApi
+          root="private_older_June2024_threeFY_research_replication"
+          r=json.load(open(root+"/2024_June_older_threeFY_historical_holdout_aggregate_science.json"))
+          assert r["NO_2025_June_or_Dec_financial_test_loaded"] is True
+          assert r["therefore_not_a_new_blinded_independent_test"] is True
+          assert r["not_independently_sufficient_for_production"] is True
+          client=HfApi(token=os.environ["HF_ARCHIVE_TOKEN"])
+          repo="ayushverma1988/v10-multibagger-archive"
+          info=client.repo_info(repo_id=repo,repo_type="dataset")
+          assert info.private is True
+          path="v11_4/older_June_2024_3FY_REPLICATION_NOT_BLINDED/run_${{ github.run_id }}"
+          assert not any(x.startswith(path+"/") for x in client.list_repo_files(repo_id=repo,repo_type="dataset"))
+          client.upload_folder(folder_path=root,repo_id=repo,repo_type="dataset",path_in_repo=path,parent_commit=info.sha,
+             commit_message="Research-only historical June2024 model replication, previously calibration label cohort not blind")
+          print(json.dumps({"private_old_June2024_replicate_saved":True,
+            "older_test_2X_base_count":r["heldout_sixmonth_actual_2x_event_count"],
+            "older_test_top10_wins":r["heldout_top10_actual_2x_doublers"],
+            "older_holdout_is_newly_blinded":False,
+            "production_authorized":False,"private_path":path},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-old-June2024-3FY-replication-aggregate-not-independent-blind
+          path: private_older_June2024_threeFY_research_replication/2024_June_older_threeFY_historical_holdout_aggregate_science.json
+          retention-days: 90
+          if-no-files-found: warn

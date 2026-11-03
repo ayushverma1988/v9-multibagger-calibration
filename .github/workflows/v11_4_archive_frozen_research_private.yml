@@ -1,0 +1,34 @@
+name: V11.4 Archive Frozen Research Candidate Private
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_archive_frozen_research_private.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'huggingface_hub>=0.25,<2'
+      - run: python -m py_compile src/v11_4_archive_frozen_research_private.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-frozen-standalone-research-model-20261008-forward-only
+          path: frozen_release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37806626992
+      - name: Persist original source-hashed 2026-10-08 frozen research model to PRIVATE Hugging Face
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v11_4_archive_frozen_research_private.py \
+            --folder frozen_release

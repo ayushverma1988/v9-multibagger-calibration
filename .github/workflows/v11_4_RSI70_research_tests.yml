@@ -1,0 +1,36 @@
+name: V11.4 Corrected RSI Above 70 Research Screener Tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_RSI70_research_tests.yml
+      - config/v11_4_four_screener_families.json
+      - src/v11_4_four_family_live_screener.py
+      - tests/test_v11_4_four_family_rsi.py
+permissions:
+  contents: read
+jobs:
+  verify-user-rsi70-screen-without-rewriting-frozen-picks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install numerical source and screener test dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scikit-learn>=1.5,<2' 'scipy>=1.12' 'pyarrow>=18,<26' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Verify strict user condition RSI14 Wilder above 70 with unchanged production scores
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_four_family_live_screener.py src/v11_4_live_nse_market_catalyst.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_four_family_rsi.py -v
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          c=json.loads(Path("config/v11_4_four_screener_families.json").read_text())
+          assert c["conditions"]["condition_4_RSI14_high_momentum"]["hard_rules"]==[["rsi14_wilder",">",70]]
+          assert c["research_scope"]=="COMPANION_SCREENER_NOT_FROZEN_MODEL_PREDICTOR"
+          print("Verified strict RSI(14)>70, 70.0 fails, ranking unchanged; no stock-selection probabilities rewritten")
+          PY

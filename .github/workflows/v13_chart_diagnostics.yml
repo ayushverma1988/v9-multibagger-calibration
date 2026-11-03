@@ -1,4 +1,7 @@
 name: V13 daily chart diagnostics
+env:
+  V13_COMPACT_ARCHIVE: '1'
+  HF_HUB_DOWNLOAD_TIMEOUT: '120'
 on:
   workflow_run:
     workflows: [V13 NSE Research Collector and Learner]
@@ -26,37 +29,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: adcd30ee1fa7445a9b74aff9211e612cee93f32e
+          ref: 1d1e588082a24e1224447e47eea4296f9b76a26b
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - run: pip install -r requirements_v13_storage.txt
       - name: Test both checkpoint formats and complete existing contracts
         run: python -m unittest discover -s tests
-      - name: Read and hash-check the completed collector artifact
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const crypto = require('crypto');
-            const {execFileSync} = require('child_process');
-            let run_id = context.payload.workflow_run?.id;
-            if (!run_id) {
-              const runs = await github.rest.actions.listWorkflowRuns({...context.repo,workflow_id:'v13_research_worker.yml',branch:'main',status:'completed',per_page:20});
-              const completed = runs.data.workflow_runs.find(r => r.conclusion === 'success');
-              if (!completed) throw new Error('No successful collector snapshot');
-              run_id = completed.id;
-            }
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id,per_page:100});
-            const artifact = artifacts.data.artifacts.find(a => a.name === `v13-private-research-state-${run_id}` && !a.expired);
-            if (!artifact) throw new Error('Completed collector artifact unavailable');
-            const download = await github.rest.actions.downloadArtifact({...context.repo,artifact_id:artifact.id,archive_format:'zip'});
-            const bytes = Buffer.from(download.data);
-            const digest = 'sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
-            if (digest !== artifact.digest || bytes.length !== artifact.size_in_bytes) throw new Error('Collector artifact integrity mismatch');
-            fs.writeFileSync('worker.zip',bytes);
-            fs.writeFileSync('source_worker_run.json',JSON.stringify({run_id,artifact_id:artifact.id,source_zip_bytes:bytes.length,source_zip_digest:digest,chart_code:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2));
+      - name: Stream and hash-check the completed collector artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SOURCE_WORKER_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+        run: |
+          python - <<'PYTHON'
+          import json,os,subprocess,requests
+          from pathlib import Path
+          from v13_archive_retention import download_artifact
+          repo=os.environ['GITHUB_REPOSITORY'];headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN']}
+          def get(path):
+              r=requests.get('https://api.github.com/repos/'+repo+path,headers=headers,timeout=(15,120));r.raise_for_status();return r.json()
+          run_id=os.environ.get('SOURCE_WORKER_RUN_ID')
+          if not run_id:
+              runs=get('/actions/workflows/v13_research_worker.yml/runs?branch=main&status=completed&per_page=20')['workflow_runs']
+              run_id=next(r['id'] for r in runs if r['conclusion']=='success')
+          artifacts=get(f'/actions/runs/{run_id}/artifacts')['artifacts']
+          artifact=next(a for a in artifacts if not a['expired'] and a['name']==f'v13-private-research-state-{run_id}')
+          download_artifact(artifact['id'],artifact['digest'],'worker.zip')
+          assert Path('worker.zip').stat().st_size==artifact['size_in_bytes']
+          Path('source_worker_run.json').write_text(json.dumps({'run_id':int(run_id),'artifact_id':artifact['id'],
+              'source_zip_bytes':artifact['size_in_bytes'],'source_zip_digest':artifact['digest'],
+              'chart_code':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()},indent=2))
+          PYTHON
       - name: Export exact unchanged source bytes in bounded audit parts
         if: github.ref_name == 'fix/v13-recovery-chart-20261103'
         run: |

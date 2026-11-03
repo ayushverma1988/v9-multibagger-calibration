@@ -1,0 +1,43 @@
+name: V11.4 Original NSE Industry Peer and Issued Capital Research Proxies
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_nse_valuation_peer_proxy_probe.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Unit validate proxy semantics, preserve original immutable predictor
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_nse_valuation_peer_proxies.py -v
+          python -m py_compile src/v11_4_nse_valuation_peer_size_proxies.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-original-NSE-companyPE-independent-double-market-check-20261008
+          path: original_nse_companies
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37869428858
+      - name: Apply current official NSE Nifty Total Market industry classifications and security-master issued share-size approximations ONLY to research overlay
+        run: |
+          python src/v11_4_nse_valuation_peer_size_proxies.py \
+            --source original_nse_companies/nse_original_company_pe_same_day_research.csv \
+            --asof 2026-10-08 --output outputs_v11_4_nse_industry_peer_research_only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-afterclose-nse-industry-peer-and-size-research-proxies-20261008
+          path: outputs_v11_4_nse_industry_peer_research_only/
+          retention-days: 30
+          if-no-files-found: warn

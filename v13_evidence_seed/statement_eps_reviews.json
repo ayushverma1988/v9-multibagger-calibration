@@ -1,0 +1,66 @@
+[
+  {
+    "symbol": "STERTOOLS",
+    "isin": "INE334A01023",
+    "cin": "L29222DL1979PLC009668",
+    "reporting_mode": "consolidated",
+    "metric": "REPORTED_DILUTED_EPS_CONTINUING",
+    "source_asof": "2026-10-15",
+    "current_period_end": "2026-06-30",
+    "comparative_period_end": "2025-06-30",
+    "current_eps": 1.6,
+    "comparative_eps": 2.47,
+    "page_index": 9,
+    "label_box": [
+      31,
+      729,
+      263,
+      742
+    ],
+    "current_header_box": [
+      263,
+      109,
+      343,
+      146
+    ],
+    "comparative_header_box": [
+      419,
+      109,
+      493,
+      146
+    ],
+    "current_cell_box": [
+      310,
+      730,
+      336,
+      742
+    ],
+    "comparative_cell_box": [
+      465,
+      730,
+      490,
+      742
+    ],
+    "statement": {
+      "url": "https://nsearchives.nseindia.com/corporate/STERTOOLS_05082026141411_Outcome0508sign.pdf",
+      "sha256": "ffc942b9ab7b096ead209f00f47348952d4f458f23a163de7ce0281f70125e5b",
+      "published_at_utc": "2026-08-05T08:44:51Z"
+    },
+    "identity": {
+      "url": "https://nsearchives.nseindia.com/corporate/STERTOOLS_13082026175243_annualreport2526.pdf",
+      "sha256": "11ea416b71b46c7480aa2aac7b152359ac260d07f7c3c1d4e7f6cdaf77bcbe75",
+      "published_at_utc": null,
+      "clock_status": "UNKNOWN_PUBLICATION_FIRST_RETRIEVAL_AND_REVIEW_CLOCK_REQUIRED"
+    },
+    "anchor": {
+      "url": "https://nsearchives.nseindia.com/corporate/xbrl/INTEGRATED_FILING_INDAS_1708271_05082026035306_WEB.xml",
+      "sha256": "2a371dc217226fe712e8bf91a1117933d27cbc2f4f439b2f60892eedee19253c",
+      "published_at_utc": "2026-08-05T10:23:06Z"
+    },
+    "identity_conflict_note": "Announcement metadata has a stale ISIN. Current ISIN is independently printed in the original annual report and original consolidated XBRL. No historical ISIN transition or adjusted-price equivalence is inferred.",
+    "identity_page_indices": [
+      0,
+      61
+    ]
+  }
+]

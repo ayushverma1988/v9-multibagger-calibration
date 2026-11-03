@@ -1,0 +1,60 @@
+name: V11.4 Standalone COVID Outcome Blackout Research
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_covid_outcome_training_blackout.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  variants:
+    strategy:
+      fail-fast: false
+      matrix:
+        policy: [initial_crash_2020, extended_pandemic]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - name: Verify blackout variant and original V11.4 tests
+        run: |
+          python -m py_compile src/v11_4_covid_training_blackout.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_standalone_walkforward.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: v11_4_features
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_historical_market_labels
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Re-train fixed standalone V11.4 without COVID-overlap outcome training samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          FEATURES=$(find v11_4_features -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          HIST=$(find original_historical_market_labels -name snapshot_dataset.parquet -print -quit)
+          test -n "$FEATURES" && test -n "$HIST"
+          python src/v11_4_covid_training_blackout.py \
+            --features "$FEATURES" --snapshot "$HIST" \
+            --policy "${{ matrix.policy }}" \
+            --output "outputs_v11_4_no_covid_training/${{ matrix.policy }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-standalone-covid-training-blackout-${{ matrix.policy }}
+          path: outputs_v11_4_no_covid_training/
+          retention-days: 90
+          if-no-files-found: warn

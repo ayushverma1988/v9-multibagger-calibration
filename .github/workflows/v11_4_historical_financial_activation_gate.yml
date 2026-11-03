@@ -1,0 +1,63 @@
+name: V11.4 Historical Four-Rule Financial PIT Activation Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_historical_financial_activation_gate.yml
+      - src/v11_4_historical_financial_activation_gate.py
+      - tests/test_v11_4_historical_financial_activation_gate.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-18fold-original-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install audited source-matrix dependencies
+        run: pip install 'pandas>=2.2,<3' 'numpy>=2,<3' 'pyarrow>=18,<26'
+      - name: Unit test no future outcome, false annual histories, stale or unsourced facts
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_historical_financial_activation_gate.py -v
+          python -m py_compile src/v11_4_historical_financial_activation_gate.py
+      - name: Restore already independently verified complete FY2024 and FY2025 18-fold matrix
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: original_18fold_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - name: Audit all 18 original market folds and exact four independently requested conditions
+        run: |
+          set -euo pipefail
+          MATRIX=$(find original_18fold_source -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          test -n "$MATRIX"
+          python src/v11_4_historical_financial_activation_gate.py \
+            --features "$MATRIX" \
+            --config config/v11_4_four_screener_families.json \
+            --expected-rows 18569 \
+            --output 18fold_original_financial_activation_gate
+          python - <<'PY'
+          import json
+          r=json.load(open("18fold_original_financial_activation_gate/four_rule_historical_source_readiness.json"))
+          assert r["historical_rows"]==18569 and r["historical_folds"]==18
+          assert r["short_horizon_annual_yoy_cannot_replace_3y_5y_7y"]
+          assert r["original_standalone_model_weights_or_picks_changed"] is False
+          assert r["no_missing_financial_values_imputed"]
+          assert r["historical_financial_rule_activation_approved"] is False
+          PY
+      - name: Archive aggregate historical source coverage and targeted missing-fold queue only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-18fold-standalone-financial-activation-and-source-backfill-priority
+          path: 18fold_original_financial_activation_gate/
+          retention-days: 90
+          if-no-files-found: warn

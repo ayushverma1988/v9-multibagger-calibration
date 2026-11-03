@@ -1,0 +1,44 @@
+name: V11.4 Private Annual History Research Archive
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_private_annual_research_archive.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  private_archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'huggingface_hub>=0.25,<2'
+      - run: python -m py_compile src/v11_4_archive_annual_financials_private.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-twofold-frozen-universe-financial-PIT-research-matrix
+          path: matrix_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37757837088
+      - name: Verify and store research provenance in existing private HF archive
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python src/v11_4_archive_annual_financials_private.py \
+            --annual annual_seed --matrix matrix_seed \
+            --repo-id ayushverma1988/v10-multibagger-archive \
+            --prefix v11_4/research/annual_source_and_2fold_features/20261008 \
+            --stage outputs_private_annual_archive

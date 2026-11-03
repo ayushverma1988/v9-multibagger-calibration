@@ -1,0 +1,57 @@
+name: V11.4 Historical 18-Fold NSE Catalyst PIT Features
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths: [.github/workflows/v11_4_18fold_historical_catalysts.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Run adversarial source-date PIT tests
+        run: |
+          python -m py_compile src/v11_4_historical_catalyst_pit_features.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_historical_catalyst_pit_features.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: source_events
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: source_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Restore the original validation fold dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > folds.csv
+      - name: Construct as-of market-close catalyst metadata for all 18 original folds
+        shell: bash
+        run: |
+          EVENT=$(find source_events -name events_all_2016_2026.parquet -print -quit)
+          SNAP=$(find source_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$EVENT" && test -n "$SNAP"
+          python src/v11_4_historical_catalyst_pit_features.py \
+            --events "$EVENT" --snapshot "$SNAP" --folds folds.csv \
+            --output outputs_historical_catalysts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-18fold-NSE-catalyst-asof-research-features
+          path: outputs_historical_catalysts/
+          if-no-files-found: warn
+          retention-days: 90

@@ -1,0 +1,29 @@
+name: V12.3 Official NSE Snapshot (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Completed NSE session YYYY-MM-DD'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - name: Collect full public market file
+        env:
+          SESSION_DATE: ${{ inputs.date }}
+        run: PYTHONPATH=src python src/v12_3_official_monitor.py --date "$SESSION_DATE" --output snapshot
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v12-3-official-nse-snapshot
+          path: snapshot
+          retention-days: 90

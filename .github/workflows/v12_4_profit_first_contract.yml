@@ -1,0 +1,18 @@
+name: V12.4 Profit First Contract
+on:
+  pull_request:
+    paths:
+      - 'src/v12_4*.py'
+      - 'tests/test_v12_4*.py'
+      - '.github/workflows/v12_4_profit_first_contract.yml'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - run: PYTHONPATH=src python -m unittest discover -s tests

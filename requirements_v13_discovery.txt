@@ -1,0 +1,2 @@
+# Additional dependency for current original AMFI workbook classification.
+openpyxl>=3.1,<4

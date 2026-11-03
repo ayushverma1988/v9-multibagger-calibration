@@ -1,0 +1,4 @@
+-r requirements_v12_frozen.txt
+-r requirements_v11_4_systematic.txt
+zstandard==0.25.0
+huggingface_hub>=1.32,<2

@@ -1,0 +1,45 @@
+name: V13 compact storage profile and retired-byte reclamation
+on:
+  push:
+    branches: [storage/v13-lossless-compression-20261103]
+    paths: ['.github/workflows/v13_storage_profile.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: src
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'huggingface_hub>=1.32,<2' requests zstandard==0.25.0
+      - name: Verify the reviewed original-byte retention plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          from v13_archive_retention import download_artifact
+          download_artifact(13201435441,'d50ebee8bffb979f3bf762aadf8da1ace4180e44de6d2f86dd3971d7fb46db7e','plan.zip')
+          with zipfile.ZipFile('plan.zip') as z:Path('retention_inventory.json').write_bytes(z.read('retention_inventory.json'))
+          PY
+      - name: Reclaim only already retired LFS objects and measure compression
+        run: python -m v13_storage_profile --plan retention_inventory.json --out storage_profile --purge-verified-retired-lfs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-storage-profile-${{ github.run_id }}
+          path: storage_profile/*.json
+          retention-days: 30

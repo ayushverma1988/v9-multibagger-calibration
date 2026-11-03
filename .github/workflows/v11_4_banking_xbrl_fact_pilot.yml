@@ -1,0 +1,31 @@
+name: V11.4 Bank-Specific XBRL Numeric Pilot
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - '.github/workflows/v11_4_banking_xbrl_fact_pilot.yml'
+permissions:
+  contents: read
+jobs:
+  bank-facts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install data readers
+        run: pip install 'requests>=2.31,<3' 'pandas>=2.2,<3'
+      - name: Compile bank-taxonomy fact parser
+        run: python -m py_compile src/v11_4_banking_xbrl_fact_pilot.py
+      - name: Match bank income PAT and credit quality to original NSE XBRL contexts
+        run: python src/v11_4_banking_xbrl_fact_pilot.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-bank-specific-XBRL-financial-facts-pilot
+          path: outputs_v11_4_bank_fact_probe/
+          if-no-files-found: warn
+          retention-days: 60

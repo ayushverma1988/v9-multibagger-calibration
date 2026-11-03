@@ -1,0 +1,35 @@
+name: V11.4 Privately Seal NSE Industry Peer Research Companion
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_archive_peer_research_private.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  private-peer-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'huggingface_hub>=0.25,<2'
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-afterclose-nse-industry-peer-and-size-research-proxies-20261008
+          path: original_nse_sector_research
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37869854293
+      - name: Write once to separate private historical source companion, not 15:30 trading data
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python -m py_compile src/v11_4_archive_peer_proxy_private.py
+          python src/v11_4_archive_peer_proxy_private.py \
+            --source original_nse_sector_research --asof 2026-10-08 \
+            --out staging_private_industry_proxy

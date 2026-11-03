@@ -1,0 +1,47 @@
+name: V11.4 FY2025 Integrated Filing Annual FourD Bridge Pilot
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_2025_annual_fourd_bridge_pilot.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Restore frozen original NSE XBRL tag dictionary
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_2025_integrated_annual_bridge.py src/v11_4_strict_annual_numeric_features.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-repaired-2025-full-integrated-PIT-index
+          path: integrated_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37746681814
+      - name: Verify 2025 Q4 fiscal-year end annual YTD original XBRL facts
+        shell: bash
+        run: |
+          IDX=$(find integrated_seed -name integrated_financial_index_2025_REPAIRED_REHEARSAL_ONLY.parquet -print -quit)
+          test -n "$IDX"
+          python src/v11_4_2025_integrated_annual_bridge.py \
+            --integrated-index "$IDX" --max-companies 24 \
+            --output outputs_v11_4_2025_annual_bridge
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-2025-annual-FourD-integrated-source-probe
+          path: outputs_v11_4_2025_annual_bridge/
+          retention-days: 60
+          if-no-files-found: warn

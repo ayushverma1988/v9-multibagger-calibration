@@ -1,0 +1,104 @@
+name: V11.4 Parallel Full-Universe Annual PIT Numeric Backfill
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths: [.github/workflows/v11_4_full_annual_numeric_shards.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        year: [2024, 2025]
+        shard: [0, 1, 2, 3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install data dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Enforce existing original-XBRL and PIT tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_scaled_2024_fundamental_pit.py src/v11_4_2025_integrated_yoy_pit.py src/v11_4_short_horizon_financial_pit.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: annual_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - uses: actions/download-artifact@v4
+        if: matrix.year == 2025
+        with:
+          name: v11-4-repaired-2025-full-integrated-PIT-index
+          path: integrated_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37746681814
+      - uses: actions/download-artifact@v4
+        if: matrix.year == 2025
+        with:
+          name: v11-4-2025-annual-FourD-integrated-source-probe
+          path: fy25_qa
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37752852387
+      - name: Run FY2024 historical numeric shard
+        if: matrix.year == 2024
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANNUAL=$(find annual_seed -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$ANNUAL" && test -n "$SNAP"
+          python src/v11_4_scaled_2024_fundamental_pit.py \
+            --annual-index "$ANNUAL" --snapshot "$SNAP" --fold-date 2024-12-31 \
+            --max-companies 500 --shard-index ${{ matrix.shard }} --shard-count 4 \
+            --output annual_numeric_2024_${{ matrix.shard }}
+          python src/v11_4_short_horizon_financial_pit.py \
+            --annual-numerics annual_numeric_2024_${{ matrix.shard }}/strict_annual_source_numeric_2023_2024.csv \
+            --fold-date 2024-12-31 --output annual_numeric_2024_${{ matrix.shard }}/features
+      - name: Run FY2025 cross-generation numeric shard
+        if: matrix.year == 2025
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANNUAL=$(find annual_seed -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          INT=$(find integrated_seed -name integrated_financial_index_2025_REPAIRED_REHEARSAL_ONLY.parquet -print -quit)
+          QA=$(find fy25_qa -name FY2025_integrated_annual_bridge_summary.json -print -quit)
+          test -n "$ANNUAL" && test -n "$SNAP" && test -n "$INT" && test -n "$QA"
+          python src/v11_4_2025_integrated_yoy_pit.py \
+            --annual "$ANNUAL" --integrated "$INT" --qa "$QA" --snapshot "$SNAP" \
+            --max-companies 500 --shard-index ${{ matrix.shard }} --shard-count 4 \
+            --output annual_numeric_2025_${{ matrix.shard }}
+          python src/v11_4_short_horizon_financial_pit.py \
+            --annual-numerics annual_numeric_2025_${{ matrix.shard }}/strict_2025_fold_annual_numeric_pairs.csv \
+            --fold-date 2025-12-31 --output annual_numeric_2025_${{ matrix.shard }}/features
+      - name: Retain every original source and error manifest for targeted QA
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-full-annual-numeric-${{ matrix.year }}-shard-${{ matrix.shard }}
+          path: annual_numeric_${{ matrix.year }}_${{ matrix.shard }}/
+          retention-days: 90
+          if-no-files-found: warn

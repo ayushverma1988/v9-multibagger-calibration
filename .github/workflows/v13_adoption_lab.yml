@@ -1,0 +1,55 @@
+name: V13 current-policy predictive research
+env:
+  V13_COMPACT_ARCHIVE: '1'
+  HF_HUB_DOWNLOAD_TIMEOUT: '120'
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/v13-predictive-adoption-20261103]
+    paths: ['.github/workflows/v13_adoption_lab.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - run: python -m unittest discover -s tests -p test_v13_adoption_integrity.py
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const artifact_id = 13163843576;
+            const response = await github.rest.actions.downloadArtifact({...context.repo, artifact_id, archive_format:'zip'});
+            const bytes = Buffer.from(response.data);
+            if (crypto.createHash('sha256').update(bytes).digest('hex') !== '08924adcd9c5521f90a773a12f4b53aeab14da70ea2c56e590c3e115ea7f1b4c') throw new Error('Recovery artifact hash mismatch');
+            fs.writeFileSync('recovery.zip', bytes);
+      - name: Restore verified recovery and prepare dated inputs without remote writes
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_adoption_workspace --archive recovery.zip --out adoption
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-adoption-inputs-${{ github.run_id }}
+          path: |
+            adoption/research_inputs.tar.gz
+            adoption/prepared_summary.json
+          retention-days: 14
+
+# Restore known immutable objects reused under additional local paths.
+
+# Preserve canonical master symbols and recover historical-only identities.

@@ -1,0 +1,20 @@
+[
+  {
+    "name": "amfi.xlsx",
+    "url": "https://portal.amfiindia.com/spages/AverageMarketCapitalization30Jun2026.xlsx",
+    "sha256": "8e1256541331be9929abfeb1cd8531d72bd5e610559ef3b4ff77916c790a97ed",
+    "first_observed_utc": "2026-10-16T14:39:51.412654+00:00"
+  },
+  {
+    "name": "bank.csv",
+    "url": "https://www.niftyindices.com//IndexConstituent/ind_niftybanklist.csv",
+    "sha256": "eac5d4d5a1d9cfdbfceca604b274bcc999a1f1f36405263569cc2466ef55c64f",
+    "first_observed_utc": "2026-10-16T14:39:50.885363+00:00"
+  },
+  {
+    "name": "insurance.csv",
+    "url": "https://www.niftyindices.com/IndexConstituent/ind_niftyInsurance_list.csv",
+    "sha256": "de082733cfe873ffe4f612bc716cbb2c707a0f77e7c9ddc8db1fdb409d49405e",
+    "first_observed_utc": "2026-10-16T14:39:50.833368+00:00"
+  }
+]

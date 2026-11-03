@@ -1,0 +1,12 @@
+{
+  "registration_sha256": "a73f236bc689c76359c1977e06a81c381781f4412e9d9b8a2b842b9ae2f71ed4",
+  "protocol_sha256": "75d3d7669b691775629a111f17a5ded64fc93ee447b2730e089b6c769faed40b",
+  "model_sha256": "4f80431517b2ca15e979c5dccf40a490255900eb607e098ecc44d7e33390cadc",
+  "recipe_sha256": "35eea5b1314d5ebaab11fa653ca9e168b1f8b190191d337bd4fca544f5a0be7c",
+  "predictions": 639,
+  "research_top10": 10,
+  "threshold_passes": 0,
+  "registered_at_utc": "2026-10-10T08:45:56.336455+00:00",
+  "unseen_matured_outcomes": 0,
+  "outcome_status": "PENDING_FUTURE_MARKET_OBSERVATIONS"
+}

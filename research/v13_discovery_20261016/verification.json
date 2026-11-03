@@ -1,0 +1,22 @@
+{
+  "training_clock_checks": 88,
+  "training_clock_violations": 0,
+  "current_rows": 1450,
+  "frozen_probability_columns_exactly_equal": [
+    "p6",
+    "p12",
+    "joint12",
+    "loss12"
+  ],
+  "original_cutoffs_preserved": true,
+  "strict_RSI70_verified": true,
+  "evaluation_date_first": "2024-06-28",
+  "evaluation_date_last": "2026-03-30",
+  "current_early_watch_eligible": 23,
+  "current_rsi70_eligible": 8,
+  "input_hashes_reverified": {
+    "/workspace/scratch/b761f6f9118c/redevelopment_inputs/challenger_matrix.parquet": true,
+    "/workspace/scratch/b761f6f9118c/redevelopment_results/expanded_primary_volume_research.parquet": true,
+    "/workspace/scratch/ceba08a89f5b/events/events_all_2016_2026.parquet": true
+  }
+}

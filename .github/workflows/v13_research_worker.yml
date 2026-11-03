@@ -22,10 +22,14 @@ jobs:
       PYTHONPATH: src
       INDIAN_STOCK_API_CHECKOUT: ${{ github.workspace }}/api_source
       V13_ARTIFACT_CHECKPOINT_FALLBACK: '1'
+      V13_COMPACT_ARCHIVE: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '120'
+      HF_HUB_ETAG_TIMEOUT: '60'
+      V13_RECOVERY_FLUSHED_THROUGH_RUN: '0'
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d956428203daed4ca0517242b99de0fd7141bba4
+          ref: 1d1e588082a24e1224447e47eea4296f9b76a26b
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -36,32 +40,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
-      - name: Recover the latest preserved worker delta before source refresh
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const crypto = require('crypto');
-            const {execFileSync} = require('child_process');
-            const runs = (await github.rest.actions.listWorkflowRuns({...context.repo, workflow_id:'v13_research_worker.yml', status:'completed', per_page:8})).data.workflow_runs;
-            for (const run of runs.filter(r => r.head_branch === 'main')) {
-              const items = (await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id:run.id})).data.artifacts;
-              const a = items.find(x => !x.expired && x.name === `v13-private-research-state-${run.id}`);
-              if (!a) continue;
-              const response = await github.rest.actions.downloadArtifact({...context.repo,artifact_id:a.id,archive_format:'zip'});
-              const bytes = Buffer.from(response.data);
-              const digest = 'sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
-              if (digest !== a.digest) throw new Error('Previous worker artifact hash mismatch');
-              fs.writeFileSync('previous_worker.zip',bytes);
-              const members=execFileSync('unzip',['-Z1','previous_worker.zip'],{encoding:'utf8'}).trim().split('\n');
-              if (!members.includes('v13_checkpoint_recovery.json')) {
-                fs.unlinkSync('previous_worker.zip');
-                continue;
-              }
-              fs.writeFileSync('previous_worker_receipt.json',JSON.stringify({run_id:run.id,artifact_id:a.id,digest},null,2));
-              break;
-            }
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Stream and verify the latest worker backup before source refresh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m v13_worker_resume
       - name: Verify and restore preserved recovery bytes
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
@@ -69,6 +52,15 @@ jobs:
           if [ -f previous_worker.zip ]; then
             python -m v13_recovery_restore --artifact previous_worker.zip --state v13_state
           fi
+      - name: Retry durable archive saves after authorised storage cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          # This file is a quota-status marker, not data. Try once per worker;
+          # a real quota error re-enables the existing verified recovery mode.
+          Path('v13_archive_capacity.json').unlink(missing_ok=True)
+          print('Retrying durable archive publication; verified quota fallback remains enabled')
+          PY
       - name: Run resumable whole-public-NSE research worker
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
@@ -132,6 +124,11 @@ jobs:
             v13_state/challenger_runs/**/predeclared_experiments.json
           retention-days: 30
 
+      - name: Keep two restart caches and all original dated data
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_storage_retention
+
       - name: Publish aggregate collector health
         if: always()
         uses: actions/github-script@v7
@@ -150,6 +147,7 @@ jobs:
             health.checkpoint_storage_mode = checkpoint.storage_mode || (checkpoint.snapshot ? 'PRIVATE_ARCHIVE_PUBLISHED' : 'UNCONFIRMED');
             health.remote_checkpoint_publication_confirmed = checkpoint.remote_publication_confirmed ?? Boolean(checkpoint.snapshot);
             health.archive_capacity_blocked = checkpoint.archive_capacity_blocked ?? false;
+            if (fs.existsSync('v13_storage_retention_receipt.json')) health.storage_retention = JSON.parse(fs.readFileSync('v13_storage_retention_receipt.json','utf8'));
             let sha;
             try { const old = await github.rest.repos.getContent({...context.repo, path, ref: 'main'}); sha = old.data.sha; } catch (error) { if (error.status !== 404) throw error; }
             await github.rest.repos.createOrUpdateFileContents({...context.repo, branch: 'main', path, sha, message: 'Record V13 collector health', content: Buffer.from(JSON.stringify(health, null, 2) + '\n').toString('base64')});

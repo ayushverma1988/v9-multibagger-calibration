@@ -1,0 +1,28 @@
+name: V11.4 Original NSE Banking XBRL Taxonomy Inspection
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_banking_xbrl_taxonomy_probe.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'requests>=2.31,<3'
+      - run: python -m py_compile src/v11_4_probe_banking_taxonomy.py
+      - name: Inspect old and new bank XBRL concepts and their original units
+        run: python src/v11_4_probe_banking_taxonomy.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-bank-xbrl-taxonomy-probe
+          path: outputs_v11_4_banking_taxonomy/
+          retention-days: 60

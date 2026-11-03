@@ -1,0 +1,41 @@
+name: V11.4 Original NSE Promoter Filing Document Direction Source Profile
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_promoter_event_raw_direction_profile.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  canonical-original-announcement-audit-no-stock-labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - run: python -m py_compile src/v11_4_promoter_original_event_canonical_profile.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: canonical_public_NSE_exchange_disclosures
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - name: Check raw original promoter event catalog metadata and candidate buying classification
+        run: |
+          set -euo pipefail
+          EVENTS=$(find canonical_public_NSE_exchange_disclosures -name events_all_2016_2026.parquet -print -quit)
+          test -n "$EVENTS"
+          python src/v11_4_promoter_original_event_canonical_profile.py             --events "$EVENTS" --out NSE_original_promoter_canonical_direction_profile.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-NSE-promoter-true-buying-classification-source-only
+          path: NSE_original_promoter_canonical_direction_profile.json
+          retention-days: 90
+          if-no-files-found: warn

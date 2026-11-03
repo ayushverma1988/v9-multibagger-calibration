@@ -1,0 +1,13 @@
+{
+  "accepted": 424505,
+  "duplicates_removed": 0,
+  "rejected": {
+    "NO_PRIMARY_ATTACHMENT": 4609,
+    "TEXT_MISMATCH": 11974
+  },
+  "evidence_level": "ORIGINAL_METADATA_NOT_REVIEWED_EXECUTION",
+  "retrospective_reconstruction": true,
+  "archive_events": 1313619,
+  "archive_sha256": "da669826aa7a6c85cd96203fd37200552c46d36c39b9c1838d8024a999e68531",
+  "coverage_end": "2026-09-30T18:26:18Z"
+}

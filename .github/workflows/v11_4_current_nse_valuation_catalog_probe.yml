@@ -1,0 +1,29 @@
+name: V11.4 Current NSE Valuation Source Catalog Probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_current_nse_valuation_catalog_probe.yml
+permissions:
+  contents: read
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'requests>=2.31,<3'
+      - name: Verify direct NSE report catalog metadata source, do not generate stock recommendations
+        run: |
+          python -m py_compile src/v11_4_daily_nse_valuation_catalog_audit.py
+          python src/v11_4_daily_nse_valuation_catalog_audit.py \
+            --asof 2026-10-08 --output outputs_v11_4_valuation_source_probe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-original-NSE-valuation-catalog-20261008
+          path: outputs_v11_4_valuation_source_probe/
+          retention-days: 21

@@ -1,0 +1,41 @@
+name: V11.4 Alternate BSE FY2022 Original Financial-Results Source Pilot
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_bse_FY2022_alternative_source.yml
+      - src/v11_4_bse_FY2022_alternative_financial_source.py
+      - tests/test_v11_4_bse_FY2022_source_integrity.py
+permissions:
+  contents: read
+jobs:
+  alternative-original-bse-source-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deterministic HTML/JSON and regression check dependencies
+        run: pip install 'requests>=2.31,<3' 'beautifulsoup4>=4.12,<5'
+      - name: Unit test BSE annual report semantics and identity restrictions
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_bse_FY2022_source_integrity.py' -v
+          python -m py_compile src/v11_4_bse_FY2022_alternative_financial_source.py
+      - name: Test original BSE FY2022/2023 filing discoverability on four bounded scrip codes
+        run: |
+          set -euo pipefail
+          python src/v11_4_bse_FY2022_alternative_financial_source.py \
+            --max-codes 4 \
+            --out output_bse_FY2022_source_recovery
+      - name: Retain provider-response proof, candidate listings, and explicit rejection flags
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-BSE-original-FY2022-alternative-source-probe-4-companies
+          path: output_bse_FY2022_source_recovery/
+          retention-days: 60
+          if-no-files-found: warn

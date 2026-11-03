@@ -1,4 +1,7 @@
 name: V13 redevelopment inputs
+env:
+  V13_COMPACT_ARCHIVE: '1'
+  HF_HUB_DOWNLOAD_TIMEOUT: '120'
 on:
   push:
     branches: [main]
@@ -13,12 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ef5bc2f2cc87ede8a49500b823af50f4088c1c0f
+          ref: 1d1e588082a24e1224447e47eea4296f9b76a26b
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install huggingface_hub
+      - run: pip install -r requirements_v13_storage.txt
       - name: Retrieve pinned read-only inputs
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
@@ -28,7 +31,8 @@ jobs:
           import hashlib,json,os
           from pathlib import Path
           from concurrent.futures import ThreadPoolExecutor
-          from huggingface_hub import HfApi,hf_hub_download
+          from huggingface_hub import HfApi
+          from v13_archive_codec import archive_download as hf_hub_download
           from v13_checkpoint import ARCHIVE,materialize_one
           token=os.environ['HF_ARCHIVE_TOKEN']
           assert HfApi(token=token).repo_info(ARCHIVE,repo_type='dataset').private

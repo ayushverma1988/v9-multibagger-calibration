@@ -1,0 +1,17 @@
+{
+  "registered_at_utc": "2026-10-10T11:08:28.230838+00:00",
+  "parent_protocol_sha256": "2b50b32723b27e3b264d863b5ae80cc253d1dfa9c632df1c950f003ac55802e0",
+  "timing": "before expanded training inputs or new prediction results exist",
+  "implementation_clarifications": {
+    "price_range_INR": [
+      20,
+      2000
+    ],
+    "BSE_comparison": "NSE-trained transfer with all financial/catalyst extra fields UNKNOWN, same fixed selectors; no BSE labels in training",
+    "BSE_source_sensitivity": "quarantine existing second-source conflicts from decision minus100days to deadline, retain fixed selections",
+    "return_metrics": "equal 10-slot/5-slot cohort weights, unused slots zero-interest cash; unresolved held positions make cohort return UNKNOWN; overlapping cohort averages are not CAGR",
+    "source_gate": "five dated predictors only; PAT margin is not OPM; no historical valuation or verified incremental-profit claims",
+    "historical_financial_window": "four years only; freshness190quarter/450annual and debt; comparative previous-year quarter may be older than450days if within four-year window",
+    "candidate_promotion": "none in this run; all comparisons development evidence only"
+  }
+}

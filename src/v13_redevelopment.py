@@ -1,0 +1,196 @@
+"""Causal breakout diagnostics and separately evaluated research selection.
+
+Thresholds/weights are declared research preferences, not accuracy claims.
+Historical adjusted prices remain subject to provider revisions/survivor bias.
+No frozen head, registry or historical information cutoff is rewritten.
+"""
+import hashlib
+import json
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+from scipy.special import expit, logit
+import v13_model as model
+from v13_research_selection import screen
+
+VERSION='V13_EXTENSION_BREAKOUT_EVIDENCE_RISK_20261016'
+MARKET_FEATURES=['rd_return20','rd_return63','rd_extension200','rd_prior_range_ratio',
+ 'rd_prior_vol_ratio','rd_volume_ratio','rd_breakout_gap','rd_breakout_age',
+ 'rd_extension_since_breakout','rd_first_breakout']
+BOTTOM_FEATURES=['rd_peak_drawdown756','rd_peak_window_observed','rd_base_range30','rd_base_return30',
+ 'rd_low_distance30','rd_recent_volume_burst5','rd_recovery_turn',
+ 'rd_surge_retest_age','rd_surge_peak_retrace','rd_surge_base_lift',
+ 'rd_observed_sessions','rd_peak_drawdown126']
+EVIDENCE_FEATURES=['owner_PAT_yoy','owner_PAT_margin','reported_diluted_EPS_yoy_same_document',
+ 'order_disclosure_count90','disclosed_order_value_due12_to_sales','verified_recurring_diluted_EPS_growth']
+WEIGHTS={'joint':.35,'risk':.15,'price_discipline':.25,'breakout':.10,'financial':.10,'dma_band':.05}
+
+def daily(bars):
+    """Use only prior observations for resistance/base/volume denominators."""
+    d=bars[bars.volume.gt(0)].copy().sort_values('date').reset_index(drop=True)
+    if d.date.duplicated().any():raise ValueError('Duplicate daily dates')
+    p=pd.to_numeric(d.adj_close);factor=p/d.close
+    hi=d.high*factor;lo=d.low*factor;ret=np.log(p).diff()
+    resistance=hi.shift().rolling(63).max()
+    range20=(hi.rolling(20).max()-lo.rolling(20).min()).shift()
+    range63=(hi.rolling(63).max()-lo.rolling(63).min()).shift()
+    vr=ret.rolling(20).std().shift()/ret.rolling(63).std().shift()
+    volume=d.volume/d.volume.shift().rolling(20).median().replace(0,np.nan)
+    gap=p/resistance-1
+    cross=gap.gt(.005)&gap.shift().le(.005)
+    first=(cross&cross.shift().rolling(20).sum().eq(0)&gap.shift().rolling(20).count().eq(20)
+      &(range20/range63).le(.65)&vr.le(.8)&volume.ge(1.5))
+    known=resistance.notna()&vr.notna()&range63.gt(0)&volume.notna()
+    event_idx=pd.Series(np.arange(len(d)),index=d.index).where(first).ffill()
+    age=pd.Series(np.arange(len(d)),index=d.index)-event_idx
+    reference=resistance.where(first).ffill()
+    d['rd_return20']=p/p.shift(20)-1;d['rd_return63']=p/p.shift(63)-1
+    d['rd_extension200']=p/p.rolling(200).mean()-1
+    d['rd_prior_range_ratio']=range20/range63;d['rd_prior_vol_ratio']=vr
+    d['rd_volume_ratio']=volume;d['rd_breakout_gap']=gap
+    d['rd_breakout_age']=age.where(age.le(20))
+    d['rd_extension_since_breakout']=(p/reference-1).where(age.le(20))
+    d['rd_first_breakout']=first.astype(float).where(known)
+    # A separate early-base channel: prices/volume are adjusted and every
+    # observation uses only bars available by this session's close.
+    prior_window=p.shift().rolling(756,min_periods=252)
+    prior_peak=prior_window.max()
+    low30=lo.rolling(30,min_periods=30).min()
+    high30=hi.rolling(30,min_periods=30).max()
+    dma50=p.rolling(50,min_periods=50).mean()
+    recent_burst=volume.rolling(5,min_periods=5).max()
+    d['rd_peak_drawdown756']=p/prior_peak-1
+    d['rd_peak_window_observed']=prior_window.count().where(prior_peak.notna())
+    d['rd_observed_sessions']=np.arange(1,len(d)+1,dtype=float)
+    d['rd_peak_drawdown126']=p/p.shift().rolling(126,min_periods=126).max()-1
+    d['rd_base_range30']=high30/low30-1
+    d['rd_base_return30']=p/p.shift(30)-1
+    d['rd_low_distance30']=p/low30-1
+    d['rd_recent_volume_burst5']=recent_burst
+    turns=(p.gt(dma50)&p.shift().le(dma50.shift())) | (
+      p.gt(hi.shift().rolling(20,min_periods=20).max())&volume.ge(1.5))
+    d['rd_recovery_turn']=turns.rolling(5,min_periods=5).max().astype(float)
+    d.loc[prior_peak.isna()|dma50.isna()|volume.isna(),'rd_recovery_turn']=np.nan
+    # A high-volume first lift from a 63-session low can be followed by a
+    # tradable pullback. Keep the event's original low/peak, not a rolling
+    # current-window low which would erase the first lift after the spike.
+    preceding_low=lo.shift().rolling(63,min_periods=63).min()
+    lift=p/preceding_low-1
+    surge=(lift.between(.25,1.5)&volume.ge(2.5)&p.gt(p.shift())&
+        (p/p.shift(5)-1).ge(.10)&prior_peak.notna())
+    surge_idx=pd.Series(np.arange(len(d)),index=d.index).where(surge).ffill()
+    surge_age=pd.Series(np.arange(len(d)),index=d.index)-surge_idx
+    surge_peak=p.where(surge).ffill()
+    surge_base=preceding_low.where(surge).ffill()
+    d['rd_surge_retest_age']=surge_age.where(surge_age.between(1,45))
+    d['rd_surge_peak_retrace']=(p/surge_peak-1).where(d.rd_surge_retest_age.notna())
+    d['rd_surge_base_lift']=(p/surge_base-1).where(d.rd_surge_retest_age.notna())
+    return d.replace([np.inf,-np.inf],np.nan)
+
+def attach(frame,history):
+    """Bind exact symbol/ISIN/date; quarantine conflicting whole histories."""
+    from v13_history_views import histories
+    wanted=set(zip(frame['isin'],frame['symbol']));pieces=[]
+    chosen,identity_audit=histories(history,wanted)
+    for path,bars in chosen.values():
+        x=daily(bars);pieces.append(x[['date','isin','symbol',*MARKET_FEATURES,*BOTTOM_FEATURES]])
+    out=frame.copy();out['date']=pd.to_datetime(out.date)
+    out['rd_history_status']=[identity_audit['quarantined'].get((r['isin'],r['symbol']),
+      'NO_MATCHING_HISTORY') for r in out.to_dict('records')]
+    if pieces:
+        x=pd.concat(pieces,ignore_index=True);x['date']=pd.to_datetime(x.date)
+        if x.duplicated(['date','isin','symbol']).any():raise ValueError('Ambiguous history identity')
+        out=out.merge(x,on=['date','isin','symbol'],how='left',validate='one_to_one',sort=False,
+          indicator='_history_match',suffixes=('','_history'))
+        out.loc[out._history_match.eq('both'),'rd_history_status']='MATCHED_SYMBOL_ISIN_DATE'
+        out=out.drop(columns='_history_match')
+    for name in MARKET_FEATURES+BOTTOM_FEATURES+EVIDENCE_FEATURES:
+        if name not in out:out[name]=np.nan
+    return out
+
+def shrink_calibration(raw,y,train_y):
+    """Monotone Platt fit regularized toward the training event-rate prior.
+
+    The caller supplies separate chronological calibration rows; no test labels used.
+    Conditional heads preserve nested horizons and competing event coherence.
+    """
+    x=logit(np.clip(np.asarray(raw,float),1e-5,1-1e-5));y=np.asarray(y,float)
+    prior=(np.sum(train_y)+1)/(len(train_y)+2)
+    center=float(logit(prior)-np.mean(x))
+    def loss(z):
+        pred=z[0]*x+z[1]
+        return np.logaddexp(0,pred).sum()-np.dot(y,pred)+25*(z[0]-1)**2+10*(z[1]-center)**2
+    result=minimize(loss,[1.,center],bounds=[(.05,3.),(-15.,15.)],method='L-BFGS-B')
+    if not result.success:raise RuntimeError('Research calibration failed: '+result.message)
+    return {'method':'regularized_positive_slope_Platt','slope':float(result.x[0]),
+      'intercept':float(result.x[1]),'cal_rows':len(y),'cal_events':int(y.sum()),
+      'slope_penalty':25,'intercept_penalty':10,'approved':False}
+
+def fit_heads(data,date,variant):
+    heads={};clocks=[]
+    features=list(dict.fromkeys([*model.FEATURES,*MARKET_FEATURES,*EVIDENCE_FEATURES]))
+    for target in model.TARGETS:
+        parts=model.parts(data,date,target)
+        if parts is None:continue
+        train,cal=parts
+        p=model.fit(train,cal,target,feature_names=features if variant!='baseline' else None)
+        if variant=='redeveloped':
+            final=cal[cal.date.eq(cal.date.max())]
+            p['calibration']=shrink_calibration(model.raw_score(p,final),final[target],train[target])
+        heads[target]=p
+        clocks.append({k:p[k] for k in ('target','method','train_rows','cal_rows','train_maturity_max','cal_start','cal_maturity_max','calibration')})
+    return heads,clocks
+
+def select(scored):
+    d,old=screen(scored)
+    def col(name):return pd.to_numeric(d.get(name,pd.Series(np.nan,index=d.index)),errors='coerce')
+    eligible=d.research_eligible
+    # Missing extension observations receive no positive stability credit.
+    extension=pd.concat([(col('rd_return63').clip(lower=0)/.50),
+      col('rd_extension200').clip(lower=0)/.40,col('rd_return20').clip(lower=0)/.25],axis=1).clip(0,1)
+    discipline=1-extension.mean(axis=1);discipline=discipline.where(extension.notna().all(axis=1),0)
+    early=col('rd_breakout_age').between(0,5)&col('rd_extension_since_breakout').between(0,.10)
+    observed=col('rd_first_breakout').notna()
+    d['redevelopment_breakout_status']=np.select([~observed,early,col('rd_breakout_age').notna()],
+      ['UNKNOWN_HISTORY','EARLY_CONFIRMED_BREAKOUT','RECENT_BREAKOUT_NOT_EARLY'],default='NO_CONFIRMED_RECENT_FIRST_BREAKOUT')
+    d['redevelopment_price_discipline']=discipline
+    d['redevelopment_extension_status']=np.select([~extension.notna().all(axis=1),col('rd_return63').gt(.5)|col('rd_extension200').gt(.4)|col('rd_return20').gt(.25)],
+      ['UNKNOWN_EXTENSION','EXTENDED'],default='WITHIN_DECLARED_EXTENSION_LIMITS')
+    d['redevelopment_score']=(WEIGHTS['joint']*col('joint12').where(eligible).rank(pct=True)+
+      WEIGHTS['risk']*(-col('loss12')).where(eligible).rank(pct=True)+WEIGHTS['price_discipline']*discipline+
+      WEIGHTS['breakout']*early+WEIGHTS['financial']*d.research_financial_input_fraction+
+      WEIGHTS['dma_band']*d.research_within_200dma_band).where(eligible)
+    pool=d[eligible].sort_values(['redevelopment_score','isin'],ascending=[False,True]).head(model.TOP_K)
+    d['redevelopment_rank']=d['isin'].map({v:i+1 for i,v in enumerate(pool['isin'])})
+    d['redevelopment_selected']=d.redevelopment_rank.notna()
+    # Observed announcement counts are discovery cues, never execution proof.
+    d['redevelopment_earnings_status']=np.where(col('owner_PAT_yoy').notna()&col('owner_PAT_margin').notna(),
+      'OWNER_EARNINGS_OBSERVED_RECURRING_EPS_UNPROVEN','PARTIAL_OR_UNKNOWN_OWNER_EARNINGS')
+    d['redevelopment_catalyst_status']=np.where(d.research_execution_supported,'COMPLETE_EXECUTION_SUPPORTED',
+      np.where(col('order_disclosure_count90').gt(0),'DATED_ANNOUNCEMENT_ONLY','NO_COMPLETE_EXECUTION_SUPPORT'))
+    return d,{'version':VERSION,'weights':WEIGHTS,'weights_are_probabilities':False,
+      'baseline_gate_counts':old['gate_counts'],'selected':len(pool),
+      'early_breakouts_selected':int(early[d.redevelopment_selected].sum()),
+      'source_date':str(pd.Timestamp(d.date.max()).date()),'production_accuracy_approved':False}
+
+def export(scored,root,replay_receipt):
+    """Daily diagnostics reuse exact champion probabilities, with new ranks."""
+    root=Path(root);d=attach(scored,root/'history'/'securities')
+    from v13_bottom_recovery import export as export_bottom_recovery
+    bottom_summary=export_bottom_recovery(d,root,replay_receipt)
+    from v13_early_potential import export as export_early_potential
+    early_summary=export_early_potential(d,root,replay_receipt)
+    d,audit=select(d)
+    audit['prediction_replay']=replay_receipt
+    audit['probabilities_recalibrated']=False
+    audit['records']=json.loads(d.to_json(orient='records',date_format='iso',double_precision=15))
+    out=root/'redevelopment';out.mkdir(exist_ok=True)
+    raw=json.dumps(audit,sort_keys=True,indent=2).encode();key=hashlib.sha256(raw).hexdigest()
+    path=out/(key+'.json')
+    if not path.exists():path.write_bytes(raw)
+    (out/'latest.json').write_bytes(raw)
+    result={k:v for k,v in audit.items() if k not in ('records','prediction_replay')}
+    result['bottom_recovery_shadow']=bottom_summary
+    result['early_potential_shadow']=early_summary
+    return result

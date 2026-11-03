@@ -1,0 +1,67 @@
+name: V11.4 Strict Lagged Original NSE Company PE PIT Research Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_lagged_PE_pit_contract.yml
+      - src/v11_4_lagged_company_pe_pit_gate.py
+      - tests/test_v11_4_lagged_company_pe_pit_gate.py
+permissions:
+  contents: read
+jobs:
+  retrospective-leak-prevention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'huggingface_hub>=0.25,<2'
+      - name: Test no same-day or historical leakage of late company PE
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_v11_4_lagged_company_pe_pit_gate.py' -v
+          python -m py_compile src/v11_4_lagged_company_pe_pit_gate.py
+      - name: Retrieve pre-existing original October 8 valuation only from immutable PRIVATE archive
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          t=os.environ.get("HF_ARCHIVE_TOKEN")
+          if not t: raise SystemExit("Missing HF private archive access")
+          repo="ayushverma1988/v10-multibagger-archive"
+          prefix="v11_4/original_exchange_company_PE_companion/2026-10-08/"
+          Path("private_original").mkdir(exist_ok=True)
+          for name in ("valuation_companion_manifest.json","nse_original_company_pe_same_day_research.csv"):
+              f=hf_hub_download(repo_id=repo,repo_type="dataset",filename=prefix+name,token=t)
+              Path("private_original",name).write_bytes(Path(f).read_bytes())
+          PY
+      - name: Validate prospective next-session ONLY archival eligibility
+        run: |
+          set -euo pipefail
+          python src/v11_4_lagged_company_pe_pit_gate.py \
+             --manifest private_original/valuation_companion_manifest.json \
+             --original-csv private_original/nse_original_company_pe_same_day_research.csv \
+             --research-decision-day 2026-10-09 --output separate_valuation_research
+          python - <<'PY'
+          import json
+          r=json.load(open("separate_valuation_research/lagged_company_pe_pit_eligibility_summary.json"))
+          assert r["company_PE_usable"]>=350
+          assert r["previously_frozen_stock_predictions_modified"] is False
+          assert r["older_historical_training_folds_backfilled"] is False
+          assert r["peer_PE_and_market_cap_promoted"] is False
+          PY
+      - name: Publish policy proof only (not original company data or candidate rankings)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-private-nse-companyPE-first-observed-lagged-eligibility-proof
+          path: separate_valuation_research/lagged_company_pe_pit_eligibility_summary.json
+          if-no-files-found: warn
+          retention-days: 30

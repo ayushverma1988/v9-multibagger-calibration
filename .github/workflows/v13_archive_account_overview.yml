@@ -1,0 +1,52 @@
+name: V13 archive account storage overview
+on:
+  push:
+    branches: [maintenance/v13-archive-cleanup-20261103]
+    paths: ['.github/workflows/v13_archive_account_overview.yml']
+permissions:
+  contents: read
+jobs:
+  overview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'huggingface_hub>=1.32,<2'
+      - name: Read owned-repository storage totals without changing data
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          api=HfApi(token=os.environ['HF_ARCHIVE_TOKEN'])
+          who=api.whoami();assert who['name']=='ayushverma1988'
+          restricted=None
+          try:
+              rows=[{'repo_id':r.id,'repo_type':r.type,'visibility':r.visibility,'storage_bytes':r.storage} for r in api.list_user_repos()]
+          except Exception as exc:
+              restricted=type(exc).__name__;rows=[]
+              for kind,method in [('model',api.list_models),('dataset',api.list_datasets),('space',api.list_spaces)]:
+                  for item in method(author='ayushverma1988'):
+                      r=api.repo_info(item.id,repo_type=kind,expand=['sha','private','usedStorage'])
+                      rows.append({'repo_id':item.id,'repo_type':kind,'visibility':'private' if r.private else 'public',
+                          'head':r.sha,'storage_bytes':getattr(r,'used_storage',getattr(r,'usedStorage',None))})
+          info=api.repo_info('ayushverma1988/v10-multibagger-archive',repo_type='dataset',expand=['sha','private','usedStorage'])
+          result={'repositories':rows,'private_storage_bytes':sum(r['storage_bytes'] or 0 for r in rows if r['visibility']=='private'),
+            'account_wide_counter_restricted':restricted,'credential_role':who.get('auth',{}).get('accessToken',{}).get('role'),
+            'archive_head':info.sha,'archive_used_storage':getattr(info,'used_storage',getattr(info,'usedStorage',None)),'read_only':True}
+          grants=who.get('auth',{}).get('accessToken',{}).get('fineGrained',{})
+          result['credential_permission_metadata_keys']=list(grants)
+          result['credential_global_permissions']=grants.get('global',[])
+          result['credential_scoped_repositories']=[{'name':s.get('entity',{}).get('name'),'permissions':s.get('permissions',[])} for s in grants.get('scoped',[])]
+          Path('overview.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-account-storage-overview-${{ github.run_id }}
+          path: overview.json
+          retention-days: 30

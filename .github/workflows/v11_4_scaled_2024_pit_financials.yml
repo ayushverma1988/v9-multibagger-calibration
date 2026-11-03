@@ -1,0 +1,65 @@
+name: V11.4 128-Company 2024 PIT Financial Features
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_scaled_2024_pit_financials.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  financials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'requests>=2.31,<3' 'pyarrow>=18,<26'
+      - name: Validate numeric extractor and 1-year growth rules
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:src/v11_4_longterm_fundamentals.py > src/v11_4_longterm_fundamentals.py
+          python -m py_compile src/v11_4_scaled_2024_fundamental_pit.py src/v11_4_short_horizon_financial_pit.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_strict_annual_facts.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_short_horizon_financial_pit.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-market-annual-index-PIT-rehearsal
+          path: annual_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37751840549
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Parse 128 historically sampled FY2023 and FY2024 source documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX=$(find annual_source -name full_historical_annual_index_PIT_CANDIDATES.csv -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$INDEX" && test -n "$SNAP"
+          python src/v11_4_scaled_2024_fundamental_pit.py \
+            --annual-index "$INDEX" --snapshot "$SNAP" \
+            --fold-date 2024-12-31 --max-companies 128 \
+            --output outputs_v11_4_2024_scaled
+      - name: Stage 1y revenue, PAT and turnaround research features
+        shell: bash
+        run: |
+          python src/v11_4_short_horizon_financial_pit.py \
+            --annual-numerics outputs_v11_4_2024_scaled/strict_annual_source_numeric_2023_2024.csv \
+            --fold-date 2024-12-31 --output outputs_v11_4_2024_scaled/features
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-128-historical-fundamental-PIT-feature-pilot
+          path: outputs_v11_4_2024_scaled/
+          retention-days: 90
+          if-no-files-found: warn

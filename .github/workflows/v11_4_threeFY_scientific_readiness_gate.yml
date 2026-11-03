@@ -1,0 +1,70 @@
+name: V11.4 Three-FY Scientific Quality Rejection Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_threeFY_scientific_readiness_gate.yml
+      - src/v11_4_threeFY_scientific_readiness_guard.py
+      - tests/test_v11_4_threeFY_scientific_readiness_guard.py
+permissions:
+  contents: read
+jobs:
+  executed-correctly-but-model-not-ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install narrow verification requirements only
+        run: pip install 'huggingface_hub>=0.25,<2'
+      - name: Run scientific-truth integrity tests, no model retraining
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_threeFY_scientific_readiness_guard.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_scientific_readiness_guard.py -v
+      - name: Fetch ONLY stored private actual 2025 retrospective holdout summary
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          HF_HUB_DISABLE_TELEMETRY: '1'
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from huggingface_hub import HfApi,hf_hub_download
+          repo="ayushverma1988/v10-multibagger-archive"
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          api=HfApi(token=token)
+          info=api.repo_info(repo_id=repo,repo_type="dataset")
+          if info.private is not True:raise RuntimeError("Private archived evidence cannot be made public")
+          name="v11_4/threeFY_chronological_single_holdout_2025/original_2023_train_2024_cal_2025_test/threeFY_chronological_single_test_fold_summary.json"
+          data=json.loads(Path(hf_hub_download(repo_id=repo,filename=name,repo_type="dataset",token=token)).read_text())
+          if data.get("train_year")!="2023-12-29" or data.get("unseen_test_year")!="2025-12-31":
+           raise RuntimeError("Historical run identity mismatch")
+          Path("actual_3FY_private_2025_holdout_summary.json").write_text(json.dumps(data,indent=2))
+          print("Actual owner-private source-verified 2025 holdout summary securely loaded, no stock picks printed")
+          PY
+      - name: Separate execution success from poor out-of-time predictive performance
+        run: |
+          set -euo pipefail
+          python src/v11_4_threeFY_scientific_readiness_guard.py \
+            --input actual_3FY_private_2025_holdout_summary.json \
+            --out threeFY_actual_scientific_research_readiness.json
+          python - <<'PY'
+          import json
+          x=json.load(open("threeFY_actual_scientific_research_readiness.json"))
+          assert x["historical_holdout_performance_state"]=="REJECTED_FOR_PROMOTION"
+          assert x["scientific_promotion_or_real_money_trading_approved"] is False
+          assert x["heldout_test_doublers_in_top10"]==0
+          assert x["calibration_actual_double_count"]==5
+          assert x["model_parameters_or_frozen_2026_selections_changed"] is False
+          print("Scientific model promotion REJECTED, independent retrospective 3FY holdout unchanged")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v11-4-execution-versus-scientific-quality-3FY-historical-gate
+          path: threeFY_actual_scientific_research_readiness.json
+          retention-days: 60

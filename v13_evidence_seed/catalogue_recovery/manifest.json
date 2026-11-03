@@ -1,0 +1,24 @@
+{
+  "format": "V13-public-primary-catalogue-recovery-1",
+  "origin": "Earlier saved normalized primary NSE catalogue, source cutoff 2026-10-09; whole-public-venue March/June 2025 fiscal gaps, no prediction ranking or outcomes",
+  "original_full_catalogue_sha256": "9782c9bacd9433e8b054d04b68934eeb27830427948ea5340d1123c05e0a23fb",
+  "parts": [
+    "primary_catalog_20261009_00.b64",
+    "primary_catalog_20261009_01.b64",
+    "primary_catalog_20261009_02.b64",
+    "primary_catalog_20261009_03.b64",
+    "primary_catalog_20261009_04.b64",
+    "primary_catalog_20261009_05.b64",
+    "primary_catalog_20261009_06.b64"
+  ],
+  "sha256": "8ce2f124ddd03797d9c26ed2e3782b8ca33de8b095a84f717e4ff13a862d6e15",
+  "encoded_sha256": "37af8cf1b32517076a36462a682390ddc8a1ac7a705cf8b5473a091653a4ff60",
+  "rows": 8365,
+  "periods": [
+    "2025-03-31",
+    "2025-06-30"
+  ],
+  "max_available_at_utc": "2026-09-11T10:46:47+00:00",
+  "private_forecasts_or_outcomes_included": false,
+  "numeric_facts_must_be_retrieved_and_identity_checked": true
+}

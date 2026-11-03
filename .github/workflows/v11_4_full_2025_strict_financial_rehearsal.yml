@@ -1,0 +1,93 @@
+name: V11.4 Marketwide 2025 PIT Financial Freshness Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_full_2025_strict_financial_rehearsal.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  market-close-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Check strict financial PIT audit code
+        run: python -m py_compile src/v11_4_historical_pit_strict_close.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-integrated-2025-financial-PIT-merge-REHEARSAL
+          path: financial_staged
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37746847437
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-combined-pit-readiness-REHEARSAL-ONLY
+          path: ownership_staged
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37745681211
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-4-pit-archive-fast
+          path: official_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37164416825
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: events_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: control_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Retrieve unchanged 18-fold validation dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > fold_dates.csv
+      - name: Audit original NSE financial as-of source at 15:30 IST
+        shell: bash
+        run: |
+          set -euo pipefail
+          FIN=$(find financial_staged -name combined_financial_index_REHEARSAL_ONLY.parquet -print -quit)
+          SH=$(find ownership_staged -name ownership_merged_REHEARSAL_ONLY.parquet -print -quit)
+          EV=$(find events_seed -name events_all_2016_2026.parquet -print -quit)
+          INS=$(find official_seed -name insider_trades.parquet -print -quit)
+          SNAP=$(find control_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$FIN" && test -n "$SH" && test -n "$EV" && test -n "$INS" && test -n "$SNAP"
+          python src/v11_4_historical_pit_strict_close.py \
+            --events "$EV" --financial-metadata "$FIN" --shareholding "$SH" \
+            --insider "$INS" --snapshot "$SNAP" --folds fold_dates.csv \
+            --output outputs_v11_4_final_source_rehearsal
+      - name: Enforce unchanged 12-fold minimum and genuinely fresh financial rows
+        run: |
+          python - <<'PY'
+          import json
+          p="outputs_v11_4_final_source_rehearsal/historical_pit_readiness_summary.json"
+          x=json.load(open(p))
+          assert x["reconstructable_folds"]>=12, x
+          assert x["folds_reconstructable_with_fresh_financials"]>=12, x
+          assert x["all_pit_violations"]==0, x
+          print("Frozen 12-fold and stricter 365-day as-of financial freshness gates passed", x["folds_reconstructable_with_fresh_financials"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-marketwide-2025-PIT-freshness-18-fold-audit
+          path: outputs_v11_4_final_source_rehearsal/
+          retention-days: 90
+          if-no-files-found: warn

@@ -1,0 +1,53 @@
+name: V11.4 Untrained Historical Catalyst-Only Lift Probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths: [.github/workflows/v11_4_untrained_catalyst_lift.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Enforce strict future-target isolation of predeclared catalyst weights
+        run: |
+          python -m py_compile src/v11_4_untrained_catalyst_only_probe.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_untrained_catalyst_only_probe.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-18fold-NSE-catalyst-asof-research-features
+          path: catalyst_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37762815652
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: frozen_seed
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Run fixed-weight untrained 18-fold source-metadata signal diagnostic
+        shell: bash
+        run: |
+          CAT=$(find catalyst_seed -name canonical_NSE_18fold_catalyst_metadata_PIT_RESEARCH.parquet -print -quit)
+          SNAP=$(find frozen_seed -name snapshot_dataset.parquet -print -quit)
+          test -n "$CAT" && test -n "$SNAP"
+          python src/v11_4_untrained_catalyst_only_probe.py \
+            --events "$CAT" --snapshot "$SNAP" \
+            --output outputs_untrained_event_diagnostic
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-untrained-event-only-18fold-no-model-promotion
+          path: outputs_untrained_event_diagnostic/
+          retention-days: 60
+          if-no-files-found: warn

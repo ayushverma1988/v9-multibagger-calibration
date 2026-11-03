@@ -1,0 +1,84 @@
+name: V11.4 Combined 3FY Scientific Rejection and NSE Source Sparsity Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_combined_threeFY_scientific_and_source_gate.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  no-false-green-science-and-feature-presence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install scientific integrity and original NSE source diagnostics tools
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'scipy>=1.12' 'scikit-learn>=1.5,<2' 'pyarrow>=18,<26' 'huggingface_hub>=0.25,<2'
+      - name: Scientific proof regression tests and source compiler
+        run: |
+          set -euo pipefail
+          python -m py_compile src/v11_4_threeFY_market_catalyst_source_diagnostics.py src/v11_4_threeFY_combined_scientific_rejection_gate.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_threeFY_combined_scientific_rejection_gate.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-combined-3FY-NSE-market-catalyst-replication-aggregate-science
+          path: actual_combined_2025_historic_science
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37957713159
+      - name: Check actual measured 2025 combined model and publish explicit rejection status
+        run: |
+          set -euo pipefail
+          FILE=$(find actual_combined_2025_historic_science -name combined_three_fiscal_year_market_NSE_catalyst_scientific_REPLICATION_summary.json -print -quit)
+          test -n "$FILE"
+          PYTHONPATH=src python src/v11_4_threeFY_combined_scientific_rejection_gate.py \
+            --input "$FILE" --out combined_model_scientific_research_fail_closed.json
+      - name: Fetch original eight-date NSE feature-only evidence without any labels
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from huggingface_hub import HfApi,hf_hub_download
+          from pathlib import Path
+          import os,shutil
+          token=os.environ["HF_ARCHIVE_TOKEN"]
+          repo="ayushverma1988/v10-multibagger-archive"
+          source="v11_4/predeclared_eightfold_3FY_price_NSE_catalyst_NO_LABELS/run_37941461746/NSE_original_eightfold_threeFY_PIT_market_and_catalyst_NOLABEL_RESEARCH.parquet"
+          assert HfApi(token=token).repo_info(repo_id=repo,repo_type="dataset").private is True
+          f=hf_hub_download(repo_id=repo,repo_type="dataset",filename=source,token=token)
+          dest=Path("PIT_source_ONLY_no_outcomes");dest.mkdir(exist_ok=True)
+          shutil.copy2(f,dest/"original_NSE_8date_features_NO_LABELS.parquet")
+          print("Owner-private eight-date source-only 3FY, momentum and NSE catalyst features restored. No outcome artifact downloaded here.")
+          PY
+      - name: Pure source availability and market/catalyst sparsity audit without future targets
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python src/v11_4_threeFY_market_catalyst_source_diagnostics.py \
+            --features PIT_source_ONLY_no_outcomes/original_NSE_8date_features_NO_LABELS.parquet \
+            --out combined_3FY_original_NSE_SOURCE_ONLY_audit
+          python - <<'PY'
+          import json
+          a=json.load(open("combined_3FY_original_NSE_SOURCE_ONLY_audit/original_8fold_source_only_NSE_catalyst_financial_coverage.json"))
+          b=json.load(open("combined_model_scientific_research_fail_closed.json"))
+          assert a["original_stock_date_observations"]==9912
+          assert a["strict_threeFY_verified_stock_dates"]==7355
+          assert a["no_future_target_or_outcome_loaded"] is True
+          assert b["research_model_quality"]=="REJECTED_FOR_SCIENTIFIC_PROMOTION"
+          assert b["production_or_real_money_investing_approved"] is False
+          print("Confirmed: computationally complete, scientific model REJECTED, source-only diagnostics preserved.")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-combined-threeFY-scientific-NOT-ready-aggregate-audit
+          path: |
+            combined_model_scientific_research_fail_closed.json
+            combined_3FY_original_NSE_SOURCE_ONLY_audit/original_8fold_source_only_NSE_catalyst_financial_coverage.json
+          retention-days: 90
+          if-no-files-found: warn

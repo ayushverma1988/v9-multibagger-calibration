@@ -1,0 +1,61 @@
+name: V11.4 Experimental Mature-History Warmup Guard
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - .github/workflows/v11_4_minimum_history_guard_research.yml
+permissions:
+  actions: read
+  contents: read
+jobs:
+  warmup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [all_history, no_initial_2020_shock_training]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2'
+      - name: Preserve original standalone maturity and ranking safeguards
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_standalone_walkforward.py -v
+          python -m py_compile src/v11_4_experimental_min_mature_warmup.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: v11-4-full-annual-numerics-8shards-and-18fold-research-matrix
+          path: pit_source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37763739871
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: original_labels_only
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Run experimental minimum mature-history guard without acceptance threshold changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          FEATURES=$(find pit_source -name v11_4_18fold_source_PIT_FEATURES_RESEARCH.parquet -print -quit)
+          HISTORY=$(find original_labels_only -name snapshot_dataset.parquet -print -quit)
+          test -n "$FEATURES" && test -n "$HISTORY"
+          OPT=""
+          if [ "${{ matrix.scenario }}" = "no_initial_2020_shock_training" ]; then OPT="--shock-outcome-blackout"; fi
+          python src/v11_4_experimental_min_mature_warmup.py \
+            --features "$FEATURES" --snapshot "$HISTORY" \
+            --output "outputs_v11_4_min_history_guard/${{ matrix.scenario }}" $OPT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-experimental-fourfold-history-${{ matrix.scenario }}
+          path: outputs_v11_4_min_history_guard/
+          retention-days: 90
+          if-no-files-found: warn

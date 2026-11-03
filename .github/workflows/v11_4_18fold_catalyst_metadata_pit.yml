@@ -1,0 +1,60 @@
+name: V11.4 Full 18-Fold Historical Catalyst PIT Features
+on:
+  workflow_dispatch:
+  push:
+    branches: [v11-4-ownership-backfill-probe]
+    paths:
+      - '.github/workflows/v11_4_18fold_catalyst_metadata_pit.yml'
+permissions:
+  actions: read
+  contents: read
+jobs:
+  catalysts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'pandas>=2.2,<3' 'pyarrow>=18,<26'
+      - name: Verify no after-close catalyst counts or lookback contamination
+        run: |
+          python -m py_compile src/v11_4_historical_catalyst_pit_features.py
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_catalyst_pit.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v9-7-canonical-events-2016-2026
+          path: original_nse_disclosures
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 36804202373
+      - uses: actions/download-artifact@v4
+        with:
+          name: v10-2-integrity-corrected-challenger
+          path: frozen_universe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37059786518
+      - name: Recover original 18 frozen historical fold dates
+        run: |
+          git fetch origin v10-fresh-current --depth 1
+          git show FETCH_HEAD:published_v9_4_1/chosen_v941_gates_by_fold.csv > frozen_folds.csv
+      - name: Construct official source-available 90d 180d 365d NSE filing catalyst features
+        shell: bash
+        run: |
+          set -euo pipefail
+          EV=$(find original_nse_disclosures -name events_all_2016_2026.parquet -print -quit)
+          SNAP=$(find frozen_universe -name snapshot_dataset.parquet -print -quit)
+          test -n "$EV" && test -n "$SNAP"
+          python src/v11_4_historical_catalyst_pit_features.py \
+            --events "$EV" --snapshot "$SNAP" \
+            --folds frozen_folds.csv \
+            --output outputs_v11_4_18fold_catalyst_PIT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v11-4-original-NSE-18fold-catalyst-PIT-research
+          path: outputs_v11_4_18fold_catalyst_PIT/
+          if-no-files-found: warn
+          retention-days: 90
