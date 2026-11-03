@@ -98,23 +98,14 @@ jobs:
             'retention':retention,'finalizer_run':os.environ['GITHUB_RUN_ID'],
             'finalized_at_utc':datetime.now(timezone.utc).isoformat()}
           Path('finalize_output/final_storage_receipt.json').write_text(json.dumps(report,indent=2))
-          source='78080dc14d5cd185be64d9143d2caf1c674a3efc'
-          # One compare-and-swap Git update preserves concurrent public health writes.
+          # Write only operational data; the workflow token does not need to
+          # edit workflow definitions or acquire broader repository permissions.
           for attempt in range(4):
               head=request('GET','/git/ref/heads/main')['object']['sha']
               parent=request('GET','/git/commits/'+head);tree=[]
-              for entry in request('GET','/contents/.github/workflows?ref='+head):
-                  if not entry['name'].startswith('v13_') or not entry['name'].endswith('.yml'):continue
-                  content=request('GET','/contents/'+entry['path']+'?ref='+head)
-                  before=base64.b64decode(content['content']).decode();after=before.replace('ref: 1d1e588082a24e1224447e47eea4296f9b76a26b','ref: '+source)
-                  if entry['name']=='v13_research_worker.yml':
-                      assert "V13_COMPACT_ARCHIVE: '1'" in after and 'ref: '+source in after
-                      assert "V13_RECOVERY_FLUSHED_THROUGH_RUN: '0'" in after or "V13_RECOVERY_FLUSHED_THROUGH_RUN: '41547044971'" in after
-                      after=after.replace("V13_RECOVERY_FLUSHED_THROUGH_RUN: '0'","V13_RECOVERY_FLUSHED_THROUGH_RUN: '41547044971'")
-                  if before!=after:tree.append({'path':entry['path'],'mode':'100644','type':'blob','content':after})
               tree.append({'path':'operational/v13_storage_migration_health.json','mode':'100644','type':'blob','content':json.dumps(report,indent=2)})
               created=request('POST','/git/trees',json={'base_tree':parent['tree']['sha'],'tree':tree})
-              commit=request('POST','/git/commits',json={'message':'Finalize verified compact V13 archive and resume current-data collection','tree':created['sha'],'parents':[head]})
+              commit=request('POST','/git/commits',json={'message':'Record verified compact V13 archive and permanent recovery floor','tree':created['sha'],'parents':[head]})
               current=request('GET','/git/ref/heads/main')['object']['sha']
               if current!=head:continue
               response=requests.patch(base+'/git/refs/heads/main',headers=headers,json={'sha':commit['sha'],'force':False},timeout=(15,120))
