@@ -1,0 +1,60 @@
+name: V13 verified lossless archive conversion
+on:
+  push:
+    branches: [storage/v13-lossless-compression-20261103]
+    paths: ['.github/workflows/v13_storage_migrate.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      PYTHONPATH: src
+      V13_COMPACT_ARCHIVE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '120'
+      HF_HUB_ETAG_TIMEOUT: '60'
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1d1e588082a24e1224447e47eea4296f9b76a26b
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Require the deployed compatible reader before modifying storage
+        run: |
+          python - <<'PY'
+          import base64,os,requests
+          url='https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/contents/.github/workflows/v13_research_worker.yml?ref=main'
+          r=requests.get(url,headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN']},timeout=60);r.raise_for_status()
+          workflow=base64.b64decode(r.json()['content']).decode()
+          assert 'ref: 1d1e588082a24e1224447e47eea4296f9b76a26b' in workflow
+          assert "V13_COMPACT_ARCHIVE: '1'" in workflow and 'python -m v13_worker_resume' in workflow
+          print('Production reader and writer are compatible with both storage representations')
+          PY
+      - name: Fetch the exact reviewed original-byte inventory
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          from v13_archive_retention import download_artifact
+          download_artifact(13201435441,'d50ebee8bffb979f3bf762aadf8da1ace4180e44de6d2f86dd3971d7fb46db7e','plan.zip')
+          with zipfile.ZipFile('plan.zip') as z:Path('retention_inventory.json').write_bytes(z.read('retention_inventory.json'))
+          PY
+      - name: Convert and verify original data, date indexes and fresh V13 restart
+        run: python -u -m v13_storage_migrate --plan retention_inventory.json --out migration_output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-storage-migration-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: migration_output/*.json
+          retention-days: 90
