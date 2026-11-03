@@ -5,14 +5,31 @@ on:
     paths: ['.github/workflows/v13_storage_migrate.yml']
 permissions:
   contents: write
-  actions: read
-concurrency:
-  group: v13-private-research-state
-  cancel-in-progress: false
+  actions: write
 jobs:
+  retire_previous_attempt:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const old = 41607716274;
+            if (old === context.runId) throw new Error('Cannot supersede this run');
+            const run = (await github.rest.actions.getWorkflowRun({...context.repo,run_id:old})).data;
+            if (run.status !== 'completed') await github.rest.actions.cancelWorkflowRun({...context.repo,run_id:old});
   migrate:
+    needs: retire_previous_attempt
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: v13-private-research-state
+      cancel-in-progress: false
     env:
       PYTHONPATH: src
       V13_COMPACT_ARCHIVE: '1'
@@ -24,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 1d1e588082a24e1224447e47eea4296f9b76a26b
+          ref: 52fa99bbf2d189435f2311d7610c68be0fd16836
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
