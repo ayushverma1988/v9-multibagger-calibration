@@ -1,0 +1,48 @@
+name: V13 publish verified pending checkpoint after archive cleanup
+on:
+  push:
+    branches: [maintenance/v13-archive-cleanup-20261103]
+    paths: ['.github/workflows/v13_archive_flush.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONPATH: src
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=1.32,<2' orjson
+      - run: python -m unittest discover -s tests -p 'test_v13_archive_*.py'
+      - name: Verify successful cleanup and stream the preserved latest worker
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import zipfile,json
+          from v13_archive_retention import download_artifact
+          download_artifact(13200862524,'df9634f24628ac302968b5cdd1a04d218f92f1697bce83e36dbd6a9a8848115b','cleanup.zip')
+          with zipfile.ZipFile('cleanup.zip') as z:receipt=json.loads(z.read('cleanup_receipt.json'))
+          assert receipt['history_squashed'] and receipt['fresh_post_cleanup_restart_verified']
+          assert receipt['all_retained_paths_byte_identities_unchanged'] and len(receipt['deleted_archive_paths'])==711
+          download_artifact(13194288694,'57aee3445d9e629b8d7f785dd1b601f68910f8da9be8d9b6766b4be2c9be4bd4','worker.zip')
+          PY
+      - name: Publish the exact preserved forecasts and verify a fresh remote restart
+        run: python -m v13_archive_flush --artifact worker.zip --out flush_output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-archive-flush-receipt-${{ github.run_id }}
+          path: flush_output/flush_receipt.json
+          retention-days: 90
