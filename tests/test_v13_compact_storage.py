@@ -7,6 +7,34 @@ from v13_archive_catalog import validate_row
 from test_v13_checkpoint_writes import Api,Operation
 
 class CompactStorageIntegration(unittest.TestCase):
+    def test_shared_catalog_pack_is_downloaded_and_decoded_only_once(self):
+        from v13_archive_catalog import fetch_member
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t);values=[b'first exact source'*100,b'second exact source'*100]
+            (p/'raw').write_bytes(b''.join(values));s=encode_file(p/'raw',p/'encoded')
+            groups=[{'sha':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)} for raw in values]
+            key=f"v13/compact_packs/{s['sha256'][:2]}/{s['sha256']}.zst"
+            rows=catalog_rows(groups,key,sum(map(len,values)),s['original_sha256'],s['sha256'],s['bytes'])
+            mapping={r['original_sha256']:r for r in rows}
+            with patch('v13_archive_catalog.prefix_rows',return_value=mapping),patch('huggingface_hub.hf_hub_download',return_value=str(p/'encoded')) as download:
+                for group,raw in zip(groups,values):
+                    found=fetch_member('fixture',group['sha'],cache=p/'cache');self.assertEqual(Path(found).read_bytes(),raw)
+                self.assertEqual(download.call_count,1)
+
+    def test_parallel_preparation_reads_and_verifies_without_publishing(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from v13_storage_migrate import prepare_batch
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t);values=[b'source A '*100,b'source B '*100]
+            by_sha={hashlib.sha256(raw).hexdigest():raw for raw in values}
+            group=[{'sha':sha,'bytes':len(raw),'paths':['source/'+sha],
+              'physical':{'lfs_sha256':sha,'bytes':len(raw)}} for sha,raw in by_sha.items()]
+            def downloaded(action,path,sha,size):Path(path).write_bytes(by_sha[sha])
+            with ThreadPoolExecutor(max_workers=2) as pool,patch('v13_storage_migrate.batch_actions',return_value={sha:{} for sha in by_sha}),patch('v13_storage_migrate.download_action',side_effect=downloaded):
+                result=prepare_batch(group,p/'prepared',pool,object())
+            self.assertEqual(result['size'],sum(map(len,values)))
+            verified_pack_members(result['encoded'],result['rows'],p)
+
     def test_catalog_and_remote_pack_preserve_every_member_byte(self):
         with tempfile.TemporaryDirectory() as t:
             p=Path(t);values=[b'exact frozen probability 0.123\x00'*100,b'original source clock 2026-11-02'*1000]

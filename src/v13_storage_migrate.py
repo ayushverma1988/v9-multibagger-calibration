@@ -5,6 +5,7 @@ from datetime import datetime,timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from collections import defaultdict
+from collections import deque
 from v13_archive_cleanup import ARCHIVE,OWNER,record_file,value
 from v13_archive_codec import encode_file,decode_file,sha_file,archive_download,physical_spec
 from v13_storage_profile import batch_actions,download_action
@@ -52,6 +53,25 @@ def verified_pack_members(source,rows,folder):
             if len(raw)!=row['original_bytes'] or hashlib.sha256(raw).hexdigest()!=row['original_sha256']:
                 raise ValueError('Remote compact pack differs from an original source object')
     decoded.unlink()
+
+def prepare_batch(batch,folder,download_pool,api):
+    """Only read and encode here; the single writer publishes in order."""
+    folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
+    actions=batch_actions(api,[r['physical'] for r in batch])
+    def download(item):
+        p=folder/(item['sha']+'.source');physical=item['physical']
+        download_action(actions[physical['lfs_sha256']],p,physical['lfs_sha256'],physical['bytes'])
+        q=folder/(item['sha']+'.original');decode_file(p,q,item['sha'],item['bytes']);p.unlink();return q
+    inputs=list(download_pool.map(download,batch));raw_pack=folder/'pack.raw'
+    with raw_pack.open('wb') as dest:
+        for source in inputs:
+            with source.open('rb') as f:shutil.copyfileobj(f,dest,1024*1024)
+            source.unlink()
+    size=raw_pack.stat().st_size;encoded=folder/'pack.zst';stats=encode_file(raw_pack,encoded)
+    pack_sha=stats['sha256'];pack_path=f'v13/compact_packs/{pack_sha[:2]}/{pack_sha}.zst'
+    rows=catalog_rows(batch,pack_path,size,stats['original_sha256'],pack_sha,stats['bytes'])
+    verified_pack_members(encoded,rows,folder);raw_pack.unlink()
+    return {'folder':folder,'batch':batch,'size':size,'encoded':encoded,'stats':stats,'pack_sha':pack_sha,'pack_path':pack_path,'rows':rows}
 
 def commit(api,expected,adds=(),deletes=(),message='V13 lossless archive compaction'):
     from huggingface_hub import CommitOperationAdd,CommitOperationDelete
@@ -133,80 +153,91 @@ def run(plan,out,max_groups=None):
         group['paths'].append(path)
     prefixes=defaultdict(list)
     for item in groups.values():prefixes[item['sha'][:2]].append(item)
-    completed_batches=0
-    pool=ThreadPoolExecutor(max_workers=24)
+    completed_batches=0;plans=[];indexes={};retained_packs={}
+    result['phase']='PLAN_REMAINING_ORIGINALS'
     for prefix,items in sorted(prefixes.items()):
         known=prefix_rows(ARCHIVE,prefix,token,refresh=True)
+        if known:
+            index_path=f'v13/storage_catalog/{prefix}/index.json'
+            indexes[prefix]=json.loads(Path(archive_download(ARCHIVE,index_path,repo_type='dataset',token=token)).read_text())
+        else:indexes[prefix]={'format':'V13-compressed-object-catalog-1','prefix':prefix,'batches':[]}
         known_paths=[p for item in items if item['sha'] in known for p in item['paths']]
         existing_known=set()
         for start in range(0,len(known_paths),500):
             existing_known.update(r.path for r in api.get_paths_info(ARCHIVE,repo_type='dataset',paths=known_paths[start:start+500]))
-        todo=[]
+        todo=[];duplicate_paths=[]
         for item in sorted(items,key=lambda r:r['sha']):
             if item['sha'] in known:
                 row=known[item['sha']]
                 if row['original_bytes']!=item['bytes']:raise ValueError('Resumed catalog differs from original length')
                 fetch_member(ARCHIVE,item['sha'],token,cache=work/'resume')
-                paths=[p for p in item['paths'] if p in existing_known]
-                if paths:
-                    expected=commit(api,expected,deletes=paths,message='Finish verified compact source migration')
+                duplicate_paths.extend(p for p in item['paths'] if p in existing_known)
+                retained_packs[row['pack_path']]=row['pack_bytes']
                 for p in item['paths']:current.pop(p,None)
-                result['converted_original_objects']+=1;result['converted_original_bytes']+=item['bytes'];continue
+                result['converted_original_objects']+=1;result['converted_original_bytes']+=item['bytes']
+                result['deleted_uncompressed_paths']+=len(item['paths']);continue
             physical=next((current[p] for p in item['paths'] if p in current),None)
             if physical is None:raise ValueError('Original source is missing without a verified compact catalog')
             item['physical']=physical;todo.append(item)
+        for start in range(0,len(duplicate_paths),500):
+            expected=commit(api,expected,deletes=duplicate_paths[start:start+500],message='Finish verified duplicate compact aliases')
         while todo:
             batch=[];size=0
             while todo and len(batch)<MAX_MEMBERS and (not batch or size+todo[0]['bytes']<=MAX_PACK):
                 item=todo.pop(0);batch.append(item);size+=item['bytes']
-            actions=batch_actions(api,[r['physical'] for r in batch])
-            def download(item):
-                p=work/(item['sha']+'.source');physical=item['physical']
-                download_action(actions[physical['lfs_sha256']],p,physical['lfs_sha256'],physical['bytes'])
-                q=work/(item['sha']+'.original');decode_file(p,q,item['sha'],item['bytes']);p.unlink();return q
-            inputs=list(pool.map(download,batch))
-            raw_pack=work/'pack.raw'
-            with raw_pack.open('wb') as dest:
-                for source in inputs:
-                    with source.open('rb') as f:shutil.copyfileobj(f,dest,1024*1024)
-                    source.unlink()
-            encoded=work/'pack.zst';stats=encode_file(raw_pack,encoded)
-            pack_sha=stats['sha256'];pack_path=f'v13/compact_packs/{pack_sha[:2]}/{pack_sha}.zst'
-            rows=catalog_rows(batch,pack_path,size,stats['original_sha256'],pack_sha,stats['bytes'])
-            verified_pack_members(encoded,rows,work);raw_pack.unlink()
-            catalog=work/'catalog.parquet';pq.write_table(pa.Table.from_pylist(rows),catalog,compression='zstd',compression_level=9)
+            plans.append((prefix,batch))
+        if (work/'resume').exists():shutil.rmtree(work/'resume')
+    result['compact_pack_bytes']=sum(retained_packs.values())
+    result['remaining_batches']=len(plans);result['phase']='PACK_ORIGINAL_DATA';receipt();publish_progress(result)
+    downloads=ThreadPoolExecutor(max_workers=48);preparations=ThreadPoolExecutor(max_workers=3)
+    pending=deque();next_plan=0;checked_prefixes=set()
+    def submit_next():
+        nonlocal next_plan
+        if next_plan>=len(plans):return
+        prefix,batch=plans[next_plan];folder=out/'prepared'/f'{next_plan:05d}'
+        pending.append((prefix,preparations.submit(prepare_batch,batch,folder,downloads,api)));next_plan+=1
+    for _ in range(3):submit_next()
+    try:
+        while pending:
+            prefix,future=pending.popleft();prepared=future.result();submit_next()
+            batch=prepared['batch'];batch_work=prepared['folder'];stats=prepared['stats']
+            encoded=prepared['encoded'];pack_path=prepared['pack_path'];pack_sha=prepared['pack_sha'];rows=prepared['rows']
+            catalog=batch_work/'catalog.parquet';pq.write_table(pa.Table.from_pylist(rows),catalog,compression='zstd',compression_level=9)
             catalog_sha=sha_file(catalog);catalog_path=f'v13/storage_catalog/{prefix}/{catalog_sha}.parquet'
-            index_path=f'v13/storage_catalog/{prefix}/index.json'
-            try:index=json.loads(Path(archive_download(ARCHIVE,index_path,repo_type='dataset',token=token,force_download=True)).read_text())
-            except EntryNotFoundError:index={'format':'V13-compressed-object-catalog-1','prefix':prefix,'batches':[]}
+            index_path=f'v13/storage_catalog/{prefix}/index.json';index=indexes[prefix]
             index['batches'].append({'path':catalog_path,'sha256':catalog_sha,'bytes':catalog.stat().st_size})
-            index_file=work/'index.json';index_file.write_text(json.dumps(index,sort_keys=True))
+            index_file=batch_work/'index.json';index_file.write_text(json.dumps(index,sort_keys=True))
             expected=commit(api,expected,adds=[spec(pack_path,encoded)],message='Stage lossless compact source pack before readback')
-            # Read from the remote object store, never just the local upload source.
-            readback=work/'remote.zst';a=batch_actions(api,[{'lfs_sha256':pack_sha,'bytes':stats['bytes']}])
-            download_action(a[pack_sha],readback,pack_sha,stats['bytes']);verified_pack_members(readback,rows,work);readback.unlink()
+            readback=batch_work/'remote.zst';actions=batch_actions(api,[{'lfs_sha256':pack_sha,'bytes':stats['bytes']}])
+            download_action(actions[pack_sha],readback,pack_sha,stats['bytes'])
+            verified_pack_members(readback,rows,batch_work);readback.unlink()
             paths=[p for item in batch for p in item['paths']]
-            expected=commit(api,expected,adds=[spec(catalog_path,catalog),spec(index_path,index_file)],deletes=paths[:480],
+            mapping=[spec(catalog_path,catalog),spec(index_path,index_file)]
+            expected=commit(api,expected,adds=mapping,deletes=paths[:480],
               message='Publish verified compact catalog and remove duplicate physical source copies atomically')
             for start in range(480,len(paths),500):expected=commit(api,expected,deletes=paths[start:start+500],message='Remove verified duplicate source aliases')
-            # Verify resolution through the actual published catalog as well.
-            prefix_rows(ARCHIVE,prefix,token,refresh=True)
-            fetched=fetch_member(ARCHIVE,batch[0]['sha'],token,cache=work/'catalog-check')
-            if not fetched or sha_file(fetched)!=batch[0]['sha']:raise ValueError('Published catalog cannot restore an original source')
+            from v13_checkpoint_writes import committed
+            if not committed(api,ARCHIVE,mapping):raise ValueError('Published catalog bytes differ from verified upload')
+            if prefix not in checked_prefixes:
+                prefix_rows(ARCHIVE,prefix,token,refresh=True)
+                fetched=fetch_member(ARCHIVE,batch[0]['sha'],token,cache=batch_work/'catalog-check')
+                if not fetched or sha_file(fetched)!=batch[0]['sha']:raise ValueError('Published catalog cannot restore an original source')
+                checked_prefixes.add(prefix)
             for p in paths:current.pop(p,None)
-            result['converted_original_objects']+=len(batch);result['converted_original_bytes']+=size
+            retained_packs[pack_path]=stats['bytes']
+            result['converted_original_objects']+=len(batch);result['converted_original_bytes']+=prepared['size']
             result['compact_pack_bytes']+=stats['bytes'];result['deleted_uncompressed_paths']+=len(paths)
-            completed_batches+=1;result['completed_batches_this_attempt']=completed_batches;result['head']=expected;receipt()
-            for p in work.iterdir():
-                if p.is_file():p.unlink()
-            if (work/'resume').exists():shutil.rmtree(work/'resume')
-            if (work/'catalog-check').exists():shutil.rmtree(work/'catalog-check')
-            if completed_batches%10==0:
+            completed_batches+=1;result['completed_batches_this_attempt']=completed_batches
+            result['remaining_batches']=len(plans)-completed_batches;result['head']=expected;receipt()
+            shutil.rmtree(batch_work)
+            if completed_batches%5==0:
                 print(json.dumps({k:result[k] for k in ['converted_original_objects','converted_original_bytes','compact_pack_bytes','completed_batches_this_attempt']}),flush=True)
                 publish_progress(result)
-            if max_groups and completed_batches>=max_groups:pool.shutdown();return result
-        if (work/'resume').exists():shutil.rmtree(work/'resume')
-    pool.shutdown()
+            if max_groups and completed_batches>=max_groups:return result
+    finally:
+        for _,future in pending:future.cancel()
+        preparations.shutdown(wait=True,cancel_futures=True);downloads.shutdown(wait=True,cancel_futures=True)
+
     # Preserve every dated manifest's original decoded bytes; compress metadata
     # and any individual object larger than the bounded source-pack size in place.
     result['phase']='COMPRESS_DATED_METADATA';receipt();publish_progress(result)
