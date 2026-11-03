@@ -1,17 +1,15 @@
 {
   "format": "V13-storage-migration-receipt-1",
-  "started_at_utc": "2026-11-03T09:23:46.203615+00:00",
+  "started_at_utc": "2026-11-03T10:07:14.208750+00:00",
   "original_logical_tree_bytes": 74964211911,
-  "converted_original_objects": 20520,
-  "converted_original_bytes": 1856181542,
-  "compact_pack_bytes": 690247730,
-  "deleted_uncompressed_paths": 20537,
+  "converted_original_objects": 0,
+  "converted_original_bytes": 0,
+  "compact_pack_bytes": 0,
+  "deleted_uncompressed_paths": 0,
   "original_manifest_sha256": "2f3e347ab9d0e9e902de8bab2769a1e3188db8077f55712fcaf97b90c7a6568f",
   "fixed_champion_sha256": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
   "completed": false,
-  "zero_byte_original_files_retained": 1,
-  "completed_batches_this_attempt": 60,
-  "head": "476bfbaecba4711dc2abab04a7abc6d0100bc20a",
-  "checked_at_utc": "2026-11-03T09:46:09.506552+00:00",
-  "workflow_run": "41610464945"
+  "phase": "START",
+  "checked_at_utc": "2026-11-03T10:07:14.435740+00:00",
+  "workflow_run": "41616377732"
 }
