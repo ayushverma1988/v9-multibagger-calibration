@@ -68,12 +68,15 @@ def pause(exc, attempt, deadline=None):
 
 def spec(path, file, sha256=None, size=None):
     file = Path(file)
-    raw = file.read_bytes()
-    digest = hashlib.sha256(raw).hexdigest()
-    if (sha256 is not None and sha256 != digest) or (size is not None and size != len(raw)):
+    length=file.stat().st_size;digest=hashlib.sha256()
+    blob=hashlib.sha1(b'blob ' + str(length).encode() + b'\0');count=0
+    with file.open('rb') as source:
+        while chunk:=source.read(1024*1024):
+            digest.update(chunk);blob.update(chunk);count+=len(chunk)
+    digest=digest.hexdigest()
+    if count!=length or (sha256 is not None and sha256 != digest) or (size is not None and size != length):
         raise ValueError('Checkpoint upload source changed')
-    blob = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
-    return {'remote':path, 'file':str(file), 'sha256':digest, 'bytes':len(raw), 'git_blob':blob}
+    return {'remote':path, 'file':str(file), 'sha256':digest, 'bytes':length, 'git_blob':blob.hexdigest()}
 
 
 def _get(obj, key, default=None):

@@ -83,3 +83,78 @@ class CompactStorageIntegration(unittest.TestCase):
             with patch.dict(os.environ,{'V13_COMPACT_ARCHIVE':'1','V13_STORAGE_STAGING_DIR':str(p/'uploads')}):
                 write(api,ARCHIVE,[logical],'test compressed retry',Operation,confirmed=lambda xs:confirmed.extend(xs))
             self.assertEqual(len(api.calls),1);self.assertEqual(confirmed,[logical]);self.assertNotEqual(api.remote[logical['remote']],raw)
+
+class CompactMigrationTransactions(unittest.TestCase):
+    def test_provider_commit_limit_waits_for_reset_in_interruptible_chunks(self):
+        from types import SimpleNamespace
+        from v13_storage_migrate import commit,retry_seconds
+        from test_v13_checkpoint_writes import HttpFailure
+        failure=HttpFailure(429);failure.args=('128 repo commits per hour limit exceeded',)
+        self.assertEqual(retry_seconds(failure,0),3600)
+        self.assertEqual(retry_seconds(HttpFailure(429,{'Retry-After':'95'}),0),95)
+        self.assertEqual(retry_seconds(HttpFailure(429,{'RateLimit':'"api";r=0;t=125'}),0),125)
+        class Api:
+            calls=0
+            def create_commit(self,*a,**k):
+                self.calls+=1
+                if self.calls==1:raise HttpFailure(429,{'Retry-After':'95'})
+                return SimpleNamespace(oid='new-head')
+            def repo_info(self,*a,**k):return SimpleNamespace(sha='old-head')
+            def get_paths_info(self,*a,**k):return []
+        with tempfile.TemporaryDirectory() as t:
+            from v13_checkpoint_writes import spec
+            p=Path(t)/'data';p.write_bytes(b'verified source')
+            waited=[]
+            with patch('v13_storage_migrate.time.sleep') as sleep:
+                head=commit(Api(),'old-head',adds=[spec('data',p)],on_wait=waited.append)
+            self.assertEqual(head,'new-head');self.assertEqual(sum(c.args[0] for c in sleep.call_args_list),95)
+            self.assertLessEqual(max(c.args[0] for c in sleep.call_args_list),30)
+            self.assertEqual(waited[0]['phase'],'WAIT_PROVIDER_RATE_LIMIT')
+
+    def test_upload_hashes_are_streamed_without_loading_large_files(self):
+        from v13_checkpoint_writes import spec
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t)/'data';raw=b'exact bytes\x00'*300000;p.write_bytes(raw)
+            with patch.object(Path,'read_bytes',side_effect=AssertionError('unbounded read')):record=spec('test',p)
+            self.assertEqual(record['sha256'],hashlib.sha256(raw).hexdigest())
+            self.assertEqual(record['git_blob'],hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest())
+
+    def batch_fixture(self,folder):
+        out=[]
+        for n in range(3):
+            p=folder/str(n);p.mkdir();raw=(str(n)+' source data '*100).encode();(p/'raw').write_bytes(raw)
+            stats=encode_file(p/'raw',p/'pack.zst');sha=stats['sha256'];remote=f'v13/compact_packs/{sha[:2]}/{sha}.zst'
+            batch=[{'sha':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'paths':['original/'+str(n)]}]
+            out.append({'folder':p,'encoded':p/'pack.zst','pack_path':remote,'pack_sha':sha,'stats':stats,'prefix':'ab',
+              'batch':batch,'rows':catalog_rows(batch,remote,len(raw),stats['original_sha256'],sha,stats['bytes'])})
+        return out
+
+    def test_many_packs_switch_in_two_commits_and_one_prefix_index(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from v13_storage_migrate import publish_prepared
+        with tempfile.TemporaryDirectory() as t:
+            prepared=self.batch_fixture(Path(t));calls=[];remote={};verified=[]
+            indexes={'ab':{'format':'V13-compressed-object-catalog-1','prefix':'ab','batches':[]}}
+            def write(api,head,adds=(),deletes=(),**k):
+                if deletes:self.assertEqual(len(verified),3)
+                calls.append((list(adds),list(deletes)))
+                for item in adds:remote[item['sha256']]=Path(item['file']).read_bytes()
+                return str(len(calls))
+            def download(action,path,sha,size):Path(path).write_bytes(remote[sha]);verified.append(sha)
+            with ThreadPoolExecutor(max_workers=3) as pool,patch('v13_storage_migrate.batch_actions',return_value={p['pack_sha']:{} for p in prepared}),patch('v13_storage_migrate.download_action',side_effect=download),patch('v13_checkpoint_writes.committed',return_value=True):
+                head,paths=publish_prepared(object(),'initial',prepared,indexes,write,pool)
+            self.assertEqual(head,'2');self.assertEqual(len(calls),2);self.assertEqual(len(paths),3)
+            targets=[x['remote'] for x in calls[1][0]]
+            self.assertEqual(targets.count('v13/storage_catalog/ab/index.json'),1)
+            self.assertEqual(len(indexes['ab']['batches']),3)
+
+    def test_one_corrupt_pack_prevents_all_original_deletions(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from v13_storage_migrate import publish_prepared
+        with tempfile.TemporaryDirectory() as t:
+            prepared=self.batch_fixture(Path(t));calls=[];indexes={'ab':{'batches':[]}}
+            def write(api,head,**kwargs):calls.append(kwargs);return 'staged'
+            def corrupt(action,path,sha,size):Path(path).write_bytes(b'corrupted source')
+            with ThreadPoolExecutor(max_workers=3) as pool,patch('v13_storage_migrate.batch_actions',return_value={p['pack_sha']:{} for p in prepared}),patch('v13_storage_migrate.download_action',side_effect=corrupt):
+                with self.assertRaises(ValueError):publish_prepared(object(),'initial',prepared,indexes,write,pool)
+            self.assertEqual(len(calls),1);self.assertFalse(calls[0].get('deletes'));self.assertEqual(indexes['ab']['batches'],[])
