@@ -1,0 +1,36 @@
+name: V13 archive dependency audit and authorised cleanup
+on:
+  workflow_dispatch:
+  push:
+    branches: [maintenance/v13-archive-cleanup-20261103]
+    paths: ['.github/workflows/v13_archive_cleanup.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - name: Inventory repositories and trace V13 checkpoint dependencies without deleting
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_archive_cleanup --out cleanup_audit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-archive-cleanup-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: cleanup_audit/**
+          retention-days: 30
