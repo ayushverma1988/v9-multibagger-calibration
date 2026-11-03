@@ -122,6 +122,10 @@ def run(plan,out,max_groups=None):
         path=item['path'];match=re.fullmatch(r'v13/(?:objects/|object_shards/[0-9a-f]{2}/[0-9a-f]{2}/|packed_objects/[0-9a-f]{2}/[0-9a-f]{2}/)([0-9a-f]{64})\.bin',path)
         if not match or path==active:continue
         sha=match.group(1)
+        if item['bytes']==0 and item['lfs_sha256'] is None:
+            if sha!=hashlib.sha256(b'').hexdigest():raise ValueError('Empty original file has another content identity')
+            result['zero_byte_original_files_retained']=result.get('zero_byte_original_files_retained',0)+1
+            continue
         if item['lfs_sha256']!=sha:raise ValueError('Original canonical object has another LFS identity')
         if item['bytes']>MAX_PACK:continue  # Large objects use exact in-place encoding below.
         group=groups.setdefault(sha,{'sha':sha,'bytes':item['bytes'],'paths':[]})
