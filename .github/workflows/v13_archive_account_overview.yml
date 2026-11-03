@@ -1,0 +1,38 @@
+name: V13 archive account storage overview
+on:
+  push:
+    branches: [maintenance/v13-archive-cleanup-20261103]
+    paths: ['.github/workflows/v13_archive_account_overview.yml']
+permissions:
+  contents: read
+jobs:
+  overview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'huggingface_hub>=1.32,<2'
+      - name: Read owned-repository storage totals without changing data
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          api=HfApi(token=os.environ['HF_ARCHIVE_TOKEN'])
+          assert api.whoami()['name']=='ayushverma1988'
+          rows=[{'repo_id':r.id,'repo_type':r.type,'visibility':r.visibility,'storage_bytes':r.storage} for r in api.list_user_repos()]
+          info=api.repo_info('ayushverma1988/v10-multibagger-archive',repo_type='dataset',expand=['sha','private','usedStorage'])
+          result={'repositories':rows,'private_storage_bytes':sum(r['storage_bytes'] for r in rows if r['visibility']=='private'),
+            'archive_head':info.sha,'archive_used_storage':getattr(info,'used_storage',getattr(info,'usedStorage',None)),'read_only':True}
+          Path('overview.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-account-storage-overview-${{ github.run_id }}
+          path: overview.json
+          retention-days: 30
