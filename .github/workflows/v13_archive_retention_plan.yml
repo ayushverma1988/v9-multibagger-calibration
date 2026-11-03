@@ -1,0 +1,45 @@
+name: V13 verified archive cache retention plan
+on:
+  push:
+    branches: [maintenance/v13-archive-cleanup-20261103]
+    paths: ['.github/workflows/v13_archive_retention_plan.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=1.32,<2' orjson
+      - run: python -m unittest discover -s tests -p 'test_v13_archive_*.py'
+      - name: Stream and verify both original artifacts without large in-memory buffers
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          from concurrent.futures import ThreadPoolExecutor
+          from v13_archive_retention import download_artifact
+          jobs=[(13199682566,'0fb0790957c65dd19d62f87f664e54bfa54bf2503adf4e13fe8c187b4d687520','audit.zip'),
+                (13194288694,'57aee3445d9e629b8d7f785dd1b601f68910f8da9be8d9b6766b4be2c9be4bd4','worker.zip')]
+          with ThreadPoolExecutor(max_workers=2) as pool:list(pool.map(lambda x:download_artifact(*x),jobs))
+          PY
+      - name: Keep all original objects and current or pending restart bundles
+        run: python -m v13_archive_retention --audit-zip audit.zip --worker-zip worker.zip --out retention
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-reviewed-retention-plan-${{ github.run_id }}
+          path: retention/*.json
+          retention-days: 30

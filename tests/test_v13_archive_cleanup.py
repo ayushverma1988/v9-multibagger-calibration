@@ -1,15 +1,48 @@
 import hashlib,json,tempfile,unittest
 from pathlib import Path
-from v13_archive_cleanup import inspect_archive,reference,record_file,deletion_plan,OWNER,ARCHIVE
+from v13_archive_cleanup import inspect_archive,reference,record_file,deletion_plan,OWNER,ARCHIVE,root_fingerprint,verify_retained_root,git_tree_hash
 from v13_checkpoint import object_path
 from v13_checkpoint_packs import pack_path
 
 class ArchiveCleanup(unittest.TestCase):
+    def test_merkle_identity_proves_retained_v13_tree_and_detects_changes_or_leftovers(self):
+        before={'v13':'a'*40,'.gitattributes':'b'*40,'v10':'c'*40}
+        verify_retained_root(before,{'v13':'a'*40,'.gitattributes':'b'*40})
+        for after in [{'v13':'d'*40,'.gitattributes':'b'*40},before,{'v13':'a'*40}]:
+            with self.assertRaises(ValueError):verify_retained_root(before,after)
+
+    def test_missing_root_identity_blocks_a_storage_mutation(self):
+        with self.assertRaises(ValueError):root_fingerprint([{'path':'v13','tree_id':None}])
+        with self.assertRaises(ValueError):root_fingerprint([{'path':'v10','tree_id':'a'*40}])
+        self.assertEqual(root_fingerprint([{'path':'v13','tree_id':'a'*40}]),{'v13':'a'*40})
     def plan(self):
         return {'owner':OWNER,'protected_archive':ARCHIVE,'archive_head':'a'*40,
           'archive_dependencies':{'protected_paths':['v13/model.bin'],'reference_problems':[],
+            'referenced_objects':[{'path':'v13/model.bin'}],
             'delete_candidates':[{'path':'v11/old.bin','bytes':10}]},
           'other_repository_candidates':[{'repo_id':OWNER+'/old-model','repo_type':'model','head':'b'*40}]}
+
+    def test_git_tree_hash_matches_git_for_nested_binary_files_and_sorting(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);subprocess.run(['git','init','-q',t],check=True)
+            mapping={}
+            for name,raw in [('b/file.bin',b'\0binary'),('b.c',b'sorting'),('B',b'upper')]:
+                p=root/name;p.parent.mkdir(exist_ok=True);p.write_bytes(raw)
+                mapping[name]=subprocess.check_output(['git','hash-object',str(p)],text=True).strip()
+            subprocess.run(['git','-C',t,'add','.'],check=True)
+            expected=subprocess.check_output(['git','-C',t,'write-tree'],text=True).strip()
+            self.assertEqual(git_tree_hash(mapping),expected)
+
+    def test_optional_cache_must_never_be_an_original_member_or_active_restart(self):
+        p=self.plan();path=object_path('c'*64)
+        p['optional_bundle_caches']=[{'path':path,'sha256':'c'*64,'bytes':20,'reconstructable_from_retained_members':True}]
+        p['archive_dependencies']['delete_candidates'].append({'path':path,'bytes':20})
+        self.assertIn(path,deletion_plan(p)['delete_paths'])
+        p['active_bundle_paths']=[path]
+        with self.assertRaises(ValueError):deletion_plan(p)
+        p['active_bundle_paths']=[];p['archive_dependencies']['referenced_objects'].append({'path':path})
+        with self.assertRaises(ValueError):deletion_plan(p)
 
     def test_authorised_plan_is_exact_and_does_not_include_v13(self):
         p=deletion_plan(self.plan())

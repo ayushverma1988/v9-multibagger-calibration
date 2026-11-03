@@ -20,12 +20,46 @@ def reference(item):
     r=pack if pack else item
     return {'path':r['object_path'],'sha256':r['sha256'],'bytes':r['bytes']}
 
+def root_fingerprint(entries):
+    result={}
+    for item in entries:
+        path=value(item,'path',value(item,'rfilename'))
+        identity=value(item,'tree_id') or value(item,'blob_id')
+        if not re.fullmatch('[0-9a-f]{40}|[0-9a-f]{64}',str(identity)):
+            raise ValueError('Missing trustworthy repository tree identity')
+        result[path]=identity
+    if 'v13' not in result:raise ValueError('Required V13 tree is missing')
+    return result
+
+def verify_retained_root(before,after,expected_v13=None):
+    wanted={k:v for k,v in before.items() if k in {'v13','.gitattributes','README.md'}}
+    if expected_v13 is not None:wanted['v13']=expected_v13
+    if after!=wanted:raise ValueError('Retained archive root/V13 tree identity changed')
+
+def git_tree_hash(files):
+    tree={}
+    for path,blob in files.items():
+        if not re.fullmatch('[0-9a-f]{40}',str(blob)):raise ValueError('Unsupported Git blob identity')
+        parts=path.split('/')
+        if any(p in {'','..','.'} for p in parts):raise ValueError('Unsafe Git tree member')
+        cursor=tree
+        for part in parts[:-1]:cursor=cursor.setdefault(part,{})
+        cursor[parts[-1]]=blob
+    def encode(t):
+        records=[]
+        for name,item in sorted(t.items(),key=lambda x:(x[0]+('/' if isinstance(x[1],dict) else '')).encode()):
+            folder=isinstance(item,dict);oid=encode(item) if folder else item
+            records.append((b'40000 ' if folder else b'100644 ')+name.encode()+b'\0'+bytes.fromhex(oid))
+        raw=b''.join(records)
+        return hashlib.sha1(b'tree '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+    return encode(tree)
+
 def inspect_archive(repo,files,download,out):
     by_path={r['path']:r for r in files}
     if 'v13/state/latest_manifest.json' not in by_path:raise ValueError('V13 checkpoint pointer is missing')
     names=[p for p in by_path if p=='v13/state/latest_manifest.json' or
       p.startswith('v13/state/snapshots/') and p.endswith('.json')]
-    manifests=[];refs={};problems=[]
+    manifests=[];refs={};problems=[];required=set();optional_missing=[]
     from v13_checkpoint import validate_object
     for name in sorted(names):
         raw=Path(download(name)).read_bytes();digest=hashlib.sha256(raw).hexdigest()
@@ -35,6 +69,9 @@ def inspect_archive(repo,files,download,out):
         (out/'manifests').mkdir(exist_ok=True)
         (out/'manifests'/Path(name).name).write_bytes(raw)
         manifests.append({'path':name,'sha256':digest,'files':len(data['files'])})
+        for item in data['files']:required.add(reference(item)['path'])
+        if name=='v13/state/latest_manifest.json' and data.get('derived_state_bundle'):
+            required.add(data['derived_state_bundle']['object_path'])
         for item in [*data['files'],*([data['derived_state_bundle']] if data.get('derived_state_bundle') else [])]:
             validate_object(item)
             r=reference(item)
@@ -43,7 +80,9 @@ def inspect_archive(repo,files,download,out):
             refs[r['path']]=r
     for path,r in refs.items():
         actual=by_path.get(path)
-        if not actual:problems.append({'path':path,'reason':'MISSING_REFERENCED_OBJECT'})
+        if not actual:
+            if path in required:problems.append({'path':path,'reason':'MISSING_REFERENCED_OBJECT'})
+            else:optional_missing.append(path)
         elif actual['bytes']!=r['bytes']:problems.append({'path':path,'reason':'REFERENCED_OBJECT_SIZE_MISMATCH'})
         elif actual['lfs_sha256'] and actual['lfs_sha256']!=r['sha256']:
             problems.append({'path':path,'reason':'REFERENCED_OBJECT_HASH_MISMATCH'})
@@ -52,7 +91,8 @@ def inspect_archive(repo,files,download,out):
     protected={p for p in by_path if p.startswith('v13/')}|set(refs)|{'.gitattributes','README.md'}
     remove=[r for r in files if r['path'] not in protected]
     return {'manifests':manifests,'referenced_objects':list(refs.values()),
-      'reference_problems':problems,'protected_paths':sorted(protected),
+      'reference_problems':problems,'optional_historical_caches_already_missing':optional_missing,
+      'protected_paths':sorted(protected),
       'delete_candidates':remove,'candidate_bytes':sum(r['bytes'] or 0 for r in remove)}
 
 def inventory(out):
@@ -109,10 +149,17 @@ def deletion_plan(data):
     graph=data['archive_dependencies']
     if graph['reference_problems']:raise ValueError('Unresolved V13 archive references prohibit destructive cleanup')
     protected=set(graph['protected_paths'])
+    optional={r['path']:r for r in data.get('optional_bundle_caches',[])}
+    from v13_checkpoint import validate_object
+    for r in optional.values():validate_object({'object_path':r['path'],'sha256':r['sha256'],'bytes':r['bytes']})
+    required={r['path'] for r in graph['referenced_objects']}
     paths=[]
     for item in graph['delete_candidates']:
         path=item['path'];rel=Path(path)
-        if rel.is_absolute() or '..' in rel.parts or path.startswith('v13/') or path in protected:
+        cache=optional.get(path)
+        permitted_cache=bool(cache and cache.get('reconstructable_from_retained_members') is True and
+          path not in required and path not in set(data.get('active_bundle_paths',[])))
+        if rel.is_absolute() or '..' in rel.parts or path.startswith('v13/') and not permitted_cache or path in protected:
             raise ValueError('Cleanup candidate intersects V13 protection')
         paths.append(path)
     repos=[]
@@ -136,6 +183,13 @@ def apply_cleanup(inventory_path,expected_sha,out,squash=False):
     if api.whoami().get('name')!=OWNER:raise ValueError('Archive credential owner mismatch')
     def head():return api.repo_info(ARCHIVE,repo_type='dataset').sha
     if head()!=plan['expected_head']:raise ValueError('Archive changed since reviewed inventory; refresh before deletion')
+    before_root=root_fingerprint(api.list_repo_tree(ARCHIVE,repo_type='dataset',recursive=False,revision=plan['expected_head']))
+    original=next(r for r in data['repositories'] if r['repo_id']==ARCHIVE and r['repo_type']=='dataset')
+    all_v13={r['path'].removeprefix('v13/'):r['blob_id'] for r in original['files'] if r['path'].startswith('v13/')}
+    if git_tree_hash(all_v13)!=before_root['v13']:raise ValueError('Full audited V13 inventory differs from live Git tree')
+    deleted_paths=set(plan['delete_paths'])
+    kept_v13={p:b for p,b in all_v13.items() if 'v13/'+p not in deleted_paths}
+    expected_v13=git_tree_hash(kept_v13)
     def storage_view():
         return [{'repo_id':r.id,'repo_type':r.type,'visibility':r.visibility,
           'storage_bytes':r.storage} for r in api.list_user_repos()]
@@ -177,14 +231,16 @@ def apply_cleanup(inventory_path,expected_sha,out,squash=False):
           commit_message='Remove retired non-V13 archive data; retain V13 dependencies')
         expected=commit.oid;result['deleted_archive_paths']+=paths;result['head_after_deletions']=expected;receipt()
         print('Deleted retired archive paths',len(result['deleted_archive_paths']),flush=True)
-    original=next(r for r in data['repositories'] if r['repo_id']==ARCHIVE and r['repo_type']=='dataset')
-    protected=set(plan['protected_paths'])
-    wanted={r['path']:r for r in original['files'] if r['path'] in protected}
+    protected=set(plan['protected_paths']);wanted={r['path']:r for r in original['files'] if r['path'] in protected}
+    if any(not (p.startswith('v13/') or p in {'.gitattributes','README.md'}) for p in protected):
+        raise ValueError('Additional protected roots require explicit verification')
     def verify_tree():
-        files={r['path']:r for r in [record_file(x) for x in api.list_repo_tree(ARCHIVE,repo_type='dataset',recursive=True) if isinstance(x,RepoFile)]}
-        if files!=wanted:raise ValueError('Retained archive tree differs from reviewed V13 bytes')
-        return files
-    verify_tree();result['all_retained_paths_byte_identities_unchanged']=True;receipt()
+        after=root_fingerprint(api.list_repo_tree(ARCHIVE,repo_type='dataset',recursive=False))
+        verify_retained_root(before_root,after,expected_v13)
+        return after
+    verify_tree();result['all_retained_paths_byte_identities_unchanged']=True
+    result['v13_merkle_tree_before']=before_root['v13'];result['v13_merkle_tree_after']=expected_v13
+    result['retention_policy']=data.get('retention_policy');receipt()
     if squash:
         refs=api.list_repo_refs(ARCHIVE,repo_type='dataset')
         if [r.name for r in refs.branches]!=['main'] or refs.tags:
@@ -199,6 +255,18 @@ def apply_cleanup(inventory_path,expected_sha,out,squash=False):
     previous=next(x for x in data['archive_dependencies']['manifests'] if x['path']=='v13/state/latest_manifest.json')
     if hashlib.sha256(Path(p).read_bytes()).hexdigest()!=previous['sha256']:
         raise ValueError('V13 checkpoint pointer changed during cleanup')
+    checkpoint=json.loads(Path(p).read_text())
+    if checkpoint.get('derived_state_bundle'):
+        from v13_checkpoint import materialize_bundle
+        def fresh_download(path):
+            return hf_hub_download(ARCHIVE,path,repo_type='dataset',token=token,
+              cache_dir=out/'post_cleanup_hf_cache',force_download=True)
+        verified=out/'post_cleanup_restore'
+        materialize_bundle(checkpoint['derived_state_bundle'],checkpoint,verified,fresh_download)
+        for name in ['active_heads.joblib','challenger/research_heads.joblib','prospective_observations.parquet']:
+            if hashlib.sha256((verified/name).read_bytes()).hexdigest()!=hashlib.sha256((state/name).read_bytes()).hexdigest():
+                raise ValueError('Fresh post-cleanup restart differs from original fixed state')
+        result['fresh_post_cleanup_restart_verified']=True
     result.update(v13_checkpoint_pointer_unchanged=True,
       deleted_current_archive_bytes=sum(r['bytes'] or 0 for r in graph_candidates(data)),
       retained_archive_paths=len(wanted),completed_at_utc=datetime.now(timezone.utc).isoformat())
