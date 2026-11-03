@@ -1,0 +1,54 @@
+name: V13 authorised archive cleanup and restart verification
+on:
+  push:
+    branches: [maintenance/v13-archive-cleanup-20261103]
+    paths: ['.github/workflows/v13_archive_apply_cleanup.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      PYTHONPATH: src
+      HF_ARCHIVE_REPO: ayushverma1988/v10-multibagger-archive
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=1.32,<2' orjson
+      - run: python -m unittest discover -s tests -p 'test_v13_archive_*.py'
+      - name: Fetch the exact reviewed retention plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import zipfile
+          from v13_archive_retention import download_artifact
+          download_artifact(13201435441,'d50ebee8bffb979f3bf762aadf8da1ace4180e44de6d2f86dd3971d7fb46db7e','plan.zip')
+          with zipfile.ZipFile('plan.zip') as z:
+              raw=z.read('retention_inventory.json')
+          from pathlib import Path
+          Path('retention_inventory.json').write_bytes(raw)
+          PY
+      - name: Delete unused data and redundant caches, prune obsolete history, verify V13 restart
+        run: >-
+          python -m v13_archive_cleanup
+          --inventory retention_inventory.json
+          --inventory-sha256 61b014c3233140d6d633d2e7307b2d840c6dbf820bd566fdcca7b49b48b91697
+          --out cleanup_output
+          --prune-obsolete-history
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-archive-cleanup-receipt-${{ github.run_id }}
+          path: cleanup_output/*.json
+          retention-days: 90
