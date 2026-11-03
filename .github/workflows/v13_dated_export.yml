@@ -1,0 +1,41 @@
+name: V13 portable dated compressed data export
+on:
+  push:
+    branches: [storage/v13-lossless-compression-20261103]
+    paths: ['.github/workflows/v13_dated_export.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - run: python -m unittest discover -s tests -p 'test_v13_dated_export.py'
+      - name: Stream and verify the original source snapshot
+        run: |
+          python - <<'PY'
+          from v13_archive_retention import download_artifact
+          download_artifact(13194288694,'57aee3445d9e629b8d7f785dd1b601f68910f8da9be8d9b6766b4be2c9be4bd4','worker.zip')
+          PY
+      - name: Preserve dates and exact values in compressed tables and records
+        run: python -m v13_dated_export --artifact worker.zip --out dated_export
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-dated-data-export-${{ github.run_id }}
+          path: |
+            dated_export/*.zip
+            dated_export/export_receipt.json
+          compression-level: 0
+          retention-days: 30
