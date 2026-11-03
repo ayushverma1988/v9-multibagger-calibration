@@ -108,7 +108,10 @@ def run(plan,out,max_groups=None):
         if rule not in attrs:attrs+='\n'+rule+'\n'
     attrs_file=work/'attributes';attrs_file.write_text(attrs)
     expected=commit(api,expected,adds=[spec('.gitattributes',attrs_file)],message='Track compact V13 data packs as binary archive objects')
-    current={r.path:record_file(r) for r in api.list_repo_tree(ARCHIVE,repo_type='dataset',recursive=True) if isinstance(r,RepoFile)}
+    # The reviewed inventory already binds every immutable original hash.
+    # Query only already-migrated aliases during resume, rather than repeating
+    # a 400,000-file recursive listing before the first pack can be converted.
+    current={r['path']:r for r in originals}
     result={'format':'V13-storage-migration-receipt-1','started_at_utc':datetime.now(timezone.utc).isoformat(),
       'original_logical_tree_bytes':sum(r['bytes'] or 0 for r in originals),'converted_original_objects':0,
       'converted_original_bytes':0,'compact_pack_bytes':0,'deleted_uncompressed_paths':0,
@@ -130,16 +133,20 @@ def run(plan,out,max_groups=None):
     pool=ThreadPoolExecutor(max_workers=24)
     for prefix,items in sorted(prefixes.items()):
         known=prefix_rows(ARCHIVE,prefix,token,refresh=True)
+        known_paths=[p for item in items if item['sha'] in known for p in item['paths']]
+        existing_known=set()
+        for start in range(0,len(known_paths),500):
+            existing_known.update(r.path for r in api.get_paths_info(ARCHIVE,repo_type='dataset',paths=known_paths[start:start+500]))
         todo=[]
         for item in sorted(items,key=lambda r:r['sha']):
             if item['sha'] in known:
                 row=known[item['sha']]
                 if row['original_bytes']!=item['bytes']:raise ValueError('Resumed catalog differs from original length')
                 fetch_member(ARCHIVE,item['sha'],token,cache=work/'resume')
-                paths=[p for p in item['paths'] if p in current]
+                paths=[p for p in item['paths'] if p in existing_known]
                 if paths:
                     expected=commit(api,expected,deletes=paths,message='Finish verified compact source migration')
-                    for p in paths:current.pop(p,None)
+                for p in item['paths']:current.pop(p,None)
                 result['converted_original_objects']+=1;result['converted_original_bytes']+=item['bytes'];continue
             physical=next((current[p] for p in item['paths'] if p in current),None)
             if physical is None:raise ValueError('Original source is missing without a verified compact catalog')
