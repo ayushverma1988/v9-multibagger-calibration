@@ -1,0 +1,92 @@
+name: V11.4 Daily Private Original NSE Company Valuation Companion
+# 16:30 UTC = 22:00 IST Mon-Fri, and skip weekends or too-early manual dispatch. Provenance-only
+# workflow from immutable V11.4 model predictions and its 15:30 PIT clock.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v11-4-company-PE-private-daily
+  cancel-in-progress: false
+jobs:
+  schedule-validation:
+    runs-on: ubuntu-latest
+    outputs:
+      run_live: ${{ steps.india_session.outputs.run_live }}
+      market_IST_date: ${{ steps.india_session.outputs.market_IST_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - name: Block weekend, pre-publication and UTC/IST rollover valuation requests
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        id: india_session
+        env:
+          TRIGGER: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          python src/v11_4_scheduler_session_gate.py --event "$TRIGGER" --github-output "$GITHUB_OUTPUT"
+      - name: Verify daily PE sidecar policy and separation from original V11.4 predictions
+        run: |
+          echo "At 22:00 IST Mon-Fri, fetch original NSE company P/E and two official bhavcopies only after the exchange session gate."
+          echo "Require same market date, official source SHA256, usable company-level PE rows; no index PE substituted."
+          echo "Market cap and peer/industry PE remain UNKNOWN until corroborated."
+          echo "Archive valuation only under its OWN private immutable HF path. NEVER modify earlier first-seen Top-10."
+  daily-private-original-company-valuation:
+    if: needs.schedule-validation.outputs.run_live == 'true'
+    needs: schedule-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NSE_ASOF: ${{ needs.schedule-validation.outputs.market_IST_date }}
+    steps:
+      - name: Checkout V11.4 research branch without touching production workflow
+        uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official market/PE adapter dependencies
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2' 'joblib>=1.4'
+      - name: Test no index-as-stock PE substitution, exact positive-company PE and market-series join
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_direct_exchange_pe.py -v
+      - name: Download direct original NSE PE and verify two official NSE cash close reports TODAY
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          python src/v11_4_direct_exchange_pe_valuation.py \
+            --asof "$TODAY" --output verified_company_PE_valuation
+      - name: Archive one original verification per Indian market date, PRIVATE, never rewrite the original predictions
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          python src/v11_4_archive_company_pe_private.py \
+            --source verified_company_PE_valuation \
+            --asof "$TODAY" --out temporary_company_PE_private_archive
+
+      - name: Research sector P/E peer medians and sharecount-based market-size estimates, never same-as-close PIT
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          python src/v11_4_nse_valuation_peer_size_proxies.py \
+            --source verified_company_PE_valuation/nse_original_company_pe_same_day_research.csv \
+            --asof "$TODAY" \
+            --output afterclose_industry_PE_peer_and_market_size_RESEARCH
+      - name: Separately archive original NSE sector peer and size proxies privately; never modify frozen Top-10 predictions
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          python src/v11_4_archive_peer_proxy_private.py \
+            --source afterclose_industry_PE_peer_and_market_size_RESEARCH \
+            --asof "$TODAY" --out staging_private_sector_research
+
+# Retired automatic V10/V11 archive writes for the user's V13-only cleanup, 3 Nov 2026.

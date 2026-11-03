@@ -41,7 +41,7 @@ def main(artifact, output):
         scored=json.loads(z.read('v13_state/redevelopment/latest.json'))['records']
         queue=json.loads(z.read('v13_state/early_potential/coverage_queue.json'))['records']
         public={r['symbol']:r['isin'] for r in [*queue,*scored]}
-        pd.DataFrame([{'symbol':s,'isin':i} for s,i in sorted(public.items())]).to_parquet(out/'public_universe.parquet',index=False)
+        pd.DataFrame([{'symbol':s,'isin':i} for s,i in sorted(public.items())]).to_parquet(out/'public_universe.parquet',index=False,compression='zstd',compression_level=9)
         (out/'financial_wide.parquet').write_bytes(z.read('v13_state/financial_wide.parquet'))
         archive=tarfile.open(fileobj=io.BytesIO(z.read('v13_state.tar.gz')))
         manifest=json.load(archive.extractfile('v13_checkpoint_manifest.json'))
@@ -85,7 +85,7 @@ def main(artifact, output):
     (out/'financial_pages.json').write_text(json.dumps(pages,indent=2))
     # Read only the needed immutable checkpoint objects, not the whole archive.
     try:
-        from huggingface_hub import hf_hub_download
+        from v13_archive_codec import archive_download as hf_hub_download
         from v13_checkpoint import object_bytes, ARCHIVE
         subset=['catalog.parquet','universe.parquet']
         items={r['path']:r for r in manifest['files']}
@@ -94,7 +94,7 @@ def main(artifact, output):
             raw=object_bytes(item,lambda key:hf_hub_download(ARCHIVE,key,repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN')))
             (out/name).write_bytes(raw)
         cat=pd.read_parquet(out/'catalog.parquet');cat=cat[cat.symbol.isin(EXAMPLES)]
-        cat.to_parquet(out/'earlier_name_catalog.parquet',index=False)
+        cat.to_parquet(out/'earlier_name_catalog.parquet',index=False,compression='zstd',compression_level=9)
         print('Earlier-name catalog columns',list(cat),flush=True)
     except Exception as exc:
         (out/'checkpoint_error.json').write_text(json.dumps({'error':str(exc)[:300]}))

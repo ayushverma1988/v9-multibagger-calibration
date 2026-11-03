@@ -472,14 +472,14 @@ def export(root,asof):
                 'additional_source_hashes':'\n'.join(sorted({source_family(s['provider_family'])+':'+(s.get('source_sha256') or 'WEB_TABLE_REVIEW_NO_ORIGINAL_BYTES') for s in proof.get('provider_observations',[]) if source_family(s['provider_family']) in proof.get('matching_provider_families',[])}))})
         rows.append(r)
     master=pd.DataFrame(rows);long=pd.DataFrame(cells)
-    master.to_parquet(folder/'master_inputs.parquet',index=False)
+    master.to_parquet(folder/'master_inputs.parquet',index=False,compression='zstd',compression_level=9)
     master.to_csv(folder/'master_inputs.csv',index=False)
-    long.to_parquet(folder/'master_input_sources.parquet',index=False)
+    long.to_parquet(folder/'master_input_sources.parquet',index=False,compression='zstd',compression_level=9)
     long.to_csv(folder/'master_input_sources.csv',index=False)
     dump(folder/'master_inputs.json',clean_records(master))
     dump(folder/'source_comparisons.json',comparisons)
     pending=long[~long.eligible_current_input].copy()
-    pending.to_parquet(folder/'pending_input_validation.parquet',index=False)
+    pending.to_parquet(folder/'pending_input_validation.parquet',index=False,compression='zstd',compression_level=9)
     counts=[]
     for column,g in long.groupby('column',sort=False):
         counts.append({'column':column,'issuers':len(g),'original_observed':int(g.value.notna().sum()),

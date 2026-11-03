@@ -24,15 +24,28 @@ def download_action(action,path,digest,size):
     from urllib.parse import urlparse
     url=action['href']
     if urlparse(url).scheme!='https':raise ValueError('Insecure archive transfer URL')
-    h=hashlib.sha256();total=0
-    with requests.get(url,headers=action.get('header',{}),stream=True,timeout=(15,120)) as response:
-        response.raise_for_status()
-        with Path(path).open('wb') as f:
-            for chunk in response.iter_content(1024*1024):
-                total+=len(chunk)
-                if total>size:raise ValueError('Archive download exceeded reviewed length')
-                h.update(chunk);f.write(chunk)
-    if total!=size or h.hexdigest()!=digest:raise ValueError('Archive transfer bytes differ from reviewed LFS identity')
+    for attempt in range(5):
+        h=hashlib.sha256();total=0
+        try:
+            with requests.get(url,headers=action.get('header',{}),stream=True,timeout=(15,120)) as response:
+                code=response.status_code
+                if code in {408,425,429,500,502,503,504}:
+                    delay=response.headers.get('Retry-After','')
+                    remaining=float(delay) if delay.isdigit() else min(2**attempt,30)
+                    while remaining>0:chunk=min(remaining,30);time.sleep(chunk);remaining-=chunk
+                    continue
+                if code!=200:raise RuntimeError('Archive object download HTTP '+str(code))
+                with Path(path).open('wb') as f:
+                    for chunk in response.iter_content(1024*1024):
+                        total+=len(chunk)
+                        if total>size:raise ValueError('Archive download exceeded reviewed length')
+                        h.update(chunk);f.write(chunk)
+        except requests.RequestException as exc:
+            if attempt==4:raise RuntimeError('Archive transfer unavailable: '+type(exc).__name__) from None
+            time.sleep(min(2**attempt,15));continue
+        if total!=size or h.hexdigest()!=digest:raise ValueError('Archive transfer bytes differ from reviewed LFS identity')
+        return
+    raise RuntimeError('Archive transfer failed after bounded retries')
 
 def run(plan,out,purge=False):
     from huggingface_hub import HfApi

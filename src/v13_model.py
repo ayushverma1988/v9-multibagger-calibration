@@ -146,7 +146,7 @@ def run(matrix,output,asof,only_current=False):
     s=pd.concat(scores,ignore_index=True)
     for c in ('p12','loss12','joint12'):
         if c not in s:s[c]=np.nan
-    s.to_parquet(out/'scores.parquet',index=False);joblib.dump(current_heads,out/'research_heads.joblib')
+    s.to_parquet(out/'scores.parquet',index=False,compression='zstd',compression_level=9);joblib.dump(current_heads,out/'research_heads.joblib')
     (out/'training_clocks.json').write_text(json.dumps(clocks,indent=2))
     weights={t:{'method':p['method'],'linear_weight':p.get('linear_weight'),'nonlinear_weight':p.get('nonlinear_weight'),
        'standardized_linear_coefficients':p.get('feature_weights',{}),'features_used':p['features']} for t,p in current_heads.items()}
@@ -169,7 +169,7 @@ def run(matrix,output,asof,only_current=False):
     now=s[s.date.eq(pd.Timestamp(asof))].copy();v,q,b=gates(now)
     current=pd.concat([ranked(now,'verified'),ranked(now,'discovery')],ignore_index=True)
     current.to_json(out/'current_watchlist.json',orient='records',date_format='iso',indent=2)
-    pd.DataFrame(selected).to_parquet(out/'selected_outcomes.parquet',index=False)
+    pd.DataFrame(selected).to_parquet(out/'selected_outcomes.parquet',index=False,compression='zstd',compression_level=9)
     z=s[s.mature_date_12.le(pd.Timestamp(asof))&s[coherent.LOSS].isin([0,1])&s.loss12.notna()]
     summary={'current_scored':len(now),'verified_pool':int(v.sum()),'discovery_pool':int(q.sum()),'known_bad_excluded':int(b.sum()),
       'current_selected':len(current),'historical':summaries,'probability_metrics':metrics,

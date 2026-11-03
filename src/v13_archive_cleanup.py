@@ -54,7 +54,7 @@ def git_tree_hash(files):
         return hashlib.sha1(b'tree '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
     return encode(tree)
 
-def inspect_archive(repo,files,download,out):
+def inspect_archive(repo,files,download,out,encodings=None,catalog=None):
     by_path={r['path']:r for r in files}
     if 'v13/state/latest_manifest.json' not in by_path:raise ValueError('V13 checkpoint pointer is missing')
     names=[p for p in by_path if p=='v13/state/latest_manifest.json' or
@@ -64,7 +64,7 @@ def inspect_archive(repo,files,download,out):
     for name in sorted(names):
         raw=Path(download(name)).read_bytes();digest=hashlib.sha256(raw).hexdigest()
         data=json.loads(raw)
-        if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2'}:
+        if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2','V13-content-addressed-checkpoint-3'}:
             raise ValueError('Unsupported V13 manifest '+name)
         (out/'manifests').mkdir(exist_ok=True)
         (out/'manifests'/Path(name).name).write_bytes(raw)
@@ -80,6 +80,18 @@ def inspect_archive(repo,files,download,out):
             refs[r['path']]=r
     for path,r in refs.items():
         actual=by_path.get(path)
+        encoded=(encodings or {}).get(path)
+        compact=(catalog or {}).get(r['sha256'])
+        if encoded and actual and encoded['stored_sha256']==actual.get('lfs_sha256'):
+            if encoded['original_sha256']!=r['sha256'] or encoded['original_bytes']!=r['bytes']:
+                problems.append({'path':path,'reason':'ENCODED_ORIGINAL_IDENTITY_MISMATCH'});continue
+            actual={**actual,'bytes':encoded['original_bytes'],'lfs_sha256':encoded['original_sha256']}
+        if actual is None and compact:
+            packed=by_path.get(compact['pack_path'])
+            if (not packed or packed['bytes']!=compact['pack_bytes'] or packed.get('lfs_sha256')!=compact['pack_sha256']
+                or compact['original_bytes']!=r['bytes']):
+                problems.append({'path':path,'reason':'COMPACT_ORIGINAL_IDENTITY_MISMATCH'});continue
+            actual={'bytes':compact['original_bytes'],'lfs_sha256':compact['original_sha256']}
         if not actual:
             if path in required:problems.append({'path':path,'reason':'MISSING_REFERENCED_OBJECT'})
             else:optional_missing.append(path)
@@ -96,7 +108,8 @@ def inspect_archive(repo,files,download,out):
       'delete_candidates':remove,'candidate_bytes':sum(r['bytes'] or 0 for r in remove)}
 
 def inventory(out):
-    from huggingface_hub import HfApi,hf_hub_download
+    from huggingface_hub import HfApi
+    from v13_archive_codec import archive_download as hf_hub_download
     from huggingface_hub.hf_api import RepoFile
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
@@ -119,7 +132,20 @@ def inventory(out):
     archive=next((r for r in repos if r['repo_id']==ARCHIVE and r['repo_type']=='dataset'),None)
     if not archive or not archive['private']:raise ValueError('Expected private V13 archive unavailable')
     def download(path):return hf_hub_download(ARCHIVE,path,repo_type='dataset',revision=archive['head'],token=token)
-    dependencies=inspect_archive(archive,archive['files'],download,out)
+    encodings={};catalog={}
+    import pyarrow.parquet as pq
+    for item in archive['files']:
+        path=item['path']
+        if not path.endswith('.parquet'):continue
+        if path.startswith('v13/storage_index/'):
+            for row in pq.read_table(download(path)).to_pylist():
+                old=encodings.get(row['logical_path'])
+                if old is None or row['recorded_at_utc']>old['recorded_at_utc']:encodings[row['logical_path']]=row
+        elif path.startswith('v13/storage_catalog/'):
+            from v13_archive_catalog import validate_row
+            for row in pq.read_table(download(path)).to_pylist():
+                validate_row(row);catalog[row['original_sha256']]=row
+    dependencies=inspect_archive(archive,archive['files'],download,out,encodings,catalog)
     other=[{'repo_id':r['repo_id'],'repo_type':r['repo_type'],'head':r['head'],
       'bytes':r['current_file_bytes'],'private':r['private']} for r in repos if r['repo_id']!=ARCHIVE]
     result={'mode':'READ_ONLY_INVENTORY','owner':OWNER,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
@@ -173,7 +199,8 @@ def deletion_plan(data):
       'delete_paths':paths,'delete_repositories':repos,'protected_paths':sorted(protected)}
 
 def apply_cleanup(inventory_path,expected_sha,out,squash=False):
-    from huggingface_hub import HfApi,CommitOperationDelete,hf_hub_download
+    from huggingface_hub import HfApi,CommitOperationDelete
+    from v13_archive_codec import archive_download as hf_hub_download
     from huggingface_hub.hf_api import RepoFile
     from v13_checkpoint import restore
     raw=Path(inventory_path).read_bytes()

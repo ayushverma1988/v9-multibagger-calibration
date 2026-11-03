@@ -70,7 +70,7 @@ def run(input_path,classification_dir,evidence,output):
     s=json.loads((e/'evidence/valuation_snapshot.json').read_text());m=pd.DataFrame(json.loads((e/'evidence/valuation_research_hurdles.json').read_text()))[['isin','symbol','industry']]
     m['available_at_utc']=s['membership_first_observed_utc'];m['source_sha256']=s['membership_sha256'];now=datetime.now(timezone.utc).isoformat()
     d=watchlists(classify_current(f,classification_dir,m,now),json.loads((e/'catalyst_evidence/document_evidence.json').read_text()),now)
-    d.to_parquet(out/'current_two_stage.parquet',index=False)
+    d.to_parquet(out/'current_two_stage.parquet',index=False,compression='zstd',compression_level=9)
     cols=['symbol','isin','close','p6','p12','loss12','rsi14','size_category','industry','sector_status','dd_breakout_state','early_watch_rank','rsi70_research_rank']
     summary={'review_asof_utc':now,'price_source_date':str(pd.Timestamp(d.date.max()).date()),'ranking_weights_are_preferences_not_probabilities':{'p6_percentile':.70,'price_discipline':.25,'optional_DMA_band':.05},
       'size_counts':d.size_status.value_counts().to_dict(),'sector_counts':d.sector_sector_kind.value_counts().to_dict(),

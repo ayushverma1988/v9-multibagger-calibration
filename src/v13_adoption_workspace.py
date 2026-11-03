@@ -6,7 +6,8 @@ import pandas as pd
 from v13_recovery_restore import restore_delta
 
 def run(archive,out):
-    from huggingface_hub import HfApi,hf_hub_download
+    from huggingface_hub import HfApi
+    from v13_archive_codec import archive_download as hf_hub_download
     from v13_checkpoint import ARCHIVE
     from v13_history_views import histories
     from v13_frozen_integrity import FrozenGuard
@@ -47,7 +48,7 @@ def run(archive,out):
     historical_only=len({key[0] for key in chosen if key not in wanted})
     view=out/'history_view/securities';view.mkdir(parents=True,exist_ok=True)
     for i,(path,bars) in enumerate(chosen.values()):os.link(path,view/(str(i)+'.parquet'))
-    blank=out/'empty.parquet';pd.DataFrame(columns=['date','isin']).to_parquet(blank,index=False)
+    blank=out/'empty.parquet';pd.DataFrame(columns=['date','isin']).to_parquet(blank,index=False,compression='zstd',compression_level=9)
     market=features.build(view.parent,blank,out/'market',asof)
     market=research_cutoffs(market,datetime.now(timezone.utc))
     wide=pd.read_parquet(root/'financial_wide.parquet')
@@ -88,7 +89,7 @@ def run(archive,out):
             primary_audit.append({'date':day,'status':'PRIMARY_SESSION_CHECKED','accepted':accepted,'rows':len(g),'source_sha256':result['source_sha256']})
         except Exception as exc:primary_audit.append({'date':day,'status':'SOURCE_UNAVAILABLE','error_type':type(exc).__name__})
         time.sleep(.25)
-    matrix.to_parquet(out/'matrix.parquet',index=False)
+    matrix.to_parquet(out/'matrix.parquet',index=False,compression='zstd',compression_level=9)
     # Current scoring reads only the exact whole histories accepted above.
     original=root/'history/securities';temporary=root/'history/original_securities'
     original.rename(temporary);original.symlink_to(view.resolve(),target_is_directory=True)
@@ -98,7 +99,7 @@ def run(archive,out):
     current=apply_scenarios(join(current,root),root)
     current=rd.attach(current,view)
     current,_=available_enrich(current,wide)
-    current.to_parquet(out/'current.parquet',index=False)
+    current.to_parquet(out/'current.parquet',index=False,compression='zstd',compression_level=9)
     observed=pd.read_parquet(root/'prospective_observations.parquet')
     integrity=guard.check(observed)
     summary={'source_date':asof,'prepared_at_utc':datetime.now(timezone.utc).isoformat(),

@@ -1,0 +1,127 @@
+name: V11.4 Scheduled Private NSE Forward Research
+# Main-branch scheduler. A GitHub cron on a non-default branch DOES NOT RUN.
+# 16:15 UTC = 21:45 Asia/Kolkata (no DST). Safety gate blocks weekends and pre-21:00 manual runs.
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: v11-4-standalone-verified-NSE-forward-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  schedule-contract:
+    runs-on: ubuntu-latest
+    outputs:
+      run_live: ${{ steps.india_session.outputs.run_live }}
+      market_IST_date: ${{ steps.india_session.outputs.market_IST_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - name: Reject weekend and premature snapshot requests before contacting NSE
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        id: india_session
+        env:
+          TRIGGER: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          python src/v11_4_scheduler_session_gate.py --event "$TRIGGER" --github-output "$GITHUB_OUTPUT"
+      - name: Validate scheduler trigger, exact weekday cadence, no private output to public repo
+        env:
+          GITHUB_EVENT: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Scheduler event: $GITHUB_EVENT"
+          echo "On cron: 16:15 UTC = 21:45 IST, Monday to Friday."
+          echo "Saturday, Sunday, before 21:00 IST, and UTC→IST midnight crossover are skipped without downloading stale NSE prices."
+          echo "Scores are recorded only if both official NSE bhavcopies + exchange filings are verified."
+          echo "Exchange holidays, incomplete announcements, stale data or duplicate dates fail closed."
+          echo "Frozen model SHA is verified; private Top-10 only in private Hugging Face."
+  daily-forward:
+    if: needs.schedule-contract.outputs.run_live == 'true'
+    needs: schedule-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      NSE_ASOF: ${{ needs.schedule-contract.outputs.market_IST_date }}
+    steps:
+      - name: Checkout isolated V11.4 research branch, never modify older production
+        uses: actions/checkout@v4
+        with:
+          ref: v11-4-ownership-backfill-probe
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install required market and source verification libraries
+        run: pip install 'numpy>=2,<3' 'pandas>=2.2,<3' 'pyarrow>=18,<26' 'scikit-learn>=1.5,<2' 'joblib>=1.4' 'requests>=2.31,<3' 'huggingface_hub>=0.25,<2'
+      - name: Reject defective live NSE sources, four rules, frozen model
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_live_nse_sources.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_four_family_rsi.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_forward_freeze_contract.py -v
+          PYTHONPATH=src python -m unittest discover -s tests -p test_v11_4_rule_input_provenance.py -v
+      - name: Get SHA-verified frozen model, without retraining
+        uses: actions/download-artifact@v4
+        with:
+          name: v11-4-frozen-standalone-research-model-20261008-forward-only
+          path: frozen_verified_model
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ayushverma1988/v9-multibagger-calibration
+          run-id: 37806626992
+      - name: Validate today's two official NSE prices and original 185-day filings
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          echo "As-of Indian exchange date: $TODAY"
+          python src/v11_4_live_nse_market_catalyst.py --date "$TODAY" --output private_v11_4_live_input
+      - name: Audit original NSE/BSE XBRL PIT input availability, preserve missing 5Y/7Y and quarterly facts as UNKNOWN
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          python src/v11_4_rule_input_provenance.py \
+            --features private_v11_4_live_input/v11_4_live_NSE_verified_stock_features.parquet \
+            --config config/v11_4_four_screener_families.json \
+            --asof "$TODAY" --output audited_four_family_PIT
+      - name: Audit four independent user screening conditions including Wilder RSI14 strictly above 70
+        run: |
+          set -euo pipefail
+          python src/v11_4_four_family_live_screener.py \
+            --features audited_four_family_PIT/v11_4_pit_four_family_research_overlay.parquet \
+            --config config/v11_4_four_screener_families.json \
+            --output four_family_research_audit
+      - name: Record immutable Top-10 predictions and four-condition overlay only in private HF
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TODAY="$NSE_ASOF"
+          python src/v11_4_publish_forward_private.py \
+            --features private_v11_4_live_input/v11_4_live_NSE_verified_stock_features.parquet \
+            --metadata private_v11_4_live_input/v11_4_live_source_validation.json \
+            --frozen frozen_verified_model \
+            --output private_first_seen_V11_4_predictions \
+            --screening-overlay audited_four_family_PIT/v11_4_pit_four_family_research_overlay.parquet \
+            --source-readiness audited_four_family_PIT/four_family_filing_pit_readiness.json \
+            --asof "$TODAY"
+      - name: Print only nonsensitive screening statistics
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('four_family_research_audit/four_family_screening_audit.json'))
+          print(json.dumps({'nse_equity_universe':x['companies'],
+            'rsi14_above70':x['rsi14_over70_stock_count'],
+            'families':x['families'],'production_approved':False},indent=2))
+          provenance=json.load(open('audited_four_family_PIT/four_family_filing_pit_readiness.json'))
+          print(json.dumps({'verified_unique_screening_metrics':provenance['fields_with_any_verified_observations'],
+            'total_unique_screener_metrics':provenance['distinct_requested_metrics'],
+            'still_missing_metrics':provenance['fields_still_fully_missing']},indent=2))
+          print('Actual stock names and probabilities saved in private HF, not public GitHub.')
+          PY
+
+# Retired automatic V10/V11 archive writes for the user's V13-only cleanup, 3 Nov 2026.

@@ -99,6 +99,6 @@ def recover_from_seed(root,seed):
     if not (Path(root)/'prospective_observations.parquet').exists() or not list((Path(root)/'official').glob('*_official_market.parquet')):
         return {'status':'WAITING_FOR_EXISTING_LEDGER_AND_PRIMARY_PRICES','complete':False}
     import os
-    from huggingface_hub import hf_hub_download
+    from v13_archive_codec import archive_download as hf_hub_download
     from v13_checkpoint import ARCHIVE
     return recover_known_entries(root,json.loads(path.read_text()),lambda p:hf_hub_download(ARCHIVE,p,repo_type='dataset',token=os.environ.get('HF_ARCHIVE_TOKEN')))

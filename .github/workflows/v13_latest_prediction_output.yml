@@ -18,12 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: bfb2331ced63740743c9b3b115682668b5e508e7
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt
+      - run: pip install -r requirements_v13_storage.txt
       - name: Obtain completed fresh collection artifact
         timeout-minutes: 35
         uses: actions/github-script@v7

@@ -57,7 +57,7 @@ def run(artifact,diagnostic,output,budget=1600,requested_completion=False,supple
             joined=pd.read_parquet(io.BytesIO(extra.read(name)))
         wide,conflicts=union_financials(wide,joined);union_conflicts.extend(conflicts)
         supplement_receipts.append({'artifact_sha256':hashlib.sha256(Path(supplement).read_bytes()).hexdigest(),'rows':len(joined)})
-    wide.to_parquet(root/'financial_wide.parquet',index=False)
+    wide.to_parquet(root/'financial_wide.parquet',index=False,compression='zstd',compression_level=9)
     (root/'financial_snapshot_union.json').write_text(json.dumps({'supplements':supplement_receipts,'conflicts':union_conflicts},indent=2))
     observed=wide[wide.source_url.notna()]
     accepted=sorted(set(observed.source_url+'|'+observed.available_at_utc))

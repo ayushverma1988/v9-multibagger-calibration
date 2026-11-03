@@ -107,12 +107,12 @@ def current_catalogs(root,asof):
         catalog=normalize_financial_catalog(financial,asof);path=Path(root)/'catalog.parquet'
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
         catalog,inventory=merge_catalog(previous,catalog,asof)
-        catalog.to_parquet(path,index=False)
+        catalog.to_parquet(path,index=False,compression='zstd',compression_level=9)
         (folder/'financial_inventory.json').write_text(json.dumps(inventory,indent=2))
     if events:
         e=dated_events(events,asof);path=folder/'events.parquet'
         if path.exists():e=pd.concat([pd.read_parquet(path),e],ignore_index=True).drop_duplicates(['venue_index','event_id','available_at_utc','symbol','attachment_url'],keep='first')
-        e.to_parquet(path,index=False)
+        e.to_parquet(path,index=False,compression='zstd',compression_level=9)
     return {'financial_catalog_records':len(financial),'announcement_records':len(events),'errors':errors,'catalog_absence_does_not_verify_no_catalyst':True}
 
 def merge_catalog(previous,fresh,asof):
@@ -151,7 +151,7 @@ def recover_public_catalogue(root,seed_path,asof):
     available=pd.to_datetime(d.available_at_utc,utc=True,format='mixed');period=pd.to_datetime(d.period_end)
     if (available<period.dt.tz_localize('Asia/Kolkata')).any():raise ValueError('Recovered publication precedes financial period')
     path=root/'catalog.parquet';previous=pd.read_parquet(path) if path.exists() else d.iloc[:0].copy()
-    merged,_=merge_catalog(previous,d,asof);merged.to_parquet(path,index=False)
+    merged,_=merge_catalog(previous,d,asof);merged.to_parquet(path,index=False,compression='zstd',compression_level=9)
     report={'status':'PUBLIC_METADATA_RECOVERED','source_asof':asof,'origin':m['origin'],'source_snapshot_sha256':m['sha256'],
       'public_snapshot_rows':len(d),'new_versions':len(merged)-len(previous),'retained_versions':len(merged),
       'facts_still_require_original_document_validation':True,'forecasts_or_outcomes_changed':False}
@@ -212,7 +212,7 @@ def historical_event_backfill(root,asof,budget=2):
                 if not isinstance(rows,list):raise ValueError('Historical event schema')
                 events.extend({'record':r,'venue_index':venue,'catalog_sha256':proof['sha256']} for r in rows)
             except Exception as exc:ok=False;errors.append({'start':str(start.date()),'venue':venue,'error':str(exc)[:160]})
-        if events:dated_events(events,asof).to_parquet(folder/'events.parquet',index=False)
+        if events:dated_events(events,asof).to_parquet(folder/'events.parquet',index=False,compression='zstd',compression_level=9)
         if ok:(folder/'complete.json').write_text(json.dumps({'start':str(start.date()),'end':str(end.date()),'records':len(events),'absence_does_not_verify_no_catalyst':True}))
         completed+=1
     return {'windows_attempted':completed,'total_windows':len(windows),'errors':errors,'stable_partitions_prevent_daily_backfill_starvation':True}
@@ -289,7 +289,7 @@ def universe(root,asof):
         record('CROSS_MASTER_SYMBOL_CONFLICT');raise ValueError('Public universe symbol conflict')
     path=root/'universe.parquet';temp=path.with_suffix('.parquet.tmp')
     try:
-        d.to_parquet(temp,index=False);temp.replace(path)
+        d.to_parquet(temp,index=False,compression='zstd',compression_level=9);temp.replace(path)
     finally:
         temp.unlink(missing_ok=True)
     record('ACCEPTED')
@@ -387,7 +387,7 @@ def collect_histories(root,asof,budget=3200,workers=4):
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
         result=current_history(store,symbol,isin,asof,previous,official)
         bars=result.pop('bars',None)
-        if bars is not None:bars.to_parquet(path,index=False)
+        if bars is not None:bars.to_parquet(path,index=False,compression='zstd',compression_level=9)
         return result
     from v13_parallel_collection import bounded_map
     for job,result in bounded_map(batch,fetch,workers=workers,seconds=1800):
@@ -521,7 +521,7 @@ def collect_financials(root,asof,budget=800,workers=4,seconds=900):
         fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
         previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
         combined=merge_financial_versions(previous,fresh)
-        combined.to_parquet(path,index=False)
+        combined.to_parquet(path,index=False,compression='zstd',compression_level=9)
     accepted_path.write_text(json.dumps(sorted(accepted)))
     parsed_path.write_text(json.dumps(sorted(parsed)))
     attempts_path.write_text(json.dumps(attempts))

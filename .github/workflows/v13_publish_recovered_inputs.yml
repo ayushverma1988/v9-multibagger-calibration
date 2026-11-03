@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
+      - run: pip install -r requirements_v13_storage.txt
       - name: Verify source contracts
         run: |
           python -m unittest discover -s tests -p 'test_v13_master_data.py'

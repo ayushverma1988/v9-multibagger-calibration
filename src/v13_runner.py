@@ -288,7 +288,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         marker=root/'last_retrain_month.txt';month=asof[:7]
         if (retrain or not marker.exists() or marker.read_text()!=month) and len(history)>=500:
             try:
-                blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False)
+                blank=pd.DataFrame(columns=['date','isin']);blank.to_parquet(root/'empty_previous.parquet',index=False,compression='zstd',compression_level=9)
                 master=pd.read_parquet(root/'universe.parquet')
                 symbol_col='nse_current_symbol' if 'nse_current_symbol' in master else 'symbol'
                 market=features.build(root/'history',root/'empty_previous.parquet',root/'challenger_features',asof,
@@ -299,7 +299,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 matrix=collection.announcement_counts(matrix,root,asof)
                 for c in model.FEATURES:
                     if c not in matrix:matrix[c]=np.nan
-                matrix.to_parquet(root/'challenger_matrix.parquet',index=False)
+                matrix.to_parquet(root/'challenger_matrix.parquet',index=False,compression='zstd',compression_level=9)
                 target=root/'challenger_runs'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
                 model.run(root/'challenger_matrix.parquet',target,asof,only_current=True)
                 report['research_experiments']=str(target.relative_to(root)/'predeclared_experiments.json')
@@ -440,7 +440,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             if 'paired_context' in reg and p.name not in committed:continue
             observations.extend(adjudicate(p,official_all,history,asof,verification))
         observed=pd.DataFrame(observations)
-        if observations:observed.to_parquet(root/'prospective_observations.parquet',index=False)
+        if observations:observed.to_parquet(root/'prospective_observations.parquet',index=False,compression='zstd',compression_level=9)
         report['prospective_status_counts']=pd.Series([r['status'] for r in observations],dtype=object).value_counts().to_dict()
         report['raw_price_2x_alerts']=sum(r['raw_price_2x_observed'] for r in observations)
         report['independently_verified_mature_outcomes']=sum(r['independent_outcome_verified'] and r['twelve_month_mature'] for r in observations)
@@ -461,7 +461,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             if freeze['sha256']!=challenger_sha:raise ValueError('Formal challenger freeze changed')
             freeze_path.write_text(json.dumps(freeze,indent=2))
             paired=paired_observations(pd.DataFrame(observations),challenger_sha,comparison_contract=COMPARISON_CONTRACT)
-            paired.to_parquet(root/'paired_mature_observations.parquet',index=False)
+            paired.to_parquet(root/'paired_mature_observations.parquet',index=False,compression='zstd',compression_level=9)
             report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha),require_baseline=True)
             if report['promotion']['promote']:
                 backup=root/'retired_models'/hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest()

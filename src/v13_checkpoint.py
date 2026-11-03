@@ -79,7 +79,14 @@ def build_derived_bundle(root,data,path):
       'files':len(active),'uncompressed_bytes':sum(r['bytes'] for r in active)}
 
 def materialize_bundle(bundle,data,root,fetch):
-    validate_object(bundle);source=Path(fetch(bundle['object_path']))
+    validate_object(bundle)
+    try:source=Path(fetch(bundle['object_path']))
+    except Exception as exc:
+        from huggingface_hub.errors import EntryNotFoundError
+        if not isinstance(exc,EntryNotFoundError):raise
+        active=[r for r in data['files'] if not r['raw_source']]
+        for item in active:materialize_one(item,root,fetch)
+        return len(active)
     if source.stat().st_size!=bundle['bytes'] or hashlib.sha256(source.read_bytes()).hexdigest()!=bundle['sha256']:
         raise ValueError('Derived bundle digest or size mismatch')
     expected={r['path']:r for r in data['files'] if not r['raw_source']};seen=set();root=Path(root)
@@ -105,15 +112,33 @@ class VerifiedObjectDownloader:
     according to the server's reset header. Credentials are never logged.
     """
     def __init__(self,items,folder,token,requests_per_second=8):
-        self.items={r['object_path']:r for r in items};self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
+        self.items={}
+        for item in items:
+            validate_object(item);physical=item.get('storage_pack') or item
+            key=physical['object_path'];previous=self.items.get(key)
+            if previous and (previous['sha256']!=physical['sha256'] or previous['bytes']!=physical['bytes']):
+                raise ValueError('Conflicting checkpoint physical identity')
+            self.items[key]=physical
+        self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
         self.token=token;self.interval=1/requests_per_second;self.lock=threading.Lock();self.next=0.;self.blocked=0.;self.local=threading.local();self.done=0
         self.object_locks={path:threading.Lock() for path in self.items}
     def __call__(self,path):
+        from v13_archive_catalog import fetch_member
+        from v13_archive_codec import decode_file,enabled
+        item=self.items[path]
+        compact=fetch_member(ARCHIVE,item['sha256'],self.token,self.folder/'compact') if enabled() else None
+        if compact:
+            out=self.folder/(item['sha256']+'.bin')
+            if not out.exists():decode_file(compact,out,item['sha256'],item['bytes'])
+            return out
         with self.object_locks[path]:return self.download(path)
     def download(self,path):
         from huggingface_hub import hf_hub_url
         import requests
-        item=self.items[path];validate_object(item);out=self.folder/(item['sha256']+'.bin')
+        item=self.items[path]
+        from v13_checkpoint_packs import pack_path
+        if item['object_path']!=pack_path(item['sha256']):validate_object(item)
+        out=self.folder/(item['sha256']+'.bin')
         if out.exists() and out.stat().st_size==item['bytes'] and hashlib.sha256(out.read_bytes()).hexdigest()==item['sha256']:return out
         if not hasattr(self.local,'session'):self.local.session=requests.Session()
         last_error='rate limit'
@@ -139,8 +164,12 @@ class VerifiedObjectDownloader:
                             size+=len(chunk)
                             if size>item['bytes']:raise ValueError('Checkpoint resolver exceeded recorded size')
                             digest.update(chunk);target.write(chunk)
-                    if size!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Checkpoint resolver integrity failure')
-                    temp.replace(out)
+                    from v13_archive_codec import envelope,decode_file
+                    if envelope(temp):
+                        decode_file(temp,out,item['sha256'],item['bytes']);temp.unlink(missing_ok=True)
+                    else:
+                        if size!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Checkpoint resolver integrity failure')
+                        temp.replace(out)
             except requests.RequestException as exc:
                 # Exception text may contain a signed redirect URL; retain
                 # only its class. Fresh attempts overwrite partial bytes and
@@ -153,7 +182,8 @@ class VerifiedObjectDownloader:
         raise RuntimeError('Private checkpoint unavailable after bounded retries: '+last_error)
 
 def restore(root):
-    from huggingface_hub import HfApi,hf_hub_download
+    from huggingface_hub import HfApi
+    from v13_archive_codec import archive_download as hf_hub_download
     from huggingface_hub.errors import EntryNotFoundError
     root=Path(root);token=os.environ.get('HF_ARCHIVE_TOKEN')
     if not token:raise RuntimeError('Required existing private archive credential is unavailable')
@@ -170,7 +200,7 @@ def restore(root):
         from v13_runner import verify_manifest
         verify_manifest(root);return True
     data=json.loads(Path(path).read_text())
-    if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2'}:raise ValueError('Unknown private checkpoint format')
+    if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2','V13-content-addressed-checkpoint-3'}:raise ValueError('Unknown private checkpoint format')
     root.mkdir(parents=True,exist_ok=True)
     active=[r for r in data['files'] if not r['raw_source']]
     # Original source objects remain immutable in the private archive. They
@@ -217,6 +247,8 @@ def save(root,preserved_raw_aliases=()):
     if members or any(r.get('storage_pack') for r in data['files']):
         # Old writers must fail closed rather than drop packed storage metadata.
         data['format']='V13-content-addressed-checkpoint-2'
+    from v13_archive_codec import enabled
+    if enabled():data['format']='V13-content-addressed-checkpoint-3'
     direct=[r for r in pending if r['sha256'] not in members]
     uploads += [dict(r,file=str(root/r['path'])) for r in direct]
     all_uploads=len(uploads)
@@ -245,8 +277,18 @@ def save(root,preserved_raw_aliases=()):
         path=root.parent/'v13_checkpoint_manifest.json';path.write_bytes(raw)
         key=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_'+sha[:12]
         # Keep the immutable snapshot and latest pointer in one transaction.
-        write(api,ARCHIVE,[spec('v13/state/snapshots/'+key+'.json',path),
-            spec('v13/state/latest_manifest.json',path)],'V13 checkpoint '+key,
+        final_specs=[spec('v13/state/snapshots/'+key+'.json',path),spec('v13/state/latest_manifest.json',path)]
+        if enabled():
+            from v13_storage_index import snapshot_index,POLICY
+            from v13_storage_retention import cache_inventory
+            index_key,index=snapshot_index(key,data,root)
+            index_file=root.parent/'v13_dated_index.json';index_file.write_text(json.dumps(index,sort_keys=True,indent=2))
+            policy_file=root.parent/'v13_storage_policy.json';policy_file.write_text(json.dumps(POLICY,sort_keys=True,indent=2))
+            final_specs.extend([spec(index_key,index_file),spec('v13/storage_policy.json',policy_file)])
+            cache_file=root.parent/'v13_restart_cache_inventory.json'
+            cache_file.write_text(json.dumps(cache_inventory(data,key,previous),sort_keys=True,indent=2))
+            final_specs.append(spec('v13/storage/restart_caches.json',cache_file))
+        write(api,ARCHIVE,final_specs,'V13 checkpoint '+key,
             CommitOperationAdd,split=False,deadline=deadline)
     except Exception as exc:
         try:
@@ -283,7 +325,7 @@ def restore_review_originals(root,additional_hashes=None):
     """Fetch only original hashes required by reviewed evidence, using the
     worker's existing archive connection. No credential is exported or logged.
     """
-    from huggingface_hub import hf_hub_download
+    from v13_archive_codec import archive_download as hf_hub_download
     root=Path(root);mp=root/'remote_manifest.json'
     if not mp.exists():return
     required=set(additional_hashes or [])

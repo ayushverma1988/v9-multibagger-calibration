@@ -69,7 +69,8 @@ def restore_artifact(archive,root,fetch):
 
 if __name__=='__main__':
     import argparse,os
-    from huggingface_hub import HfApi,hf_hub_download
+    from huggingface_hub import HfApi
+    from v13_archive_codec import archive_download as hf_hub_download
     from v13_checkpoint import ARCHIVE
     p=argparse.ArgumentParser();p.add_argument('--artifact',required=True);p.add_argument('--state',required=True);a=p.parse_args()
     token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)

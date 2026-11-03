@@ -81,6 +81,8 @@ def _get(obj, key, default=None):
 
 
 def committed(api, archive, specs):
+    from v13_archive_codec import physical_spec
+    specs=[physical_spec(s) for s in specs]
     infos = api.get_paths_info(repo_id=archive, repo_type='dataset',
                                paths=[s['remote'] for s in specs])
     by_path = {_get(r, 'path', _get(r, 'rfilename')):r for r in infos}
@@ -99,6 +101,17 @@ def committed(api, archive, specs):
 
 def write(api, archive, specs, message, operation_type, confirmed=None, split=True, deadline=None):
     """Fresh operations per request; never split an atomic manifest publish."""
+    from v13_archive_codec import physical_spec
+    specs=list(specs)
+    encoded=[physical_spec(s) for s in specs]
+    if any(a!=b for a,b in zip(specs,encoded)):
+        from v13_storage_index import encoding_index
+        index=encoding_index(specs,encoded,Path(encoded[0]['file']).parent/'indexes')
+        if index:encoded.append(spec(index[0],index[1]))
+        original={s['remote']:s for s in specs}
+        def logical_confirmation(items):
+            if confirmed is not None:confirmed([original[s['remote']] for s in items if s['remote'] in original])
+        return write(api,archive,encoded,message,operation_type,logical_confirmation,split,deadline)
     if not specs:
         return
     for attempt in range(MAX_ATTEMPTS):
@@ -189,7 +202,8 @@ def recovery_delta(root, data, entries, base_raw):
         'base_manifest_sha256':hashlib.sha256(base_raw).hexdigest(),
         'planned_manifest_sha256':hashlib.sha256(planned).hexdigest(),
         'delta_objects':len(entries), 'remote_publication_confirmed':False}
-    with temporary_path.open('wb') as dest, gzip.GzipFile(filename='', mode='wb', fileobj=dest, mtime=0, compresslevel=1) as gz, tarfile.open(fileobj=gz, mode='w|') as tar:
+    from v13_archive_codec import enabled
+    with temporary_path.open('wb') as dest, gzip.GzipFile(filename='', mode='wb', fileobj=dest, mtime=0, compresslevel=6 if enabled() else 1) as gz, tarfile.open(fileobj=gz, mode='w|') as tar:
         payloads = [('recovery.json', json.dumps(metadata, sort_keys=True).encode()),
             ('base_manifest.json', base_raw), ('planned_manifest.json', planned)]
         for name, raw in payloads:

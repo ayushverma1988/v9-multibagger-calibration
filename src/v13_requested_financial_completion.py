@@ -40,7 +40,7 @@ def collect(root,asof):
         else:errors.append({'symbol':r['symbol'],'source_url':r['source_url'],'error':result['error']})
     if facts:
         merged=merge_financial_versions(wide,financial_wide(pd.DataFrame(facts)))
-        merged.to_parquet(root/'financial_wide.parquet',index=False)
+        merged.to_parquet(root/'financial_wide.parquet',index=False,compression='zstd',compression_level=9)
     return {'requested':attempted,'new_facts':len(facts),'errors':errors,
       'scope':'USER_REQUESTED_EARLIER_ELEVEN_NAMES_MISSING_ORIGINAL_PERIODS',
       'basic_comparison_filings':len(basic),'owner_comparison_filings':len(owner),

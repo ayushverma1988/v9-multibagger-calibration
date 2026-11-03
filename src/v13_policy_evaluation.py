@@ -179,7 +179,7 @@ def run(matrix,current,out,asof,max_dates=12,variants=None):
     summary['decision']='RETAIN_FIXED_CHAMPION_EXAMINED_DEVELOPMENT_ONLY'
     summary['accuracy_claim']=None
     summary['historical_feature_nonmissing']={x:int(data[x].notna().sum()) for x in model.FEATURES if x in data}
-    if len(all_scores):all_scores.to_parquet(out/'historical_scores.parquet',index=False)
+    if len(all_scores):all_scores.to_parquet(out/'historical_scores.parquet',index=False,compression='zstd',compression_level=9)
     # Fit experimental candidates at today's date; they remain independent of
     # both original frozen model files and all registered cohorts.
     for variant in variants:

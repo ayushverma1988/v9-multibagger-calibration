@@ -176,7 +176,7 @@ def collect(root, seed_path, asof):
             if any(s in message.lower() for s in ('403', '429', 'forbidden', 'too many requests')):
                 break
     if added:
-        wide.to_parquet(path, index=False)
+        wide.to_parquet(path, index=False,compression='zstd',compression_level=9)
     result = {'seed_identity_sha256': signature, 'recorded_at_utc': datetime.now(timezone.utc).isoformat(),
         'complete': not errors, 'documents': documents, 'errors': errors,
         'missing_quarter_fact_observations_added': len(added),

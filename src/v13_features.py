@@ -83,7 +83,7 @@ def build(history_path, previous_matrix, output, asof,current_pairs=None):
     x['earnings_market_confirmation']=x.quarter_pat_yoy*x.relative_strength63
     x['liquidity_volume_interaction']=x.volume_confirmation*x.log_liquidity63
     for c in ('mature_date_6','mature_date_12'):x[c]=pd.to_datetime(x[c])
-    x.to_parquet(out/'matrix.parquet',index=False)
+    x.to_parquet(out/'matrix.parquet',index=False,compression='zstd',compression_level=9)
     summary={'asof':asof,'four_year_start':str(bounds(asof)[0].date()),'rows':len(x),
        'current_scored':int(x.date.eq(pd.Timestamp(asof)).sum()),'minimum_turnover_INR':MIN_TURNOVER,
        'new_features':list(EXTRA),'new_row_fundamentals':'UNKNOWN_until_dated_original_filing',

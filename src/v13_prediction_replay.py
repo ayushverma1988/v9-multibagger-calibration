@@ -11,7 +11,7 @@ def snapshot(frame,scored,model_path,root,label):
     if inputs['isin'].duplicated().any():raise ValueError('Replay input identity conflict')
     predicted=scored.set_index('isin').loc[inputs['isin']]
     model_path=Path(model_path);head_sha=hashlib.sha256(model_path.read_bytes()).hexdigest()
-    buf=io.BytesIO();inputs.to_parquet(buf,index=False);raw=buf.getvalue()
+    buf=io.BytesIO();inputs.to_parquet(buf,index=False,compression='zstd',compression_level=9);raw=buf.getvalue()
     restored=pd.read_parquet(io.BytesIO(raw));heads=joblib.load(model_path)
     replay=model.probabilities(heads,restored)
     for name in ('p6','p12','loss12','joint12'):

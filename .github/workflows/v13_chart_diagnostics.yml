@@ -1,0 +1,136 @@
+name: V13 daily chart diagnostics
+on:
+  workflow_run:
+    workflows: [V13 NSE Research Collector and Learner]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v13_chart_diagnostics.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-chart-diagnostics
+  cancel-in-progress: false
+jobs:
+  chart:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Test both checkpoint formats and complete existing contracts
+        run: python -m unittest discover -s tests
+      - name: Stream and hash-check the completed collector artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SOURCE_WORKER_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+        run: |
+          python - <<'PYTHON'
+          import json,os,subprocess,requests
+          from pathlib import Path
+          from v13_archive_retention import download_artifact
+          repo=os.environ['GITHUB_REPOSITORY'];headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN']}
+          def get(path):
+              r=requests.get('https://api.github.com/repos/'+repo+path,headers=headers,timeout=(15,120));r.raise_for_status();return r.json()
+          run_id=os.environ.get('SOURCE_WORKER_RUN_ID')
+          if not run_id:
+              runs=get('/actions/workflows/v13_research_worker.yml/runs?branch=main&status=completed&per_page=20')['workflow_runs']
+              run_id=next(r['id'] for r in runs if r['conclusion']=='success')
+          artifacts=get(f'/actions/runs/{run_id}/artifacts')['artifacts']
+          artifact=next(a for a in artifacts if not a['expired'] and a['name']==f'v13-private-research-state-{run_id}')
+          download_artifact(artifact['id'],artifact['digest'],'worker.zip')
+          assert Path('worker.zip').stat().st_size==artifact['size_in_bytes']
+          Path('source_worker_run.json').write_text(json.dumps({'run_id':int(run_id),'artifact_id':artifact['id'],
+              'source_zip_bytes':artifact['size_in_bytes'],'source_zip_digest':artifact['digest'],
+              'chart_code':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()},indent=2))
+          PYTHON
+      - name: Export exact unchanged source bytes in bounded audit parts
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103'
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          out=Path('parts');out.mkdir();records=[];all_hash=hashlib.sha256();size=0
+          with Path('worker.zip').open('rb') as source:
+              for i in range(20):
+                  raw=source.read(480000000)
+                  if not raw:break
+                  name=f'part-{i:03d}.bin';(out/name).write_bytes(raw)
+                  all_hash.update(raw);size+=len(raw);records.append({'name':name,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()})
+              if source.read(1):raise ValueError('Artifact exceeds bounded part count')
+          original=json.loads(Path('source_worker_run.json').read_text())
+          assert 'sha256:'+all_hash.hexdigest()==original['source_zip_digest'] and size==original['source_zip_bytes']
+          (out/'receipt.json').write_text(json.dumps({'source':original,'parts':records,'unchanged_original_ZIP':True},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103'
+        with:
+          name: v13-evidence-part-000-${{ github.run_id }}
+          path: parts/part-000.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-001.bin') != ''
+        with:
+          name: v13-evidence-part-001-${{ github.run_id }}
+          path: parts/part-001.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-002.bin') != ''
+        with:
+          name: v13-evidence-part-002-${{ github.run_id }}
+          path: parts/part-002.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-003.bin') != ''
+        with:
+          name: v13-evidence-part-003-${{ github.run_id }}
+          path: parts/part-003.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-004.bin') != ''
+        with:
+          name: v13-evidence-part-004-${{ github.run_id }}
+          path: parts/part-004.bin
+          compression-level: 0
+          retention-days: 3
+      - name: Verify complete direct exports against the source manifest
+        run: python -m v13_worker_artifact --artifact worker.zip --output audit_exports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-verified-monitoring-exports-${{ github.run_id }}
+          path: |
+            source_worker_run.json
+            parts/receipt.json
+            audit_exports/
+          retention-days: 30
+      - name: Annotate frozen forecasts using exact saved histories
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python -m v13_chart_snapshot --artifact worker.zip --output chart_snapshot
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-chart-diagnostics-${{ github.run_id }}
+          path: |
+            source_worker_run.json
+            chart_snapshot/chart_interpretation/
+          retention-days: 30

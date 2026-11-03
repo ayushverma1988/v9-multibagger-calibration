@@ -7,13 +7,6 @@ on:
         description: 'Optional NSE trading date YYYY-MM-DD; blank = automatic IST date'
         required: false
         type: string
-  schedule:
-    - cron: '45 15 * * 1-5'
-  push:
-    branches: [ main ]
-    paths:
-      - '.github/workflows/v10_production_refresh_monitor.yml'
-
 concurrency:
   group: v10-production-refresh-monitor
   cancel-in-progress: true
@@ -258,3 +251,5 @@ jobs:
             --repo-id ayushverma1988/v10-multibagger-archive \
             --stage-dir hf_archive_stage \
             --market-ingest-dir nse_direct
+
+# Retired automatic V10/V11 archive writes for the user's V13-only cleanup, 3 Nov 2026.

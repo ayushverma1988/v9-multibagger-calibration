@@ -31,7 +31,8 @@ def recovery_raw_aliases(planned,scanned,base):
     return aliases
 
 def run(artifact,out):
-    from huggingface_hub import HfApi,hf_hub_download
+    from huggingface_hub import HfApi
+    from v13_archive_codec import archive_download as hf_hub_download
     from v13_recovery_restore import restore_artifact
     from v13_checkpoint import manifest,save,materialize_bundle
     import pandas as pd

@@ -57,7 +57,7 @@ def run(inputs,current,output,asof):
           'selected':len(chosen),'selected_median_return63':float(chosen.rd_return63.median()) if len(chosen) else None,
           'selected_extended':int(chosen.redevelopment_extension_status.eq('EXTENDED').sum()),
           'coherence_failures':int(((d.p6>d.p12+1e-12)|(d.joint12+d.loss12>1+1e-12)).sum())}
-    if len(historical):historical.to_parquet(out/'historical_scores.parquet',index=False)
+    if len(historical):historical.to_parquet(out/'historical_scores.parquet',index=False,compression='zstd',compression_level=9)
     fresh=rd.attach(pd.read_parquet(current),root/'history'/'securities')
     for variant in ('baseline','features_only','redeveloped'):
         heads,clock=rd.fit_heads(data,pd.Timestamp(asof),variant)
@@ -65,7 +65,7 @@ def run(inputs,current,output,asof):
         if not {'p6','p12','loss12','joint12'}<=pred.keys():raise ValueError('Incomplete current research heads')
         d=fresh.copy()
         for k,v in pred.items():d[k]=v
-        d,audit=rd.select(d);d.to_parquet(out/(variant+'_current.parquet'),index=False)
+        d,audit=rd.select(d);d.to_parquet(out/(variant+'_current.parquet'),index=False,compression='zstd',compression_level=9)
         joblib.dump(heads,out/(variant+'_research_heads.joblib'))
         summary[variant+'_current']={**audit,'training_clocks':clock,'model_sha256':hashlib.sha256((out/(variant+'_research_heads.joblib')).read_bytes()).hexdigest()}
     (out/'summary.json').write_text(json.dumps(summary,indent=2,allow_nan=False))

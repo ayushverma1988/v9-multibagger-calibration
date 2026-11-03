@@ -38,7 +38,7 @@ def run(matrix,output,asof):
             clocks.append({'date':str(pd.Timestamp(date).date()),'variant':name,**{k:head[k] for k in ['train_rows','cal_rows','train_maturity_max','cal_start','cal_maturity_max','features']},'feature_weights':head.get('feature_weights',{})})
         print('Evaluated',str(pd.Timestamp(date).date()),len(test),'eligible',int(pool.sum()),flush=True)
     if not outputs:raise ValueError('No maturity-purged folds')
-    scores=pd.concat(outputs,ignore_index=True);scores.to_parquet(out/'scores.parquet',index=False)
+    scores=pd.concat(outputs,ignore_index=True);scores.to_parquet(out/'scores.parquet',index=False,compression='zstd',compression_level=9)
     metrics={};folds=[]
     for name,g in scores.groupby('variant'):
         p=g[g.selected];m12=p[p.mature_date_12.le(asof)&p.hit2_12.isin([0,1])]

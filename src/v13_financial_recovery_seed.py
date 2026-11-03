@@ -39,7 +39,7 @@ def apply(root,path,asof):
         current=root/'financial_wide.parquet';fresh=financial_wide(pd.DataFrame(facts))
         if current.exists():combined,conflicts=union(pd.read_parquet(current),fresh)
         else:combined=fresh
-        combined.to_parquet(root/'financial_wide.parquet',index=False)
+        combined.to_parquet(root/'financial_wide.parquet',index=False,compression='zstd',compression_level=9)
         for name in ['accepted_filings.json','financial_parser_owner_v2.json']:
             p=root/name;prior=json.loads(p.read_text()) if p.exists() else []
             p.write_text(json.dumps(sorted(set(prior)|set(versions))))

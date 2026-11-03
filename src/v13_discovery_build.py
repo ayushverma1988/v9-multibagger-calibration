@@ -17,11 +17,11 @@ def run(matrix,current,events,history,output,coverage_end):
     e=e[e['isin'].isin(set(h['isin'])|set(c['isin']))&e.published_ts.ge('2022-01-01')].copy()
     print('Normalize events',len(e),flush=True);e,audit=hd.normalize(e)
     audit.update(archive_events=n,archive_sha256=sha_file(events),coverage_end=coverage_end)
-    e.to_parquet(out/'historical_metadata.parquet',index=False);(out/'event_audit.json').write_text(json.dumps(audit,indent=2))
+    e.to_parquet(out/'historical_metadata.parquet',index=False,compression='zstd',compression_level=9);(out/'event_audit.json').write_text(json.dumps(audit,indent=2))
     both=dd.attach(pd.concat([h.assign(frame_kind='history'),c.assign(frame_kind='current')],ignore_index=True),history)
     both=hd.attach(both,e,coverage_end)
     h=both[both.frame_kind.eq('history')].copy();c=both[both.frame_kind.eq('current')].copy()
-    h.to_parquet(out/'historical_enriched.parquet',index=False);c.to_parquet(out/'current_diagnostics.parquet',index=False)
+    h.to_parquet(out/'historical_enriched.parquet',index=False,compression='zstd',compression_level=9);c.to_parquet(out/'current_diagnostics.parquet',index=False,compression='zstd',compression_level=9)
     summary={'input_hashes':{str(p):sha_file(p) for p in [matrix,current,events]},'historical_rows':len(h),'current_rows':len(c),
       'historical_finite_rows':{k:int(h[k].notna().sum()) for k in hd.FEATURES},
       'historical_positive_rows':{k:int(h[k].gt(0).sum()) for k in hd.FEATURES},
