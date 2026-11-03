@@ -157,6 +157,12 @@ class VerifiedObjectDownloader:
                     if response.status_code in {408,425,500,502,503,504}:
                         last_error='HTTP '+str(response.status_code)
                         time.sleep(min(2**attempt,15));continue
+                    if response.status_code==404:
+                        from v13_archive_catalog import fetch_member
+                        from v13_archive_codec import decode_file
+                        compact=fetch_member(ARCHIVE,item['sha256'],self.token,self.folder/'compact',refresh=True)
+                        if compact:
+                            decode_file(compact,out,item['sha256'],item['bytes']);return out
                     if response.status_code!=200:raise RuntimeError('Private checkpoint resolver HTTP '+str(response.status_code))
                     temp=out.with_suffix('.part');digest=hashlib.sha256();size=0
                     with temp.open('wb') as target:

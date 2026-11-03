@@ -1,0 +1,133 @@
+name: V13 verify and finalize compact archive
+on:
+  workflow_run:
+    workflows: [V13 verified lossless archive conversion]
+    types: [completed]
+    branches: [storage/v13-lossless-compression-20261103]
+  workflow_dispatch:
+    inputs:
+      migration_run:
+        description: Successful verified storage migration run
+        required: true
+        default: '41616377732'
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  finalize:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONPATH: src
+      V13_COMPACT_ARCHIVE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '120'
+      HF_HUB_ETAG_TIMEOUT: '60'
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      MIGRATION_RUN: ${{ github.event.workflow_run.id || inputs.migration_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 78080dc14d5cd185be64d9143d2caf1c674a3efc
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Verify completed conversion before restoring the latest preserved worker
+        run: |
+          python - <<'PY'
+          import json,os,requests,zipfile
+          from pathlib import Path
+          from v13_archive_retention import download_artifact
+          repo=os.environ['GITHUB_REPOSITORY'];run=int(os.environ['MIGRATION_RUN'])
+          assert repo=='ayushverma1988/v9-multibagger-calibration'
+          headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          base='https://api.github.com/repos/'+repo
+          def get(path):
+              r=requests.get(base+path,headers=headers,timeout=(15,120));r.raise_for_status();return r.json()
+          info=get('/actions/runs/'+str(run))
+          assert info['conclusion']=='success' and info['head_branch']=='storage/v13-lossless-compression-20261103'
+          assert info['path']=='.github/workflows/v13_storage_migrate.yml'
+          artifacts=get('/actions/runs/'+str(run)+'/artifacts')['artifacts']
+          artifact=next(a for a in artifacts if a['name']==f'v13-storage-migration-receipt-{run}-{info["run_attempt"]}')
+          assert not artifact['expired']
+          download_artifact(artifact['id'],artifact['digest'],'migration.zip')
+          with zipfile.ZipFile('migration.zip') as z:receipt=json.loads(z.read('storage_migration_receipt.json'))
+          for key in ('completed','fresh_restart_verified','all_original_logical_bytes_verified',
+            'frozen_model_and_forecast_bytes_unchanged','all_dated_manifests_retained'):assert receipt[key] is True
+          assert receipt['original_manifest_sha256']=='2f3e347ab9d0e9e902de8bab2769a1e3188db8077f55712fcaf97b90c7a6568f'
+          Path('finalize_output').mkdir(exist_ok=True)
+          Path('finalize_output/storage_migration_receipt.json').write_text(json.dumps(receipt,indent=2))
+          # Fixed artifact identity: never select an older or unrelated state.
+          download_artifact(13194288694,'57aee3445d9e629b8d7f785dd1b601f68910f8da9be8d9b6766b4be2c9be4bd4','worker.zip')
+          PY
+      - name: Publish exact preserved forecasts and verify a fresh permanent restart
+        run: python -u -m v13_archive_flush --artifact worker.zip --out finalize_output
+      - name: Apply restart-cache retention only after verified publication
+        run: python -m v13_storage_retention
+      - name: Record completion and advance recovery floor after successful readback
+        run: |
+          python - <<'PY'
+          import base64,json,os,requests
+          from pathlib import Path
+          from datetime import datetime,timezone
+          from huggingface_hub import HfApi
+          from v13_archive_cleanup import ARCHIVE,value
+          repo=os.environ['GITHUB_REPOSITORY'];assert repo=='ayushverma1988/v9-multibagger-calibration'
+          base='https://api.github.com/repos/'+repo
+          headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          def request(method,path,**kwargs):
+              r=requests.request(method,base+path,headers=headers,timeout=(15,120),**kwargs);r.raise_for_status();return r.json()
+          flush=json.loads(Path('finalize_output/flush_receipt.json').read_text())
+          assert flush['remote_publication_confirmed'] and flush['fresh_restart_verified']
+          assert flush['all_forecast_and_model_bytes_unchanged'] and flush['source_worker_run']==41547044971
+          migration=json.loads(Path('finalize_output/storage_migration_receipt.json').read_text())
+          retention=json.loads(Path('v13_storage_retention_receipt.json').read_text())
+          info=HfApi(token=os.environ['HF_ARCHIVE_TOKEN']).repo_info(ARCHIVE,repo_type='dataset',expand=['usedStorage','sha'])
+          report={**migration,'latest_preserved_worker_permanently_published':True,
+            'source_worker_run':41547044971,'recovery_floor':41547044971,
+            'latest_manifest_sha256':flush['archive_receipt']['manifest_sha256'],
+            'post_publication_fresh_restart_verified':True,'forecast_records':flush['forecast_records'],
+            'provider_used_storage_after_latest_publication':value(info,'used_storage'),
+            'retention':retention,'finalizer_run':os.environ['GITHUB_RUN_ID'],
+            'finalized_at_utc':datetime.now(timezone.utc).isoformat()}
+          Path('finalize_output/final_storage_receipt.json').write_text(json.dumps(report,indent=2))
+          source='78080dc14d5cd185be64d9143d2caf1c674a3efc'
+          # One compare-and-swap Git update preserves concurrent public health writes.
+          for attempt in range(4):
+              head=request('GET','/git/ref/heads/main')['object']['sha']
+              parent=request('GET','/git/commits/'+head);tree=[]
+              for entry in request('GET','/contents/.github/workflows?ref='+head):
+                  if not entry['name'].startswith('v13_') or not entry['name'].endswith('.yml'):continue
+                  content=request('GET','/contents/'+entry['path']+'?ref='+head)
+                  before=base64.b64decode(content['content']).decode();after=before.replace('ref: 1d1e588082a24e1224447e47eea4296f9b76a26b','ref: '+source)
+                  if entry['name']=='v13_research_worker.yml':
+                      assert "V13_COMPACT_ARCHIVE: '1'" in after and 'ref: '+source in after
+                      assert "V13_RECOVERY_FLUSHED_THROUGH_RUN: '0'" in after or "V13_RECOVERY_FLUSHED_THROUGH_RUN: '41547044971'" in after
+                      after=after.replace("V13_RECOVERY_FLUSHED_THROUGH_RUN: '0'","V13_RECOVERY_FLUSHED_THROUGH_RUN: '41547044971'")
+                  if before!=after:tree.append({'path':entry['path'],'mode':'100644','type':'blob','content':after})
+              tree.append({'path':'operational/v13_storage_migration_health.json','mode':'100644','type':'blob','content':json.dumps(report,indent=2)})
+              created=request('POST','/git/trees',json={'base_tree':parent['tree']['sha'],'tree':tree})
+              commit=request('POST','/git/commits',json={'message':'Finalize verified compact V13 archive and resume current-data collection','tree':created['sha'],'parents':[head]})
+              current=request('GET','/git/ref/heads/main')['object']['sha']
+              if current!=head:continue
+              response=requests.patch(base+'/git/refs/heads/main',headers=headers,json={'sha':commit['sha'],'force':False},timeout=(15,120))
+              if response.status_code==200:break
+              if response.status_code not in (409,422):response.raise_for_status()
+          else:raise RuntimeError('Main changed repeatedly; final publication is verified but workflow recovery floor needs a fresh retry')
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-storage-finalization-${{ github.run_id }}
+          path: |
+            finalize_output/*receipt.json
+            v13_storage_retention_receipt.json
+          retention-days: 90
