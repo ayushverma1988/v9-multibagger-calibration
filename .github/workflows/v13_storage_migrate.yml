@@ -16,7 +16,7 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const old = 41607716274;
+            const old = 41610464945;
             if (old === context.runId) throw new Error('Cannot supersede this run');
             const run = (await github.rest.actions.getWorkflowRun({...context.repo,run_id:old})).data;
             if (run.status !== 'completed') await github.rest.actions.cancelWorkflowRun({...context.repo,run_id:old});
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 345e252b43ad7527e540043806e03f707c33d92e
+          ref: 78080dc14d5cd185be64d9143d2caf1c674a3efc
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
