@@ -38,6 +38,10 @@ jobs:
           result={'repositories':rows,'private_storage_bytes':sum(r['storage_bytes'] or 0 for r in rows if r['visibility']=='private'),
             'account_wide_counter_restricted':restricted,'credential_role':who.get('auth',{}).get('accessToken',{}).get('role'),
             'archive_head':info.sha,'archive_used_storage':getattr(info,'used_storage',getattr(info,'usedStorage',None)),'read_only':True}
+          grants=who.get('auth',{}).get('accessToken',{}).get('fineGrained',{})
+          result['credential_permission_metadata_keys']=list(grants)
+          result['credential_global_permissions']=grants.get('global',[])
+          result['credential_scoped_repositories']=[{'name':s.get('entity',{}).get('name'),'permissions':s.get('permissions',[])} for s in grants.get('scoped',[])]
           Path('overview.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
           PY
       - uses: actions/upload-artifact@v4
