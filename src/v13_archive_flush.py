@@ -15,6 +15,21 @@ def assert_same_members(expected,actual):
     if member_identity(expected)!=member_identity(actual):
         raise ValueError('Recovery publication would change original checkpoint members')
 
+def recovery_raw_aliases(planned,scanned,base):
+    expected=member_identity(planned);actual=member_identity(scanned)
+    extra=set(actual)-set(expected)
+    changed={p for p in set(actual)&set(expected) if actual[p]!=expected[p]}
+    if extra or changed:
+        raise ValueError(f'Restored checkpoint has {len(extra)} extra and {len(changed)} changed members')
+    known={(r['sha256'],r['bytes']) for r in base['files'] if r['raw_source']}
+    aliases=[]
+    for item in planned['files']:
+        if item['path'] in actual:continue
+        if not item['raw_source'] or (item['sha256'],item['bytes']) not in known:
+            raise ValueError('Missing recovery member is not an existing raw-source alias')
+        aliases.append(item)
+    return aliases
+
 def run(artifact,out):
     from huggingface_hub import HfApi,hf_hub_download
     from v13_recovery_restore import restore_artifact
@@ -34,7 +49,9 @@ def run(artifact,out):
     def receipt():(out/'flush_receipt.json').write_text(json.dumps(result,indent=2))
     receipt();result['restore']=restore_artifact(artifact,root,fetch);receipt()
     planned=json.loads((root/'pending_checkpoint_manifest.json').read_text())
-    assert_same_members(planned,manifest(root))
+    aliases=recovery_raw_aliases(planned,manifest(root),json.loads(base))
+    assert_same_members(planned,manifest(root,preserved_raw_aliases=aliases))
+    result['preserved_existing_raw_aliases']=len(aliases);receipt()
     if hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest()!=CHAMPION:
         raise ValueError('Frozen champion differs from reviewed state')
     result['forecast_records']=len(pd.read_parquet(root/'prospective_observations.parquet'))
@@ -42,7 +59,7 @@ def run(artifact,out):
     result['fixed_champion_sha256']=CHAMPION;receipt()
     # No collection, scoring, model fitting or historical outcome updates occur.
     (out/'v13_archive_capacity.json').unlink(missing_ok=True)
-    try:published=save(root)
+    try:published=save(root,preserved_raw_aliases=aliases)
     except Exception as exc:
         result['failure_type']=type(exc).__name__
         result['http_status']=getattr(getattr(exc,'response',None),'status_code',None)

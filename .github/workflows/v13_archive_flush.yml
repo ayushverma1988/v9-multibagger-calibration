@@ -1,4 +1,5 @@
 name: V13 publish verified pending checkpoint after archive cleanup
+# Preserve already archived raw-source aliases during exact recovery publication.
 on:
   push:
     branches: [maintenance/v13-archive-cleanup-20261103]
