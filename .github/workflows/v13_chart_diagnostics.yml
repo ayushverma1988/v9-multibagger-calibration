@@ -18,7 +18,7 @@ jobs:
   chart:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PYTHONPATH: src
       OMP_NUM_THREADS: '2'
@@ -26,17 +26,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 5b11d398e302c059dc1f71b9171b72020cb1e963
+          ref: adcd30ee1fa7445a9b74aff9211e612cee93f32e
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install -r requirements_v12_frozen.txt -r requirements_v11_4_systematic.txt 'huggingface_hub>=0.34,<2'
-      - name: Read the completed collector artifact
+      - name: Test both checkpoint formats and complete existing contracts
+        run: python -m unittest discover -s tests
+      - name: Read and hash-check the completed collector artifact
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const crypto = require('crypto');
+            const {execFileSync} = require('child_process');
             let run_id = context.payload.workflow_run?.id;
             if (!run_id) {
               const runs = await github.rest.actions.listWorkflowRuns({...context.repo,workflow_id:'v13_research_worker.yml',branch:'main',status:'completed',per_page:20});
@@ -48,8 +52,75 @@ jobs:
             const artifact = artifacts.data.artifacts.find(a => a.name === `v13-private-research-state-${run_id}` && !a.expired);
             if (!artifact) throw new Error('Completed collector artifact unavailable');
             const download = await github.rest.actions.downloadArtifact({...context.repo,artifact_id:artifact.id,archive_format:'zip'});
-            fs.writeFileSync('worker.zip',Buffer.from(download.data));
-            fs.writeFileSync('source_worker_run.json',JSON.stringify({run_id,artifact_id:artifact.id,chart_code:'5b11d398e302c059dc1f71b9171b72020cb1e963'},null,2));
+            const bytes = Buffer.from(download.data);
+            const digest = 'sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
+            if (digest !== artifact.digest || bytes.length !== artifact.size_in_bytes) throw new Error('Collector artifact integrity mismatch');
+            fs.writeFileSync('worker.zip',bytes);
+            fs.writeFileSync('source_worker_run.json',JSON.stringify({run_id,artifact_id:artifact.id,source_zip_bytes:bytes.length,source_zip_digest:digest,chart_code:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},null,2));
+      - name: Export exact unchanged source bytes in bounded audit parts
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103'
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          out=Path('parts');out.mkdir();records=[];all_hash=hashlib.sha256();size=0
+          with Path('worker.zip').open('rb') as source:
+              for i in range(20):
+                  raw=source.read(480000000)
+                  if not raw:break
+                  name=f'part-{i:03d}.bin';(out/name).write_bytes(raw)
+                  all_hash.update(raw);size+=len(raw);records.append({'name':name,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()})
+              if source.read(1):raise ValueError('Artifact exceeds bounded part count')
+          original=json.loads(Path('source_worker_run.json').read_text())
+          assert 'sha256:'+all_hash.hexdigest()==original['source_zip_digest'] and size==original['source_zip_bytes']
+          (out/'receipt.json').write_text(json.dumps({'source':original,'parts':records,'unchanged_original_ZIP':True},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103'
+        with:
+          name: v13-evidence-part-000-${{ github.run_id }}
+          path: parts/part-000.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-001.bin') != ''
+        with:
+          name: v13-evidence-part-001-${{ github.run_id }}
+          path: parts/part-001.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-002.bin') != ''
+        with:
+          name: v13-evidence-part-002-${{ github.run_id }}
+          path: parts/part-002.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-003.bin') != ''
+        with:
+          name: v13-evidence-part-003-${{ github.run_id }}
+          path: parts/part-003.bin
+          compression-level: 0
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: github.ref_name == 'fix/v13-recovery-chart-20261103' && hashFiles('parts/part-004.bin') != ''
+        with:
+          name: v13-evidence-part-004-${{ github.run_id }}
+          path: parts/part-004.bin
+          compression-level: 0
+          retention-days: 3
+      - name: Verify complete direct exports against the source manifest
+        run: python -m v13_worker_artifact --artifact worker.zip --output audit_exports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-verified-monitoring-exports-${{ github.run_id }}
+          path: |
+            source_worker_run.json
+            parts/receipt.json
+            audit_exports/
+          retention-days: 30
       - name: Annotate frozen forecasts using exact saved histories
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
