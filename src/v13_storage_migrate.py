@@ -230,6 +230,12 @@ def run(plan,out,max_groups=None):
             completed_batches+=1;result['completed_batches_this_attempt']=completed_batches
             result['remaining_batches']=len(plans)-completed_batches;result['head']=expected;receipt()
             shutil.rmtree(batch_work)
+            if completed_batches%50==0:
+                api.super_squash_history(ARCHIVE,repo_type='dataset',branch='main',
+                  commit_message='Preserve verified dated data while retiring superseded uncompressed storage history')
+                expected=api.repo_info(ARCHIVE,repo_type='dataset').sha
+                result['intermediate_history_prunes']=result.get('intermediate_history_prunes',0)+1
+                result['head']=expected;receipt()
             if completed_batches%5==0:
                 print(json.dumps({k:result[k] for k in ['converted_original_objects','converted_original_bytes','compact_pack_bytes','completed_batches_this_attempt']}),flush=True)
                 publish_progress(result)
