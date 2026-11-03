@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d4f465a9d40157bb8fec03e6a81716746c636bf7
+          ref: d956428203daed4ca0517242b99de0fd7141bba4
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -55,6 +55,14 @@ jobs:
               if (digest !== a.digest) throw new Error('Previous worker artifact hash mismatch');
               fs.writeFileSync('previous_worker.zip',bytes);
               const members=execFileSync('unzip',['-Z1','previous_worker.zip'],{encoding:'utf8'}).trim().split('\n');
+              if (members.includes('archive_receipt.json')) {
+                const receipt=JSON.parse(execFileSync('unzip',['-p','previous_worker.zip','archive_receipt.json'],{encoding:'utf8'}));
+                if (receipt.snapshot && receipt.manifest_sha256) {
+                  fs.unlinkSync('previous_worker.zip');
+                  fs.writeFileSync('previous_worker_receipt.json',JSON.stringify({run_id:run.id,artifact_id:a.id,digest,status:'REMOTE_CHECKPOINT_PUBLISHED_USE_ARCHIVE_RESTORE'},null,2));
+                  break;
+                }
+              }
               if (!members.includes('v13_checkpoint_recovery.json')) {
                 fs.unlinkSync('previous_worker.zip');
                 continue;
@@ -69,6 +77,15 @@ jobs:
           if [ -f previous_worker.zip ]; then
             python -m v13_recovery_restore --artifact previous_worker.zip --state v13_state
           fi
+      - name: Retry durable archive saves after authorised storage cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          # This file is a quota-status marker, not data. Try once per worker;
+          # a real quota error re-enables the existing verified recovery mode.
+          Path('v13_archive_capacity.json').unlink(missing_ok=True)
+          print('Retrying durable archive publication; verified quota fallback remains enabled')
+          PY
       - name: Run resumable whole-public-NSE research worker
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}

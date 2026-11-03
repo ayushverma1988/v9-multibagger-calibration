@@ -22,12 +22,22 @@ def validate_object(item):
     from v13_checkpoint_packs import validate_pack_member
     validate_pack_member(item)
 
-def manifest(root):
+def manifest(root,preserved_raw_aliases=()):
     root=Path(root);old=root/'remote_manifest.json'
     prior=json.loads(old.read_text())['files'] if old.exists() else []
     for item in prior:validate_object(item)
     known={r['sha256']:r for r in prior}
     files={r['path']:r for r in prior}
+    # Recovery deltas store new hashes. A raw source can acquire another
+    # pathname while its hash already exists remotely, without local bytes.
+    for item in preserved_raw_aliases:
+        validate_object(item);rel=Path(item['path']);stored=known.get(item['sha256'])
+        if (not item['raw_source'] or not is_raw(rel) or rel.is_absolute() or '..' in rel.parts
+            or not stored or not stored['raw_source'] or stored['bytes']!=item['bytes']):
+            raise ValueError('Recovery raw alias lacks a preserved original object')
+        if item['path'] in files and files[item['path']]['sha256']!=item['sha256']:
+            raise ValueError('Recovery raw alias would replace an existing source')
+        files[item['path']]={**stored,'path':item['path'],'raw_source':True}
     for p in sorted(root.rglob('*')):
         if not p.is_file() or p.name in {'state_manifest.json','remote_manifest.json',
             'pending_checkpoint_manifest.json','recovery_restore_receipt.json'}:continue
@@ -184,13 +194,13 @@ def restore(root):
     print('Checkpoint restore completed',json.dumps({'method':method,'files':count,'seconds':round(time.monotonic()-started,2)}),flush=True)
     return True
 
-def save(root):
+def save(root,preserved_raw_aliases=()):
     from huggingface_hub import HfApi,CommitOperationAdd
     from v13_checkpoint_writes import MAX_BATCH,UploadProgress,spec,write,recovery_delta
     from v13_checkpoint_packs import MAX_PACK_BYTES,build_packs
     root=Path(root);token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
     if not api.repo_info(ARCHIVE,repo_type='dataset').private:raise RuntimeError('Checkpoint archive must be private')
-    data=manifest(root);old=root/'remote_manifest.json'
+    data=manifest(root,preserved_raw_aliases);old=root/'remote_manifest.json'
     base_raw=old.read_bytes() if old.exists() else json.dumps({'format':'V13-content-addressed-checkpoint-1','files':[]}).encode()
     previous=json.loads(base_raw)
     known={r['sha256'] for r in previous['files']}
