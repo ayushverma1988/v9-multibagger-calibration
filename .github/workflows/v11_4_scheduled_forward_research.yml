@@ -2,13 +2,7 @@ name: V11.4 Scheduled Private NSE Forward Research
 # Main-branch scheduler. A GitHub cron on a non-default branch DOES NOT RUN.
 # 16:15 UTC = 21:45 Asia/Kolkata (no DST). Safety gate blocks weekends and pre-21:00 manual runs.
 on:
-  schedule:
-    - cron: '15 16 * * 1-5'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/v11_4_scheduled_forward_research.yml
 permissions:
   actions: read
   contents: read
@@ -129,3 +123,5 @@ jobs:
             'still_missing_metrics':provenance['fields_still_fully_missing']},indent=2))
           print('Actual stock names and probabilities saved in private HF, not public GitHub.')
           PY
+
+# Retired automatic V10/V11 archive writes for the user's V13-only cleanup, 3 Nov 2026.

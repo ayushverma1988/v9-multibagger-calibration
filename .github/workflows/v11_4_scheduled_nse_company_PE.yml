@@ -2,13 +2,7 @@ name: V11.4 Daily Private Original NSE Company Valuation Companion
 # 16:30 UTC = 22:00 IST Mon-Fri, and skip weekends or too-early manual dispatch. Provenance-only
 # workflow from immutable V11.4 model predictions and its 15:30 PIT clock.
 on:
-  schedule:
-    - cron: '30 16 * * 1-5'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/v11_4_scheduled_nse_company_PE.yml
 permissions:
   contents: read
   actions: read
@@ -94,3 +88,5 @@ jobs:
           python src/v11_4_archive_peer_proxy_private.py \
             --source afterclose_industry_PE_peer_and_market_size_RESEARCH \
             --asof "$TODAY" --out staging_private_sector_research
+
+# Retired automatic V10/V11 archive writes for the user's V13-only cleanup, 3 Nov 2026.
