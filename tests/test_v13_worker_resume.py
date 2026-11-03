@@ -37,3 +37,19 @@ class WorkerRecoverySelection(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'hash mismatch'):self.scenario(t,[(3,{'v13_checkpoint_recovery.json':{}})],bad=True)
             r,calls,path=self.scenario(t,[(3,{'v13_checkpoint_recovery.json':{}})],floor=3)
             self.assertEqual(calls,[]);self.assertFalse(path.exists())
+
+class PermanentRecoveryFloor(unittest.TestCase):
+    def test_partial_conversion_cannot_skip_pending_backup(self):
+        from v13_worker_resume import verified_recovery_floor
+        for report in ({},{'completed':True},{'phase':'WAIT_PROVIDER_RATE_LIMIT'}):
+            self.assertEqual(verified_recovery_floor(report),0)
+
+    def test_only_verified_publication_and_matching_worker_advance_floor(self):
+        from v13_worker_resume import verified_recovery_floor
+        proof={'completed':True,'latest_preserved_worker_permanently_published':True,
+          'post_publication_fresh_restart_verified':True,'recovery_floor':41547044971,
+          'source_worker_run':41547044971,'latest_manifest_sha256':'a'*64}
+        self.assertEqual(verified_recovery_floor(proof),41547044971)
+        for change in ({'completed':False},{'post_publication_fresh_restart_verified':False},
+          {'recovery_floor':41547044972},{'recovery_floor':True},{'latest_manifest_sha256':'bad'}):
+            with self.assertRaises(ValueError):verified_recovery_floor({**proof,**change})
