@@ -1,8 +1,9 @@
 """Safely finish retired-byte reclamation and measure lossless compression."""
-import argparse,hashlib,json,os,time,zipfile
+import argparse,hashlib,json,os,time,zipfile,threading
 from pathlib import Path
 from collections import Counter
 from v13_archive_cleanup import ARCHIVE,OWNER,value,root_fingerprint
+_downloads=threading.local()
 
 def batch_actions(api,files):
     import requests
@@ -24,10 +25,11 @@ def download_action(action,path,digest,size):
     from urllib.parse import urlparse
     url=action['href']
     if urlparse(url).scheme!='https':raise ValueError('Insecure archive transfer URL')
+    if not hasattr(_downloads,'session'):_downloads.session=requests.Session()
     for attempt in range(5):
         h=hashlib.sha256();total=0
         try:
-            with requests.get(url,headers=action.get('header',{}),stream=True,timeout=(15,120)) as response:
+            with _downloads.session.get(url,headers=action.get('header',{}),stream=True,timeout=(15,120)) as response:
                 code=response.status_code
                 if code in {408,425,429,500,502,503,504}:
                     delay=response.headers.get('Retry-After','')

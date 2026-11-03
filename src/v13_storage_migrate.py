@@ -127,6 +127,7 @@ def run(plan,out,max_groups=None):
     prefixes=defaultdict(list)
     for item in groups.values():prefixes[item['sha'][:2]].append(item)
     completed_batches=0
+    pool=ThreadPoolExecutor(max_workers=24)
     for prefix,items in sorted(prefixes.items()):
         known=prefix_rows(ARCHIVE,prefix,token,refresh=True)
         todo=[]
@@ -152,7 +153,7 @@ def run(plan,out,max_groups=None):
                 p=work/(item['sha']+'.source');physical=item['physical']
                 download_action(actions[physical['lfs_sha256']],p,physical['lfs_sha256'],physical['bytes'])
                 q=work/(item['sha']+'.original');decode_file(p,q,item['sha'],item['bytes']);p.unlink();return q
-            with ThreadPoolExecutor(max_workers=16) as pool:inputs=list(pool.map(download,batch))
+            inputs=list(pool.map(download,batch))
             raw_pack=work/'pack.raw'
             with raw_pack.open('wb') as dest:
                 for source in inputs:
@@ -192,8 +193,9 @@ def run(plan,out,max_groups=None):
             if completed_batches%10==0:
                 print(json.dumps({k:result[k] for k in ['converted_original_objects','converted_original_bytes','compact_pack_bytes','completed_batches_this_attempt']}),flush=True)
                 publish_progress(result)
-            if max_groups and completed_batches>=max_groups:return result
+            if max_groups and completed_batches>=max_groups:pool.shutdown();return result
         if (work/'resume').exists():shutil.rmtree(work/'resume')
+    pool.shutdown()
     # Preserve every dated manifest's original decoded bytes; compress metadata
     # and any individual object larger than the bounded source-pack size in place.
     result['phase']='COMPRESS_DATED_METADATA';receipt();publish_progress(result)
