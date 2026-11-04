@@ -164,3 +164,4 @@ jobs:
 
 # Resume the remaining data queue after the authorised status check.
 
+# Retry existing bounded collection after independently verified 4 November 2026 provider recovery.
