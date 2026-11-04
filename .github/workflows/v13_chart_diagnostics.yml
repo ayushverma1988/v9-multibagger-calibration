@@ -129,6 +129,65 @@ jobs:
             parts/receipt.json
             audit_exports/
           retention-days: 30
+      - name: Independently verify a fresh published compact restart
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          V13_DECODED_CACHE: checkpoint_verify_decoded
+        run: |
+          python - <<'PYTHON'
+          import hashlib,json,os
+          from pathlib import Path
+          from datetime import datetime,timezone
+          from v13_checkpoint import restore,ARCHIVE
+          from v13_archive_codec import archive_download
+          from v13_worker_artifact import read_manifest
+          manifest,receipt,manifest_raw=read_manifest('worker.zip')
+          if receipt.get('remote_publication_confirmed',True) is not True:
+              result={'status':'UNPUBLISHED_RECOVERY_NO_REMOTE_RESTART_CERTIFICATION',
+                  'source_manifest_sha256':receipt['manifest_sha256'],'full_raw_source_pool_verified':False}
+          else:
+              root=Path('independent_restart')
+              if root.exists():raise ValueError('Fresh restart directory already exists')
+              if not restore(root):raise ValueError('Published checkpoint was not restored')
+              restored=(root/'remote_manifest.json').read_bytes()
+              if hashlib.sha256(restored).hexdigest()!=receipt['manifest_sha256']:
+                  raise ValueError('Remote latest checkpoint differs from completed worker; requires separate audit')
+              active=[r for r in manifest['files'] if not r['raw_source']]
+              for item in active:
+                  p=root/item['path']
+                  if not p.is_file() or p.stat().st_size!=item['bytes']:
+                      raise ValueError('Fresh restored file length differs from exact manifest')
+                  if hashlib.file_digest(p.open('rb'),'sha256').hexdigest()!=item['sha256']:
+                      raise ValueError('Fresh restored file digest differs from exact manifest')
+              protected=['active_heads.joblib','challenger/research_heads.joblib','active_model.json',
+                  'prospective_observations.parquet','champion_latest_watchlist.json','challenger_latest_watchlist.json']
+              index={r['path']:r for r in active};protected_checks=[]
+              for rel in protected:
+                  if rel not in index:raise ValueError('Frozen head or ledger absent from published checkpoint')
+                  protected_checks.append({'path':rel,'sha256':index[rel]['sha256'],'bytes':index[rel]['bytes']})
+              reported=[
+                  'v13/object_shards/7d/d2/7dd22cc265ac276fd54f8bb2488aa64fd199c51541c58eebff84756e40a71987.bin',
+                  'v13/object_shards/80/e0/80e05681ad2d6b0f4a55ac7e11511528bc19229baf486dc0084b27e1edef9ad8.bin',
+                  'v13/storage_index/2026/11/03/4ac8906e2571695aaa86eb397b6fc68ecfb2c2bea3c2430fbbdec442cb4b62f7.parquet',
+                  'v13/storage_index/2026/11/03/04736e22d25ffddc78d7ff3b8a584d19d57a79a2deff73313d13c598beea8a13.parquet']
+              probes=[]
+              for path in reported:
+                  try:
+                      p=Path(archive_download(ARCHIVE,path,repo_type='dataset',token=os.environ['HF_ARCHIVE_TOKEN'],force_download=True))
+                      sha=hashlib.file_digest(p.open('rb'),'sha256').hexdigest()
+                      canonical=Path(path).stem if path.endswith('.bin') else None
+                      if canonical and sha!=canonical:raise ValueError('Historical logical object digest differs')
+                      probes.append({'path':path,'status':'LOGICAL_BYTES_READ','bytes':p.stat().st_size,'sha256':sha})
+                  except Exception as exc:
+                      probes.append({'path':path,'status':'UNVERIFIED','error_type':type(exc).__name__})
+              result={'status':'FRESH_PUBLISHED_RESTART_VERIFIED','source_manifest_sha256':receipt['manifest_sha256'],
+                  'snapshot':receipt['snapshot'],'restored_derived_files':len(active),
+                  'protected_files':protected_checks,'reported_migration_path_read_checks':probes,
+                  'full_raw_source_pool_verified':False,'archive_writes':False,'forecasts_changed':False}
+          result['checked_at_utc']=datetime.now(timezone.utc).isoformat()
+          Path('checkpoint_restart_verification.json').write_text(json.dumps(result,indent=2))
+          print(json.dumps(result,indent=2))
+          PYTHON
       - name: Annotate frozen forecasts using exact saved histories
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
@@ -140,4 +199,5 @@ jobs:
           path: |
             source_worker_run.json
             chart_snapshot/chart_interpretation/
+            checkpoint_restart_verification.json
           retention-days: 30
