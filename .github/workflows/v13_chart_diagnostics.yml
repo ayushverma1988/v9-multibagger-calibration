@@ -36,6 +36,10 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements_v13_storage.txt
       - name: Test both checkpoint formats and complete existing contracts
+        env:
+          # Legacy fixtures mock an uncompressed archive; compact-storage tests
+          # enable their mode explicitly. Keep production compact I/O enabled.
+          V13_COMPACT_ARCHIVE: '0'
         run: python -m unittest discover -s tests
       - name: Stream and hash-check the completed collector artifact
         env:
