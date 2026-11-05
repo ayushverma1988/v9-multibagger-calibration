@@ -101,6 +101,9 @@ def archive_download(repo_id,filename,**kwargs):
         if not canonical or not isinstance(exc,EntryNotFoundError):raise
         from v13_archive_catalog import fetch_member
         found=fetch_member(repo_id,canonical.group(1),kwargs.get('token'),refresh=True)
+        if found is None:
+            from v13_working_archive import fetch_by_sha
+            found=fetch_by_sha(repo_id,canonical.group(1),kwargs.get('token'))
         if found is None:raise
         return found
     base=kwargs.get('cache_dir')

@@ -65,7 +65,7 @@ jobs:
         with:
           name: v13-compact-working-core-${{ github.run_id }}
           path: |
-            core_output/V13_Compact_Working_Core_*.zip
+            core_output/*.zip
             core_output/core_build_receipt.json
           compression-level: 0
           retention-days: 90

@@ -16,21 +16,33 @@ def object_path(digest):
     return f'v13/object_shards/{digest[:2]}/{digest[2:4]}/{digest}.bin'
 
 def validate_object(item):
+    if item.get('codec')=='V13_WORKING_CORE_ZIP':
+        from v13_working_archive import validate_core
+        validate_core(item);return
     digest=item['sha256'];sharded=object_path(digest)
     if item['object_path'] not in {sharded,'v13/objects/'+digest+'.bin'}:
         raise ValueError('Object identity mismatch')
     from v13_checkpoint_packs import validate_pack_member
     validate_pack_member(item)
+    if item.get('storage_core'):
+        from v13_working_archive import validate_core
+        validate_core(item['storage_core'])
 
 def manifest(root,preserved_raw_aliases=()):
     root=Path(root);old=root/'remote_manifest.json'
-    prior=json.loads(old.read_text())['files'] if old.exists() else []
+    old_data=json.loads(old.read_text()) if old.exists() else {}
+    prior=old_data.get('files',[])
+    from v13_working_archive import enabled as working_core_enabled
+    core_mode=working_core_enabled(old_data)
+    if core_mode:prior=[r for r in prior if not r['raw_source']]
+    del old_data
     for item in prior:validate_object(item)
     known={r['sha256']:r for r in prior}
     files={r['path']:r for r in prior}
     # Recovery deltas store new hashes. A raw source can acquire another
     # pathname while its hash already exists remotely, without local bytes.
     for item in preserved_raw_aliases:
+        if core_mode:raise ValueError('Retired raw-source aliases cannot be republished into working-only storage')
         validate_object(item);rel=Path(item['path']);stored=known.get(item['sha256'])
         if (not item['raw_source'] or not is_raw(rel) or rel.is_absolute() or '..' in rel.parts
             or not stored or not stored['raw_source'] or stored['bytes']!=item['bytes']):
@@ -41,17 +53,32 @@ def manifest(root,preserved_raw_aliases=()):
     for p in sorted(root.rglob('*')):
         if not p.is_file() or p.name in {'state_manifest.json','remote_manifest.json',
             'pending_checkpoint_manifest.json','recovery_restore_receipt.json'}:continue
-        rel=str(p.relative_to(root));digest=hashlib.sha256(p.read_bytes()).hexdigest()
+        rel=str(p.relative_to(root))
+        if core_mode and is_raw(rel):continue
+        from v13_archive_codec import sha_file
+        digest=sha_file(p)
         stored=known.get(digest,{})
         files[rel]={'path':rel,'sha256':digest,'bytes':p.stat().st_size,'object_path':stored.get('object_path',object_path(digest)),'raw_source':is_raw(rel),
-          **{k:stored[k] for k in ('storage_pack','pack_offset') if k in stored}}
-    return {'format':'V13-content-addressed-checkpoint-1','saved_at_utc':datetime.now(timezone.utc).isoformat(),'files':sorted(files.values(),key=lambda r:r['path'])}
+          **{k:stored[k] for k in ('storage_pack','pack_offset','storage_core') if k in stored}}
+    return {'format':'V13-content-addressed-checkpoint-4' if core_mode else 'V13-content-addressed-checkpoint-1','saved_at_utc':datetime.now(timezone.utc).isoformat(),'files':sorted(files.values(),key=lambda r:r['path'])}
 
 def object_bytes(item,fetch):
     validate_object(item)
+    if item.get('storage_core'):
+        from v13_working_archive import read_member
+        return read_member(item,fetch)
     if item.get('storage_pack'):
         from v13_checkpoint_packs import read_member
-        return read_member(item,fetch)
+        try:return read_member(item,fetch)
+        except Exception as exc:
+            from huggingface_hub.errors import EntryNotFoundError
+            if not isinstance(exc,EntryNotFoundError):raise
+            from v13_working_archive import fetch_by_sha
+            found=fetch_by_sha(ARCHIVE,item['sha256'],os.environ.get('HF_ARCHIVE_TOKEN'))
+            if found is None:raise
+            raw=Path(found).read_bytes()
+            if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Working-core alias differs from original packed member')
+            return raw
     raw=Path(fetch(item['object_path'])).read_bytes()
     if len(raw)!=item['bytes'] or hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Checkpoint object integrity failure')
     return raw
@@ -79,6 +106,9 @@ def build_derived_bundle(root,data,path):
       'files':len(active),'uncompressed_bytes':sum(r['bytes'] for r in active)}
 
 def materialize_bundle(bundle,data,root,fetch):
+    if bundle.get('codec')=='V13_WORKING_CORE_ZIP':
+        from v13_working_archive import materialize_core
+        return materialize_core(bundle,data,root,fetch)
     validate_object(bundle)
     try:source=Path(fetch(bundle['object_path']))
     except Exception as exc:
@@ -114,7 +144,8 @@ class VerifiedObjectDownloader:
     def __init__(self,items,folder,token,requests_per_second=8):
         self.items={}
         for item in items:
-            validate_object(item);physical=item.get('storage_pack') or item
+            validate_object(item);physical=item.get('storage_core') or item.get('storage_pack') or item
+            if item.get('storage_core'):physical={**physical,'codec':'V13_WORKING_CORE_ZIP'}
             key=physical['object_path'];previous=self.items.get(key)
             if previous and (previous['sha256']!=physical['sha256'] or previous['bytes']!=physical['bytes']):
                 raise ValueError('Conflicting checkpoint physical identity')
@@ -126,7 +157,7 @@ class VerifiedObjectDownloader:
         from v13_archive_catalog import fetch_member
         from v13_archive_codec import decode_file,enabled
         item=self.items[path]
-        compact=fetch_member(ARCHIVE,item['sha256'],self.token,self.folder/'compact') if enabled() else None
+        compact=fetch_member(ARCHIVE,item['sha256'],self.token,self.folder/'compact') if enabled() and item.get('codec')!='V13_WORKING_CORE_ZIP' else None
         if compact:
             out=self.folder/(item['sha256']+'.bin')
             if not out.exists():decode_file(compact,out,item['sha256'],item['bytes'])
@@ -206,7 +237,7 @@ def restore(root):
         from v13_runner import verify_manifest
         verify_manifest(root);return True
     data=json.loads(Path(path).read_text())
-    if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2','V13-content-addressed-checkpoint-3'}:raise ValueError('Unknown private checkpoint format')
+    if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2','V13-content-addressed-checkpoint-3','V13-content-addressed-checkpoint-4'}:raise ValueError('Unknown private checkpoint format')
     root.mkdir(parents=True,exist_ok=True)
     active=[r for r in data['files'] if not r['raw_source']]
     # Original source objects remain immutable in the private archive. They
@@ -236,6 +267,10 @@ def save(root,preserved_raw_aliases=()):
     from v13_checkpoint_packs import MAX_PACK_BYTES,build_packs
     root=Path(root);token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
     if not api.repo_info(ARCHIVE,repo_type='dataset').private:raise RuntimeError('Checkpoint archive must be private')
+    from v13_working_archive import enabled as working_core_enabled,save as save_working_core
+    previous_path=root/'remote_manifest.json'
+    if working_core_enabled(json.loads(previous_path.read_text()) if previous_path.exists() else None):
+        return save_working_core(root,api)
     data=manifest(root,preserved_raw_aliases);old=root/'remote_manifest.json'
     base_raw=old.read_bytes() if old.exists() else json.dumps({'format':'V13-content-addressed-checkpoint-1','files':[]}).encode()
     previous=json.loads(base_raw)

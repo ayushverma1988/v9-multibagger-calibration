@@ -1,0 +1,26 @@
+name: V13 working-only archive contract
+on:
+  push:
+    branches: [storage/v13-working-only-20261105]
+    paths: ['src/v13*.py', 'tests/test_v13*.py', '.github/workflows/v13_working_archive_contract.yml']
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      V13_COMPACT_ARCHIVE: '0'
+      V13_WORKING_CORE_ARCHIVE: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - run: python -m unittest discover -s tests

@@ -141,6 +141,7 @@ jobs:
           from v13_checkpoint import restore,ARCHIVE
           from v13_archive_codec import archive_download
           from v13_worker_artifact import read_manifest
+          from v13_working_archive import migration_matches
           manifest,receipt,manifest_raw=read_manifest('worker.zip')
           if receipt.get('remote_publication_confirmed',True) is not True:
               result={'status':'UNPUBLISHED_RECOVERY_NO_REMOTE_RESTART_CERTIFICATION',
@@ -150,7 +151,9 @@ jobs:
               if root.exists():raise ValueError('Fresh restart directory already exists')
               if not restore(root):raise ValueError('Published checkpoint was not restored')
               restored=(root/'remote_manifest.json').read_bytes()
-              if hashlib.sha256(restored).hexdigest()!=receipt['manifest_sha256']:
+              published=json.loads(restored)
+              same_manifest=hashlib.sha256(restored).hexdigest()==receipt['manifest_sha256']
+              if not same_manifest and not migration_matches(manifest_raw,published):
                   raise ValueError('Remote latest checkpoint differs from completed worker; requires separate audit')
               active=[r for r in manifest['files'] if not r['raw_source']]
               for item in active:
@@ -172,6 +175,8 @@ jobs:
                   'v13/storage_index/2026/11/03/04736e22d25ffddc78d7ff3b8a584d19d57a79a2deff73313d13c598beea8a13.parquet']
               probes=[]
               for path in reported:
+                  if published.get('format')=='V13-content-addressed-checkpoint-4':
+                      probes.append({'path':path,'status':'RETIRED_BY_USER_APPROVED_WORKING_ONLY_POLICY'});continue
                   try:
                       p=Path(archive_download(ARCHIVE,path,repo_type='dataset',token=os.environ['HF_ARCHIVE_TOKEN'],force_download=True))
                       sha=hashlib.file_digest(p.open('rb'),'sha256').hexdigest()
@@ -182,6 +187,8 @@ jobs:
                       probes.append({'path':path,'status':'UNVERIFIED','error_type':type(exc).__name__})
               result={'status':'FRESH_PUBLISHED_RESTART_VERIFIED','source_manifest_sha256':receipt['manifest_sha256'],
                   'snapshot':receipt['snapshot'],'restored_derived_files':len(active),
+                  'published_manifest_sha256':hashlib.sha256(restored).hexdigest(),
+                  'storage_migration_bridge_verified':not same_manifest,
                   'protected_files':protected_checks,'reported_migration_path_read_checks':probes,
                   'full_raw_source_pool_verified':False,'archive_writes':False,'forecasts_changed':False}
           result['checked_at_utc']=datetime.now(timezone.utc).isoformat()

@@ -16,7 +16,7 @@ def record_file(item):
       'blob_id':value(item,'blob_id'),'lfs_sha256':value(lfs,'sha256')}
 
 def reference(item):
-    pack=item.get('storage_pack')
+    pack=item.get('storage_core') or item.get('storage_pack')
     r=pack if pack else item
     return {'path':r['object_path'],'sha256':r['sha256'],'bytes':r['bytes']}
 
@@ -64,7 +64,7 @@ def inspect_archive(repo,files,download,out,encodings=None,catalog=None):
     for name in sorted(names):
         raw=Path(download(name)).read_bytes();digest=hashlib.sha256(raw).hexdigest()
         data=json.loads(raw)
-        if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2','V13-content-addressed-checkpoint-3'}:
+        if data.get('format') not in {'V13-content-addressed-checkpoint-1','V13-content-addressed-checkpoint-2','V13-content-addressed-checkpoint-3','V13-content-addressed-checkpoint-4'}:
             raise ValueError('Unsupported V13 manifest '+name)
         (out/'manifests').mkdir(exist_ok=True)
         (out/'manifests'/Path(name).name).write_bytes(raw)
