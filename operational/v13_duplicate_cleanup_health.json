@@ -1,0 +1,12 @@
+{
+  "checked_at_utc": "2026-11-05T04:18:52.744328+00:00",
+  "scope": "VERIFIED_DUPLICATE_DERIVED_CACHES_ONLY",
+  "provider_bytes_before": 46113528355,
+  "provider_bytes_after": 42726791813,
+  "provider_bytes_freed": 3386736542,
+  "obsolete_cache_objects_purged": 6,
+  "raw_evidence_deleted": false,
+  "dated_versions_deleted": false,
+  "fresh_restore_before_and_after": true,
+  "protected_hashes_unchanged": true
+}
