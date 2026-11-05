@@ -1,0 +1,71 @@
+name: V13 verify compact working core below one GB
+on:
+  push:
+    branches: [storage/v13-one-gb-core-20261105]
+    paths:
+      - '.github/workflows/v13_one_gb_core.yml'
+      - 'src/v13_compact_core.py'
+      - 'src/v13_core_restore.py'
+      - 'tests/test_v13_compact_core.py'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      V13_COMPACT_ARCHIVE: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - run: python -m unittest discover -s tests
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: v13-private-research-state
+      cancel-in-progress: false
+    env:
+      PYTHONPATH: src
+      V13_COMPACT_ARCHIVE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '120'
+      HF_HUB_ETAG_TIMEOUT: '60'
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      SOURCE_WORKER_RUN: '41921839880'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Stream and verify the latest published worker
+        run: |
+          python - <<'PY'
+          from v13_archive_retention import download_artifact
+          download_artifact(13373780517,'38eaa36c8564db2f5fd97ef664d78b3b32cb7009b33e30c5004a5eab9883ead0','worker.zip')
+          PY
+      - name: Build and independently restore every original working-state byte
+        run: python -u -m v13_compact_core --worker worker.zip --out core_output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-compact-working-core-${{ github.run_id }}
+          path: |
+            core_output/V13_Compact_Working_Core_*.zip
+            core_output/core_build_receipt.json
+          compression-level: 0
+          retention-days: 90
