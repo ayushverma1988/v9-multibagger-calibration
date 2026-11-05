@@ -1,0 +1,40 @@
+{
+  "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103",
+  "source_asof": "2026-11-04",
+  "RSI_rule": "strict >70; simple rolling 14 sessions",
+  "price_band": null,
+  "DMA_band_optional": true,
+  "ranking_weights": {
+    "p6_percentile": 0.7,
+    "joint12_percentile": 0.25,
+    "optional_dma200": 0.05
+  },
+  "ranking_score_is_probability": false,
+  "accuracy_approved": false,
+  "model_retrained": false,
+  "frozen_probabilities_changed": false,
+  "unsupported_24month_probability_invented": false,
+  "eligible": 34,
+  "selected": 25,
+  "loss_ceiling_sensitivity": {
+    "0.95": 34,
+    "0.8": 34,
+    "0.7": 34,
+    "0.6": 33,
+    "0.5": 26
+  },
+  "default_loss_ceiling_unchanged": 0.95,
+  "historical_validation_required_before_model_promotion": true,
+  "completed_at_utc": "2026-11-05T17:41:52.279191+00:00",
+  "workflow_run": "42076628454",
+  "execution": "FROZEN_MODEL_EXECUTED_ON_LATEST_SAVED_INPUTS",
+  "new_source_collection": false,
+  "market_rows": 712,
+  "public_universe_rows": 3211,
+  "maximum_output_difference_from_saved_forecasts": 1.1102230246251565e-16,
+  "post_cleanup_restore_verified": true,
+  "model_sha256": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
+  "input_parquet_sha256": "f2044b1a8f38ee74a7c1718dc974c428acf33bba626b999567bb0b3e46dc3ac9",
+  "archive_writes": false,
+  "frozen_forecasts_changed": false
+}
