@@ -39,6 +39,7 @@
   "local_package_hash_and_zip_crc_verified": true,
   "entire_historical_archive_under_one_gb": false,
   "source_archive_latest_reported_bytes": 44951519660,
-  "status": "WORKING_CORE_BELOW_ONE_GB_VERIFIED_FULL_ARCHIVE_RETAINED",
-  "archive_replacement_authorized": false
+  "status": "APPROVED_COMPACT_REPLACEMENT_PREPARING",
+  "archive_replacement_authorized": true,
+  "compatible_source": "2302ced5fcf4f41a64264154d71682bf9eab9cf0"
 }

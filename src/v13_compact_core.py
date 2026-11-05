@@ -16,6 +16,7 @@ def build_core(root, manifest_raw, output, source_asof, source_worker, level=12,
     import zstandard as zstd
     from v13_core_restore import restore_package
     data = json.loads(manifest_raw);root = Path(root);output = Path(output)
+    working_only=data.get('storage_policy',{}).get('mode')=='WORKING_CORE_ONLY'
     output.mkdir(parents=True, exist_ok=True)
     active = [r for r in data['files'] if not r['raw_source']]
     raw_count = sum(r['raw_source'] for r in data['files'])
@@ -47,9 +48,16 @@ def build_core(root, manifest_raw, output, source_asof, source_worker, level=12,
         'codec':'zstandard', 'compression_level':level, 'target_bytes':target_bytes,
         'raw_source_references_retained_in_manifest':raw_count,
         'raw_source_originals_included_in_core':False, 'historical_evidence_archive_deleted':False,
-        'numeric_precision_changed':False, 'frozen_forecasts_or_model_bytes_changed':False}
-    name=f'V13_Compact_Working_Core_{source_asof}.zip';package = output/name
+        'numeric_precision_changed':False, 'frozen_forecasts_or_model_bytes_changed':False,
+        'original_evidence_policy':'OWNER_APPROVED_RETIREMENT' if working_only else 'SEPARATE_SOURCE_ARCHIVE'}
+    name=f'V13_Working_Archive_{source_asof}.zip' if working_only else f'V13_Compact_Working_Core_{source_asof}.zip'
+    package = output/name
     restore_source = Path(__file__).with_name('v13_core_restore.py').read_text()
+    evidence_note=('Original raw-source bodies are not retained under the owner-approved working-only policy.\n'
+      'The archive_provenance directory records retired source references and capture hashes.\n'
+      'This reduces historical auditability and does not claim all original evidence remains.\n') if working_only else (
+      'Raw-source bodies are excluded from this package and remain in the separate source archive.\n'
+      'Creating this package does not reduce that archive\'s total storage usage.\n')
     readme = f'''V13 compact working checkpoint — source {source_asof}
 
 Contains EVERY {len(active):,} non-raw working-state file from the source checkpoint,
@@ -58,11 +66,11 @@ histories and retained derived research records. Every file is checked against
 its original SHA-256 and length. Numeric values and precision are unchanged.
 
 The full original source manifest is included inside the compressed payload.
-The {raw_count:,} raw-evidence references remain recorded there, but their source
-documents and responses are NOT included in this working package. They remain
-in the original private archive. This package is not the complete historical
-evidence archive and creating it does not reduce that archive's total usage.
-Further evidence audits or source refreshes may still need that archive/network.
+There are {raw_count:,} raw-body references in this package's checkpoint manifest.
+Original source bodies are NOT included in the working package.
+{evidence_note}
+Further evidence audits or source refreshes may require new network downloads;
+previous original bytes cannot be assumed to remain available.
 
 Restore to a NEW directory using Python 3.12 with zstandard==0.25.0 installed:
   python restore_core.py {name} --out v13_state

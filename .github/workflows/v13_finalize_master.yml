@@ -1,6 +1,7 @@
 name: V13 two-source missing financial input recovery
 env:
   V13_COMPACT_ARCHIVE: '1'
+  V13_WORKING_CORE_ARCHIVE: '1'
   HF_HUB_DOWNLOAD_TIMEOUT: '120'
 on:
   workflow_dispatch:
@@ -24,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 4ffb17d2c6fee803ff9e314342351662ae056cd8
+          ref: 2302ced5fcf4f41a64264154d71682bf9eab9cf0
           persist-credentials: false
       - uses: actions/checkout@v4
         with:

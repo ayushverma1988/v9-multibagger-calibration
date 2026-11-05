@@ -27,6 +27,10 @@ def retention(out='v13_storage_retention_receipt.json'):
     from v13_checkpoint_writes import spec,write
     token=os.environ['HF_ARCHIVE_TOKEN'];api=HfApi(token=token)
     if not api.repo_info(ARCHIVE,repo_type='dataset').private:raise ValueError('Private V13 archive required')
+    latest_probe=json.loads(Path(archive_download(ARCHIVE,'v13/state/latest_manifest.json',repo_type='dataset',token=token,force_download=True)).read_text())
+    if latest_probe.get('format')=='V13-content-addressed-checkpoint-4':
+        from v13_working_archive import retire
+        return retire(out,purge=True)
     p=archive_download(ARCHIVE,'v13/storage/restart_caches.json',repo_type='dataset',token=token,force_download=True)
     inventory=json.loads(Path(p).read_text())
     if inventory.get('format')!='V13-restart-cache-inventory-1':raise ValueError('Invalid restart inventory')

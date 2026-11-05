@@ -5,7 +5,8 @@ from v13_checkpoint import manifest
 from v13_checkpoint_writes import recovery_delta
 
 def is_storage_limit(exc):
-    return 'private storage limit reached' in str(exc).lower()
+    text=str(exc).lower()
+    return 'private storage limit reached' in text or 'working core exceeded one-gb target' in text
 
 def recovery_checkpoint(root):
     root=Path(root);base=root/'remote_manifest.json'
