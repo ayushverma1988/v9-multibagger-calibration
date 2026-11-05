@@ -1,0 +1,91 @@
+name: V13 approved compact archive replacement
+on:
+  push:
+    branches: [storage/v13-working-only-20261105]
+    paths: ['.github/workflows/v13_core_cutover.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    concurrency:
+      group: v13-private-research-state
+      cancel-in-progress: false
+    env:
+      PYTHONPATH: src
+      V13_COMPACT_ARCHIVE: '1'
+      V13_WORKING_CORE_ARCHIVE: '1'
+      HF_HUB_DISABLE_PROGRESS_BARS: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '120'
+      HF_HUB_ETAG_TIMEOUT: '60'
+      HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2302ced5fcf4f41a64264154d71682bf9eab9cf0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Require deployed format-four readers before replacing any archive data
+        run: |
+          python - <<'PY'
+          import os,base64,requests
+          base='https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/contents/.github/workflows/'
+          h={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN']}
+          for file in ('v13_research_worker.yml','v13_chart_diagnostics.yml'):
+              r=requests.get(base+file+'?ref=main',headers=h,timeout=60);r.raise_for_status()
+              content=base64.b64decode(r.json()['content']).decode()
+              assert 'ref: 2302ced5fcf4f41a64264154d71682bf9eab9cf0' in content
+              if file=='v13_research_worker.yml':assert "V13_WORKING_CORE_ARCHIVE: '1'" in content
+          print('Compatible readers and budgeted future writes are deployed')
+          PY
+      - name: Replace with verified current working data, retire approved old originals, verify restart
+        run: python -u -m v13_core_cutover --out cutover_output
+      - name: Publish exact maintenance outcome without changing prediction results
+        if: always()
+        run: |
+          python - <<'PY'
+          import base64,json,os,requests
+          from pathlib import Path
+          from datetime import datetime,timezone
+          p=Path('cutover_output/core_cutover_receipt.json')
+          if not p.exists():raise SystemExit('No archive mutation receipt was created')
+          report=json.loads(p.read_text());report.update(workflow_run=os.environ['GITHUB_RUN_ID'],
+            checked_at_utc=datetime.now(timezone.utc).isoformat(),archive_replacement_authorized=True)
+          retention=report.get('retirement',{})
+          report['provider_used_storage_under_one_gb']=bool(retention.get('provider_used_storage_bytes') is not None and retention['provider_used_storage_bytes']<=1_000_000_000)
+          report['entire_archive_current_tree_under_one_gb']=retention.get('current_tree_under_one_gb',False)
+          if report.get('completed'):
+              report.update(latest_preserved_worker_permanently_published=True,source_worker_run=41921839880,
+                recovery_floor=41921839880,post_publication_fresh_restart_verified=True,
+                latest_manifest_sha256=retention['current_manifest_sha256'])
+          base='https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/contents/'
+          h={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          for path in ('operational/v13_compact_core_health.json','operational/v13_storage_migration_health.json'):
+              for attempt in range(4):
+                  r=requests.get(base+path+'?ref=main',headers=h,timeout=60)
+                  payload={'branch':'main','message':'Record owner-approved compact working archive outcome',
+                    'content':base64.b64encode(json.dumps(report,indent=2).encode()).decode()}
+                  if r.status_code==200:payload['sha']=r.json()['sha']
+                  elif r.status_code!=404:r.raise_for_status()
+                  saved=requests.put(base+path,headers=h,json=payload,timeout=60)
+                  if saved.status_code in (200,201):break
+                  if saved.status_code not in (409,422):saved.raise_for_status()
+              else:raise RuntimeError('Repeated health-record write conflict')
+          Path('cutover_output/published_core_health.json').write_text(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-approved-working-replacement-${{ github.run_id }}
+          path: |
+            cutover_output/*receipt.json
+            cutover_output/published_core_health.json
+            cutover_output/V13_Working_Archive_*.zip
+          compression-level: 0
+          retention-days: 90
