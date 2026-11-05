@@ -1,0 +1,93 @@
+name: V13 verified duplicate cache cleanup
+on:
+  push:
+    paths: ['.github/workflows/v13_verified_duplicate_cleanup.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Verify retained state and remove only disposable duplicate caches
+        env:
+          PYTHONPATH: src
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, hashlib
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from huggingface_hub import HfApi
+          from huggingface_hub.hf_api import RepoFile
+          from v13_archive_cleanup import ARCHIVE, value
+          from v13_archive_codec import archive_download, sha_file
+          from v13_checkpoint import restore
+          from v13_storage_retention import retention
+          token=os.environ['HF_ARCHIVE_TOKEN']; api=HfApi(token=token)
+          def load(path):
+              return json.loads(Path(archive_download(ARCHIVE,path,repo_type='dataset',token=token,force_download=True)).read_text())
+          latest=load('v13/state/latest_manifest.json')
+          if latest.get('format')=='V13-content-addressed-checkpoint-4':
+              raise ValueError('Working-only retirement is outside duplicate-only cleanup; no deletion performed')
+          refs=api.list_repo_refs(ARCHIVE,repo_type='dataset')
+          if [r.name for r in refs.branches]!=['main'] or refs.tags:
+              raise ValueError('Additional archive references require inspection; no deletion performed')
+          inventory=load('v13/storage/restart_caches.json')
+          if inventory.get('format')!='V13-restart-cache-inventory-1':
+              raise ValueError('Unrecognized cache inventory')
+          before_info=api.repo_info(ARCHIVE,repo_type='dataset',expand=['usedStorage','sha'])
+          before=value(before_info,'used_storage')
+          if not restore(Path('verified_before')):
+              raise ValueError('Fresh pre-cleanup restore failed')
+          protected=['active_heads.joblib','challenger/research_heads.joblib','prospective_observations.parquet']
+          hashes={p:sha_file(Path('verified_before')/p) for p in protected}
+          # The legacy retention routine only retires derived caches, retaining two.
+          retention()
+          updated=load('v13/storage/restart_caches.json')
+          retired=[r for r in updated['bundles'] if not r.get('cached') and r.get('kind')=='DERIVED_RESTART_CACHE' and not r.get('ever_referenced_as_member')]
+          candidates={r.get('sha256') for r in retired if isinstance(r.get('sha256'),str)}
+          files=[r for r in api.list_repo_tree(ARCHIVE,repo_type='dataset',recursive=True) if isinstance(r,RepoFile)]
+          live={value(value(r,'lfs'),'sha256') for r in files if value(r,'lfs')}
+          # Purge only inventoried cache identities that no retained tree path uses.
+          doomed=[]
+          for obj in api.list_lfs_files(ARCHIVE,repo_type='dataset'):
+              oid=value(obj,'file_oid',value(obj,'oid'))
+              if isinstance(oid,str):
+                  oid=oid.removeprefix('sha256:')
+                  if oid in candidates and oid not in live: doomed.append(obj)
+          if doomed:
+              api.permanently_delete_lfs_files(ARCHIVE,doomed,repo_type='dataset',rewrite_history=False)
+          if not restore(Path('verified_after')):
+              raise ValueError('Post-cleanup restore failed')
+          for p,h in hashes.items():
+              if sha_file(Path('verified_after')/p)!=h: raise ValueError('Protected state changed')
+          after=value(api.repo_info(ARCHIVE,repo_type='dataset',expand=['usedStorage','sha']),'used_storage')
+          report={'checked_at_utc':datetime.now(timezone.utc).isoformat(),'scope':'VERIFIED_DUPLICATE_DERIVED_CACHES_ONLY','provider_bytes_before':before,'provider_bytes_after':after,'provider_bytes_freed':None if before is None or after is None else before-after,'obsolete_cache_objects_purged':len(doomed),'raw_evidence_deleted':False,'dated_versions_deleted':False,'fresh_restore_before_and_after':True,'protected_hashes_unchanged':True}
+          Path('duplicate_cleanup_receipt.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-duplicate-cleanup-receipt
+          path: |
+            duplicate_cleanup_receipt.json
+            v13_storage_retention_receipt.json
+      - name: Publish cleanup receipt
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs=require('fs');const path='operational/v13_duplicate_cleanup_health.json';
+            let sha;try{sha=(await github.rest.repos.getContent({...context.repo,path,ref:'main'})).data.sha;}catch(e){if(e.status!==404)throw e;}
+            await github.rest.repos.createOrUpdateFileContents({...context.repo,path,branch:'main',sha,message:'Record verified duplicate-only cleanup',content:Buffer.from(fs.readFileSync('duplicate_cleanup_receipt.json')).toString('base64')});
