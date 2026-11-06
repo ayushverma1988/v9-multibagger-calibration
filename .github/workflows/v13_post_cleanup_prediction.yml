@@ -1,4 +1,4 @@
-name: V13 post-cleanup prediction run
+name: V13 latest verified data prediction
 on:
   push:
     branches: [main]
@@ -6,8 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: read
 concurrency:
-  group: v13-private-research-state
+  group: v13-readonly-latest-prediction
   cancel-in-progress: false
 jobs:
   predict:
@@ -17,81 +18,103 @@ jobs:
       PYTHONPATH: src
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
-      V13_COMPACT_ARCHIVE: '1'
-      V13_WORKING_CORE_ARCHIVE: '1'
-      HF_HUB_DOWNLOAD_TIMEOUT: '120'
+      MINIMUM_SOURCE_DATE: '2026-11-06'
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 2302ced5fcf4f41a64264154d71682bf9eab9cf0
+          ref: c85197168b28445e81c52ee326d2fe9fadb7b856
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install -r requirements_v13_storage.txt
-      - name: Restore cleaned archive and execute frozen model on latest exact inputs
+      - name: Download and verify newest completed collection and execute fixed model
         env:
-          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python - <<'PY'
           import hashlib,io,json,os
           from datetime import datetime,timezone
           from pathlib import Path
-          import joblib,numpy as np,pandas as pd
-          from huggingface_hub import HfApi
-          from v13_checkpoint import restore,ARCHIVE
+          import requests,joblib,numpy as np,pandas as pd
+          from v13_archive_retention import download_artifact
+          from v13_worker_artifact import audit_exports
           from v13_model import probabilities
           from v13_available_financials import export as export_available
           from v13_priority_research import export as export_priority
-          api=HfApi(token=os.environ['HF_ARCHIVE_TOKEN']);before=api.repo_info(ARCHIVE,repo_type='dataset').sha
-          root=Path('restored_state')
-          if not restore(root): raise ValueError('Cleaned V13 archive cannot restore')
+          repo=os.environ['GITHUB_REPOSITORY']
+          headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          def get(path):
+              r=requests.get('https://api.github.com/repos/'+repo+path,headers=headers,timeout=(15,90))
+              r.raise_for_status();return r.json()
+          runs=get('/actions/workflows/v13_research_worker.yml/runs?branch=main&status=completed&per_page=20')['workflow_runs']
+          source=next(r for r in runs if r['conclusion']=='success')
+          source_id=source['id']
+          artifact=next(a for a in get(f'/actions/runs/{source_id}/artifacts')['artifacts']
+            if not a['expired'] and a['name']==f'v13-private-research-state-{source_id}')
+          download_artifact(artifact['id'],artifact['digest'],'source_worker.zip')
+          if Path('source_worker.zip').stat().st_size!=artifact['size_in_bytes']:
+              raise ValueError('Source artifact size mismatch')
+          export_audit=audit_exports('source_worker.zip','verified_source')
+          if export_audit.get('remote_publication_confirmed') is not True:
+              raise ValueError('Source checkpoint was not durably published')
+          root=Path('verified_source/v13_state')
           report=json.loads((root/'latest_run.json').read_text())
+          if str(report['workflow_run'])!=str(source_id): raise ValueError('Source report came from a different worker')
+          if report['asof']<os.environ['MINIMUM_SOURCE_DATE']:
+              raise ValueError('Newest completed collection is older than requested source date')
           receipt=report['exact_prediction_replay']['champion']
           folder=root/'prediction_replay'/receipt['input_parquet_sha256']
           raw=(folder/'inputs.parquet').read_bytes()
-          if hashlib.sha256(raw).hexdigest()!=receipt['input_parquet_sha256']: raise ValueError('Input hash mismatch')
+          if hashlib.sha256(raw).hexdigest()!=receipt['input_parquet_sha256']:raise ValueError('Input hash mismatch')
           model_path=root/'active_heads.joblib'
-          if hashlib.sha256(model_path.read_bytes()).hexdigest()!=receipt['model_sha256']: raise ValueError('Model hash mismatch')
+          if hashlib.sha256(model_path.read_bytes()).hexdigest()!=receipt['model_sha256']:raise ValueError('Model hash mismatch')
           saved_raw=(folder/('champion_'+receipt['receipt_sha256']+'.json')).read_bytes()
-          if hashlib.sha256(saved_raw).hexdigest()!=receipt['receipt_sha256']: raise ValueError('Saved exact prediction receipt mismatch')
+          if hashlib.sha256(saved_raw).hexdigest()!=receipt['receipt_sha256']:raise ValueError('Saved exact prediction receipt mismatch')
           saved=json.loads(saved_raw);frame=pd.read_parquet(io.BytesIO(raw))
-          if frame['isin'].tolist()!=saved['isins']: raise ValueError('Input order mismatch')
-          output=probabilities(joblib.load(model_path),frame)
-          max_error=0.
+          if frame['isin'].tolist()!=saved['isins']:raise ValueError('Input identity/order mismatch')
+          dates=set(pd.to_datetime(frame.date).dt.strftime('%Y-%m-%d'))
+          if dates!={report['asof']}:raise ValueError('Mixed or stale prediction input dates')
+          if len(frame)!=report['current_verified_market_rows']:raise ValueError('Scored coverage mismatch')
+          output=probabilities(joblib.load(model_path),frame);max_error=0.
           for key in ('p6','p12','loss12','joint12'):
               a=np.asarray(output[key],float);b=np.asarray(saved['probabilities'][key],float)
               if not np.isfinite(a).all() or not np.allclose(a,b,atol=1e-12,rtol=0):
                   raise ValueError('Frozen model output mismatch: '+key)
-              max_error=max(max_error,float(np.max(np.abs(a-b))))
-              frame[key]=a
+              max_error=max(max_error,float(np.max(np.abs(a-b))));frame[key]=a
           wide=pd.read_parquet(root/'financial_wide.parquet')
           export_available(frame,wide,root,receipt)
           summary=export_priority(frame,wide,root,receipt)
           out=Path('prediction_output');out.mkdir()
-          for source in ('priority_research/latest.json','priority_research/latest.md','available_financial_research/latest.json'):
-              target=out/source;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes((root/source).read_bytes())
+          for name in ('priority_research/latest.json','priority_research/latest.md','available_financial_research/latest.json',
+                       'champion_latest_watchlist.json','challenger_latest_watchlist.json'):
+              p=root/name
+              if p.exists():
+                  target=out/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(p.read_bytes())
           records=json.loads((root/'priority_research/latest.json').read_text())['records']
-          pd.DataFrame(records).to_csv(out/'V13_25_Candidates.csv',index=False)
+          pd.DataFrame(records).to_csv(out/('V13_Candidates_'+report['asof']+'.csv'),index=False)
           result={**summary,'completed_at_utc':datetime.now(timezone.utc).isoformat(),'workflow_run':os.environ['GITHUB_RUN_ID'],
-            'execution':'FROZEN_MODEL_EXECUTED_ON_LATEST_SAVED_INPUTS','new_source_collection':False,
+            'execution':'FIXED_MODEL_EXECUTED_ON_NEWEST_COMPLETED_VERIFIED_COLLECTION',
+            'source_worker_run':source_id,'source_worker_completed_at':source['updated_at'],
+            'source_artifact_id':artifact['id'],'source_artifact_digest':artifact['digest'],
+            'direct_exports_verified':export_audit['direct_exports_verified'],
+            'source_manifest_sha256':export_audit['source_manifest_sha256'],
             'market_rows':len(frame),'public_universe_rows':report['public_universe_rows'],
-            'maximum_output_difference_from_saved_forecasts':max_error,'post_cleanup_restore_verified':True,
+            'maximum_output_difference_from_registered_forecasts':max_error,
             'model_sha256':receipt['model_sha256'],'input_parquet_sha256':receipt['input_parquet_sha256'],
             'archive_writes':False,'frozen_forecasts_changed':False}
-          if api.repo_info(ARCHIVE,repo_type='dataset').sha!=before: raise ValueError('Source archive advanced during inference')
           (out/'run_receipt.json').write_text(json.dumps(result,indent=2))
           print(json.dumps(result,indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: v13-post-cleanup-predictions
+          name: v13-latest-verified-predictions
           path: prediction_output/
           retention-days: 30
       - name: Publish aggregate execution receipt
         uses: actions/github-script@v7
         with:
           script: |
-            const fs=require('fs');const path='operational/v13_post_cleanup_prediction_health.json';
+            const fs=require('fs');const path='operational/v13_latest_prediction_health.json';
             let sha;try{sha=(await github.rest.repos.getContent({...context.repo,path,ref:'main'})).data.sha;}catch(e){if(e.status!==404)throw e;}
-            await github.rest.repos.createOrUpdateFileContents({...context.repo,path,branch:'main',sha,message:'Record post-cleanup V13 inference verification',content:Buffer.from(fs.readFileSync('prediction_output/run_receipt.json')).toString('base64')});
+            await github.rest.repos.createOrUpdateFileContents({...context.repo,path,branch:'main',sha,message:'Record V13 execution on newest verified collection',content:Buffer.from(fs.readFileSync('prediction_output/run_receipt.json')).toString('base64')});
