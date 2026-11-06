@@ -252,6 +252,7 @@ def universe(root,asof):
     def record(status):
         audit.write_text(json.dumps({'source_asof':asof,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
           'status':status,'attempts':attempts,'identity_checks_relaxed':False,
+          'same_day_original_recovery_used':any(a.get('same_day_original_recovery',False) for a in attempts),
           'previous_universe_used_as_current':False},indent=2))
     for url in (NSE_MASTER,NSE_SME_MASTER):
         for number in range(1,4):
@@ -268,12 +269,28 @@ def universe(root,asof):
                   'error':type(exc).__name__,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
                   'transient':retryable,'will_retry':will_retry})
                 record('RETRYING_TRANSIENT_FETCH' if will_retry else 'SOURCE_FETCH_FAILED')
-                if not will_retry:raise
-                print('Public NSE universe transient fetch; retrying',url,'attempt',number+1,'of 3',flush=True)
-                time.sleep(number)
-                continue
+                if will_retry:
+                    print('Public NSE universe transient fetch; retrying',url,'attempt',number+1,'of 3',flush=True)
+                    time.sleep(number)
+                    continue
+                # Only transport exhaustion permits a same-day original. An
+                # earlier malformed identity response also blocks recovery.
+                if not retryable or any(a['url']==url and a['status']=='REJECTED' for a in attempts):raise
+                from v13_universe_recovery import captured_master
+                try:
+                    recovered=captured_master(url,asof,store.folder)
+                except Exception as recovery_error:
+                    attempts.append({'url':url,'status':'RECOVERY_REJECTED','error':str(recovery_error)[:200]})
+                    record('RECOVERY_REJECTED')
+                    raise
+                if recovered is None:raise
+                raw,proof=recovered
+                print('Using independently captured same-day original NSE master',url,proof['sha256'],flush=True)
             attempt={'url':url,'attempt':number,'source_sha256':proof['sha256'],
               'retrieved_at_utc':proof['first_retrieved_utc'],'bytes':len(raw)}
+            if proof.get('same_day_original_recovery'):
+                attempt.update({k:proof[k] for k in ('same_day_original_recovery','recovery_used_at_utc',
+                  'independently_reverified_utc','remote_refetched_by_this_worker','recovery_manifest_sha256')})
             try:
                 frame=parse_nse_master(raw)
             except ValueError as exc:
