@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 2302ced5fcf4f41a64264154d71682bf9eab9cf0
+          ref: e0d8bf824e06a17d125e7a5c9a00cdf85f3cd291
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -172,3 +172,5 @@ jobs:
 # Run the authorised completed-session data collection for 6 November 2026.
 
 # Resume 6 November collection after the NSE SME master source timed out; preserve the failed-run checkpoint.
+
+# Deploy tested same-day original master recovery for the authorised 6 November collection.
