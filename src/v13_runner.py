@@ -76,10 +76,13 @@ def save(root):
     return save_with_quota_fallback(root,save_incremental)
 
 def last_completed_session(root,day):
+    from v13_market_sessions import reviewed_sessions,session_close
+    special=reviewed_sessions();now=pd.Timestamp.now(tz='UTC')
     errors=[]
     for offset in range(8):
         candidate=pd.Timestamp(day)-pd.Timedelta(days=offset)
-        if candidate.weekday()>4:continue
+        if candidate.weekday()>4 and str(candidate.date()) not in special:continue
+        if session_close(candidate)>now:continue
         try:
             report=collect_official(str(candidate.date()),root/'official')
             return str(candidate.date()),report,errors

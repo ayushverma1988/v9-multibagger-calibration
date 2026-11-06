@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.metrics import brier_score_loss
 from scipy.stats import t as student_t
 import v12_four_year_model as core
+from v13_market_sessions import open_clocks
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
@@ -53,8 +54,8 @@ def adjudicate(registry,official,history,asof,verification=None):
     """
     r=validate_registry(registry);clock=pd.Timestamp(r['registered_at_utc']);rows=[]
     official=official.copy();official['date']=pd.to_datetime(official.date)
-    open_clocks=official.date.dt.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)
-    official=official[open_clocks.gt(clock)&official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')]
+    clocks=open_clocks(official.date)
+    official=official[clocks.gt(clock)&official.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')]
     for item in r['records']:
         q=official[official['isin'].eq(item['isin'])].sort_values('date')
         row={**item,'registry_sha256':Path(registry).stem,'model_sha256':r['model_sha256'],
@@ -75,7 +76,7 @@ def adjudicate(registry,official,history,asof,verification=None):
             if source is not None:
                 source=source.sort_values('date').reset_index(drop=True);source['date']=pd.to_datetime(source.date)
                 ix=source.index[source.date.eq(entry.date)]
-                expected=source[(source.date.dt.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)).gt(clock)]
+                expected=source[open_clocks(source.date).gt(clock)]
                 # The adjusted target starts at the observed entry, not at the
                 # earlier source-asof date of a weekend registration.
                 if len(ix)==1 and ix[0]>0:
