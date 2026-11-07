@@ -16,9 +16,48 @@ HEADER = 'SYMBOL,NAME OF COMPANY,SERIES,DATE OF LISTING,ISIN NUMBER\n'
 MAIN = (HEADER + 'RELIANCE,Reliance Industries Limited,EQ,29-Nov-1995,INE002A01018\n').encode()
 SME = (HEADER + 'HDFCBANK,HDFC Bank Limited,EQ,08-Nov-1995,INE040A01034\n').encode()
 INVALID = MAIN + MAIN.splitlines(keepends=True)[1]
+MALFORMED = b'not a csv\none column\n1,2,3\n'
 
 
 class UniverseRetryTests(unittest.TestCase):
+    def test_parser_error_retries_fresh_for_each_master_and_keeps_rejected_hash(self):
+        for url in (NSE_MASTER,NSE_SME_MASTER):
+            with self.subTest(url=url),tempfile.TemporaryDirectory() as folder:
+                folders=[];responses={NSE_MASTER:[MAIN],NSE_SME_MASTER:[SME]}
+                responses[url].insert(0,MALFORMED)
+                with patch('v13_collection.Store.get',self.fetcher(responses,folders)),patch('v13_collection.time.sleep'):
+                    self.assertEqual(len(universe(folder,'2026-10-22')),2)
+                a=json.loads((Path(folder)/'evidence/universe_source_audit.json').read_text())
+                bad=[r for r in a['attempts'] if r['status']=='MALFORMED_CSV_RESPONSE']
+                self.assertEqual(len(bad),1);self.assertEqual(bad[0]['error_type'],'ParserError')
+                self.assertEqual(bad[0]['source_sha256'],hashlib.sha256(MALFORMED).hexdigest())
+                self.assertEqual(len(folders),3)
+                retry_folders=folders[:2] if url==NSE_MASTER else folders[1:]
+                self.assertEqual(len(set(retry_folders)),2)
+
+    def test_persistent_malformed_reply_is_bounded_and_preserves_prior_universe(self):
+        for raw in (MALFORMED,b''):
+            with self.subTest(raw=raw),tempfile.TemporaryDirectory() as folder:
+                root=Path(folder);(root/'universe.parquet').write_bytes(b'prior master');folders=[]
+                with patch('v13_collection.Store.get',self.fetcher({NSE_MASTER:[raw]*3},folders)),patch('v13_collection.time.sleep'),self.assertRaises((pd.errors.ParserError,pd.errors.EmptyDataError)):
+                    universe(root,'2026-10-22')
+                self.assertEqual(len(folders),3);self.assertEqual((root/'universe.parquet').read_bytes(),b'prior master')
+                a=json.loads((root/'evidence/universe_source_audit.json').read_text());self.assertEqual(a['status'],'INVALID_MASTER')
+                self.assertFalse(a['identity_checks_relaxed']);self.assertFalse(a['previous_universe_used_as_current'])
+
+    def test_access_html_with_http_200_never_retries_or_activates_recovery(self):
+        for word in ('Access denied','Forbidden','captcha','Too many requests','Request rejected'):
+            with self.subTest(word=word),tempfile.TemporaryDirectory() as folder:
+                raw=('<html>'+word+'\na,b,c\n</html>').encode()
+                with patch('v13_collection.Store.get',return_value=(raw,{'sha256':hashlib.sha256(raw).hexdigest(),'first_retrieved_utc':'2026-11-06T14:00:00Z'})) as get,patch('v13_universe_recovery.captured_master') as recovery,patch('v13_collection.time.sleep') as sleep,self.assertRaisesRegex(ValueError,'Access/rate-limit'):
+                    universe(folder,'2026-11-06')
+                self.assertEqual(get.call_count,1);recovery.assert_not_called();sleep.assert_not_called()
+
+    def test_unexpected_programming_error_is_not_swallowed_as_a_bad_csv(self):
+        with tempfile.TemporaryDirectory() as folder,patch('v13_collection.Store.get',return_value=(MAIN,{'sha256':hashlib.sha256(MAIN).hexdigest(),'first_retrieved_utc':'2026-11-06T14:00:00Z'})) as get,patch('v13_collection.parse_nse_master',side_effect=TypeError('implementation bug')),self.assertRaises(TypeError):
+            universe(folder,'2026-11-06')
+        self.assertEqual(get.call_count,1)
+
     def fetcher(self, responses, folders):
         def fetch(store, url):
             folders.append(store.folder)

@@ -2,7 +2,7 @@ import hashlib
 import json
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -73,8 +73,46 @@ class UniverseRecoveryTests(unittest.TestCase):
         for day in ('2026-11-05', '2026-11-07'):
             self.assertIsNone(captured_master(NSE_SME_MASTER, day, self.output,
                                              seed_root=self.seed, now=NOW))
-        self.assertIsNone(self.recover(now=datetime(2026, 11, 7, 0, tzinfo=timezone.utc)))
         self.assertFalse(self.output.exists())
+
+    def test_overnight_resume_matches_source_date_and_keeps_original_clock(self):
+        now=datetime(2026,11,7,1,tzinfo=timezone.utc)
+        raw,proof=self.recover(now=now)
+        self.assertEqual(raw,SME);self.assertEqual(proof['source_asof'],DAY)
+        self.assertTrue(proof['overnight_same_source_resume']);self.assertEqual(proof['runner_date_IST'],'2026-11-07')
+        self.assertEqual(proof['first_retrieved_utc'],'2026-11-06T14:51:58+00:00')
+        self.assertFalse(proof['remote_refetched_by_this_worker'])
+        self.assertIsNone(captured_master(NSE_SME_MASTER,'2026-11-07',self.output,seed_root=self.seed,now=now))
+
+    def test_first_capture_age_not_latest_reverification_bounds_recovery(self):
+        first=datetime.fromisoformat(self.manifest['captures'][0]['first_retrieved_utc'])
+        self.assertIsNotNone(self.recover(now=first+timedelta(hours=24)))
+        self.manifest['captures'][0]['independently_reverified_utc']=(first+timedelta(hours=23)).isoformat();self.write_manifest()
+        self.assertIsNone(self.recover(now=first+timedelta(hours=24,seconds=1)))
+
+    def test_malformed_csv_can_recover_only_after_three_attempts_and_strict_parse(self):
+        raw=b'not a csv\none column\n1,2,3\n';calls=[]
+        def fetch(store,url):
+            calls.append(url)
+            if url==NSE_MASTER:return self.fetch(store,url)
+            return raw,{'sha256':hashlib.sha256(raw).hexdigest(),'first_retrieved_utc':NOW.isoformat()}
+        with patch('v13_collection.Store.get',fetch),patch('v13_collection.time.sleep'),patch('v13_universe_recovery.captured_master',self.fixture_recovery):
+            out=universe(self.root/'state',DAY)
+        self.assertEqual(len(out),2);self.assertEqual(calls.count(NSE_SME_MASTER),3)
+        a=json.loads((self.root/'state/evidence/universe_source_audit.json').read_text())
+        self.assertEqual(sum(r['status']=='MALFORMED_CSV_RESPONSE' for r in a['attempts']),3)
+        self.assertTrue(a['same_day_original_recovery_used']);self.assertFalse(a['identity_checks_relaxed'])
+
+    def test_malformed_then_identity_conflict_blocks_later_transport_recovery(self):
+        raw=b'not a csv\none column\n1,2,3\n';replies=[raw,SME+SME.splitlines(keepends=True)[1],requests.ReadTimeout()]
+        def fetch(store,url):
+            if url==NSE_MASTER:return self.fetch(store,url)
+            item=replies.pop(0)
+            if isinstance(item,Exception):raise item
+            return item,{'sha256':hashlib.sha256(item).hexdigest(),'first_retrieved_utc':NOW.isoformat()}
+        with patch('v13_collection.Store.get',fetch),patch('v13_collection.time.sleep'),patch('v13_universe_recovery.captured_master') as recovery,self.assertRaises(requests.ReadTimeout):
+            universe(self.root/'state',DAY)
+        recovery.assert_not_called()
 
     def test_missing_source_never_substitutes_another_master(self):
         self.assertIsNone(captured_master(NSE_MASTER, DAY, self.output,

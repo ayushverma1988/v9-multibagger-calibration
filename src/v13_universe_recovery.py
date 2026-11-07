@@ -1,9 +1,9 @@
-"""Fail-closed, same-day recovery from preserved original NSE master bytes.
+"""Fail-closed recovery of a completed source day's original NSE master.
 
 This is transport recovery, not permission to use yesterday's universe. The
 normal parser and cross-master identity checks still run in v13_collection.
 """
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 import hashlib
 import json
 from pathlib import Path
@@ -18,6 +18,7 @@ ALLOWED_URLS = {
     'https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv',
 }
 IST = ZoneInfo('Asia/Kolkata')
+MAX_CAPTURE_AGE = timedelta(hours=24)
 
 
 def _clock(value):
@@ -28,7 +29,7 @@ def _clock(value):
 
 
 def captured_master(url, asof, folder, *, seed_root=None, now=None):
-    """Return a verified capture only for today's requested completed session.
+    """Return a source-date-matched capture, including a bounded overnight resume.
 
     The caller may invoke this only after exhausting transient fetch retries.
     Permission/rate-limit, identity and integrity errors never permit recovery.
@@ -43,8 +44,6 @@ def captured_master(url, asof, folder, *, seed_root=None, now=None):
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError('Recovery current clock must include a timezone')
     now = now.astimezone(timezone.utc)
-    if now.astimezone(IST).date() != day:
-        return None
     seed = Path(seed_root) if seed_root is not None else SEED_ROOT
     path = seed / asof / 'manifest.json'
     if not path.exists():
@@ -69,8 +68,12 @@ def captured_master(url, asof, folder, *, seed_root=None, now=None):
         raise ValueError('Recovery original HTTP source/status mismatch')
     first = _clock(item['first_retrieved_utc'])
     checked = _clock(item['independently_reverified_utc'])
-    if not first <= checked <= now or first.astimezone(IST).date() != day or checked.astimezone(IST).date() != day:
+    if not first <= checked <= now or first.astimezone(IST).date() != day:
         raise ValueError('Recovery capture has stale or future observation clocks')
+    # Midnight does not change the requested source-price date. Age is bounded
+    # from first capture, never reset by a later review of the same bytes.
+    if now-first>MAX_CAPTURE_AGE:
+        return None
     expected = item.get('bytes')
     if type(expected) is not int or not 0 < expected <= 5_000_000:
         raise ValueError('Recovery original length invalid')
@@ -89,6 +92,12 @@ def captured_master(url, asof, folder, *, seed_root=None, now=None):
         'first_retrieved_utc': item['first_retrieved_utc'],
         'independently_reverified_utc': item['independently_reverified_utc'],
         'source_asof': asof, 'same_day_original_recovery': True,
+        'recovery_policy': 'V13_SOURCE_DATE_MAX_24H_RESUME_20261107',
+        'source_date_matches_request': True,
+        'runner_date_IST': now.astimezone(IST).date().isoformat(),
+        'overnight_same_source_resume': now.astimezone(IST).date()!=day,
+        'capture_age_seconds': (now-first).total_seconds(),
+        'maximum_capture_age_seconds': MAX_CAPTURE_AGE.total_seconds(),
         'recovery_used_at_utc': now.isoformat(),
         'remote_refetched_by_this_worker': False,
         'recovery_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),
