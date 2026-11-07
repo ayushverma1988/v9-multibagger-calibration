@@ -4,6 +4,7 @@ import io,json,hashlib,re
 import numpy as np
 import pandas as pd
 from v12_public_history import bounds
+from v13_market_sessions import session_open
 
 def validate_refresh(previous,fresh,asof,symbol,isin):
     if previous.empty:return
@@ -28,7 +29,7 @@ def validated_cached_entry(cached,official,expected_date,symbol,isin):
     if not all(re.fullmatch('[0-9a-f]{64}',str(value[k])) for k in ('entry_official_sha256','entry_provider_sha256')):return None
     try:
         clock=pd.Timestamp(value['entry_evidence_recorded_at_utc'])
-        if clock.tzinfo is None or clock<pd.Timestamp(expected_date).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15):return None
+        if clock.tzinfo is None or clock<session_open(expected_date):return None
     except (ValueError,TypeError):return None
     q=official[pd.to_datetime(official.date).eq(pd.Timestamp(expected_date))&official['isin'].eq(isin)&official.symbol.eq(symbol)]
     if len(q)!=1:return None
