@@ -1,0 +1,61 @@
+name: V13 first-signal continuation study
+on:
+  push:
+    branches: [v13-signal-timing-study-20261108]
+    paths:
+      - '.github/workflows/v13_signal_timing_study.yml'
+      - 'research/signal_timing/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-readonly-signal-timing-study
+  cancel-in-progress: false
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      PYTHONPATH: src:research/signal_timing
+      V13_COMPACT_ARCHIVE: '1'
+      V13_WORKING_CORE_ARCHIVE: '1'
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Check causality, timestamps, entry and outcome accounting
+        run: |
+          mkdir -p signal_study_output
+          python -m unittest discover -s research/signal_timing -p 'test_*.py' -v 2>&1 | tee signal_study_output/unit_tests.txt
+      - name: Restore verified working state without archive writes
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from v13_checkpoint import restore
+          from v13_archive_retention import download_artifact
+          import json
+          if not restore(Path('study_state')):raise RuntimeError('No working state restored')
+          download_artifact(13599439684,'sha256:441547f0057f91507a46e8745944929b95c532cbc9754d80367d8e58efc8cb14','diagnostic_cases.zip')
+          print('Source state',json.loads(Path('study_state/latest_run.json').read_text())['asof'])
+          PY
+      - name: Trace whole-universe signals and measure subsequent paths
+        run: python -u research/signal_timing/v13_signal_timing_study.py --root study_state --out signal_study_output --case-zip diagnostic_cases.zip
+      - name: Attach executed study code
+        if: always()
+        run: cp research/signal_timing/*.py signal_study_output/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-first-signal-continuation-study
+          path: signal_study_output/
+          retention-days: 30
