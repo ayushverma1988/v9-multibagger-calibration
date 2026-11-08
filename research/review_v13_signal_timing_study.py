@@ -14,10 +14,11 @@ def review(root):
     if events.duplicated(['date','isin','rsi_threshold']).any():raise ValueError('Duplicate events')
     if not events.rsi14.gt(events.rsi_threshold).all():raise ValueError('RSI threshold failure')
     if not pd.to_datetime(events.date).le(asof).all():raise ValueError('Future signal')
-    financial_sources=0;catalyst_sources=0
+    financial_sources=0;catalyst_sources=0;source_by={};case_isins={c['isin'] for c in cases}
     with gzip.open(root/'dated_evidence_snapshots.jsonl.gz','rt') as f:
         for line in f:
             row=json.loads(line);cut=pd.Timestamp(row['information_cutoff_utc'])
+            if row['isin'] in case_isins:source_by[(row['isin'],pd.Timestamp(row['date']))]=row
             for source in row['financial_sources']:
                 if pd.Timestamp(source['available'])>cut:raise ValueError('Future financial source')
                 financial_sources+=1
@@ -47,6 +48,29 @@ def review(root):
         if isin not in price_cache:
             price_cache[isin]=pd.read_parquet(path);price_cache[isin]['date']=pd.to_datetime(price_cache[isin].date)
         d=price_cache[isin]
+        mask=study.eligible(d,case['rsi_threshold'])
+        window_start=pd.Timestamp(receipt['case_window_start'])
+        new_indices=np.flatnonzero((mask&~mask.shift(fill_value=False)&d.date.ge(window_start)).to_numpy())
+        first_window=case.get('first_signal_trailing12m')
+        first_window_ix=np.flatnonzero(d.date.eq(pd.Timestamp(first_window['date']))) if first_window else []
+        boundary_continuation=bool(len(first_window_ix) and first_window_ix[0]>0 and mask.iloc[first_window_ix[0]-1])
+        case['first_day_in_window_is_continuation']=boundary_continuation
+        case['history_covers_case_window_start']=bool(d.date.iloc[0]<=window_start)
+        case['new_technical_episodes_trailing12m']=len(new_indices)
+        new_signal=None
+        if len(new_indices):
+            t=int(new_indices[0]);v=d.iloc[t];snap=source_by.get((isin,v.date),{})
+            new_signal={'isin':isin,'symbol':case['symbol'],'date':v.date,'rsi_threshold':case['rsi_threshold'],
+                'entry_stage':v.entry_stage,'rsi14':v.rsi14,'rd_return20':v.rd_return20,'rd_return63':v.rd_return63,
+                'rd_extension200':v.rd_extension200,'financial_tier':snap.get('financial_tier','UNKNOWN_NOT_EXPORTED_FOR_THIS_EXACT_DATE'),
+                'earnings_evidence':snap.get('earnings_evidence','UNKNOWN_NOT_EXPORTED_FOR_THIS_EXACT_DATE'),
+                'catalyst_evidence':snap.get('catalyst_evidence','UNKNOWN_NOT_EXPORTED_FOR_THIS_EXACT_DATE'),
+                'information_cutoff_utc':study.signal_cutoff(v.date),
+                'exact_original_V13_qualification':'UNPROVEN_NO_HISTORICAL_FROZEN_PREDICTION_REPLAY',
+                'partial_to_source_asof':partial(d,t)}
+            for m in study.HORIZONS:
+                new_signal.update({k+'_'+str(m):value for k,value in study.outcome(d,t,m,asof).items()})
+            case['first_new_technical_episode_trailing12m']=new_signal
         for label in ['first_observable_signal','first_signal_trailing12m','last_signal_before_trailing6m',
                       'first_technical_and_permitted_financials','first_technical_and_permitted_financials_trailing12m']:
             signal=case.get(label)
@@ -70,7 +94,9 @@ def review(root):
                 'max_drawdown_6m':s['max_close_drawdown_6'],
                 'partial_to_asof':s['partial_to_source_asof'],
                 'qualified_before_6m_anchor':pd.Timestamp(s['date'])<=pd.Timestamp(receipt['prior_6m_start']),
-                'prior_63_session_return_at_signal':s['rd_return63'],'MA200_extension_at_signal':s['rd_extension200']})
+                'prior_63_session_return_at_signal':s['rd_return63'],'MA200_extension_at_signal':s['rd_extension200'],
+                'first_retained_history_signal':case['first_observable_signal']['date'] if case['first_observable_signal'] else None,
+                'window_boundary_continuation':boundary_continuation,'first_new_episode_trailing12m':new_signal})
     study.save_json(root/'case_first_signals_reviewed.json',cases)
     study.save_json(root/'case_trace_summary.json',rows)
     audit={'event_rows_audited':len(events),'case_horizon_paths_recomputed':checks,
@@ -78,6 +104,8 @@ def review(root):
         'exported_catalyst_source_references_clock_checked':catalyst_sources,
         'future_source_or_maturity_violations':0,'same_day_entry_violations':0,
         'case_price_files':len(price_cache),'partial_paths_added':True,'partial_paths_are_not_mature_horizon_outcomes':True,
+        'window_boundary_continuations_identified':sum(c['first_day_in_window_is_continuation'] for c in cases),
+        'new_episode_rule':'First new technical false-to-true qualification within trailing 12 months, without cooldown; contextual case trace only; primary study event pool unchanged',
         'raw_retired_original_source_bytes_independently_checked':False,
         'financial_source_clock_audit_scope':'Exported feature references; historical archive availability metadata, not independent vintage reconstruction',
         'source_receipt_sha256':hashlib.sha256((root/'run_receipt.json').read_bytes()).hexdigest()}
@@ -89,7 +117,13 @@ def review(root):
         '|---|---:|---|---|---:|---:|---:|---:|']
     for r in rows:
         p=r['partial_to_asof'];lines.append(f"| {r['symbol']} | {r['rsi_threshold']} | {pd.Timestamp(r['first_signal_date']).date()} | {r['stage']} | {pct(r['return_6m'])} | {pct(r['max_drawdown_6m'])} | {pct(study.plain(p.get('endpoint_return')))} | {pct(study.plain(p.get('max_close_drawdown')))} |")
-    lines+=['','`case_first_signals_reviewed.json` also records first retained-history signals, the last qualification before the six-month measurement window, first technical+permitted-financial signals, and the first date observed in each entry stage.',
+    lines+=['','Some first eligible days in this window continue a qualification from before the window. The next table identifies new false-to-true technical episodes. These contextual case dates do not alter the main 63-session-cooldown event pool.',
+        '', '| Share | RSI > | First new technical episode in window | Stage | Mature net 6m | Partial net return to source date |',
+        '|---|---:|---|---|---:|---:|']
+    for c in cases:
+        v=c.get('first_new_technical_episode_trailing12m')
+        if v:lines.append(f"| {c['symbol']} | {c['rsi_threshold']} | {pd.Timestamp(v['date']).date()} | {v['entry_stage']} | {pct(v.get('endpoint_return_6'))} | {pct(study.plain(v['partial_to_source_asof'].get('endpoint_return')))} |")
+    lines+=['','`case_first_signals_reviewed.json` also records first retained-history signals, the last qualification before the six-month measurement window, first technical+permitted-financial signals, window-boundary continuations, and the first date observed in each entry stage.',
         '', 'Full-universe losing and failed-breakout events remain in all_signal_events.jsonl.gz and failed_and_adverse_signals.jsonl.gz. No survivorship-free or independent original filing-vintage certification is claimed.','']
     (root/'reviewed_case_traces.md').write_text('\n'.join(lines))
     print(json.dumps(study.plain(audit),indent=2))
