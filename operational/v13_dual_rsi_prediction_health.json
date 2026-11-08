@@ -1,0 +1,65 @@
+{
+  "completed_at_utc": "2026-11-08T02:01:26.482551+00:00",
+  "workflow_run": "42436638672",
+  "source_asof": "2026-11-06",
+  "source_worker_run": 42323163906,
+  "source_artifact_id": 13557901619,
+  "source_artifact_digest": "sha256:471a03c01d1fe3341fcf5ca81a51d4bfeab349e08adf70e0b5399a32512d1d34",
+  "direct_exports_verified": 406,
+  "source_manifest_sha256": "110cf4349a8745e8b6fca2030e4f2e93181de16569aa2d1257745129b1bc2629",
+  "market_rows": 588,
+  "public_universe_rows": 3213,
+  "maximum_replay_difference": 1.1102230246251565e-16,
+  "model_sha256": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
+  "input_parquet_sha256": "8d867f466d21bb435811f9be013654ca9080ebdf0bc2994f36665e559f4bf6ac",
+  "lists": {
+    "50": {
+      "source_asof": "2026-11-06",
+      "rsi_strictly_greater_than": 50,
+      "RSI_definition": "SIMPLE_ROLLING_14_SESSIONS",
+      "eligible": 76,
+      "selected": 25,
+      "maximum_selected": 25,
+      "ranking_weights": {
+        "p6_percentile": 0.7,
+        "joint12_percentile": 0.25,
+        "optional_dma200": 0.05
+      },
+      "all_other_eligibility_rules_unchanged": true,
+      "loss_ceiling": 0.95,
+      "price_band": null,
+      "DMA_band_optional": true,
+      "accuracy_approved": false,
+      "model_retrained": false,
+      "frozen_forecasts_changed": false
+    },
+    "70": {
+      "source_asof": "2026-11-06",
+      "rsi_strictly_greater_than": 70,
+      "RSI_definition": "SIMPLE_ROLLING_14_SESSIONS",
+      "eligible": 10,
+      "selected": 10,
+      "maximum_selected": 25,
+      "ranking_weights": {
+        "p6_percentile": 0.7,
+        "joint12_percentile": 0.25,
+        "optional_dma200": 0.05
+      },
+      "all_other_eligibility_rules_unchanged": true,
+      "loss_ceiling": 0.95,
+      "price_band": null,
+      "DMA_band_optional": true,
+      "accuracy_approved": false,
+      "model_retrained": false,
+      "frozen_forecasts_changed": false
+    }
+  },
+  "eligible_70_is_subset_of_50": true,
+  "unchanged_70_ranking_matches_production": true,
+  "selected_overlap": 5,
+  "archive_writes": false,
+  "production_RSI_threshold_changed": false,
+  "frozen_forecasts_changed": false,
+  "model_retrained": false,
+  "accuracy_approved": false
+}
