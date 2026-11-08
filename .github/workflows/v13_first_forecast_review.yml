@@ -1,0 +1,53 @@
+name: V13 first forecast and ranking candidate
+on:
+  push:
+    branches: [v13-first-forecast-review-20261108]
+    paths:
+      - '.github/workflows/v13_first_forecast_review.yml'
+      - 'research/first_forecast_review/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-readonly-first-forecast-review
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: src:research/first_forecast_review
+      V13_COMPACT_ARCHIVE: '1'
+      V13_WORKING_CORE_ARCHIVE: '1'
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Test isolated ranking candidate
+        run: |
+          mkdir -p first_forecast_output
+          python -m unittest discover -s research/first_forecast_review -p 'test_*.py' -v 2>&1 | tee first_forecast_output/unit_tests.txt
+      - name: Restore original forecasts and exact current inputs read only
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from v13_checkpoint import restore
+          if not restore(Path('review_state')):raise RuntimeError('No preserved state restored')
+          PY
+      - name: Measure first-cohort returns and run separate candidate ranking
+        run: python -u research/first_forecast_review/v13_first_forecast_review.py --root review_state --out first_forecast_output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-first-forecast-performance-and-candidate
+          path: first_forecast_output/
+          retention-days: 30
