@@ -1,0 +1,192 @@
+name: V13 selected shares historical price changes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v13_selected_price_changes.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: v13-readonly-selected-price-changes
+  cancel-in-progress: false
+jobs:
+  returns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7b51f246817aea318eeeae9123fd5394d04cee40
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Compare primary calendar-month closes and reconcile share adjustments
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import hashlib,io,json,os,re,time,zipfile
+          from pathlib import Path
+          from datetime import datetime,timezone
+          from concurrent.futures import ThreadPoolExecutor
+          from urllib.parse import quote,urlencode
+          import requests,numpy as np,pandas as pd
+          from v13_archive_retention import download_artifact
+          from v12_3_official_monitor import collect
+          download_artifact(13599439684,'sha256:441547f0057f91507a46e8745944929b95c532cbc9754d80367d8e58efc8cb14','selected_lists.zip')
+          with zipfile.ZipFile('selected_lists.zip') as z:
+              lists={v:json.loads(z.read(f'RSI_GT{v}.json')) for v in (70,50)}
+          if lists[70]['source_asof']!=lists[50]['source_asof']:raise ValueError('Selection dates differ')
+          rows={}
+          for threshold,data in lists.items():
+              for item in data['records']:
+                  r=rows.setdefault(item['isin'],{**item,'rank_70':None,'rank_50':None})
+                  if r['symbol']!=item['symbol']:raise ValueError('Conflicting issuer identity')
+                  r[f'rank_{threshold}']=int(item['priority_rank'])
+          if len(rows)!=30:raise ValueError('Selected set differs from requested 30 unique shares')
+          end=pd.Timestamp(lists[70]['source_asof']);anchors={1:end-pd.DateOffset(months=1),6:end-pd.DateOffset(months=6)}
+          out=Path('price_change_output');out.mkdir();src=out/'sources';src.mkdir()
+          def primary(day):
+              error=None
+              for attempt in range(3):
+                  try:
+                      collect(str(day.date()),src/'official')
+                      return str(day.date()),pd.read_parquet(src/'official'/(str(day.date())+'_official_market.parquet')),None
+                  except Exception as exc:
+                      error=type(exc).__name__;time.sleep(min(2**attempt,4))
+              return str(day.date()),None,error
+          with ThreadPoolExecutor(max_workers=3) as pool:
+              primary_results=list(pool.map(primary,[end,*anchors.values()]))
+          originals={day:frame for day,frame,error in primary_results if frame is not None}
+          errors=[{'date':day,'error_type':error} for day,frame,error in primary_results if frame is None]
+          def capture(url,name,session=None):
+              caller=session or requests
+              r=caller.get(url,headers={'User-Agent':'Mozilla/5.0','Accept':'application/json','Referer':'https://www.nseindia.com/'},timeout=(10,45))
+              r.raise_for_status();raw=r.content
+              (src/(name+'.json')).write_bytes(raw)
+              return json.loads(raw),{'url':url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'retrieved_at_utc':datetime.now(timezone.utc).isoformat()}
+          action_rows=None;action_receipt=None;action_error=None
+          action_url='https://www.nseindia.com/api/corporate-actions?'+urlencode({'index':'equities','from_date':anchors[6].strftime('%d-%m-%Y'),'to_date':end.strftime('%d-%m-%Y')})
+          try:
+              data,action_receipt=capture(action_url,'nse_corporate_actions')
+              action_rows=data if isinstance(data,list) else data.get('data')
+              if not isinstance(action_rows,list):raise ValueError('Unrecognized corporate-action response')
+          except Exception as exc:action_error=type(exc).__name__;action_rows=None
+          low=anchors[6]-pd.Timedelta(days=20)
+          p1=int(low.tz_localize('Asia/Kolkata').timestamp());p2=int((end+pd.Timedelta(days=1)).tz_localize('Asia/Kolkata').timestamp())
+          def provider(item):
+              symbol=item['symbol']
+              url='https://query1.finance.yahoo.com/v8/finance/chart/'+quote(symbol+'.NS',safe='')+f'?interval=1d&period1={p1}&period2={p2}&events=div%2Csplits'
+              try:
+                  data,proof=capture(url,'provider_'+symbol)
+                  result=data['chart']['result']
+                  if not isinstance(result,list) or len(result)!=1:raise ValueError('Ambiguous provider result')
+                  result=result[0];meta=result['meta']
+                  if meta.get('symbol')!=symbol+'.NS' or meta.get('exchangeName') not in ('NSI','NSE') or meta.get('currency')!='INR' or meta.get('instrumentType')!='EQUITY':raise ValueError('Provider identity mismatch')
+                  q=result['indicators']['quote'][0];stamps=result['timestamp']
+                  d=pd.DataFrame({'date':pd.to_datetime(stamps,unit='s',utc=True).tz_convert('Asia/Kolkata').tz_localize(None).normalize(),'close':q['close']})
+                  if d.date.duplicated().any():raise ValueError('Duplicate provider dates')
+                  splits=[]
+                  for event in result.get('events',{}).get('splits',{}).values():
+                      date=pd.Timestamp(event['date'],unit='s',tz='UTC').tz_convert('Asia/Kolkata').tz_localize(None).normalize()
+                      factor=float(event['numerator'])/float(event['denominator'])
+                      if not factor>0:raise ValueError('Invalid provider split')
+                      splits.append({'ex_date':str(date.date()),'share_multiplier':factor})
+                  return symbol,{'frame':d,'splits':splits,'receipt':proof,'first_trade_timestamp':meta.get('firstTradeDate')},None
+              except Exception as exc:return symbol,None,type(exc).__name__
+          with ThreadPoolExecutor(max_workers=5) as pool:provider_results=list(pool.map(provider,rows.values()))
+          providers={symbol:data for symbol,data,error in provider_results if data is not None}
+          provider_errors=[{'symbol':symbol,'error_type':error} for symbol,data,error in provider_results if data is None]
+          def official_observation(item,day):
+              d=originals.get(str(day.date()))
+              if d is None:return None,'SOURCE_UNAVAILABLE'
+              q=d[d.isin.eq(item['isin']) & d.symbol.eq(item['symbol'])]
+              if len(q)!=1:return None,'IDENTITY_OR_LISTING_NOT_MATCHED'
+              r=q.iloc[0]
+              if r.source_status!='VALID_POSITIVE_VOLUME_SESSION':return None,'NO_VALID_TRADED_CLOSE'
+              return float(r.close),'PRIMARY_NSE_CLOSE'
+          def relevant_actions(item,start):
+              found=[];factors=[];unsupported=[]
+              if action_rows is None:return found,None,unsupported
+              for a in action_rows:
+                  symbol=str(a.get('symbol','')).strip()
+                  if symbol!=item['symbol']:continue
+                  literal=a.get('exDate') or a.get('ex_date')
+                  date=pd.to_datetime(literal,dayfirst=True,errors='coerce')
+                  if pd.isna(date) or not start<date<=end:continue
+                  subject=str(a.get('subject',''));found.append(a)
+                  if re.search(r'bonus',subject,re.I):
+                      m=re.search(r'(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)',subject)
+                      if m:factors.append(1+float(m[1])/float(m[2]))
+                      else:unsupported.append(subject)
+                  elif re.search(r'split|sub.?division|consolidation',subject,re.I):
+                      m=re.search(r'from[^0-9]*(\d+(?:\.\d+)?).*?to[^0-9]*(\d+(?:\.\d+)?)',subject,re.I)
+                      if m:factors.append(float(m[1])/float(m[2]))
+                      else:unsupported.append(subject)
+                  elif re.search(r'rights|demerger|merger|reduction|arrangement',subject,re.I):unsupported.append(subject)
+              return found,float(np.prod(factors)),unsupported
+          results=[]
+          for item in rows.values():
+              r={k:item[k] for k in ('isin','symbol','series','rank_70','rank_50')}
+              close,close_status=official_observation(item,end)
+              if close is not None and abs(close-item['source_close_INR'])>.011:raise ValueError('End price differs from exact selection source')
+              r.update(end_date=str(end.date()),end_close_INR=close,end_status=close_status)
+              pdata=providers.get(item['symbol'])
+              for months,start in anchors.items():
+                  prefix=f'{months}m';base,base_status=official_observation(item,start)
+                  r[prefix+'_anchor_date']=str(start.date());r[prefix+'_start_close_INR']=base
+                  r[prefix+'_raw_price_change_percent']=100*(close/base-1) if close is not None and base else None
+                  acts,factor,unsupported=relevant_actions(item,start)
+                  r[prefix+'_primary_actions']=acts;r[prefix+'_action_review']=unsupported
+                  value=None;status='UNAVAILABLE_BASE_OR_END_CLOSE';method=None
+                  if close is not None and base:
+                      if factor is not None and not unsupported:
+                          value=100*(close*factor/base-1);status='NSE_CLOSE_WITH_EXCHANGE_CATALOGUE_SHARE_ADJUSTMENTS';method='NSE_CLOSE_AND_ACTION_CATALOGUE'
+                      elif factor is not None and unsupported:
+                          status='REORGANISATION_OR_UNPARSED_ACTION_REVIEW_REQUIRED'
+                      elif pdata is not None:
+                          pf=float(np.prod([s['share_multiplier'] for s in pdata['splits'] if start<pd.Timestamp(s['ex_date'])<=end]))
+                          value=100*(close*pf/base-1);status='NSE_CLOSE_WITH_PROVIDER_SHARE_ADJUSTMENTS_NOT_INDEPENDENTLY_CERTIFIED';method='NSE_CLOSE_AND_PROVIDER_SPLITS'
+                      else:
+                          value=100*(close/base-1);status='RAW_QUOTED_PRICE_CHANGE_ACTION_ADJUSTMENTS_UNVERIFIED';method='RAW_NSE_CLOSE'
+                  r[prefix+'_price_change_percent']=value;r[prefix+'_status']=status;r[prefix+'_method']=method;r[prefix+'_share_multiplier']=factor
+                  if pdata is not None:
+                      d=pdata['frame'];a=d[d.date.eq(start)];b=d[d.date.eq(end)]
+                      pr=100*(float(b.close.iloc[0])/float(a.close.iloc[0])-1) if len(a)==1 and len(b)==1 and pd.notna(a.close.iloc[0]) and pd.notna(b.close.iloc[0]) and a.close.iloc[0]>0 else None
+                      r[prefix+'_provider_close_change_percent']=pr
+                      r[prefix+'_provider_reconciles']=None if value is None or pr is None else bool(abs(value-pr)<=.20)
+              if pdata is not None:r['provider_receipt']=pdata['receipt'];r['provider_splits']=pdata['splits']
+              results.append(r)
+          summary={'calculated_at_utc':datetime.now(timezone.utc).isoformat(),'workflow_run':os.environ['GITHUB_RUN_ID'],
+              'end_date':str(end.date()),'calendar_month_anchors':{str(k):str(v.date()) for k,v in anchors.items()},
+              'unique_shares':len(results),'source_selection_artifact':13599439684,
+              'formula':'100 * (end_close * intervening_share_multiplier / start_close - 1)',
+              'cash_dividends_excluded':True,'corporate_action_intervals_not_independently_certified':True,
+              'nse_corporate_action_receipt':action_receipt,'nse_corporate_action_error':action_error,
+              'primary_errors':errors,'provider_errors':provider_errors,'records':results,
+              'computed_1m':sum(r['1m_price_change_percent'] is not None for r in results),
+              'computed_6m':sum(r['6m_price_change_percent'] is not None for r in results),
+              'archive_writes':False,'forecasts_changed':False}
+          (out/'price_changes.json').write_text(json.dumps(summary,indent=2,allow_nan=False))
+          lines=[f'# Historical price changes through {end.date()}','',
+              'Calendar-month anchors: 6 October and 6 May 2026. Cash dividends excluded. Actions are catalogue/provider-supported, not independently certified complete intervals.','',
+              '| Share | Series | One month | Six months |','|---|---|---:|---:|']
+          for r in results:
+              fmt=lambda v:'Unavailable' if v is None else f'{v:+.2f}%'
+              lines.append(f"| {r['symbol']} | {r['series']} | {fmt(r['1m_price_change_percent'])} | {fmt(r['6m_price_change_percent'])} |")
+          (out/'price_changes.md').write_text('\n'.join(lines)+'\n')
+          print(json.dumps({k:v for k,v in summary.items() if k!='records'},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-selected-historical-price-changes
+          path: price_change_output/
+          retention-days: 30
