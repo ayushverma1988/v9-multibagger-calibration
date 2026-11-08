@@ -107,7 +107,7 @@ jobs:
           def official_observation(item,day):
               d=originals.get(str(day.date()))
               if d is None:return None,'SOURCE_UNAVAILABLE'
-              q=d[d.isin.eq(item['isin']) & d.symbol.eq(item['symbol'])]
+              q=d[d['isin'].eq(item['isin']) & d['symbol'].eq(item['symbol'])]
               if len(q)!=1:return None,'IDENTITY_OR_LISTING_NOT_MATCHED'
               r=q.iloc[0]
               if r.source_status!='VALID_POSITIVE_VOLUME_SESSION':return None,'NO_VALID_TRADED_CLOSE'
