@@ -1,0 +1,68 @@
+name: V13 audit signal-study paths
+on:
+  push:
+    branches: [v13-signal-timing-study-20261108]
+    paths:
+      - '.github/workflows/v13_signal_timing_review.yml'
+      - 'research/review_v13_signal_timing_study.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-readonly-signal-timing-review
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Read completed source study artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json,os,time,zipfile
+          from pathlib import Path
+          import requests
+          from v13_archive_retention import download_artifact
+          repo=os.environ['GITHUB_REPOSITORY'];run_id=42463564716
+          headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          def get(path):
+              r=requests.get('https://api.github.com/repos/'+repo+path,headers=headers,timeout=(15,60));r.raise_for_status();return r.json()
+          for i in range(60):
+              run=get(f'/actions/runs/{run_id}')
+              if run['status']=='completed':break
+              print('Waiting for source study',run_id,run['status'],flush=True);time.sleep(30)
+          else:raise RuntimeError('Source study not completed within review wait window')
+          if run['conclusion']!='success':raise RuntimeError('Source study did not succeed')
+          artifacts=get(f'/actions/runs/{run_id}/artifacts')['artifacts']
+          a=next(x for x in artifacts if x['name']=='v13-first-signal-continuation-study' and not x['expired'])
+          download_artifact(a['id'],a['digest'],'source_study.zip')
+          root=Path('reviewed_signal_study');root.mkdir()
+          with zipfile.ZipFile('source_study.zip') as z:
+              for name in z.namelist():
+                  if Path(name).is_absolute() or '..' in Path(name).parts:raise ValueError('Unsafe artifact path')
+              z.extractall(root)
+          (root/'source_artifact_receipt.json').write_text(json.dumps({'run_id':run_id,'head_sha':run['head_sha'],'artifact_id':a['id'],'artifact_digest':a['digest']},indent=2))
+          PY
+      - name: Recompute case paths and audit dated evidence and maturity
+        run: |
+          python -u research/review_v13_signal_timing_study.py --root reviewed_signal_study
+          cp research/review_v13_signal_timing_study.py reviewed_signal_study/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-reviewed-first-signal-study
+          path: reviewed_signal_study/
+          retention-days: 30
