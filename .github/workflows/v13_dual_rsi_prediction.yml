@@ -1,0 +1,152 @@
+name: V13 compare RSI 70 and RSI 50
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v13_dual_rsi_prediction.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: v13-readonly-dual-rsi-prediction
+  cancel-in-progress: false
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      MINIMUM_SOURCE_DATE: '2026-11-06'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7b51f246817aea318eeeae9123fd5394d04cee40
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Execute fixed V13 model and compare only RSI thresholds
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import hashlib,io,json,os
+          from datetime import datetime,timezone
+          from pathlib import Path
+          import requests,joblib,numpy as np,pandas as pd
+          from v13_archive_retention import download_artifact
+          from v13_worker_artifact import audit_exports
+          from v13_model import probabilities
+          import v13_available_financials as available
+          from v13_priority_research import rank,WEIGHTS
+          repo=os.environ['GITHUB_REPOSITORY']
+          headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          def get(path):
+              r=requests.get('https://api.github.com/repos/'+repo+path,headers=headers,timeout=(15,90))
+              r.raise_for_status();return r.json()
+          runs=get('/actions/workflows/v13_research_worker.yml/runs?branch=main&status=completed&per_page=20')['workflow_runs']
+          source=next(r for r in runs if r['conclusion']=='success');sid=source['id']
+          artifact=next(a for a in get(f'/actions/runs/{sid}/artifacts')['artifacts']
+              if not a['expired'] and a['name']==f'v13-private-research-state-{sid}')
+          download_artifact(artifact['id'],artifact['digest'],'source_worker.zip')
+          if Path('source_worker.zip').stat().st_size!=artifact['size_in_bytes']:raise ValueError('Artifact size mismatch')
+          checked=audit_exports('source_worker.zip','verified_source')
+          if checked.get('remote_publication_confirmed') is not True:raise ValueError('Source checkpoint unpublished')
+          root=Path('verified_source/v13_state');report=json.loads((root/'latest_run.json').read_text())
+          if str(report['workflow_run'])!=str(sid) or report['asof']<os.environ['MINIMUM_SOURCE_DATE']:
+              raise ValueError('Stale or mismatched source report')
+          receipt=report['exact_prediction_replay']['champion']
+          folder=root/'prediction_replay'/receipt['input_parquet_sha256'];raw=(folder/'inputs.parquet').read_bytes()
+          if hashlib.sha256(raw).hexdigest()!=receipt['input_parquet_sha256']:raise ValueError('Input hash mismatch')
+          model_path=root/'active_heads.joblib'
+          if hashlib.sha256(model_path.read_bytes()).hexdigest()!=receipt['model_sha256']:raise ValueError('Model hash mismatch')
+          old_raw=(folder/('champion_'+receipt['receipt_sha256']+'.json')).read_bytes()
+          if hashlib.sha256(old_raw).hexdigest()!=receipt['receipt_sha256']:raise ValueError('Replay receipt mismatch')
+          saved=json.loads(old_raw);frame=pd.read_parquet(io.BytesIO(raw))
+          if frame['isin'].tolist()!=saved['isins']:raise ValueError('Input identity/order mismatch')
+          if set(pd.to_datetime(frame.date).dt.strftime('%Y-%m-%d'))!={report['asof']}:
+              raise ValueError('Mixed source dates')
+          if len(frame)!=report['current_verified_market_rows']:raise ValueError('Coverage mismatch')
+          values=probabilities(joblib.load(model_path),frame);max_error=0.
+          for key in ('p6','p12','joint12','loss12'):
+              a=np.asarray(values[key],float);b=np.asarray(saved['probabilities'][key],float)
+              if not np.isfinite(a).all() or not np.allclose(a,b,atol=1e-12,rtol=0):
+                  raise ValueError('Model replay mismatch '+key)
+              max_error=max(max_error,float(np.max(np.abs(a-b))));frame[key]=a
+          available.validate_exact_replay(frame,root,receipt)
+          wide=pd.read_parquet(root/'financial_wide.parquet');out=Path('dual_rsi_output');out.mkdir()
+          snapshots={};eligible_sets={};rankings={}
+          original_threshold=available.RSI_MIN
+          columns=['isin','symbol','series','source_close_INR','rsi14','p6','p12','joint12','loss12',
+              'available_financial_tier','available_research_group','priority_score','priority_rank']
+          try:
+              for threshold in (70,50):
+                  # Isolated reporting process only: repository/default production threshold stays 70.
+                  available.RSI_MIN=threshold
+                  assessed,checks,audit=available.screen(frame,wide)
+                  eligible=assessed.available_research_eligible
+                  ranked=rank(assessed,eligible)
+                  chosen=ranked[ranked.priority_rank.notna()].sort_values('priority_rank')
+                  if len(chosen)>25 or not chosen.rsi14.gt(threshold).all():
+                      raise ValueError('Threshold or count invariant failed')
+                  eligible_sets[threshold]=set(assessed.loc[eligible,'isin'])
+                  records=json.loads(chosen[columns].to_json(orient='records',double_precision=15))
+                  rankings[threshold]=records
+                  obj={'source_asof':report['asof'],'rsi_strictly_greater_than':threshold,
+                      'RSI_definition':'SIMPLE_ROLLING_14_SESSIONS','eligible':int(eligible.sum()),
+                      'selected':len(records),'maximum_selected':25,'records':records,'ranking_weights':WEIGHTS,
+                      'all_other_eligibility_rules_unchanged':True,'loss_ceiling':.95,
+                      'price_band':None,'DMA_band_optional':True,'accuracy_approved':False,
+                      'model_retrained':False,'frozen_forecasts_changed':False,'prediction_replay':receipt}
+                  snapshots[str(threshold)]={k:v for k,v in obj.items() if k not in ('records','prediction_replay')}
+                  (out/f'RSI_GT{threshold}.json').write_text(json.dumps(obj,indent=2))
+                  chosen[columns].to_csv(out/f'RSI_GT{threshold}.csv',index=False)
+                  lines=[f"# V13 RSI >{threshold} — source {report['asof']}",'',
+                      'Unvalidated frozen-model estimates. Only the RSI eligibility threshold changes.','',
+                      '| Rank | Share | Series | Close INR | RSI | 2x 6m | 2x 12m | Loss event | Financial evidence |',
+                      '|---:|---|---|---:|---:|---:|---:|---:|---|']
+                  for r in records:
+                      lines.append(f"| {int(r['priority_rank'])} | {r['symbol']} | {r['series']} | {r['source_close_INR']:,.2f} | {r['rsi14']:.2f} | {100*r['p6']:.2f}% | {100*r['p12']:.2f}% | {100*r['loss12']:.2f}% | {r['available_financial_tier']} |")
+                  (out/f'RSI_GT{threshold}.md').write_text('\n'.join(lines)+'\n')
+          finally:
+              available.RSI_MIN=original_threshold
+          if not eligible_sets[70].issubset(eligible_sets[50]):
+              raise ValueError('RSI >70 eligibility is not nested within RSI >50')
+          prior=json.loads((root/'priority_research/latest.json').read_text())
+          if [r['isin'] for r in rankings[70]]!=[r['isin'] for r in prior['records']]:
+              raise ValueError('Unchanged RSI >70 ranking differs from source production result')
+          for now,old in zip(rankings[70],prior['records']):
+              for key in ('p6','p12','joint12','loss12','priority_score'):
+                  if not np.isclose(now[key],old[key],atol=1e-12,rtol=0):
+                      raise ValueError('RSI >70 production score differs')
+          selected70={r['isin'] for r in rankings[70]};selected50={r['isin'] for r in rankings[50]}
+          result={'completed_at_utc':datetime.now(timezone.utc).isoformat(),'workflow_run':os.environ['GITHUB_RUN_ID'],
+              'source_asof':report['asof'],'source_worker_run':sid,'source_artifact_id':artifact['id'],
+              'source_artifact_digest':artifact['digest'],'direct_exports_verified':checked['direct_exports_verified'],
+              'source_manifest_sha256':checked['source_manifest_sha256'],
+              'market_rows':len(frame),'public_universe_rows':report['public_universe_rows'],
+              'maximum_replay_difference':max_error,'model_sha256':receipt['model_sha256'],
+              'input_parquet_sha256':receipt['input_parquet_sha256'],'lists':snapshots,
+              'eligible_70_is_subset_of_50':True,'unchanged_70_ranking_matches_production':True,
+              'selected_overlap':len(selected70&selected50),
+              'additional_selected_at_50':[r['symbol'] for r in rankings[50] if r['isin'] not in selected70],
+              'archive_writes':False,'production_RSI_threshold_changed':False,
+              'frozen_forecasts_changed':False,'model_retrained':False,'accuracy_approved':False}
+          (out/'run_receipt.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-dual-rsi-predictions
+          path: dual_rsi_output/
+          retention-days: 30
+      - name: Publish aggregate execution receipt
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs=require('fs');const path='operational/v13_dual_rsi_prediction_health.json';
+            const report=JSON.parse(fs.readFileSync('dual_rsi_output/run_receipt.json'));delete report.additional_selected_at_50;
+            let sha;try{sha=(await github.rest.repos.getContent({...context.repo,path,ref:'main'})).data.sha;}catch(e){if(e.status!==404)throw e;}
+            await github.rest.repos.createOrUpdateFileContents({...context.repo,path,branch:'main',sha,message:'Record verified V13 dual-RSI inference run',content:Buffer.from(JSON.stringify(report,null,2)).toString('base64')});
