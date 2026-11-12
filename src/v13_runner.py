@@ -218,9 +218,15 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         phase('ORIGINAL_FINANCIAL_COLLECTION')
         from v13_financial_recovery_seed import apply as apply_financial_recovery_seed
         report['steps']['verified_original_financial_recovery']=apply_financial_recovery_seed(root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261020.json',asof)
+        report['steps']['current_original_financial_recovery']=apply_financial_recovery_seed(
+            root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261112.json',asof,
+            marker_name='financial_primary_seed_recovery_20261112.json')
         from v13_pdf_financial_reviews import collect as collect_reviewed_financial_pdfs
         report['steps']['reviewed_PDF_financial_comparatives']=collect_reviewed_financial_pdfs(
           root,seed.parent/'v13_evidence_seed/financial_pdf_reviews_20261102.json',asof)
+        from v13_image_financial_reviews import collect as collect_image_financials
+        report['steps']['reviewed_image_financial_comparatives']=collect_image_financials(
+            root,seed.parent/'v13_evidence_seed/image_financial_reviews_20261112.json',asof)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget,
           workers=collection_workers,seconds=filing_seconds)
         try:
@@ -351,6 +357,9 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 report['universe_financial_coverage']=audit_universe_financials(pd.read_parquet(root/'universe.parquet'),universe_wide,asof,root)
         except Exception as exc:
             report['universe_financial_coverage']={'status':'AUDIT_FAILED','error':str(exc)[:200]}
+        from v13_priority_research import unavailable as unavailable_priority
+        report['priority_research']=unavailable_priority(root,asof,
+            'BLOCKED_NO_EXACT_CURRENT_REPLAY' if not frame.empty else 'NO_CURRENT_VERIFIED_INPUTS')
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
@@ -399,7 +408,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                     from v13_priority_research import export as export_priority
                     report['priority_research']=export_priority(a,wide,root,report['exact_prediction_replay']['champion'])
                 except Exception as exc:
-                    report['priority_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
+                    report['priority_research']={**unavailable_priority(root,asof,'BLOCKED_DIAGNOSTICS_ONLY'),'error':str(exc)[:200]}
                 from v13_redevelopment import export as export_redevelopment
                 try:
                     report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])

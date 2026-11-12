@@ -8,10 +8,10 @@ from v13_financial_snapshot_union import union
 from v12_dated_source_collection import sha
 
 
-def apply(root,path,asof):
+def apply(root,path,asof,marker_name='financial_primary_seed_recovery.json'):
     root=Path(root);path=Path(path)
     if not path.exists():return {'status':'NO_RECOVERY_SOURCE_PACK'}
-    digest=hashlib.sha256(path.read_bytes()).hexdigest();marker=root/'financial_primary_seed_recovery.json'
+    digest=hashlib.sha256(path.read_bytes()).hexdigest();marker=root/marker_name
     pack=json.loads(path.read_text());master=pd.read_parquet(root/'universe.parquet');isins=dict(zip(master.nse_current_symbol,master['isin']))
     reference=hashlib.sha256(json.dumps(isins,sort_keys=True).encode()).hexdigest()
     if marker.exists():

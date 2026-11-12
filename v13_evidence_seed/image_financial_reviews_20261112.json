@@ -1,0 +1,168 @@
+{
+  "format": "V13_HASH_BOUND_MANUALLY_REVIEWED_IMAGE_TABLES_1",
+  "documents": [
+    {
+      "symbol": "APOLLO",
+      "isin": "INE713T01028",
+      "cin": "L72200TG1997PLC026556",
+      "source_url": "https://nsearchives.nseindia.com/corporate/APOLLO_24102026155137_AMSresults30092026.pdf",
+      "source_sha256": "63b54e06dd1921d7495c533dea5a0c223c9abf53f3d47a0599d83f29e41b50d8",
+      "catalogue_url": "https://www.nseindia.com/api/corporate-announcements?index=equities&from_date=24-10-2026&to_date=24-10-2026",
+      "published_at_utc": "2026-10-24T10:24:02+00:00",
+      "first_reviewed_utc": "2026-11-12T10:28:05.034999+00:00",
+      "review_status": "MANUALLY_REVIEWED_ORIGINAL_IMAGE_TABLE",
+      "page_number": 7,
+      "page_image_sha256": "f54d5f3b85dab3443a538a0a5fca14b204d330d969ea0dafd371a1aeb6f00bfe",
+      "reporting_mode": "consolidated",
+      "basis_excerpt": "CONSOLIDATED UNAUDITED FINANCIAL RESULTS FOR THE QUARTER AND SIX MONTHS ENDED 30 SEPTEMBER 2026",
+      "units_excerpt": "All amounts in lakhs except otherwise stated",
+      "scale_INR": 100000,
+      "column_dates": [
+        "2026-09-30",
+        "2026-06-30",
+        "2025-09-30",
+        "2026-09-30",
+        "2025-09-30",
+        "2026-03-31"
+      ],
+      "period_starts": [
+        "2026-07-01",
+        "2026-04-01",
+        "2025-07-01",
+        "2026-04-01",
+        "2025-04-01",
+        "2025-04-01"
+      ],
+      "column_kinds": [
+        "quarter",
+        "quarter",
+        "quarter",
+        "ytd",
+        "ytd",
+        "annual"
+      ],
+      "current_column": 0,
+      "comparative_column": 2,
+      "fields": [
+        {
+          "metric": "revenue",
+          "label": "Revenue from operations",
+          "unit": "INR",
+          "reported_cells": [
+            "38,814.95",
+            "25,129.30",
+            "22,526.45",
+            "63,944.26",
+            "35,884.75",
+            "90,432.38"
+          ]
+        },
+        {
+          "metric": "pat",
+          "label": "Profit after tax",
+          "unit": "INR",
+          "reported_cells": [
+            "4,615.34",
+            "2,521.60",
+            "3,002.71",
+            "7,136.94",
+            "4,771.15",
+            "10,738.04"
+          ]
+        },
+        {
+          "metric": "pat_owners",
+          "label": "Owners of the Company",
+          "unit": "INR",
+          "reported_cells": [
+            "4,843.09",
+            "2,691.30",
+            "3,111.14",
+            "7,534.39",
+            "4,962.29",
+            "11,292.01"
+          ]
+        },
+        {
+          "metric": "pat_noncontrolling",
+          "label": "Non controlling interest",
+          "unit": "INR",
+          "reported_cells": [
+            "(227.75)",
+            "(169.70)",
+            "(108.43)",
+            "(397.44)",
+            "(191.12)",
+            "(554.00)"
+          ]
+        },
+        {
+          "metric": "pbt",
+          "label": "Profit before tax",
+          "unit": "INR",
+          "reported_cells": [
+            "9,247.63",
+            "3,766.73",
+            "4,314.90",
+            "13,014.36",
+            "6,843.74",
+            "15,479.76"
+          ]
+        },
+        {
+          "metric": "finance_cost",
+          "label": "Financial costs",
+          "unit": "INR",
+          "reported_cells": [
+            "1,463.21",
+            "1,071.93",
+            "1,259.55",
+            "2,535.14",
+            "2,462.11",
+            "4,732.37"
+          ]
+        },
+        {
+          "metric": "depreciation",
+          "label": "Depreciation and amortization expenses",
+          "unit": "INR",
+          "reported_cells": [
+            "760.41",
+            "759.40",
+            "474.76",
+            "1,519.82",
+            "924.15",
+            "2,231.51"
+          ]
+        },
+        {
+          "metric": "other_income",
+          "label": "Other Income",
+          "unit": "INR",
+          "reported_cells": [
+            "353.73",
+            "224.95",
+            "130.27",
+            "578.67",
+            "217.46",
+            "627.35"
+          ]
+        },
+        {
+          "metric": "eps_diluted_continuing",
+          "label": "Diluted",
+          "unit": "INR/SHARES",
+          "reported_cells": [
+            "1.32",
+            "0.75",
+            "0.91",
+            "2.06",
+            "1.45",
+            "3.31"
+          ]
+        }
+      ],
+      "review_notes": "Original image-only PDF page 7 visually reviewed at full page and enlarged resolution. Only the missing September-2025 quarter is imported. Current amounts and diluted EPS are cross-bound to the existing original XBRL. Basic EPS 0.96 is distinct from diluted EPS 0.91. Obscured prior-quarter capital is not imported. Annual columns are context only and do not revise existing annual facts. The catalogue carries an old ISIN; current identity is bound to the original PDF front page and current master."
+    }
+  ]
+}
