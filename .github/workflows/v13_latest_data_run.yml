@@ -1,0 +1,57 @@
+name: V13 latest data research run
+on:
+  push:
+    branches: [v13-latest-data-run-20261112]
+    paths:
+      - '.github/workflows/v13_latest_data_run.yml'
+      - 'research/latest_data_run/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v13-readonly-latest-data-run
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src:research/latest_data_run
+      V13_COMPACT_ARCHIVE: '1'
+      V13_WORKING_CORE_ARCHIVE: '1'
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Test action-free primary-bar extension
+        run: |
+          mkdir -p latest_run_output
+          python -m unittest discover -s research/latest_data_run -p 'test_*.py' -v 2>&1 | tee latest_run_output/unit_tests.txt
+      - name: Restore latest verified working state read only
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from v13_checkpoint import restore
+          if not restore(Path('source_state')):raise RuntimeError('No saved state restored')
+          PY
+      - name: Check latest sources and score only after coverage gates
+        run: python -u research/latest_data_run/run_latest.py --root source_state --out latest_run_output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-latest-data-run
+          path: |
+            latest_run_output/*.json
+            latest_run_output/*.parquet
+            latest_run_output/*.txt
+            latest_run_output/sources/
+          retention-days: 30
