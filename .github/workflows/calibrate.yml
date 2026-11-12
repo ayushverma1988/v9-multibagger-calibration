@@ -5,10 +5,10 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/**'
+      - 'src/calibrate_v9_2.py'
+      - 'src/fetch_legacy_nse.py'
       - 'config.json'
       - 'requirements.txt'
-      - '.github/workflows/calibrate.yml'
 
 jobs:
   legacy-backfill:
@@ -60,11 +60,4 @@ jobs:
           path: outputs/
           retention-days: 90
       - name: Commit compact results
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p published_results
-          cp outputs/summary.json outputs/calibrator_comparison.csv outputs/downside_calibrator_comparison.csv outputs/topk_by_fold.csv outputs/current_top50.csv published_results/
-          git add published_results
-          git diff --cached --quiet || git commit -m "Update V9 calibration results [skip ci]"
-          git push
+        run: python src/compact_results_publish.py --source outputs
