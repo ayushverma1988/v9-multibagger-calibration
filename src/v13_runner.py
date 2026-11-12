@@ -357,6 +357,9 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                 report['universe_financial_coverage']=audit_universe_financials(pd.read_parquet(root/'universe.parquet'),universe_wide,asof,root)
         except Exception as exc:
             report['universe_financial_coverage']={'status':'AUDIT_FAILED','error':str(exc)[:200]}
+        from v13_priority_research import unavailable as unavailable_priority
+        report['priority_research']=unavailable_priority(root,asof,
+            'BLOCKED_NO_EXACT_CURRENT_REPLAY' if not frame.empty else 'NO_CURRENT_VERIFIED_INPUTS')
         if not frame.empty:
             wide=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
             frame=financial_evidence.enrich_evidence(frame,wide,root,asof)
@@ -405,7 +408,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                     from v13_priority_research import export as export_priority
                     report['priority_research']=export_priority(a,wide,root,report['exact_prediction_replay']['champion'])
                 except Exception as exc:
-                    report['priority_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
+                    report['priority_research']={**unavailable_priority(root,asof,'BLOCKED_DIAGNOSTICS_ONLY'),'error':str(exc)[:200]}
                 from v13_redevelopment import export as export_redevelopment
                 try:
                     report['redevelopment_diagnostics']=export_redevelopment(a,root,report['exact_prediction_replay']['champion'])

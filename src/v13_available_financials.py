@@ -5,6 +5,7 @@ different states. Raw facts/ratios, strict evidence bars, registered forecasts
 and calibrated probabilities are never filled or rewritten by this overlay.
 """
 from collections import Counter
+from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -237,12 +238,26 @@ def enrich(scored, wide):
     return pd.concat([d, overlay], axis=1), rows
 
 
-def screen(scored, wide):
+def screen(scored, wide, rsi_min=None):
+    """Screen an explicit threshold without changing the process default."""
     d, rows = enrich(scored, wide)
+    return _screen_enriched(scored, d, rows, RSI_MIN if rsi_min is None else rsi_min)
+
+
+def screen_many(scored, wide, thresholds=(70, 50)):
+    """Share financial assessment; keep independent state for both screens."""
+    d, rows = enrich(scored, wide)
+    return {threshold: _screen_enriched(scored, d, rows, threshold) for threshold in thresholds}
+
+
+def _screen_enriched(scored, enriched, assessments, rsi_min):
+    if isinstance(rsi_min, bool) or not isinstance(rsi_min, (int, float, np.number)) or not np.isfinite(rsi_min) or not 0 <= rsi_min < 100:
+        raise ValueError('RSI threshold must be finite and between 0 and below 100')
+    d, rows = enriched.copy(), deepcopy(assessments)
     def col(key):
         return pd.to_numeric(d.get(key, pd.Series(np.nan, index=d.index)), errors='coerce')
     market = valid_price(col('close')) & col('distance_ma50').gt(0) & col('log_ret63').le(np.log(2.5))
-    market &= col('rsi14').gt(RSI_MIN)
+    market &= col('rsi14').gt(rsi_min)
     identity = d.get('source_status', pd.Series('', index=d.index)).eq('VALID_POSITIVE_VOLUME_SESSION')
     identity &= d.get('official_source_sha256', pd.Series('', index=d.index)).astype(str).str.fullmatch(r'[0-9a-f]{64}')
     identity &= d.get('symbol_official', pd.Series('', index=d.index)).eq(d['symbol'])
@@ -276,15 +291,15 @@ def screen(scored, wide):
                     selected=bool(row.available_research_selected), group=row.available_research_group,
                     rank=row.available_research_rank, research_score=row.available_research_score,
                     exclusion_reasons=[name for name, mask in
-                        [('MARKET_OR_RSI_GT70_REQUIRED', market), ('OFFICIAL_CURRENT_IDENTITY_REQUIRED', identity),
+                        [(f'MARKET_OR_RSI_GT{rsi_min:g}_REQUIRED', market), ('OFFICIAL_CURRENT_IDENTITY_REQUIRED', identity),
                          ('VALID_FROZEN_PROBABILITIES_AND_RISK_REQUIRED', probability_ok),
                          ('OBSERVED_WEAKNESS_OR_SOURCE_CONFLICT', permitted)] if not bool(mask.loc[row.name])],
                     frozen_replay_probabilities={k: row[k] for k in ('p6', 'p12', 'loss12', 'joint12')})
     from v13_research_selection import screen as legacy_screen
     legacy, _ = legacy_screen(scored)
-    reference = legacy.research_eligible & col('rsi14').gt(RSI_MIN)
+    reference = legacy.research_eligible & col('rsi14').gt(rsi_min)
     states = Counter(v for r in rows for v in r['check_states'].values())
-    return d, rows, {'policy': POLICY, 'rows': len(d), 'RSI_rule': 'strict >70; simple rolling 14 sessions',
+    return d, rows, {'policy': POLICY, 'rows': len(d), 'RSI_rule': f'strict >{rsi_min:g}; simple rolling 14 sessions', 'rsi_strictly_greater_than': rsi_min,
         'price_band': None, 'DMA_band_optional': True, 'single_source_allowed': True,
         'supplementary_financial_catalyst_valuation_inputs_optional': True,
         'tiers': dict(Counter(r['tier'] for r in rows)), 'check_states': dict(states),
@@ -293,9 +308,9 @@ def screen(scored, wide):
         'eligible': int(eligible.sum()), 'selected': int(d.available_research_selected.sum()),
         'eligible_by_group': d.loc[eligible, 'available_research_group'].value_counts().to_dict(),
         'selected_by_group': d.loc[d.available_research_selected, 'available_research_group'].value_counts().to_dict(),
-        'legacy_eligible_at_same_RSI_gt70': int(reference.sum()),
-        'newly_eligible_at_same_RSI_gt70': d.loc[eligible & ~reference, 'symbol'].tolist(),
-        'removed_at_same_RSI_gt70': d.loc[~eligible & reference, 'symbol'].tolist(),
+        f'legacy_eligible_at_same_RSI_gt{rsi_min:g}': int(reference.sum()),
+        f'newly_eligible_at_same_RSI_gt{rsi_min:g}': d.loc[eligible & ~reference, 'symbol'].tolist(),
+        f'removed_at_same_RSI_gt{rsi_min:g}': d.loc[~eligible & reference, 'symbol'].tolist(),
         'ranking_weights': WEIGHTS.copy(), 'ranking_score_is_probability': False,
         'weights_fitted_to_outcomes': False, 'accuracy_approved': False,
         'strict_financial_bars_changed': False, 'formal_forecasts_changed': False,

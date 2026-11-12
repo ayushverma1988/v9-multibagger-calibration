@@ -117,7 +117,10 @@ def collect(root, seed_path, asof):
             if hashlib.sha256(raw).hexdigest() != proof['sha256']:
                 raise ValueError('Original image financial receipt mismatch')
             values = validate_table(record, raw, asof)
-            seen = max(pd.Timestamp(record['published_at_utc']), pd.Timestamp(record['first_reviewed_utc']), pd.Timestamp(proof['first_retrieved_utc']))
+            retrieved = pd.Timestamp(proof['first_retrieved_utc'])
+            if retrieved.tzinfo is None or not pd.Timestamp(record['published_at_utc']) <= retrieved <= pd.Timestamp.now(tz='UTC'):
+                raise ValueError('Invalid actual original retrieval clock')
+            seen = max(pd.Timestamp(record['published_at_utc']), pd.Timestamp(record['first_reviewed_utc']), retrieved)
             current, old = record['current_column'], record['comparative_column']
             anchor = wide[wide.security_isin.eq(record['isin']) & wide.reporting_mode.eq(record['reporting_mode']) & wide.period_kind.eq('quarter') & wide.period_end.eq(record['column_dates'][current])]
             if anchor.empty:raise ValueError('Current original financial anchor unavailable')
@@ -129,6 +132,13 @@ def collect(root, seed_path, asof):
             quarter_end = record['column_dates'][old]
             same = wide[wide.security_isin.eq(record['isin']) & wide.reporting_mode.eq(record['reporting_mode']) & wide.period_kind.eq('quarter') & wide.period_end.eq(quarter_end)]
             facts = []
+            if not same.empty:
+                previous = same.sort_values('available').iloc[-1]
+                for metric, cells in values.items():
+                    prior = previous.get(metric, np.nan)
+                    tolerance = .00001 if metric == 'eps_diluted_continuing' else record['scale_INR']*.02
+                    if np.isfinite(prior) and abs(prior-cells[old]) > tolerance:
+                        raise ValueError('Existing comparative requires source-conflict review: '+metric)
             if same.empty:
                 for metric, cells in values.items():
                     facts.append({'symbol': record['symbol'], 'security_isin': record['isin'], 'reporting_mode': record['reporting_mode'], 'period_kind': 'quarter',
