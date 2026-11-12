@@ -1,0 +1,50 @@
+{
+  "source_artifact_id": 13912504824,
+  "source_artifact_sha256": "33196362aff11a4b385d23d13aad5bb9fb86a22a3c4d9d4d0624becfe3998079",
+  "all_checks_passed": true,
+  "market_rows": 1622,
+  "probability_bounds_and_coherence_checked": true,
+  "selected_prices_and_identities_checked_against_NSE": true,
+  "lists": {
+    "50": {
+      "selected": 25,
+      "eligible": 447,
+      "official_price_checks_passed": true,
+      "trial_additions": [
+        "CAPITALSFB",
+        "TAJGVK",
+        "TVTODAY",
+        "BLAL",
+        "JAGRAN",
+        "GULPOLY",
+        "ALLDIGI",
+        "NINSYS"
+      ],
+      "trial_removals": [
+        "MARSONS",
+        "ONELIFECAP",
+        "SPECTRUM",
+        "MENONBE",
+        "REGAAL",
+        "DBOL",
+        "MAHASTEEL",
+        "MANAKSTEEL"
+      ],
+      "trial_overlap": 17
+    },
+    "70": {
+      "selected": 25,
+      "eligible": 173,
+      "official_price_checks_passed": true,
+      "trial_additions": [
+        "ROTO",
+        "MBAPL"
+      ],
+      "trial_removals": [
+        "SURAKSHA",
+        "TFCILTD"
+      ],
+      "trial_overlap": 23
+    }
+  }
+}

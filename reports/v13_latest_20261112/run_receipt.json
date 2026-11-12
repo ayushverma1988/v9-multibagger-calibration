@@ -1,0 +1,181 @@
+{
+  "started_at_utc": "2026-11-12T03:30:17.544272+00:00",
+  "source_asof": "2026-11-11",
+  "source_manifest_sha256": "e6bf6da4b8e0c16dab3b4082941909b2bcbf3a83840c2e3bd8f5e4621e8cc0b6",
+  "model_sha256": "c9208f89c46d043ee1d74e44dee1c85b9721b7a094e40a0fabf2c5506c246571",
+  "workflow_run": "43148531308",
+  "collector_market_rows": 3,
+  "collector_coverage_gate": {
+    "passed": false,
+    "current_rows": 3,
+    "minimum_rows": 337,
+    "reference_recent_rows": [
+      712,
+      586,
+      674
+    ],
+    "reference_median_rows": 674,
+    "status": "BLOCKED_COLLAPSED_CURRENT_COVERAGE"
+  },
+  "provider_probes": [
+    {
+      "symbol": "RELIANCE",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/RELIANCE.NS?interval=1d&period1=1668105000&period2=1794421800&events=div%2Csplits",
+      "requested_at_utc": "2026-11-12T03:21:38.616950+00:00",
+      "http_status": 200,
+      "retry_after": null,
+      "sha256": "b5a0f88e510ac7417b10c3d4e8e96b1a3da2a9278a2ee032d4e44bb6e393111e",
+      "latest_bar": "2026-11-11",
+      "fresh": true
+    },
+    {
+      "symbol": "SBIN",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/SBIN.NS?interval=1d&period1=1668105000&period2=1794421800&events=div%2Csplits",
+      "requested_at_utc": "2026-11-12T03:21:39.753684+00:00",
+      "http_status": 200,
+      "retry_after": null,
+      "sha256": "fe6ad7d25c4a5e29782d1911598510172c8c1476679fbaa5a7cd69fcfc92fc6e",
+      "latest_bar": "2026-11-11",
+      "fresh": true
+    }
+  ],
+  "primary_action_catalogue": {
+    "url": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=10-11-2026&to_date=11-11-2026",
+    "requested_at_utc": "2026-11-12T03:21:40.865774+00:00",
+    "http_status": 200,
+    "retry_after": null,
+    "sha256": "862d6d097a385aa0704aadbe63b4fc2faffe084be6e70fa317c64616c572ac73",
+    "bytes": 6454,
+    "validated": true,
+    "rows": 21,
+    "affected_symbols": [
+      "ADFFOODS",
+      "AUROPHARMA",
+      "BALKRISIND",
+      "BALRAMCHIN",
+      "CHAMBLFERT",
+      "CONCOR",
+      "EVONILE",
+      "GALAXYSURF",
+      "GPTINFRA",
+      "HUDCO",
+      "INDIGRID",
+      "JMFINANCIL",
+      "JYOTHYLAB",
+      "LALPATHLAB",
+      "NAVNETEDUL",
+      "NBCC",
+      "NRBBEARING",
+      "PDSL",
+      "PREMIERENE",
+      "RITES",
+      "SONATSOFTW"
+    ],
+    "scope": "MAIN_BOARD_EQUITIES_ONLY",
+    "reused_same_source_capture": true,
+    "reverified_at_utc": "2026-11-12T03:30:17.735999+00:00"
+  },
+  "last_broad_source_asof": "2026-11-09",
+  "last_broad_market_rows": 1645,
+  "archive_writes": false,
+  "production_changed": false,
+  "forecasts_rewritten": false,
+  "new_formal_forecast_registered": false,
+  "trial_weights_adopted_in_production": false,
+  "latest_model_status": "COMPLETED_PRIMARY_DATA_RESEARCH_RUN",
+  "new_primary_rows": 2257,
+  "recovered_market_rows": 1622,
+  "recovered_coverage_gate": {
+    "passed": true,
+    "current_rows": 1622,
+    "minimum_rows": 337,
+    "reference_recent_rows": [
+      712,
+      586,
+      674
+    ],
+    "reference_median_rows": 674,
+    "status": "PASS"
+  },
+  "history_coverage": {
+    "PRIMARY_NO_ACTION_EXTENSION": 2257,
+    "MISSING_PRIMARY_IDENTITY": 22,
+    "History must end on exact anchor session": 4,
+    "Anchor raw prices differ": 7,
+    "Corporate action requires explicit adjustment": 19,
+    "NATIVE_CURRENT_HISTORY": 8
+  },
+  "source_method": "NSE_PRIMARY_CURRENT_BAR_WITH_MATCHED_PRIOR_VENDOR_HISTORY_AND_ACTION_FREE_INTERVAL",
+  "latest_session_independent_vendor_verification": false,
+  "lists": {
+    "50": {
+      "source_asof": "2026-11-11",
+      "RSI_strictly_greater_than": 50,
+      "market_rows": 1622,
+      "eligible": 447,
+      "selected": 25,
+      "baseline_weights": {
+        "p6_percentile": 0.7,
+        "joint12_percentile": 0.25,
+        "optional_dma200": 0.05
+      },
+      "trial_weights": {
+        "p6_percentile": 0.6,
+        "joint12_percentile": 0.2,
+        "lower_loss_risk_percentile": 0.1,
+        "price_discipline": 0.05,
+        "optional_dma200": 0.05
+      },
+      "source_method": "NSE_PRIMARY_CURRENT_BAR_WITH_MATCHED_PRIOR_VENDOR_HISTORY_AND_ACTION_FREE_INTERVAL",
+      "latest_session_independent_vendor_verification": false,
+      "research_only": true,
+      "formal_registration_unchanged": true,
+      "probabilities_accuracy_validated": false,
+      "financial_tiers": {
+        "AVAILABLE_SEVEN_CHECK_PASS_RESEARCH": 422,
+        "OBSERVED_CURRENT_FINANCIAL_WEAKNESS": 322,
+        "AVAILABLE_CURRENT_FINANCIALS_RESEARCH": 321,
+        "QUARANTINED_SOURCE_CONFLICT": 329,
+        "INCOMPLETE_FINANCIAL_DISCOVERY": 204,
+        "TURNAROUND_RESEARCH": 24
+      }
+    },
+    "70": {
+      "source_asof": "2026-11-11",
+      "RSI_strictly_greater_than": 70,
+      "market_rows": 1622,
+      "eligible": 173,
+      "selected": 25,
+      "baseline_weights": {
+        "p6_percentile": 0.7,
+        "joint12_percentile": 0.25,
+        "optional_dma200": 0.05
+      },
+      "trial_weights": {
+        "p6_percentile": 0.6,
+        "joint12_percentile": 0.2,
+        "lower_loss_risk_percentile": 0.1,
+        "price_discipline": 0.05,
+        "optional_dma200": 0.05
+      },
+      "source_method": "NSE_PRIMARY_CURRENT_BAR_WITH_MATCHED_PRIOR_VENDOR_HISTORY_AND_ACTION_FREE_INTERVAL",
+      "latest_session_independent_vendor_verification": false,
+      "research_only": true,
+      "formal_registration_unchanged": true,
+      "probabilities_accuracy_validated": false,
+      "financial_tiers": {
+        "AVAILABLE_SEVEN_CHECK_PASS_RESEARCH": 422,
+        "OBSERVED_CURRENT_FINANCIAL_WEAKNESS": 322,
+        "AVAILABLE_CURRENT_FINANCIALS_RESEARCH": 321,
+        "QUARANTINED_SOURCE_CONFLICT": 329,
+        "INCOMPLETE_FINANCIAL_DISCOVERY": 204,
+        "TURNAROUND_RESEARCH": 24
+      }
+    }
+  },
+  "financial_complete_rows": 1109,
+  "financial_quality_pass_rows": 529,
+  "completed_at_utc": "2026-11-12T03:38:52.411006+00:00",
+  "protected_files_count": 60,
+  "protected_files_unchanged": true
+}
