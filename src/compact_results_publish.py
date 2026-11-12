@@ -19,11 +19,15 @@ RESULT_FILES = (
     'topk_by_fold.csv',
     'current_top50.csv',
 )
+BOT_IDENTITY = (
+    '-c', 'user.name=github-actions[bot]',
+    '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+)
 
 
 def _git(repo: Path, *args: str, check: bool = True):
     result = subprocess.run(
-        ['git', *args], cwd=repo, capture_output=True, text=True,
+        ['git', *BOT_IDENTITY, *args], cwd=repo, capture_output=True, text=True,
         stdin=subprocess.DEVNULL,
     )
     if check and result.returncode:
@@ -56,11 +60,7 @@ def publish(repo: Path, source: Path, attempts: int = 3) -> dict:
     _git(repo, 'add', '--', *paths)
     if not _git(repo, 'diff', '--cached', '--name-only').stdout.strip():
         return {'status': 'NO_LOCAL_RESULT_CHANGES', 'push_attempts': 0}
-    _git(
-        repo, '-c', 'user.name=github-actions[bot]',
-        '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
-        'commit', '-m', 'Update V9 calibration results [skip ci]',
-    )
+    _git(repo, 'commit', '-m', 'Update V9 calibration results [skip ci]')
     for attempt in range(1, attempts + 1):
         _git(repo, 'fetch', 'origin', 'main')
         rebase = _git(repo, 'rebase', 'FETCH_HEAD', check=False)

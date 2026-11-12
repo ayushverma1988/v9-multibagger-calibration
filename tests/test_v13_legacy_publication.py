@@ -1,5 +1,6 @@
 """Legacy publishing must not lose concurrent V13 health or source commits."""
 import fnmatch
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -12,6 +13,9 @@ import compact_results_publish as publisher
 
 class CompactPublication(unittest.TestCase):
     def setUp(self):
+        isolated_git = patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1'})
+        isolated_git.start()
+        self.addCleanup(isolated_git.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         root = Path(self.temp.name)
