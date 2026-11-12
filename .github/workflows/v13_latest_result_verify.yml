@@ -25,7 +25,8 @@ jobs:
           from urllib.request import Request,urlopen
           import pandas as pd
           repo=os.environ['GITHUB_REPOSITORY']
-          req=Request(f'https://api.github.com/repos/{repo}/actions/artifacts/13912504824/zip',headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'})
+          req=Request(f'https://api.github.com/repos/{repo}/actions/artifacts/13912504824/zip',headers={'Accept':'application/vnd.github+json'})
+          req.add_unredirected_header('Authorization','Bearer '+os.environ['GITHUB_TOKEN'])
           with urlopen(req,timeout=60) as response:raw=response.read()
           assert len(raw)==1958668
           assert hashlib.sha256(raw).hexdigest()=='33196362aff11a4b385d23d13aad5bb9fb86a22a3c4d9d4d0624becfe3998079'
