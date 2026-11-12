@@ -15,8 +15,6 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONPATH: src
-      V13_COMPACT_ARCHIVE: '1'
-      V13_WORKING_CORE_ARCHIVE: '1'
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
       LOKY_MAX_CPU_COUNT: '2'
@@ -35,12 +33,16 @@ jobs:
           python -m unittest discover -s tests -q 2>&1 | tee apollo_fix_output/full_tests.txt
       - name: Preserve corrected Apollo facts and verify both RSI screens
         env:
+          V13_COMPACT_ARCHIVE: '1'
+          V13_WORKING_CORE_ARCHIVE: '1'
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python -u -m v13_apollo_repair_run --state v13_state --out apollo_fix_output --publish
       - name: Keep the verified working archive within its existing policy
         if: always()
         env:
+          V13_COMPACT_ARCHIVE: '1'
+          V13_WORKING_CORE_ARCHIVE: '1'
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: |
           if [ -f apollo_fix_output/apollo_correction_result.json ]; then
