@@ -73,7 +73,13 @@ def run(root,out):
     universe=pd.read_parquet(root/'universe.parquet');sym='nse_current_symbol' if 'nse_current_symbol' in universe else 'symbol'
     wanted=set(zip(universe['isin'],universe[sym]))
     probes=[]
-    for symbol in ['RELIANCE','SBIN']:
+    previous_probe=out/'provider_probe_receipts.json'
+    if previous_probe.exists():
+        probes=json.loads(previous_probe.read_text())
+        for p in probes:
+            raw=src/('probe_'+p['symbol']+'.raw')
+            if p.get('sha256') and (not raw.exists() or hashlib.sha256(raw.read_bytes()).hexdigest()!=p['sha256']):raise ValueError('Captured provider probe differs')
+    for symbol in ([] if probes else ['RELIANCE','SBIN']):
         item=universe[universe[sym].eq(symbol)]
         if len(item)!=1:continue
         p1=int((TARGET-pd.DateOffset(years=4)).tz_localize('Asia/Kolkata').timestamp())
@@ -98,10 +104,18 @@ def run(root,out):
     action_url='https://www.nseindia.com/api/corporates-corporateActions?'+urlencode({'index':'equities','from_date':'10-11-2026','to_date':'11-11-2026'})
     action_proof={'url':action_url,'requested_at_utc':datetime.now(timezone.utc).isoformat()};actions=None;action_symbols=set();calendar_ok=False
     try:
-        response=requests.get(action_url,headers={'User-Agent':'Mozilla/5.0','Accept':'application/json','Referer':'https://www.nseindia.com/companies-listing/corporate-filings-actions'},timeout=(10,35))
-        raw=response.content;(src/'primary_action_catalogue.raw').write_bytes(raw)
-        action_proof.update(http_status=response.status_code,retry_after=response.headers.get('Retry-After'),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
-        response.raise_for_status();body=response.json()
+        captured=out/'action_catalogue_receipt.json'
+        if captured.exists() and (src/'primary_action_catalogue.raw').exists():
+            action_proof=json.loads(captured.read_text());raw=(src/'primary_action_catalogue.raw').read_bytes()
+            if action_proof['url']!=action_url or hashlib.sha256(raw).hexdigest()!=action_proof['sha256']:raise ValueError('Captured action catalogue differs')
+            if action_proof.get('http_status')!=200:raise ValueError('Captured action response is not successful')
+            action_proof.update(reused_same_source_capture=True,reverified_at_utc=datetime.now(timezone.utc).isoformat())
+            body=json.loads(raw)
+        else:
+            response=requests.get(action_url,headers={'User-Agent':'Mozilla/5.0','Accept':'application/json','Referer':'https://www.nseindia.com/companies-listing/corporate-filings-actions'},timeout=(10,35))
+            raw=response.content;(src/'primary_action_catalogue.raw').write_bytes(raw)
+            action_proof.update(http_status=response.status_code,retry_after=response.headers.get('Retry-After'),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
+            response.raise_for_status();body=response.json()
         actions=body if isinstance(body,list) else body.get('data')
         if not isinstance(actions,list) or not actions:raise ValueError('No complete nonempty primary action catalogue')
         if isinstance(body,dict) and any(int(body[k])>len(actions) for k in ['total','totalRecords'] if isinstance(body.get(k),(int,float))):raise ValueError('Truncated action catalogue')
@@ -111,13 +125,18 @@ def run(root,out):
             action_symbols.add(symbol)
         action_proof.update(validated=True,rows=len(actions),affected_symbols=sorted(action_symbols),scope='MAIN_BOARD_EQUITIES_ONLY')
         calendar_url='https://nsearchives.nseindia.com/content/circulars/CMTR71775.pdf'
-        r=requests.get(calendar_url,headers={'User-Agent':'Mozilla/5.0'},timeout=(10,30));r.raise_for_status()
-        (src/'calendar_2026.pdf').write_bytes(r.content)
+        calendar_file=src/'calendar_2026.pdf';old_calendar=out/'calendar_receipt.json'
+        if calendar_file.exists() and old_calendar.exists():
+            calendar_raw=calendar_file.read_bytes();prior_calendar=json.loads(old_calendar.read_text())
+            if prior_calendar['url']!=calendar_url or hashlib.sha256(calendar_raw).hexdigest()!=prior_calendar['sha256']:raise ValueError('Captured calendar differs')
+        else:
+            r=requests.get(calendar_url,headers={'User-Agent':'Mozilla/5.0'},timeout=(10,30));r.raise_for_status()
+            calendar_raw=r.content;calendar_file.write_bytes(calendar_raw)
         import pdfplumber
-        with pdfplumber.open(io.BytesIO(r.content)) as pdf:text=' '.join(p.extract_text() or '' for p in pdf.pages)
+        with pdfplumber.open(io.BytesIO(calendar_raw)) as pdf:text=' '.join(p.extract_text() or '' for p in pdf.pages)
         calendar_ok=bool(re.search(r'November\s+10,?\s+2026\s+Tuesday\s+Diwali',text,re.I))
         if not calendar_ok:raise ValueError('Intervening holiday not verified')
-        save(out/'calendar_receipt.json',{'url':calendar_url,'sha256':hashlib.sha256(r.content).hexdigest(),
+        save(out/'calendar_receipt.json',{'url':calendar_url,'sha256':hashlib.sha256(calendar_raw).hexdigest(),
             '10_Nov_2026_is_trading_holiday':True,'9_to_11_Nov_is_one_next_session_interval':True})
     except Exception as exc:action_proof.update(validated=False,error_type=type(exc).__name__)
     save(out/'action_catalogue_receipt.json',action_proof)

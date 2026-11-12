@@ -44,7 +44,21 @@ jobs:
           if not restore(Path('source_state')):raise RuntimeError('No saved state restored')
           PY
       - name: Check latest sources and score only after coverage gates
-        run: python -u research/latest_data_run/run_latest.py --root source_state --out latest_run_output
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          from v13_archive_retention import download_artifact
+          download_artifact(13911993439,'sha256:955180b035d7642e8de025bb85c7787943719abf67c576b5231bdba9c67a75c3','captured_latest_sources.zip')
+          allowed={'provider_probe_receipts.json','action_catalogue_receipt.json','calendar_receipt.json'}
+          with zipfile.ZipFile('captured_latest_sources.zip') as z:
+              for name in z.namelist():
+                  if Path(name).is_absolute() or '..' in Path(name).parts:raise ValueError('Unsafe captured path')
+                  if name.startswith('sources/') or name in allowed:z.extract(name,'latest_run_output')
+          PY
+          python -u research/latest_data_run/run_latest.py --root source_state --out latest_run_output
       - uses: actions/upload-artifact@v4
         if: always()
         with:

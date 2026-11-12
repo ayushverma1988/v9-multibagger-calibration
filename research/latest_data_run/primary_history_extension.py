@@ -31,6 +31,7 @@ def extend(bars,anchor,current,action_symbols,feed_verified,calendar_verified):
     if not np.isfinite(factor) or factor<=0:raise ValueError('Invalid original adjustment scale')
     row={c:last[c] for c in d.columns}
     row.update({c:current[c] for c in ['date','isin','symbol','open','high','low','close','volume']})
+    row['date']=pd.Timestamp(current['date'])
     row['adj_close']=float(current['close'])*factor
     row['source_sha256']=current['source_sha256']
     result=pd.concat([d,pd.DataFrame([row])],ignore_index=True)

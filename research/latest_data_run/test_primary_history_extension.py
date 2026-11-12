@@ -25,6 +25,15 @@ class ExtensionTests(unittest.TestCase):
     def test_rejects_any_disclosed_action_even_cash_dividend(self):
         b,a,c=self.example()
         with self.assertRaises(ValueError):extend(b,a,c,{'TEST'},True,True)
+    def test_actual_primary_string_dates_remain_datetime_and_serialize(self):
+        b,a,c=self.example();a['date']='2026-11-09';c['date']='2026-11-11'
+        d,_=extend(b,a,c,set(),True,True)
+        self.assertTrue(pd.api.types.is_datetime64_any_dtype(d.date))
+        self.assertEqual(d.date.iloc[-1],pd.Timestamp('2026-11-11'))
+        import importlib.util,io,os
+        if importlib.util.find_spec('pyarrow'):
+            d.to_parquet(io.BytesIO(),index=False)
+        elif os.environ.get('CI'):self.fail('Runner must exercise actual Parquet serialization')
     def test_rejects_stale_history_and_missing_trading_session(self):
         b,a,c=self.example();b=b.iloc[:1]
         with self.assertRaises(ValueError):extend(b,a,c,set(),True,True)
