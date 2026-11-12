@@ -1,0 +1,88 @@
+name: V13 latest result verification
+on:
+  push:
+    branches: [v13-latest-data-run-20261112]
+    paths: ['.github/workflows/v13_latest_result_verify.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas==2.2.3 pyarrow
+      - name: Validate completed run and display exact result
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import hashlib,io,json,os,zipfile
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          import pandas as pd
+          repo=os.environ['GITHUB_REPOSITORY']
+          req=Request(f'https://api.github.com/repos/{repo}/actions/artifacts/13912504824/zip',headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'})
+          with urlopen(req,timeout=60) as response:raw=response.read()
+          assert len(raw)==1958668
+          assert hashlib.sha256(raw).hexdigest()=='33196362aff11a4b385d23d13aad5bb9fb86a22a3c4d9d4d0624becfe3998079'
+          out=Path('verified_output');out.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              for name in z.namelist():
+                  assert not Path(name).is_absolute() and '..' not in Path(name).parts
+              z.extractall(out)
+          receipt=json.loads((out/'run_receipt.json').read_text())
+          assert receipt['latest_model_status']=='COMPLETED_PRIMARY_DATA_RESEARCH_RUN'
+          assert receipt['source_asof']=='2026-11-11' and receipt['recovered_coverage_gate']['passed']
+          assert receipt['protected_files_unchanged'] and not receipt['production_changed'] and not receipt['new_formal_forecast_registered']
+          official=pd.read_parquet(out/'sources/official/2026-11-11_official_market.parquet')
+          prices={r['isin']:r for r in official.to_dict('records') if r['source_status']=='VALID_POSITIVE_VOLUME_SESSION'}
+          inputs=pd.read_parquet(out/'latest_model_inputs_and_predictions.parquet')
+          assert len(inputs)==receipt['recovered_market_rows']==1622
+          assert not inputs['isin'].duplicated().any()
+          for col in ['p6','p12','joint12','loss12']:
+              assert inputs[col].between(0,1).all()
+          assert inputs.p6.le(inputs.p12+1e-12).all()
+          assert (inputs.joint12+inputs.loss12).le(1+1e-12).all()
+          excluded=set(receipt['primary_action_catalogue']['affected_symbols'])
+          lineage=json.loads((out/'history_extension_lineage.json').read_text())
+          assert len(lineage)==receipt['new_primary_rows']==2257
+          checks={}
+          for threshold in [70,50]:
+              obj=json.loads((out/f'latest_RSI{threshold}.json').read_text())
+              assert obj['source_asof']=='2026-11-11' and obj['market_rows']==1622
+              for key,rank in [('records','priority_rank'),('trial_records','candidate_rank')]:
+                  records=obj[key]
+                  assert len(records)==25 and len({r['isin'] for r in records})==25
+                  assert [r[rank] for r in records]==list(range(1,26))
+                  for row in records:
+                      assert row['rsi14']>threshold
+                      source=prices[row['isin']]
+                      assert abs(row['source_close_INR']-source['close'])<0.011
+                      assert row['symbol']==source['symbol']
+                      match=inputs[inputs['isin'].eq(row['isin'])]
+                      assert len(match)==1
+                      for col in ['p6','p12','joint12','loss12']:
+                          assert abs(row[col]-float(match.iloc[0][col]))<1e-12
+              baseline=[r['symbol'] for r in obj['records']]
+              trial=[r['symbol'] for r in obj['trial_records']]
+              checks[str(threshold)]={'selected':25,'eligible':obj['eligible'],'official_price_checks_passed':True,
+                  'trial_additions':[s for s in trial if s not in baseline],'trial_removals':[s for s in baseline if s not in trial],
+                  'trial_overlap':len(set(baseline)&set(trial))}
+              print('RESULT_JSON_RSI'+str(threshold)+' '+json.dumps(obj,separators=(',',':')),flush=True)
+          validation={'source_artifact_id':13912504824,'source_artifact_sha256':hashlib.sha256(raw).hexdigest(),
+              'all_checks_passed':True,'market_rows':len(inputs),'probability_bounds_and_coherence_checked':True,
+              'selected_prices_and_identities_checked_against_NSE':True,'lists':checks}
+          (out/'delivery_validation.json').write_text(json.dumps(validation,indent=2))
+          print('DELIVERY_VALIDATION_JSON '+json.dumps(validation,separators=(',',':')),flush=True)
+          print('RUN_RECEIPT_JSON '+json.dumps(receipt,separators=(',',':')),flush=True)
+          
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-latest-verified-results
+          path: verified_output/
+          retention-days: 30
