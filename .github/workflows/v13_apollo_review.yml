@@ -1,0 +1,79 @@
+name: V13 Apollo result lookup
+on:
+  push:
+    branches: [v13-latest-data-run-20261112]
+    paths: ['.github/workflows/v13_apollo_review.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  lookup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas==2.2.3 pyarrow pdfplumber
+      - name: Inspect the frozen latest result for Apollo
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import io,json,os,hashlib,zipfile
+          from urllib.request import Request,urlopen
+          from pathlib import Path
+          import pandas as pd
+          def plain(x):
+              if isinstance(x,dict):return {str(k):plain(v) for k,v in x.items()}
+              if isinstance(x,list):return [plain(v) for v in x]
+              if hasattr(x,'isoformat'):return x.isoformat()
+              if hasattr(x,'item'):return plain(x.item())
+              if isinstance(x,float) and not pd.notna(x):return None
+              return x
+          req=Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/actions/artifacts/13912504824/zip',headers={'Accept':'application/vnd.github+json'})
+          req.add_unredirected_header('Authorization','Bearer '+os.environ['GITHUB_TOKEN'])
+          with urlopen(req,timeout=60) as r:raw=r.read()
+          assert hashlib.sha256(raw).hexdigest()=='33196362aff11a4b385d23d13aad5bb9fb86a22a3c4d9d4d0624becfe3998079'
+          out=Path('apollo_review');out.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              d=pd.read_parquet(io.BytesIO(z.read('latest_model_inputs_and_predictions.parquet')))
+              official=pd.read_parquet(io.BytesIO(z.read('sources/official/2026-11-11_official_market.parquet')))
+              lineage=json.loads(z.read('history_extension_lineage.json'))
+          hit=d[d['isin'].eq('INE713T01028')]
+          officialhit=official[official['isin'].eq('INE713T01028')]
+          obj={'source_asof':'2026-11-11','market_rows':len(d),'model_rows':json.loads(hit.to_json(orient='records',date_format='iso',double_precision=15)),
+              'official':json.loads(officialhit.to_json(orient='records',date_format='iso',double_precision=15)),
+              'source_artifact_sha256':hashlib.sha256(raw).hexdigest()}
+          if len(hit)==1:
+              row=hit.iloc[0]
+              for col in ['p6','p12','joint12','loss12']:
+                  obj[col+'_descending_rank_all_scored']=int(d[col].rank(method='min',ascending=False).loc[row.name])
+              obj['other_selected_rows_in_top25_70']=[]
+              for threshold in [70,50]:
+                  with zipfile.ZipFile(io.BytesIO(raw)) as z:selection=json.loads(z.read('latest_RSI'+str(threshold)+'.json'))
+                  obj['selected_RSI'+str(threshold)]=any(r['isin']=='INE713T01028' for r in selection['records'])
+          obj=plain(obj)
+          (out/'apollo_model_lookup.json').write_text(json.dumps(obj,indent=2,allow_nan=False))
+          print('APOLLO_MODEL_JSON '+json.dumps(obj,separators=(',',':'),allow_nan=False),flush=True)
+          # Read the issuer's filed presentation, preserving primary bytes and clock.
+          try:
+              import pdfplumber
+              url='https://nsearchives.nseindia.com/corporate/APOLLO_24102026163833_AMS_Investorpresentation_30092026.pdf'
+              with urlopen(Request(url,headers={'User-Agent':'Mozilla/5.0'}),timeout=45) as r:pdfraw=r.read()
+              (out/'issuer_presentation.pdf').write_bytes(pdfraw)
+              texts=[]
+              with pdfplumber.open(io.BytesIO(pdfraw)) as pdf:
+                  for i,page in enumerate(pdf.pages[:16]):texts.append({'page':i+1,'text':page.extract_text()})
+              proof={'url':url,'sha256':hashlib.sha256(pdfraw).hexdigest(),'pages':texts}
+              (out/'issuer_presentation_extract.json').write_text(json.dumps(proof,indent=2))
+              for item in texts:print('ISSUER_PAGE_JSON '+json.dumps(item,separators=(',',':')),flush=True)
+          except Exception as exc:
+              print('ISSUER_FETCH_STATUS '+type(exc).__name__,flush=True)
+          
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-apollo-review
+          path: apollo_review/
+          retention-days: 30
