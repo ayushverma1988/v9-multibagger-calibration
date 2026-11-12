@@ -67,13 +67,13 @@ def parse_mapped(raw,record,asof,master_isin,changes):
         return next(iter(values))
     symbol=scalar({'Symbol','NSESymbol'})
     if symbol==record['symbol']:
-        facts=parse_extra(raw,record,asof,include_ytd=True)
+        facts=parse_extra(raw,record,asof,include_ytd=True,include_ytd_cashflow=True)
         if any(f['security_isin']!=master_isin for f in facts):raise ValueError('Document/current master ISIN conflict')
         return facts
     isin=scalar({'ISIN'})
     if not re.fullmatch(r'INE[A-Z0-9]{8}[0-9]',isin) or isin!=master_isin:raise ValueError('Rename original/master ISIN conflict')
     path=rename_path(symbol,record['symbol'],changes,asof)
-    facts=parse_extra(raw,{**record,'symbol':symbol},asof,include_ytd=True)
+    facts=parse_extra(raw,{**record,'symbol':symbol},asof,include_ytd=True,include_ytd_cashflow=True)
     available=max([pd.Timestamp(record['available_at_utc'])]+[pd.Timestamp(r['first_seen_utc']) for r in path])
     meta={'original_document_symbol':symbol,'original_publication_utc':record['available_at_utc'],
       'identity_mapping_source_sha256':json.dumps([r['source_sha256'] for r in path]),

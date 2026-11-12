@@ -218,9 +218,15 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         phase('ORIGINAL_FINANCIAL_COLLECTION')
         from v13_financial_recovery_seed import apply as apply_financial_recovery_seed
         report['steps']['verified_original_financial_recovery']=apply_financial_recovery_seed(root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261020.json',asof)
+        report['steps']['current_original_financial_recovery']=apply_financial_recovery_seed(
+            root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261112.json',asof,
+            marker_name='financial_primary_seed_recovery_20261112.json')
         from v13_pdf_financial_reviews import collect as collect_reviewed_financial_pdfs
         report['steps']['reviewed_PDF_financial_comparatives']=collect_reviewed_financial_pdfs(
           root,seed.parent/'v13_evidence_seed/financial_pdf_reviews_20261102.json',asof)
+        from v13_image_financial_reviews import collect as collect_image_financials
+        report['steps']['reviewed_image_financial_comparatives']=collect_image_financials(
+            root,seed.parent/'v13_evidence_seed/image_financial_reviews_20261112.json',asof)
         report['steps']['financials']=collection.collect_financials(root,asof,filing_budget,
           workers=collection_workers,seconds=filing_seconds)
         try:
