@@ -1,0 +1,91 @@
+name: V13 Apollo source audit
+on:
+  push:
+    branches: [v13-apollo-dual-rsi-fix-20261112]
+    paths: ['.github/workflows/v13_apollo_source_audit.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: src
+      V13_COMPACT_ARCHIVE: '1'
+      V13_WORKING_CORE_ARCHIVE: '1'
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Audit Apollo original sources and saved facts
+        env:
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: |
+          python - <<'PY'
+          import io,json,hashlib,zipfile,subprocess,sys
+          from pathlib import Path
+          from datetime import datetime,timezone
+          import pandas as pd,pdfplumber,requests
+          from v13_checkpoint import restore
+          out=Path('audit_output');out.mkdir()
+          root=Path('audit_state')
+          if not restore(root):raise RuntimeError('Verified restore unavailable')
+          wide=pd.read_parquet(root/'financial_wide.parquet')
+          selected=wide[wide.security_isin.eq('INE713T01028')].copy()
+          selected.to_parquet(out/'apollo_financial_wide_before.parquet',index=False)
+          selected.to_json(out/'apollo_financial_wide_before.json',orient='records',date_format='iso',double_precision=15)
+          summary=selected[[c for c in ['reporting_mode','period_kind','period_end','available_at_utc','source_url','source_sha256','revenue','pat','pat_owners','pat_noncontrolling','cfo','eps_diluted'] if c in selected]]
+          print('WIDE_SCHEMA_JSON '+json.dumps({'columns':list(wide),'apollo_rows':len(selected)}),flush=True)
+          print('WIDE_LATEST_JSON '+summary.sort_values('period_end').tail(24).to_json(orient='records',date_format='iso',double_precision=15),flush=True)
+          # Download the original filing and its exchange catalogue once; no retry loop.
+          urls={
+           'results':'https://nsearchives.nseindia.com/corporate/APOLLO_24102026155137_AMSresults30092026.pdf',
+           'catalogue':'https://www.nseindia.com/api/corporate-announcements?index=equities&from_date=24-10-2026&to_date=24-10-2026'}
+          for key,url in urls.items():
+              response=requests.get(url,headers={'User-Agent':'Mozilla/5.0','Accept':'*/*'},timeout=(10,45))
+              response.raise_for_status()
+              raw=response.content
+              (out/(key+('.pdf' if key=='results' else '.json'))).write_bytes(raw)
+              proof={'url':url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'first_retrieved_utc':datetime.now(timezone.utc).isoformat()}
+              (out/(key+'_receipt.json')).write_text(json.dumps(proof,indent=2))
+              print('SOURCE_PROOF_JSON '+json.dumps({key:proof}),flush=True)
+              if key=='results':
+                  texts=[]
+                  with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                      for i,page in enumerate(pdf.pages):
+                          text=page.extract_text() or ''
+                          texts.append({'page':i+1,'text':text})
+                          print('RESULT_PAGE_JSON '+json.dumps(texts[-1],separators=(',',':')),flush=True)
+                  (out/'results_pages.json').write_text(json.dumps(texts,indent=2))
+              else:
+                  data=response.json()
+                  matches=[r for r in data if r.get('symbol') in {'APOLLO','APOLLOMICRO'}]
+                  (out/'apollo_catalogue_matches.json').write_text(json.dumps(matches,indent=2))
+                  print('CATALOGUE_MATCHES_JSON '+json.dumps(matches,separators=(',',':')),flush=True)
+          # Deliver small tracked source/test files for local implementation and review.
+          files=subprocess.check_output(['git','ls-files'],text=True).splitlines()
+          with zipfile.ZipFile(out/'repository_source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for name in files:
+                  p=Path(name)
+                  if p.is_file() and p.stat().st_size<300000 and (name.startswith(('src/','tests/','.github/workflows/','docs/','v13_evidence_seed/')) or name.startswith('requirements') or name in {'pyproject.toml','README.md','pytest.ini'}):z.write(p,name)
+          # Retain the original model for exact one-stock local checks; no writeback.
+          for name in ['active_heads.joblib','active_model.json','remote_manifest.json']:
+              p=root/name
+              if p.exists():(out/name).write_bytes(p.read_bytes())
+          # Package a compatible Arrow wheel without requiring local external network.
+          subprocess.run([sys.executable,'-m','pip','download','--no-deps','pyarrow==25.0.1','-d',str(out/'wheels')],check=True)
+          
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-apollo-source-audit
+          path: audit_output/
+          retention-days: 30
