@@ -10,7 +10,7 @@ on:
     branches: [main]
   workflow_dispatch:
   push:
-    branches: [main, fix/v13-chart-null-rank-20261112]
+    branches: [main]
     paths: ['.github/workflows/v13_chart_diagnostics.yml']
 permissions:
   contents: read
