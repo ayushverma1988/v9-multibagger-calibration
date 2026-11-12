@@ -35,6 +35,20 @@ def read_snapshot(artifact):
     return frame, manifest, receipt, replay
 
 
+def verify_forecast_export(frame, result):
+    """Check exact saved values despite CSV's untyped all-null rank column."""
+    protected = [c for c in ['isin','p6','p12','loss12','joint12','research_selected','research_rank'] if c in frame]
+    left = frame[protected].sort_values('isin').reset_index(drop=True).copy()
+    right = result[protected].sort_values('isin').reset_index(drop=True).copy()
+    if 'research_rank' in protected:
+        # JSON nulls form an object column when no name is selected; CSV
+        # infers float64 NaNs. Canonicalise only this nullable numeric field.
+        # Values, null positions and every other protected dtype stay checked.
+        for table in (left, right):
+            table['research_rank'] = pd.to_numeric(table['research_rank'], errors='raise').astype('Float64')
+    pd.testing.assert_frame_equal(left, right, check_exact=True)
+
+
 def run(artifact, output='chart_snapshot', restore_root=None):
     from v13_checkpoint import VerifiedObjectDownloader, materialize_one
     frame, manifest, receipt, replay = read_snapshot(artifact)
@@ -58,9 +72,7 @@ def run(artifact, output='chart_snapshot', restore_root=None):
             list(pool.map(lambda item:materialize_one(item,restore,download),missing))
     summary = export(frame,out,replay,history=restore/'history'/'securities')
     result = pd.read_csv(out/'chart_interpretation'/'all_states.csv', float_precision='round_trip')
-    protected = [c for c in ['isin','p6','p12','loss12','joint12','research_selected','research_rank'] if c in frame]
-    pd.testing.assert_frame_equal(frame[protected].sort_values('isin').reset_index(drop=True),
-        result[protected].sort_values('isin').reset_index(drop=True), check_exact=True)
+    verify_forecast_export(frame, result)
     summary.update({'executed_at_utc':datetime.now(timezone.utc).isoformat(),
         'history_files_hash_verified':len(items), 'source_snapshot':receipt['snapshot'],
         'source_manifest_sha256':receipt['manifest_sha256'],
