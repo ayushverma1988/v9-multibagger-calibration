@@ -13,11 +13,11 @@ import numpy as np
 import requests
 from v13_price_policy import valid_price
 import time
+from v13_parallel_collection import source_access_stop
 
 def _rate_limit_observed(errors):
     """Report an actual provider stop, not a configured possibility."""
-    tokens=('429','too many requests','403','forbidden')
-    return any(any(token in str(item.get('error','')).lower() for token in tokens) for item in errors)
+    return any(source_access_stop(item) for item in errors)
 
 def financial_wide(extra):
     keys=['symbol','security_isin','reporting_mode','period_kind','period_end','available_at_utc','source_sha256']
