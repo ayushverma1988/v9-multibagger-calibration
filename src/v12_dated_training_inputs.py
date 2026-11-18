@@ -42,7 +42,7 @@ def normalize_financial_catalog(items,asof):
         av=max(valid)
         if period<lo or period>hi or av>end or av<period.tz_localize('Asia/Kolkata'):continue
         url=str(r.get('xbrl') or '')
-        if not re.fullmatch(r'https://nsearchives\.nseindia\.com/corporate/xbrl/[^?]+\.xml',url,re.I):continue
+        if not re.fullmatch(r'https://nsearchives\.nseindia\.(?:com|in)/corporate/xbrl/[^?]+\.xml',url,re.I):continue
         rows.append({'symbol':str(r.get('symbol','')).upper(),'period_end':str(period.date()),'available_at_utc':av.isoformat(),'broadcast_at_utc':clocks[0].isoformat(),'reporting_mode':mode(r.get('consolidated')),'source_url':url,'catalog_sha256':item['catalog_sha256'],'source_schema':item['schema'],'venue_index':item['venue_index'],'catalog_isin':str(r.get('isin') or ''),'filing_id':str(r.get('seq_Id') if integrated else r.get('seqNumber')),'filed_period':str(r.get('period') or ''),'filing_type':str(r.get('type_Sub') or 'legacy')})
     d=pd.DataFrame(rows)
     if d.empty:raise ValueError('No dated primary financial catalog')

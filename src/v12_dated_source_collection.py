@@ -8,12 +8,48 @@ import argparse, hashlib, json, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlencode, urlparse, quote
+from urllib.parse import urlencode, urlparse, quote, urljoin
 import pandas as pd
 import requests
 from v12_public_history import bounds
 
 def sha(raw): return hashlib.sha256(raw).hexdigest()
+
+SOURCE_HOST_GROUPS=(
+    frozenset({'www.nseindia.com','www.nseindia.in'}),
+    frozenset({'nsearchives.nseindia.com','nsearchives.nseindia.in'}),
+    frozenset({'query1.finance.yahoo.com'}),
+)
+
+def source_host_group(url):
+    """Only explicit public source aliases; no suffix or arbitrary host trust."""
+    parsed=urlparse(url)
+    if parsed.scheme!='https' or parsed.username or parsed.password or parsed.port not in (None,443):
+        raise ValueError('Unapproved source')
+    for group in SOURCE_HOST_GROUPS:
+        if parsed.hostname in group:return group
+    raise ValueError('Unapproved source')
+
+def source_response(session,requested):
+    """Validate each redirect before following it and retain its actual route."""
+    group=source_host_group(requested);current=requested;chain=[];seen=set()
+    for _ in range(6):
+        if current in seen:raise ValueError('Source redirect loop')
+        seen.add(current)
+        response=session.get(current,timeout=(8,25),allow_redirects=False)
+        # A transport must not silently substitute a response from another URL.
+        if response.url!=current:raise ValueError('Unexpected source response URL')
+        if response.status_code not in (301,302,303,307,308):return response,chain
+        location=response.headers.get('Location')
+        if not location:raise ValueError('Source redirect missing Location')
+        target=urljoin(current,location)
+        if source_host_group(target)!=group:raise ValueError('Source redirected off host')
+        before=urlparse(current);after=urlparse(target)
+        if before.hostname!=after.hostname and (before.path,before.query)!=(after.path,after.query):
+            raise ValueError('Source alias redirect changed request')
+        chain.append({'url':current,'status':response.status_code,'location':target})
+        response.close();current=target
+    raise ValueError('Source redirect limit exceeded')
 
 class Store:
     def __init__(self, folder):
@@ -22,8 +58,7 @@ class Store:
     def get(self,url,params=None):
         requested=requests.Request('GET',url,params=params).prepare().url
         host=urlparse(requested).hostname
-        if urlparse(requested).scheme!='https' or host not in {'www.nseindia.com','nsearchives.nseindia.com','query1.finance.yahoo.com'}:
-            raise ValueError('Unapproved source')
+        source_host_group(requested)
         key=sha(requested.encode()); p=self.folder/(key+'.json'); b=self.folder/(key+'.bin')
         if p.exists() and b.exists():
             meta=json.loads(p.read_text());raw=b.read_bytes()
@@ -37,9 +72,8 @@ class Store:
         if not hasattr(self.local,'session'):
             self.local.session=requests.Session()
             self.local.session.headers.update({'User-Agent':'Mozilla/5.0','Accept':'application/json,text/html,application/xml,*/*','Referer':'https://www.nseindia.com/'})
-        r=self.local.session.get(requested,timeout=(8,25));raw=r.content
-        if urlparse(r.url).hostname!=host:raise ValueError('Source redirected off host')
-        m={'requested_url':requested,'status':r.status_code,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),'sha256':sha(raw),'bytes':len(raw),'body_file':b.name}
+        r,redirect_chain=source_response(self.local.session,requested);raw=r.content
+        m={'requested_url':requested,'final_url':r.url,'redirect_chain':redirect_chain,'status':r.status_code,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),'sha256':sha(raw),'bytes':len(raw),'body_file':b.name}
         b.write_bytes(raw);p.write_text(json.dumps(m,indent=2));r.raise_for_status()
         return raw,m
 
