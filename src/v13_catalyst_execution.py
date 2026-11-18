@@ -12,6 +12,7 @@ from v11_4_primary_document_catalysts import extract_pdf,classify_document
 from v12_3_catalyst_evidence import enrich
 from datetime import datetime,timezone
 from urllib.parse import urlparse
+import v13_review_restore as original_review
 
 FIELDS=('commissioned','capacity_units_per_year','utilisation_pct','firm_order','order_id',
  'order_value_INR','order_due','expected_margin_pct','funding_sufficient','approval_completed','material_dilution_pct')
@@ -50,7 +51,9 @@ def seed_primary_reviews(root,seed_path):
     docs=json.loads(dp.read_text()) if dp.exists() else [];reviews=json.loads(rp.read_text()) if rp.exists() else []
     count=0;errors=[]
     def identity(z):return (z['source_sha256'],z.get('project_id'),z.get('order_id'))
-    for r in json.loads(seed_path.read_text()):
+    seeds=json.loads(seed_path.read_text())
+    recovery=original_review.restore(out,seeds,reviews,docs,reviewed,extract_pdf)
+    for r in seeds:
         if identity(r) in {identity(z) for z in reviews}:continue
         try:
             u=urlparse(r['attachment_url'])
@@ -93,7 +96,9 @@ def seed_primary_reviews(root,seed_path):
             if existing:docs=[z for z in docs if z is not existing]
             docs.append(e);reviews.append(r);count+=1
         except Exception as exc:errors.append({'source_url':r['attachment_url'],'error':str(exc)[:200]})
-    dp.write_text(json.dumps(docs,indent=2));rp.write_text(json.dumps(reviews,indent=2));return {'installed':count,'errors':errors}
+    if count:
+        dp.write_text(json.dumps(docs,indent=2));rp.write_text(json.dumps(reviews,indent=2))
+    return {'installed':count,'errors':errors+recovery['errors'],'source_recovery':recovery}
 
 def reviewed(record,evidence,text):
     for k in ('isin','symbol','source_sha256','attachment_url'):
@@ -262,17 +267,17 @@ def project_bundles(records,isin,cut):
 def join(frame,root):
     root=Path(root);out=root/'catalyst_evidence';docs_path=out/'document_evidence.json'
     docs=json.loads(docs_path.read_text()) if docs_path.exists() else []
-    indexed={r['source_sha256']:r for r in docs};records=[];rejected=[]
+    indexed=original_review.source_index(docs);records=[];rejected=[]
     review=out/'reviewed_execution.json'
     if review.exists():
-        for r in json.loads(review.read_text()):
+        rows=json.loads(review.read_text());present=original_review.present_hashes(out/'raw',{r['source_sha256'] for r in rows});journal=original_review.receipts(out)
+        for r in rows:
             try:
-                e=indexed[r['source_sha256']]
+                e=original_review.bound_doc(indexed,r)
                 # Original bytes must be present locally or restored by their
                 # checkpoint hash before a review can become an input.
-                raw=[p for p in (out/'raw').glob('*.bin') if sha(p.read_bytes())==r['source_sha256']]
-                if not raw:raise ValueError('Original source bytes unavailable for review audit')
-                records.append(reviewed(r,e,(out/(r['source_sha256']+'.txt')).read_text()))
+                if r['source_sha256'] not in present:raise ValueError('Original source bytes unavailable for review audit')
+                records.append(original_review.floor_clock(reviewed(r,e,(out/(r['source_sha256']+'.txt')).read_text()),r,journal))
             except Exception as exc:rejected.append({'source_sha256':r.get('source_sha256'),'error':str(exc)})
     d=frame.copy();links=[];bundles=[]
     for i,r in d.iterrows():
