@@ -1,14 +1,24 @@
-name: V13 Fredun revised filings
+name: V13 Fredun data recovery and scoring
 on:
   push:
     branches: [research/fredun-source-recovery-20261118]
-    paths: ['research/fredun/collect_revisions.py', '.github/workflows/v13_fredun_source_recovery.yml']
+    paths: ['research/fredun/replay_fredun.py', 'research/fredun/financial_observations.json', '.github/workflows/v13_fredun_source_recovery.yml']
 permissions:
   contents: read
+  actions: read
+concurrency:
+  group: v13-private-research-state
+  cancel-in-progress: false
 jobs:
-  capture:
+  compare:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 35
+    env:
+      PYTHONPATH: src
+      OPENBLAS_NUM_THREADS: '2'
+      OMP_NUM_THREADS: '2'
+      V13_COMPACT_ARCHIVE: '1'
+      V13_WORKING_CORE_ARCHIVE: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -16,11 +26,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install 'requests>=2.32,<3'
-      - run: python research/fredun/collect_revisions.py
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Confirm source document tools
+        run: command -v pdftotext && command -v pdftoppm && command -v tesseract
+      - name: Recover original facts and compare against verified V13 peers
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
+        run: python research/fredun/replay_fredun.py --persist
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v13-fredun-revised-filings
-          path: fredun_revised_filings
-          retention-days: 14
+          name: v13-fredun-recovered-data-and-screens
+          path: fredun_result/
+          retention-days: 30

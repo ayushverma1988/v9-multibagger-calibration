@@ -1,0 +1,95 @@
+{
+  "bse_vs_yahoo": {
+    "overlap": 217,
+    "all_OHLC_match": 211,
+    "all_OHLC_and_volume_match": 21,
+    "close_differences_over_0_035": [
+      "2025-10-21",
+      "2026-05-20",
+      "2026-05-22",
+      "2026-07-31"
+    ],
+    "examples_volume_variations": [
+      {
+        "date": "2026-07-10",
+        "close": 2583.35,
+        "close_provider": 861.1166381835938,
+        "volume": 8440.0,
+        "volume_provider": 25320
+      },
+      {
+        "date": "2026-07-13",
+        "close": 2753.7,
+        "close_provider": 917.9000244140625,
+        "volume": 14983.0,
+        "volume_provider": 44949
+      },
+      {
+        "date": "2026-07-14",
+        "close": 2857.55,
+        "close_provider": 952.5166625976562,
+        "volume": 20277.0,
+        "volume_provider": 60831
+      },
+      {
+        "date": "2026-07-15",
+        "close": 2826.6,
+        "close_provider": 942.2000122070312,
+        "volume": 17813.0,
+        "volume_provider": 53439
+      },
+      {
+        "date": "2026-11-18",
+        "close": 1634.25,
+        "close_provider": 1634.25,
+        "volume": 26966.0,
+        "volume_provider": 26962
+      }
+    ]
+  },
+  "nse_vs_yahoo": {
+    "overlap": 63,
+    "all_OHLC_match": 63,
+    "all_OHLC_and_volume_match": 62,
+    "close_differences_over_0_035": [],
+    "examples_volume_variations": [
+      {
+        "date": "2026-11-18",
+        "close": 1636.4,
+        "close_provider": 1636.4000244140625,
+        "volume": 197066.0,
+        "volume_provider": 196848
+      }
+    ]
+  },
+  "contemporaneous_exchange_comparisons": 63,
+  "median_absolute_close_spread": 0.0009684186412750595,
+  "percentile95_absolute_close_spread": 0.004319171370893793,
+  "official_nse_verified_sessions": 65,
+  "official_bse_verified_pre_NSE_sessions": 214,
+  "source_start_NSE": "2026-08-17",
+  "source_end": "2026-11-18",
+  "dividend_raw_INR": 0.7,
+  "dividend_ex_date": "2026-06-23",
+  "dividend_factor": 0.9997284137422647,
+  "bonus_ratio": "2 bonus shares per 1 held",
+  "bonus_ex_date": "2026-07-16",
+  "bse_prices_prebonus_in_postbonus_units": 0.3333333333333333,
+  "recovered_sessions": 279,
+  "2026-11-17": {
+    "close": 1572.0,
+    "volume": 142860,
+    "rsi14": 59.704395176973925,
+    "ma50": 1429.2199999999998,
+    "ma200": 974.5616685063402,
+    "return63": 0.06648575305291726
+  },
+  "2026-11-18": {
+    "close": 1636.4,
+    "volume": 197066,
+    "rsi14": 66.33327379889265,
+    "ma50": 1432.5339999999999,
+    "ma200": 980.2645086616618,
+    "return63": 0.13899909514860442
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "issuer": "Fredun Pharmaceuticals Limited",
+  "isin": "INE194R01017",
+  "bse_code": "539730",
+  "nse_symbol": "FREDUN",
+  "reporting_basis": "consolidated",
+  "notes": [
+    "Unless specified otherwise, input values are INR lakh from the original consolidated statement.",
+    "Use the 5 November revised exchange statement's net profit for the period. The press release cites a different net-profit figure.",
+    "The comparative diluted EPS for September 2025 was zero or unreported in its specific diluted EPS row, so the year-over-year diluted EPS growth remains unavailable.",
+    "The FY25 and FY26 audited annual operating revenue excludes non-operating other income. Quarterly income from operations is the displayed subtotal.",
+    "The historical replay uses verified dates of public disclosure. The durable facts use actual collection and review timestamps."
+  ],
+  "periods": [
+    {
+      "document": "september",
+      "period_kind": "quarter",
+      "period_start": "2026-07-01",
+      "period_end": "2026-09-30",
+      "latest_verified_publication_utc": "2026-11-05T13:41:00Z",
+      "reported": {
+        "revenue": 26763.51,
+        "pat": 1857.42,
+        "pbt": 2965.1,
+        "finance_cost": 877.62,
+        "depreciation": 392.79,
+        "exceptional_items": 0,
+        "eps_diluted_continuing": 10.92
+      },
+      "units": {
+        "eps_diluted_continuing": "INR_per_share"
+      }
+    },
+    {
+      "document": "september",
+      "period_kind": "quarter",
+      "period_start": "2026-04-01",
+      "period_end": "2026-06-30",
+      "latest_verified_publication_utc": "2026-11-05T13:41:00Z",
+      "reported": {
+        "revenue": 22824.79,
+        "pat": 1313.23,
+        "pbt": 2055.19,
+        "finance_cost": 861.81,
+        "depreciation": 357.09,
+        "exceptional_items": 0,
+        "eps_diluted_continuing": 7.84
+      },
+      "units": {
+        "eps_diluted_continuing": "INR_per_share"
+      }
+    },
+    {
+      "document": "september",
+      "period_kind": "quarter",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "latest_verified_publication_utc": "2026-11-05T13:41:00Z",
+      "reported": {
+        "revenue": 14529.15,
+        "pat": 943.17,
+        "pbt": 1270.53,
+        "finance_cost": 773.13,
+        "depreciation": 189.31,
+        "exceptional_items": 0
+      },
+      "units": {}
+    },
+    {
+      "document": "september",
+      "period_kind": "ytd",
+      "period_start": "2026-04-01",
+      "period_end": "2026-09-30",
+      "latest_verified_publication_utc": "2026-11-05T13:41:00Z",
+      "reported": {
+        "revenue": 49588.3,
+        "pat": 3170.65,
+        "pbt": 5020.29,
+        "finance_cost": 1739.43,
+        "depreciation": 749.88,
+        "cfo": 1753.15,
+        "eps_diluted_continuing": 18.64
+      },
+      "units": {
+        "eps_diluted_continuing": "INR_per_share"
+      }
+    },
+    {
+      "document": "september",
+      "period_kind": "ytd",
+      "period_start": "2025-04-01",
+      "period_end": "2025-09-30",
+      "latest_verified_publication_utc": "2026-11-05T13:41:00Z",
+      "reported": {
+        "revenue": 26514.65,
+        "pat": 1619.75,
+        "pbt": 2174.57,
+        "finance_cost": 1426.3,
+        "depreciation": 331.22,
+        "cfo": 1349.97
+      },
+      "units": {}
+    },
+    {
+      "document": "september",
+      "period_kind": "instant",
+      "period_start": "2026-09-30",
+      "period_end": "2026-09-30",
+      "latest_verified_publication_utc": "2026-11-05T13:41:00Z",
+      "reported": {
+        "assets": 77357.69,
+        "cash": 5530.87,
+        "equity": 33042.82,
+        "borrowings_current": 16580.16,
+        "borrowings_noncurrent": 8693.39,
+        "receivables_current": 9703.33,
+        "paidup_equity_capital": 1689.97,
+        "face_value": 10
+      },
+      "units": {
+        "face_value": "INR_per_share"
+      }
+    },
+    {
+      "document": "annual",
+      "period_kind": "annual",
+      "period_start": "2025-04-01",
+      "period_end": "2026-03-31",
+      "latest_verified_publication_utc": "2026-06-08T18:29:59Z",
+      "reported": {
+        "revenue": 63546.89,
+        "pat": 3262.09,
+        "pbt": 4699.6,
+        "finance_cost": 3929.76,
+        "depreciation": 824.67,
+        "other_income": 365.6,
+        "cfo": 1190.15
+      },
+      "units": {}
+    },
+    {
+      "document": "annual",
+      "period_kind": "annual",
+      "period_start": "2024-04-01",
+      "period_end": "2025-03-31",
+      "latest_verified_publication_utc": "2026-06-08T18:29:59Z",
+      "reported": {
+        "revenue": 45381.77,
+        "pat": 1973.93,
+        "pbt": 2749.35,
+        "finance_cost": 2237.66,
+        "depreciation": 503.94,
+        "other_income": 245.08,
+        "cfo": -1659.77
+      },
+      "units": {}
+    },
+    {
+      "document": "annual",
+      "period_kind": "instant",
+      "period_start": "2026-03-31",
+      "period_end": "2026-03-31",
+      "latest_verified_publication_utc": "2026-06-08T18:29:59Z",
+      "reported": {
+        "assets": 64208.23,
+        "cash": 6492.66,
+        "equity": 27810.76,
+        "borrowings_current": 16609.03,
+        "borrowings_noncurrent": 5631.03,
+        "face_value": 10
+      },
+      "units": {
+        "face_value": "INR_per_share"
+      }
+    },
+    {
+      "document": "annual",
+      "period_kind": "instant",
+      "period_start": "2025-03-31",
+      "period_end": "2025-03-31",
+      "latest_verified_publication_utc": "2026-06-08T18:29:59Z",
+      "reported": {
+        "assets": 48741.13,
+        "cash": 63.69,
+        "equity": 14138.26,
+        "borrowings_current": 15753.36,
+        "borrowings_noncurrent": 961.3,
+        "face_value": 10
+      },
+      "units": {
+        "face_value": "INR_per_share"
+      }
+    },
+    {
+      "document": "march_quarters",
+      "period_kind": "quarter",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "latest_verified_publication_utc": "2026-05-25T18:29:59Z",
+      "reported": {
+        "revenue": 16092.33,
+        "pat": 1047.8,
+        "pbt": 1400.24,
+        "finance_cost": 1054.95,
+        "depreciation": 178.4
+      },
+      "units": {}
+    },
+    {
+      "document": "march_quarters",
+      "period_kind": "quarter",
+      "period_start": "2026-01-01",
+      "period_end": "2026-03-31",
+      "latest_verified_publication_utc": "2026-05-25T18:29:59Z",
+      "reported": {
+        "revenue": 21305.51,
+        "pat": 1078,
+        "pbt": 1124.81,
+        "finance_cost": 1448.51,
+        "depreciation": 215.05
+      },
+      "units": {}
+    }
+  ]
+}
