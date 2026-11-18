@@ -1,0 +1,26 @@
+name: V13 Fredun source recovery
+on:
+  push:
+    branches: [research/fredun-source-recovery-20261118]
+    paths: ['research/fredun/collect_sources.py', '.github/workflows/v13_fredun_source_recovery.yml']
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'requests>=2.32,<3'
+      - run: python research/fredun/collect_sources.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-fredun-market-and-filings
+          path: fredun_capture
+          retention-days: 14
