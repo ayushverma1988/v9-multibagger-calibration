@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 53af782ec06f0f6372d2c4a3591de9acaac13089
+          ref: 6df88f1177b33c903cf3f3ce4dedf66c02615cc9
           persist-credentials: false
       - uses: actions/checkout@v4
         with:

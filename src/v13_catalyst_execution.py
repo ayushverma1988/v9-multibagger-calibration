@@ -54,10 +54,10 @@ def seed_primary_reviews(root,seed_path):
         if identity(r) in {identity(z) for z in reviews}:continue
         try:
             u=urlparse(r['attachment_url'])
-            if u.scheme!='https' or u.hostname not in {'www.aeroflexindia.com','nsearchives.nseindia.com'}:raise ValueError('Unapproved primary company source')
+            if u.scheme!='https' or u.hostname not in {'www.aeroflexindia.com','nsearchives.nseindia.com','nsearchives.nseindia.in'}:raise ValueError('Unapproved primary company source')
             archived=next((p for p in rawdir.glob('*.bin') if sha(p.read_bytes())==r['source_sha256']),None)
             if archived:raw=archived.read_bytes()
-            elif u.hostname=='nsearchives.nseindia.com':raw,_=Store(rawdir).get(r['attachment_url'])
+            elif u.hostname in {'nsearchives.nseindia.com','nsearchives.nseindia.in'}:raw,_=Store(rawdir).get(r['attachment_url'])
             else:
                 response=requests.get(r['attachment_url'],timeout=(8,25));response.raise_for_status()
                 if urlparse(response.url).hostname!=u.hostname:raise ValueError('Reviewed original source redirected')
@@ -187,7 +187,7 @@ def collect(root,asof,budget=120,workers=4,seconds=360):
     # Public whole-venue queue includes approvals/funding/actions, not just
     # headline order counts. No private prediction list is sent to a provider.
     keep=e.text.str.contains(r'capacity|commission|utilisation|utilization|order|contract|approval|fund|allotment|rights|split|bonus|merger|demerger|investor presentation',case=False,na=False)
-    e=e[keep&e.attachment_url.str.match(r'https://nsearchives\.nseindia\.com/.*\.pdf$',case=False)].drop_duplicates(['attachment_url','available_at_utc'])
+    e=e[keep&e.attachment_url.str.match(r'https://nsearchives\.nseindia\.(?:com|in)/.*\.pdf$',case=False)].drop_duplicates(['attachment_url','available_at_utc'])
     docs_path=out/'document_evidence.json';docs=json.loads(docs_path.read_text()) if docs_path.exists() else []
     known={(r['attachment_url'],r.get('available_at_utc')) for r in docs}
     attempts_path=out/'attempts.json';attempts=json.loads(attempts_path.read_text()) if attempts_path.exists() else {}

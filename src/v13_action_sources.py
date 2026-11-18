@@ -28,7 +28,7 @@ def collect(root,asof,budget=30):
     # All public issuers, selected and unselected, share this queue.
     action=e.text.str.contains(r'\bbonus\b|\bsplit\b|sub.?division|\bdividend\b|\brights\b|merger|demerger|change.*(?:symbol|ISIN)',case=False,na=False)
     e=e[action&clock.ge(low.tz_localize('Asia/Kolkata'))&clock.lt((date+pd.Timedelta(days=1)).tz_localize('Asia/Kolkata'))]
-    e=e[e.attachment_url.str.match(r'https://nsearchives\.nseindia\.com/.*\.pdf$',case=False)].drop_duplicates(['attachment_url','available_at_utc'])
+    e=e[e.attachment_url.str.match(r'https://nsearchives\.nseindia\.(?:com|in)/.*\.pdf$',case=False)].drop_duplicates(['attachment_url','available_at_utc'])
     known={(z['attachment_url'],z['available_at_utc']) for z in old}
     e=e[[(r.attachment_url,r.available_at_utc) not in known for r in e.itertuples()]]
     attempts_path=out/'notice_attempts.json'

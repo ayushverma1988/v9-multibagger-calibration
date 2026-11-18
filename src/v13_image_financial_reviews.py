@@ -40,7 +40,7 @@ def validate_table(record, raw, asof, now=None):
         raise ValueError('Explicit manual image-table review is required')
     if hashlib.sha256(raw).hexdigest() != record['source_sha256']:
         raise ValueError('Reviewed PDF bytes changed')
-    if not re.fullmatch(r'https://nsearchives\.nseindia\.com/corporate/[^?]+\.pdf', record['source_url']):
+    if not re.fullmatch(r'https://nsearchives\.nseindia\.(?:com|in)/corporate/[^?]+\.pdf', record['source_url']):
         raise ValueError('Unapproved original financial PDF URL')
     with pdfplumber.open(io.BytesIO(raw)) as pdf:
         front = flat(pdf.pages[0].extract_text() or '').upper()
