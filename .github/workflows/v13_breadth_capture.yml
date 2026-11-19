@@ -1,0 +1,46 @@
+name: V13 Public Adjusted-Price Capture
+on:
+  schedule:
+    - cron: '10 16 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v13-public-breadth-capture
+  cancel-in-progress: false
+jobs:
+  public-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 58510f5d4020de033bc1684cf732f52ee419ff6a
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 pandas==2.2.3 pyarrow==25.0.1
+      - name: Capture original public bytes before the information cutoff
+        env:
+          PYTHONPATH: src
+        run: python -m v13_breadth_capture
+      - name: Identify captured source day
+        id: snapshot
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          p=Path('v13_public_breadth_snapshot/receipt.json')
+          if p.exists():print('asof='+json.loads(p.read_text())['source_asof'])
+          PY
+      - name: Preserve public original and timed receipt
+        if: steps.snapshot.outputs.asof != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-public-breadth-${{ steps.snapshot.outputs.asof }}
+          path: |
+            v13_public_breadth_snapshot/nse_adjusted.parquet
+            v13_public_breadth_snapshot/nse_adjusted_previous.parquet
+            v13_public_breadth_snapshot/receipt.json
+          retention-days: 30
