@@ -12,6 +12,7 @@ import pandas as pd
 from v12_dated_source_collection import Store
 from v13_lifecycle import validate_registry,digest
 import v12_four_year_model as core
+from v13_market_sessions import open_clocks,session_open,reviewed_sessions,retain_originals
 
 def validate_action_notice(action,raw):
     """A reviewed factor is bound to an issuer and exact primary excerpts."""
@@ -70,8 +71,10 @@ def collect_calendar(root,asof):
         d=pd.to_datetime(r['tradingDate'],format='%d-%b-%Y');days.append(str(d.date()))
     year=pd.Timestamp(asof).year
     if year not in {pd.Timestamp(d).year for d in days}:raise ValueError('Official calendar does not cover the requested year')
+    special=retain_originals(out/'raw'/'reviewed_sessions')
     obj={'year':year,'holidays':days,'source_url':proof['requested_url'],
       'source_sha256':proof['sha256'],'retrieved_at_utc':proof['first_retrieved_utc'],'special_sessions_require_official_snapshot':True}
+    obj['reviewed_special_sessions']=[r for r in special if pd.Timestamp(r['date']).year==year]
     (out/('calendar_'+str(year)+'.json')).write_text(json.dumps(obj,indent=2))
     prior=[json.loads(p.read_text()) for p in out.glob('calendar_*.json')]
     combined={**obj,'years':sorted({z['year'] for z in prior}),'holidays':sorted({d for z in prior for d in z['holidays']}),
@@ -81,8 +84,8 @@ def collect_calendar(root,asof):
 def expected_sessions(start,end,calendar):
     start=pd.Timestamp(start);end=pd.Timestamp(end)
     if calendar is None or not set(range(start.year,end.year+1)).issubset(set(calendar.get('years',[calendar['year']]))):return None
-    holiday=set(calendar['holidays'])
-    return [d for d in pd.bdate_range(start,end) if str(d.date()) not in holiday]
+    holiday=set(calendar['holidays']);special=reviewed_sessions()
+    return [d for d in pd.date_range(start,end) if str(d.date()) in special or (d.weekday()<5 and str(d.date()) not in holiday)]
 
 def backfill(root,asof,budget=8):
     from v12_3_official_monitor import collect
@@ -194,14 +197,14 @@ def audit(root,official,history,asof):
             proof={'registry_sha256':reg.stem,'isin':r['isin'],'entry_verified':False,'independent_outcome_verified':False,
               'verification_status':'UNKNOWN_ENTRY_OR_SOURCE_COVERAGE','confirmed_early_2x':False,'confirmed_risk_event':False}
             p=history.get(r['isin']);o=official[official['isin'].eq(r['isin'])].copy();o['date']=pd.to_datetime(o.date)
-            o=o[(o.date.dt.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)).gt(clock)&o.date.le(pd.Timestamp(asof))].sort_values('date')
+            o=o[open_clocks(o.date).gt(clock)&o.date.le(pd.Timestamp(asof))].sort_values('date')
             start=clock.tz_convert('Asia/Kolkata').tz_localize(None).normalize()
             dates=expected_sessions(start,asof,calendar)
             if dates is not None:
-                dates=[d for d in dates if d.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)>clock]
+                dates=[d for d in dates if session_open(d)>clock]
             if p is not None and dates and not o.empty:
                 q=p.copy();q['date']=pd.to_datetime(q.date)
-                first=q[(q.date.dt.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=9,minutes=15)).gt(clock)].sort_values('date')
+                first=q[open_clocks(q.date).gt(clock)].sort_values('date')
                 if o.date.iloc[0]==dates[0] and not first.empty and first.date.iloc[0]==dates[0] and first.symbol.iloc[0]==r['symbol'] and o.symbol.iloc[0]==r['symbol'] and o.source_status.iloc[0]=='VALID_POSITIVE_VOLUME_SESSION':
                     proof['entry_verified']=bool(abs(first.open.iloc[0]-o.open.iloc[0])<=.011)
                     proof['entry_date']=str(dates[0].date());proof['entry_open_INR']=float(o.open.iloc[0]);proof['entry_official_sha256']=o.source_sha256.iloc[0]

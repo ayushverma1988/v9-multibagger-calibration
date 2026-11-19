@@ -1,0 +1,32 @@
+{
+  "format": "V13_ORIGINAL_NSE_MASTER_CAPTURE_V1",
+  "source_asof": "2026-11-06",
+  "purpose": "Same-day original-source recovery after repeated NSE SME master read timeouts from the collector; not a prior-universe fallback",
+  "captures": [
+    {
+      "source_url": "https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv",
+      "sha256": "dec519f25622e6f107595cff5702149191805672868f2d7a8b5b7bf133ea538d",
+      "bytes": 40459,
+      "rows": 583,
+      "http_status": 200,
+      "final_url": "https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv",
+      "first_retrieved_utc": "2026-11-06T14:51:58.715658+00:00",
+      "independently_reverified_utc": "2026-11-06T15:07:28.160029+00:00",
+      "body_file": "dec519f25622e6f107595cff5702149191805672868f2d7a8b5b7bf133ea538d.csv",
+      "previous_capture_sha256": "dec519f25622e6f107595cff5702149191805672868f2d7a8b5b7bf133ea538d",
+      "changed_since_prior_capture": false
+    },
+    {
+      "source_url": "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
+      "final_url": "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
+      "http_status": 200,
+      "sha256": "da7eb83cf21156cca3a8bcc5b94ea55f825ff7348e02c89abc51658788361fa5",
+      "bytes": 185778,
+      "body_file": "da7eb83cf21156cca3a8bcc5b94ea55f825ff7348e02c89abc51658788361fa5.csv",
+      "first_retrieved_utc": "2026-11-06T14:51:50.004086+00:00",
+      "independently_reverified_utc": "2026-11-07T01:09:43.554391+00:00",
+      "reverification_basis": "7 November original HTTP 200 response matches byte-for-byte the independently retained 6 November original; first capture clock is preserved"
+    }
+  ],
+  "publication_time_unknown": true
+}

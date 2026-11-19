@@ -252,7 +252,26 @@ def universe(root,asof):
     def record(status):
         audit.write_text(json.dumps({'source_asof':asof,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
           'status':status,'attempts':attempts,'identity_checks_relaxed':False,
+          'same_day_original_recovery_used':any(a.get('same_day_original_recovery',False) for a in attempts),
           'previous_universe_used_as_current':False},indent=2))
+    def recovery(url,store):
+        # Structural CSV errors are different from a parsed identity conflict.
+        # An observed identity/access/integrity rejection never enables reuse.
+        if any(a['url']==url and a['status']=='REJECTED' for a in attempts):return None
+        from v13_universe_recovery import captured_master
+        try:return captured_master(url,asof,store.folder)
+        except Exception as exc:
+            attempts.append({'url':url,'status':'RECOVERY_REJECTED','error':str(exc)[:200]})
+            record('RECOVERY_REJECTED');raise
+    def metadata(url,number,raw,proof):
+        item={'url':url,'attempt':number,'source_sha256':proof['sha256'],
+          'retrieved_at_utc':proof['first_retrieved_utc'],'bytes':len(raw)}
+        if proof.get('same_day_original_recovery'):
+            item.update({k:proof[k] for k in ('same_day_original_recovery','recovery_used_at_utc',
+              'independently_reverified_utc','remote_refetched_by_this_worker','recovery_manifest_sha256')})
+            item.update({k:proof[k] for k in ('source_date_matches_request','runner_date_IST',
+              'overnight_same_source_resume','capture_age_seconds','maximum_capture_age_seconds') if k in proof})
+        return item
     for url in (NSE_MASTER,NSE_SME_MASTER):
         for number in range(1,4):
             store=Store(root/'sources'/asof/'raw'/('universe_'+vintage)/str(number))
@@ -268,18 +287,38 @@ def universe(root,asof):
                   'error':type(exc).__name__,'observed_at_utc':datetime.now(timezone.utc).isoformat(),
                   'transient':retryable,'will_retry':will_retry})
                 record('RETRYING_TRANSIENT_FETCH' if will_retry else 'SOURCE_FETCH_FAILED')
-                if not will_retry:raise
-                print('Public NSE universe transient fetch; retrying',url,'attempt',number+1,'of 3',flush=True)
-                time.sleep(number)
-                continue
-            attempt={'url':url,'attempt':number,'source_sha256':proof['sha256'],
-              'retrieved_at_utc':proof['first_retrieved_utc'],'bytes':len(raw)}
+                if will_retry:
+                    print('Public NSE universe transient fetch; retrying',url,'attempt',number+1,'of 3',flush=True)
+                    time.sleep(number)
+                    continue
+                if not retryable:raise
+                recovered=recovery(url,store)
+                if recovered is None:raise
+                raw,proof=recovered
+                print('Using independently captured source-date NSE master',url,proof['sha256'],flush=True)
+            attempt=metadata(url,number,raw,proof)
+            prefix=raw.lstrip()[:4096].lower()
+            if prefix.startswith((b'<html',b'<!doctype html')) and any(word in prefix for word in
+                    (b'access denied',b'forbidden',b'captcha',b'too many requests',b'request rejected',b'not authorized')):
+                attempts.append({**attempt,'status':'REJECTED','error':'Access/rate-limit HTML response is not an NSE CSV'})
+                record('SOURCE_ACCESS_RESPONSE_REJECTED');raise ValueError('Access/rate-limit HTML response is not an NSE CSV')
             try:
                 frame=parse_nse_master(raw)
-            except ValueError as exc:
-                attempts.append({**attempt,'status':'REJECTED','error':str(exc)[:200]})
+            except (ValueError,pd.errors.ParserError,pd.errors.EmptyDataError) as exc:
+                malformed=isinstance(exc,(pd.errors.ParserError,pd.errors.EmptyDataError))
+                attempts.append({**attempt,'status':'MALFORMED_CSV_RESPONSE' if malformed else 'REJECTED',
+                  'error_type':type(exc).__name__,'error':str(exc)[:200]})
                 record('RETRYING_INVALID_MASTER' if number<3 else 'INVALID_MASTER')
-                if number==3:raise
+                if number==3:
+                    recovered=recovery(url,store) if malformed else None
+                    if recovered is None:raise
+                    raw,proof=recovered;attempt=metadata(url,number,raw,proof)
+                    try:frame=parse_nse_master(raw)
+                    except (ValueError,pd.errors.ParserError,pd.errors.EmptyDataError) as invalid:
+                        attempts.append({**attempt,'status':'REJECTED','error_type':type(invalid).__name__,'error':str(invalid)[:200]})
+                        record('INVALID_RECOVERED_MASTER');raise
+                    attempts.append({**attempt,'status':'ACCEPTED','rows':len(frame)})
+                    frames.append(frame);break
                 time.sleep(1)
                 continue
             attempts.append({**attempt,'status':'ACCEPTED','rows':len(frame)})
