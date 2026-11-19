@@ -1,4 +1,4 @@
-import hashlib,json,tempfile,unittest
+import hashlib,io,json,tempfile,unittest,zipfile
 from datetime import datetime,timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -10,6 +10,23 @@ from v13_breadth_fallback import extend,load,validate_receipt
 
 
 class BreadthFallbackTests(unittest.TestCase):
+    @staticmethod
+    def primary_bytes(year=2026):
+        buf=io.BytesIO()
+        with zipfile.ZipFile(buf,'w') as z:z.writestr('official.csv','date,symbol\n')
+        calendar=json.dumps({'CM':[{'tradingDate':'26-Jan-'+str(year)}]}).encode()
+        return buf.getvalue(),calendar
+
+    def add_primary(self,folder,receipt,asof,at):
+        nse,calendar=self.primary_bytes(int(asof[:4]));folder=Path(folder)
+        (folder/'nse_source_session.zip').write_bytes(nse)
+        (folder/'nse_holiday_calendar.json').write_bytes(calendar)
+        receipt['nse_original']={'source_url':'https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_'+asof.replace('-','')+'_F_0000.csv.zip',
+          'first_retrieved_utc':at,'sha256':hashlib.sha256(nse).hexdigest(),'bytes':len(nse)}
+        receipt['nse_calendar']={'source_url':'https://www.nseindia.com/api/holiday-master?type=trading',
+          'first_retrieved_utc':at,'sha256':hashlib.sha256(calendar).hexdigest(),'bytes':len(calendar)}
+        return receipt
+
     def setUp(self):
         self.dates=pd.bdate_range(end='2026-11-17',periods=160)
         prices=np.linspace(100,180,len(self.dates))
@@ -68,6 +85,7 @@ class BreadthFallbackTests(unittest.TestCase):
                'first_retrieved_utc':'2026-11-18T14:30:00Z',
                'source_url':'https://huggingface.co/datasets/tejhq/indian-markets/resolve/'+('1'*40)+'/prices_adjusted/nse_2026.parquet?download=true','bytes':len(b'original'),
                'sha256':hashlib.sha256(b'original').hexdigest()}
+            self.add_primary(d,r,'2026-11-18','2026-11-18T14:20:00Z')
             validate_receipt(r,p,'2026-11-18')
             for field,value in [('publisher_commit_utc','2026-11-18T16:31:00Z'),
                                 ('first_retrieved_utc','2026-11-18T16:31:00Z'),
@@ -75,6 +93,9 @@ class BreadthFallbackTests(unittest.TestCase):
                                 ('publisher_revision','a'*39),('sha256','0'*64)]:
                 q={**r,field:value}
                 with self.subTest(field=field,value=value),self.assertRaises(ValueError):validate_receipt(q,p,'2026-11-18')
+            for key in ('nse_original','nse_calendar'):
+                q={**r,key:{**r[key],'first_retrieved_utc':'2026-11-18T16:31:00Z'}}
+                with self.subTest(key=key),self.assertRaisesRegex(ValueError,'Primary NSE source'):validate_receipt(q,p,'2026-11-18')
             with self.assertRaises(ValueError):validate_receipt(r,p,'2026-11-19')
 
     def test_absent_or_late_snapshot_is_blocked(self):
@@ -96,7 +117,6 @@ class BreadthFallbackTests(unittest.TestCase):
             base=Path(d);root=base/'v13_state';hist=root/'history'/'securities';hist.mkdir(parents=True)
             official=root/'official';official.mkdir();audit=root/'action_audit';audit.mkdir()
             p=hist/'ABC.parquet';self.old.to_parquet(p,index=False);before=p.read_bytes()
-            self.official.to_parquet(official/'2026-11-18_official_market.parquet',index=False)
             (audit/'calendar_2026.json').write_text(json.dumps({'year':2026,'holidays':[],'source_sha256':'a'*64}))
             snap=base/'v13_public_breadth_snapshot';snap.mkdir()
             data=snap/'nse_adjusted.parquet';self.alt.to_parquet(data,index=False)
@@ -104,7 +124,12 @@ class BreadthFallbackTests(unittest.TestCase):
               'publisher_commit_utc':'2026-11-18T14:00:00Z','first_retrieved_utc':'2026-11-18T14:20:00Z',
               'source_url':'https://huggingface.co/datasets/tejhq/indian-markets/resolve/'+('1'*40)+'/prices_adjusted/nse_2026.parquet?download=true','bytes':data.stat().st_size,
               'sha256':hashlib.sha256(data.read_bytes()).hexdigest()}
+            self.add_primary(snap,receipt,'2026-11-18','2026-11-18T14:20:00Z')
+            self.official.assign(source_sha256=receipt['nse_original']['sha256']).to_parquet(official/'2026-11-18_official_market.parquet',index=False)
             (snap/'receipt.json').write_text(json.dumps(receipt))
+            source=root/'sources'/'2026-11-17';source.mkdir(parents=True)
+            (source/'history_refresh_test.json').write_text(json.dumps([{'symbol':'ABC','info':{'symbol':'ABC','isin':'INE000000001',
+              'source_sha256':'a'*64,'first_retrieved_utc':'2026-11-18T12:00:00Z'}}]))
             def features(bars,asof):
                 result=bars.copy()
                 for col in ('log_ret63','log_ret20','momentum126','momentum252_skip21','volume_confirmation','log_liquidity63'):
@@ -119,13 +144,44 @@ class BreadthFallbackTests(unittest.TestCase):
             funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
             self.assertEqual(funnel['scoring_only_fallback']['accepted_before_feature_gate'],1)
             self.assertFalse(funnel['scoring_only_fallback']['entry_or_outcome_certified'])
+            from v13_breadth_fallback import snapshot_prior_histories
+            prior=base/'temporary_prior';summary=snapshot_prior_histories(root,'2026-11-18',prior)
+            self.assertEqual(summary['histories'],1)
+            # A post-cutoff refresh has a different raw hash. Scoring can use
+            # the earlier timed copy while outcome history remains the refresh.
+            self.old.assign(source_sha256='e'*64).to_parquet(p,index=False);refreshed=p.read_bytes()
+            with patch('v13_runner.features.daily_features',side_effect=features):restored,actual_history=current_frame(root,'2026-11-18',fallback_prior_dir=prior)
+            self.assertEqual(len(restored),1)
+            self.assertEqual(restored.iloc[0].scoring_fallback_provider_sha256,'a'*64)
+            self.assertEqual(set(actual_history['INE000000001'].source_sha256),{'e'*64})
+            self.assertEqual(p.read_bytes(),refreshed)
+            saved=json.loads((prior/'index.json').read_text())['INE000000001|ABC']['file']
+            (prior/saved).write_bytes(b'corrupted')
+            with patch('v13_runner.features.daily_features',side_effect=features):blocked,_=current_frame(root,'2026-11-18',fallback_prior_dir=prior)
+            self.assertTrue(blocked.empty)
+            p.write_bytes(before)
+            self.official.to_parquet(official/'2026-11-18_official_market.parquet',index=False)
+            with patch('v13_runner.features.daily_features',side_effect=features):blocked,_=current_frame(root,'2026-11-18')
+            self.assertTrue(blocked.empty)
+            funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
+            self.assertIn('Post-capture exchange bytes changed',funnel['scoring_only_fallback']['blocked_reasons'])
+            self.official.assign(source_sha256=receipt['nse_original']['sha256']).to_parquet(official/'2026-11-18_official_market.parquet',index=False)
+            (source/'history_refresh_test.json').write_text(json.dumps([{'symbol':'ABC','info':{'symbol':'ABC','isin':'INE000000001',
+              'source_sha256':'a'*64,'first_retrieved_utc':'2026-11-18T16:31:00Z'}}]))
+            with patch('v13_runner.features.daily_features',side_effect=features):blocked,history2=current_frame(root,'2026-11-18')
+            self.assertTrue(blocked.empty)
+            self.assertEqual(history2['INE000000001'].date.max(),pd.Timestamp('2026-11-17'))
+            self.assertEqual(p.read_bytes(),before)
+            funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
+            self.assertIn('No pre-cutoff original provider adjustment receipt',funnel['scoring_only_fallback']['blocked_reasons'])
 
     def test_new_registry_freezes_fallback_provenance(self):
         from v13_lifecycle import register,validate_registry
         row={'date':pd.Timestamp('2026-11-18'),'isin':'INE000000001','symbol':'ABC',
           'p6':.1,'p12':.2,'loss12':.3,'joint12':.1,
           'scoring_price_history_source':'ALTERNATIVE_ADJUSTED_SCORING_ONLY',
-          'scoring_fallback_source_sha256':'c'*64,'scoring_fallback_action_interval_certified':False}
+          'scoring_fallback_source_sha256':'c'*64,'scoring_fallback_action_interval_certified':False,
+          'scoring_fallback_provider_sha256':'a'*64,'scoring_fallback_provider_first_retrieved_utc':'2026-11-18T12:00:00Z'}
         with tempfile.TemporaryDirectory() as d:
             path=register(pd.DataFrame([row]),'d'*64,d,registered_at='2026-11-18T14:30:00Z')
             rec=validate_registry(path)['records'][0]
@@ -138,7 +194,8 @@ class BreadthFallbackTests(unittest.TestCase):
         tree=json.dumps([{'path':'prices_adjusted/nse_2026.parquet',
           'lastCommit':{'id':rev,'date':'2026-11-18T14:00:00Z'}}]).encode()
         raw=self.alt.to_parquet(index=False)
-        with tempfile.TemporaryDirectory() as d,patch('v13_breadth_capture.get',side_effect=[tree,raw]) as fetch,patch('v13_breadth_capture.datetime') as clock:
+        nse,calendar=self.primary_bytes()
+        with tempfile.TemporaryDirectory() as d,patch('v13_breadth_capture.get',side_effect=[tree,raw,nse,calendar]) as fetch,patch('v13_breadth_capture.datetime') as clock:
             clock.now.return_value=datetime(2026,11,18,14,20,tzinfo=timezone.utc)
             receipt=capture('2026-11-18',d)
             self.assertIn('/'+rev+'/',fetch.call_args_list[1].args[0])
@@ -160,12 +217,18 @@ class BreadthFallbackTests(unittest.TestCase):
         current=self.alt.tail(5).copy();current['date']=pd.bdate_range(end='2026-01-07',periods=5)
         with tempfile.TemporaryDirectory() as d:
             folder=Path(d)/'v13_public_breadth_snapshot';root=Path(d)/'v13_state';root.mkdir()
-            with patch('v13_breadth_capture.get',side_effect=[tree,current.to_parquet(index=False),older.to_parquet(index=False)]),patch('v13_breadth_capture.datetime') as clock:
+            nse,calendar=self.primary_bytes()
+            with patch('v13_breadth_capture.get',side_effect=[tree,current.to_parquet(index=False),older.to_parquet(index=False),nse,calendar]),patch('v13_breadth_capture.datetime') as clock:
                 clock.now.return_value=datetime(2026,1,7,12,20,tzinfo=timezone.utc)
                 receipt=capture('2026-01-07',folder)
             self.assertEqual(receipt['previous_year']['year'],2025)
             data,status=load(root,'2026-01-07')
             self.assertEqual(status['status'],'TIMELY_SNAPSHOT_VERIFIED');self.assertEqual(len(data[0]),135)
+            session=(folder/'nse_source_session.zip').read_bytes()
+            (folder/'nse_source_session.zip').write_bytes(b'tampered')
+            data,status=load(root,'2026-01-07')
+            self.assertIsNone(data);self.assertEqual(status['status'],'BLOCKED_SNAPSHOT')
+            (folder/'nse_source_session.zip').write_bytes(session)
             (folder/'nse_adjusted_previous.parquet').write_bytes(b'tampered')
             data,status=load(root,'2026-01-07')
             self.assertIsNone(data);self.assertEqual(status['status'],'BLOCKED_SNAPSHOT')

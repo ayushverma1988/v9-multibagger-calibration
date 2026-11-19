@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.request import Request,urlopen
 from zoneinfo import ZoneInfo
 import hashlib,json,sys,time
+import io,zipfile
 
 import pandas as pd
 
@@ -17,7 +18,7 @@ MAX_BYTES=60_000_000
 
 
 def get(url,limit):
-    with urlopen(Request(url,headers={'User-Agent':'V13-public-research/1.0'}),timeout=45) as r:
+    with urlopen(Request(url,headers={'User-Agent':'Mozilla/5.0 V13-public-research/1.0','Accept':'application/json,text/html,*/*'}),timeout=45) as r:
         raw=r.read(limit+1)
     if not raw or len(raw)>limit:raise ValueError('Empty or oversized public dataset response')
     return raw
@@ -65,6 +66,24 @@ def capture(asof,folder):
         receipt['previous_year']={'year':previous_year,'source_url':old_url,'publisher_revision':old_revision,
           'publisher_commit_utc':old_commit['date'],'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
           'sha256':hashlib.sha256(old_raw).hexdigest(),'bytes':len(old_raw)}
+    nse_url='https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_'+asof.replace('-','')+'_F_0000.csv.zip'
+    nse_raw=get(nse_url,10_000_000)
+    if not zipfile.is_zipfile(io.BytesIO(nse_raw)):raise ValueError('Current NSE original is not a ZIP')
+    with zipfile.ZipFile(io.BytesIO(nse_raw)) as archive:
+        if archive.testzip() is not None or not any(n.lower().endswith('.csv') for n in archive.namelist()):
+            raise ValueError('Current NSE original archive is invalid')
+    (folder/'nse_source_session.zip').write_bytes(nse_raw)
+    receipt['nse_original']={'source_url':nse_url,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
+      'sha256':hashlib.sha256(nse_raw).hexdigest(),'bytes':len(nse_raw)}
+    from v13_breadth_fallback import NSE_CALENDAR_URL
+    calendar_raw=get(NSE_CALENDAR_URL,2_000_000)
+    calendar=json.loads(calendar_raw)
+    if not isinstance(calendar,dict) or not isinstance(calendar.get('CM'),list):raise ValueError('Unexpected primary exchange calendar')
+    holidays=[pd.to_datetime(r['tradingDate'],format='%d-%b-%Y') for r in calendar['CM']]
+    if int(asof[:4]) not in {x.year for x in holidays}:raise ValueError('Primary exchange calendar lacks the source year')
+    (folder/'nse_holiday_calendar.json').write_bytes(calendar_raw)
+    receipt['nse_calendar']={'source_url':NSE_CALENDAR_URL,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
+      'sha256':hashlib.sha256(calendar_raw).hexdigest(),'bytes':len(calendar_raw)}
     from v13_breadth_fallback import validate_receipt
     validate_receipt(receipt,temp,asof)
     temp.replace(folder/'nse_adjusted.parquet')

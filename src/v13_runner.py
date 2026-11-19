@@ -4,7 +4,7 @@ The paper champion keeps a fixed head. Retraining makes a challenger and never
 overwrites frozen predictions. Durable state is archived using the existing
 private Hugging Face credential, with GitHub artifacts as a second checkpoint.
 """
-import argparse,base64,hashlib,io,json,os,shutil,tarfile
+import argparse,base64,hashlib,io,json,os,shutil,tarfile,tempfile
 from datetime import datetime,timezone
 from pathlib import Path
 import joblib,numpy as np,pandas as pd
@@ -86,18 +86,25 @@ def last_completed_session(root,day):
         except Exception as e:errors.append({'date':str(candidate.date()),'error':str(e)[:160]})
     raise RuntimeError('No verified completed NSE session; '+json.dumps(errors))
 
-def current_frame(root,asof,primary_volume_research=False):
+def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=None):
     rows=[];history={};low,_=collection.bounds(asof)
     funnel={'history_files':0,'empty_after_window':0,'no_source_date_bar':0,'source_date_feature_ineligible':0,'feature_eligible_source_date':0}
     # The alternate source is strictly scoring-only: the returned `history`
     # remains the original provider data used by entry and outcome audits.
     import v13_breadth_fallback as breadth_fallback
-    fallback, fallback_status=breadth_fallback.load(root,asof)
+    try:
+        fallback, fallback_status=breadth_fallback.load(root,asof)
+    except Exception as exc:
+        fallback, fallback_status=None,{'status':'BLOCKED_OPTIONAL_FALLBACK_ERROR','reason':str(exc)[:180]}
     if fallback is not None:
         (root/'evidence').mkdir(exist_ok=True)
         receipt_path=root/'evidence'/('breadth_fallback_receipt_'+asof+'_'+fallback[1]['sha256'][:16]+'.json')
         if not receipt_path.exists():receipt_path.write_text(json.dumps(fallback[1],indent=2)+'\n')
     fallback_groups={k:g for k,g in fallback[0].groupby('symbol',sort=False)} if fallback is not None else {}
+    fallback_history_receipts=breadth_fallback.timely_history_receipts(root,asof) if fallback is not None else {}
+    prior_index_path=Path(fallback_prior_dir)/'index.json' if fallback_prior_dir else None
+    try:prior_index=json.loads(prior_index_path.read_text()) if prior_index_path and prior_index_path.exists() else {}
+    except (ValueError,OSError):prior_index={};fallback_prior_dir=None
     fallback_official_cache={};fallback_blocked={};fallback_attempted=0;fallback_accepted=0
     primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
     volume_overlays=0
@@ -121,11 +128,24 @@ def current_frame(root,asof,primary_volume_research=False):
             try:
                 symbol=bars.symbol.iloc[0];isin=bars['isin'].iloc[0]
                 if symbol not in fallback_groups:raise ValueError('Alternative symbol missing')
+                source_hashes=set(bars.source_sha256)
+                provider_hash=next(iter(source_hashes)) if len(source_hashes)==1 else None
+                provider_clock=fallback_history_receipts.get((symbol,isin,provider_hash))
+                if provider_clock is None:
+                    prior=breadth_fallback.prior_history(fallback_prior_dir,isin,symbol,fallback_history_receipts,prior_index)
+                    if prior is not None:
+                        bars=prior;provider_hash=next(iter(set(bars.source_sha256)))
+                        provider_clock=fallback_history_receipts.get((symbol,isin,provider_hash))
+                last_close=bars.date.max().tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
+                if provider_clock is None or provider_clock<last_close.tz_convert('UTC'):
+                    raise ValueError('No pre-cutoff original provider adjustment receipt')
                 start=bars.date.max()+pd.Timedelta(days=1);key=str(start.date())
                 if key not in fallback_official_cache:
-                    fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof)
+                    fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof,fallback[1],fallback[2])
                 sessions,originals=fallback_official_cache[key]
                 bars,fallback_proof=breadth_fallback.extend(bars,fallback_groups[symbol],originals,sessions,asof,symbol,isin,fallback[1]['sha256'])
+                fallback_proof['provider_source_sha256']=provider_hash
+                fallback_proof['provider_first_retrieved_utc']=provider_clock.isoformat()
                 fallback_accepted+=1
             except (ValueError,KeyError,TypeError,OSError) as exc:
                 reason=str(exc)[:180];fallback_blocked[reason]=fallback_blocked.get(reason,0)+1
@@ -139,6 +159,8 @@ def current_frame(root,asof,primary_volume_research=False):
             row['scoring_price_history_source']='ALTERNATIVE_ADJUSTED_SCORING_ONLY' if fallback_proof else 'ORIGINAL_ADJUSTED_PROVIDER'
             row['scoring_fallback_source_sha256']=fallback_proof['source_sha256'] if fallback_proof else None
             row['scoring_fallback_action_interval_certified']=False if fallback_proof else None
+            row['scoring_fallback_provider_sha256']=fallback_proof['provider_source_sha256'] if fallback_proof else None
+            row['scoring_fallback_provider_first_retrieved_utc']=fallback_proof['provider_first_retrieved_utc'] if fallback_proof else None
             rows.append(row)
         elif not d.date.eq(pd.Timestamp(asof)).any():funnel['no_source_date_bar']+=1
         else:funnel['source_date_feature_ineligible']+=1
@@ -225,6 +247,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
     report={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
     from v13_frozen_integrity import FrozenGuard
     guard=FrozenGuard(root)
+    prior_cache=None
     try:
         if not local:
             from v13_history_integrity import recover_from_seed
@@ -239,6 +262,16 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         # Fresh public prices must exist before financial completion chooses
         # the unranked price/history-eligible population for this source date.
         # Previously a new session always prioritised yesterday's histories.
+        try:
+            from v13_breadth_fallback import load as load_breadth,snapshot_prior_histories
+            timely_snapshot,_=load_breadth(root,asof)
+            if timely_snapshot is not None:
+                prior_cache=tempfile.TemporaryDirectory(prefix='v13_breadth_prior_',dir=root.parent)
+                report['steps']['breadth_prior_histories']=snapshot_prior_histories(root,asof,prior_cache.name)
+            del timely_snapshot
+        except Exception as exc:
+            if prior_cache is not None:prior_cache.cleanup();prior_cache=None
+            report['steps']['breadth_prior_histories']={'status':'BLOCKED_OPTIONAL_FALLBACK_ERROR','reason':str(exc)[:180]}
         phase('PUBLIC_PRICE_HISTORY_COLLECTION')
         report['steps']['history']=collection.collect_histories(root,asof,history_budget,workers=collection_workers)
         if not local:
@@ -316,7 +349,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             phase('SAVING_FINANCIAL_CHECKPOINT')
             save(root)
         phase('CURRENT_SOURCE_ALIGNED_MODEL_INPUTS')
-        frame,history=current_frame(root,asof)
+        frame,history=current_frame(root,asof,fallback_prior_dir=prior_cache.name if prior_cache is not None else None)
         report['current_verified_market_rows']=len(frame)
         # Partial coverage is disclosed, not mistaken for a full-universe scan.
         report['public_universe_rows']=len(pd.read_parquet(root/'universe.parquet'))
@@ -518,6 +551,9 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
     except Exception as e:
         report['errors'].append({'phase':'worker','error':str(e)[:400]});raise
     finally:
+        if prior_cache is not None:
+            try:prior_cache.cleanup()
+            except OSError:pass
         if 'frozen_integrity' not in report['steps']:
             try:
                 old_path=root/'prospective_observations.parquet'

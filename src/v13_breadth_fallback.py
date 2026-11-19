@@ -9,6 +9,7 @@ from pathlib import Path
 import hashlib
 import json
 import re
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,7 @@ FACTOR_RTOL = 0.00001
 MAX_MISSING_SESSIONS = 5
 MIN_CURRENT_YEAR_SESSIONS = 150
 SOURCE_BASE='https://huggingface.co/datasets/tejhq/indian-markets/resolve/'
+NSE_CALENDAR_URL='https://www.nseindia.com/api/holiday-master?type=trading'
 
 
 def _aware(value):
@@ -51,6 +53,18 @@ def validate_receipt(receipt, path, asof):
     if receipt.get('source_url')!=expected:raise ValueError('Fallback source URL does not bind immutable revision')
     if receipt.get('bytes')!=Path(path).stat().st_size or not re.fullmatch(r'[0-9a-f]{64}', str(receipt.get('sha256', ''))) or _sha(path) != receipt['sha256']:
         raise ValueError('Fallback source hash mismatch')
+    expected_session='https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_'+asof.replace('-','')+'_F_0000.csv.zip'
+    for key,name,url in [('nse_original','nse_source_session.zip',expected_session),
+                         ('nse_calendar','nse_holiday_calendar.json',NSE_CALENDAR_URL)]:
+        obj=receipt.get(key)
+        if not isinstance(obj,dict) or obj.get('source_url')!=url:
+            raise ValueError('Missing timed primary NSE source: '+key)
+        clock=_aware(obj.get('first_retrieved_utc'))
+        if not close.tz_convert('UTC')<=clock<=ceiling.tz_convert('UTC'):
+            raise ValueError('Primary NSE source was captured outside the cutoff: '+key)
+        original=Path(path).parent/name
+        if not original.exists() or obj.get('bytes')!=original.stat().st_size or not re.fullmatch(r'[0-9a-f]{64}',str(obj.get('sha256',''))) or _sha(original)!=obj['sha256']:
+            raise ValueError('Primary NSE source hash mismatch: '+key)
     previous=receipt.get('previous_year')
     if previous is not None:
         if not isinstance(previous,dict) or previous.get('year') != int(asof[:4])-1:
@@ -95,33 +109,111 @@ def load(root, asof):
             raise ValueError('Snapshot lacks the source session')
         if data.duplicated(['date','symbol','isin','series']).any():
             raise ValueError('Duplicate alternative source identity/date')
-        return (data, receipt), {'status':'TIMELY_SNAPSHOT_VERIFIED', 'source_sha256':receipt['sha256'],
+        calendar=json.loads((folder/'nse_holiday_calendar.json').read_text())
+        dates=calendar.get('CM') if isinstance(calendar,dict) else None
+        if not isinstance(dates,list):raise ValueError('Captured exchange calendar schema changed')
+        holidays=[]
+        for row in dates:
+            value=pd.to_datetime(row['tradingDate'],format='%d-%b-%Y')
+            if value.year==int(asof[:4]):holidays.append(str(value.date()))
+        if not holidays:raise ValueError('Captured exchange calendar omits the current year')
+        return (data, receipt, {'year':int(asof[:4]),'years':[int(asof[:4])],'holidays':holidays}), {'status':'TIMELY_SNAPSHOT_VERIFIED', 'source_sha256':receipt['sha256'],
           'first_retrieved_utc':receipt['first_retrieved_utc'], 'publisher_commit_utc':receipt['publisher_commit_utc']}
     except (ValueError, KeyError, TypeError, OSError) as exc:
         return None, {'status':'BLOCKED_SNAPSHOT', 'reason':str(exc)[:200]}
 
 
-def _calendar_and_official(root, start, asof):
+def _calendar_and_official(root, start, asof, receipt, calendar):
     """All business-day sessions and original official files must be present."""
     from v13_action_audit import expected_sessions
-    holidays=[]
-    for year in range(pd.Timestamp(start).year, pd.Timestamp(asof).year + 1):
-        p=Path(root)/'action_audit'/f'calendar_{year}.json'
-        if not p.exists(): raise ValueError('Missing original NSE session calendar')
-        c=json.loads(p.read_text())
-        if c.get('year') != year or not re.fullmatch(r'[0-9a-f]{64}',str(c.get('source_sha256',''))):
-            raise ValueError('Invalid NSE session calendar receipt')
-        holidays.extend(c['holidays'])
-    years=list(range(pd.Timestamp(start).year,pd.Timestamp(asof).year+1))
-    sessions=expected_sessions(start,asof,{'year':years[-1],'years':years,'holidays':holidays})
+    if pd.Timestamp(start).year!=pd.Timestamp(asof).year:
+        raise ValueError('Cross-year gap needs an independently timed exchange calendar')
+    sessions=expected_sessions(start,asof,calendar)
     if len(sessions)>MAX_MISSING_SESSIONS:
         raise ValueError('Stale provider gap exceeds bounded fallback limit')
     files=[]
     for date in sessions:
         p=Path(root)/'official'/(str(date.date())+'_official_market.parquet')
         if not p.exists(): raise ValueError('Missing original exchange session '+str(date.date()))
-        files.append(pd.read_parquet(p))
+        raw=pd.read_parquet(p)
+        if 'source_sha256' not in raw or raw.empty:raise ValueError('Missing source-bound exchange session')
+        if str(date.date())==asof:
+            if set(raw.source_sha256)!={receipt['nse_original']['sha256']}:
+                raise ValueError('Post-capture exchange bytes changed')
+        else:
+            if 'first_retrieved_utc' not in raw:raise ValueError('Older exchange session has no retrieval clock')
+            cut=pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=22)
+            clocks=pd.to_datetime(raw.first_retrieved_utc,utc=True,errors='coerce')
+            if clocks.isna().any() or (clocks>cut.tz_convert('UTC')).any():
+                raise ValueError('Older exchange session was observed after the cutoff')
+        files.append(raw)
     return sessions, pd.concat(files,ignore_index=True) if files else pd.DataFrame()
+
+
+def timely_history_receipts(root,asof):
+    """Use immutable old collection receipts, not a newly observed factor."""
+    ceiling=(pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=22)).tz_convert('UTC')
+    result={}
+    for path in (Path(root)/'sources').glob('*/history_refresh_*.json'):
+        try:
+            items=json.loads(path.read_text())
+            if not isinstance(items,list):continue
+            for item in items:
+                if not isinstance(item,dict):continue
+                info=item.get('info') or {};digest=info.get('source_sha256');symbol=info.get('symbol');isin=info.get('isin')
+                if item.get('symbol')!=symbol or not re.fullmatch(r'[0-9a-f]{64}',str(digest or '')):continue
+                observed=_aware(info.get('first_retrieved_utc'))
+                if observed>ceiling:continue
+                key=(symbol,isin,digest)
+                if key not in result or observed<result[key]:result[key]=observed
+        except (ValueError,TypeError,KeyError,OSError):continue
+    return result
+
+
+def snapshot_prior_histories(root,asof,destination):
+    """Preserve pre-refresh, time-bound histories in a disposable scoring area."""
+    root=Path(root);destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
+    receipts=timely_history_receipts(root,asof)
+    wanted=None
+    if (root/'universe.parquet').exists():
+        universe=pd.read_parquet(root/'universe.parquet')
+        symbol_col='nse_current_symbol' if 'nse_current_symbol' in universe else 'symbol'
+        wanted=set(zip(universe['isin'],universe[symbol_col]))
+    from v13_history_views import histories
+    selected,_=histories(root/'history'/'securities',wanted)
+    index={};skipped=0
+    for (isin,symbol),(path,bars) in selected.items():
+        if bars.empty or pd.to_datetime(bars.date).max()>=pd.Timestamp(asof) or 'source_sha256' not in bars:
+            skipped+=1;continue
+        hashes=set(bars.source_sha256)
+        if len(hashes)!=1:skipped+=1;continue
+        source_hash=next(iter(hashes));seen=receipts.get((symbol,isin,source_hash))
+        last_close=pd.to_datetime(bars.date).max().tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
+        if seen is None or seen<last_close.tz_convert('UTC'):skipped+=1;continue
+        key=isin+'|'+symbol;name=hashlib.sha256(key.encode()).hexdigest()+'.parquet'
+        target=destination/name;shutil.copyfile(path,target)
+        index[key]={'file':name,'file_sha256':_sha(target),'source_sha256':source_hash,'first_retrieved_utc':seen.isoformat()}
+    (destination/'index.json').write_text(json.dumps(index,indent=2))
+    return {'status':'TIMELY_ORIGINAL_HISTORIES_SNAPSHOTTED','histories':len(index),'skipped':skipped,
+      'private_checkpoints_or_original_histories_modified':False}
+
+
+def prior_history(folder,isin,symbol,receipts,index=None):
+    if not folder:return None
+    root=Path(folder);p=root/'index.json'
+    if not p.exists():return None
+    item=(json.loads(p.read_text()) if index is None else index).get(isin+'|'+symbol)
+    if not item:return None
+    name=item.get('file','')
+    if not re.fullmatch(r'[0-9a-f]{64}\.parquet',name):raise ValueError('Unsafe prior scoring history path')
+    original=root/name
+    if not original.exists() or _sha(original)!=item.get('file_sha256'):raise ValueError('Prior scoring history changed')
+    source_hash=item.get('source_sha256');seen=receipts.get((symbol,isin,source_hash))
+    if seen is None or seen!=_aware(item.get('first_retrieved_utc')):raise ValueError('Prior provider receipt is unavailable')
+    bars=pd.read_parquet(original)
+    if bars.empty or set(bars.symbol)!={symbol} or set(bars['isin'])!={isin} or set(bars.source_sha256)!={source_hash}:
+        raise ValueError('Prior scoring history identity changed')
+    return bars
 
 
 def extend(previous, alternative, official, sessions, asof, symbol, isin, source_sha256):
