@@ -1,0 +1,22 @@
+name: V13 Breadth Fallback Validation
+on:
+  push:
+    branches: [v13-breadth-fallback-20261119]
+permissions:
+  contents: read
+jobs:
+  v13-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Validate all V13 regression tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_v13*.py'

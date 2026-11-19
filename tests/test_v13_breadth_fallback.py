@@ -1,0 +1,174 @@
+import hashlib,json,tempfile,unittest
+from datetime import datetime,timezone
+from pathlib import Path
+from unittest.mock import patch
+
+import numpy as np
+import pandas as pd
+
+from v13_breadth_fallback import extend,load,validate_receipt
+
+
+class BreadthFallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.dates=pd.bdate_range(end='2026-11-17',periods=160)
+        prices=np.linspace(100,180,len(self.dates))
+        self.old=pd.DataFrame({'date':self.dates,'symbol':'ABC','isin':'INE000000001',
+          'open':prices,'high':prices+2,'low':prices-2,'close':prices,'volume':1000,
+          'adj_close':prices,'source_sha256':'a'*64})
+        self.extra=pd.DataFrame([{'date':pd.Timestamp('2026-11-18'),'symbol':'ABC','isin':'INE000000001',
+          'series':'EQ','open':181.,'high':183.,'low':179.,'close':181.,'volume':1200,
+          'adj_close':181.,'adj_factor_cumulative':1.}])
+        self.alt=pd.concat([self.old.assign(series='EQ',adj_factor_cumulative=1.),self.extra],ignore_index=True)
+        self.official=self.extra.drop(columns=['adj_close','adj_factor_cumulative']).assign(
+          source_status='VALID_POSITIVE_VOLUME_SESSION',source_sha256='b'*64)
+        self.sessions=[pd.Timestamp('2026-11-18')]
+
+    def check(self,old=None,alt=None,official=None,sessions=None):
+        return extend(self.old if old is None else old,self.alt if alt is None else alt,
+          self.official if official is None else official,self.sessions if sessions is None else sessions,
+          '2026-11-18','ABC','INE000000001','c'*64)
+
+    def test_score_view_preserves_original_and_does_not_certify_outcomes(self):
+        copy=self.old.copy(deep=True);view,proof=self.check()
+        pd.testing.assert_frame_equal(self.old,copy)
+        self.assertEqual(len(view),len(copy)+1)
+        self.assertEqual(proof['new_sessions'],1)
+        self.assertFalse(proof['action_interval_certified'])
+        self.assertFalse(proof['entry_or_outcome_certified'])
+        self.assertEqual(view.iloc[-1].source_sha256,'c'*64)
+
+    def test_wrong_isin_or_series_blocks(self):
+        for col,value in [('isin','INE999999999'),('series','BE')]:
+            alt=self.alt.copy();alt.loc[alt.index[-1],col]=value
+            with self.subTest(col=col),self.assertRaises(ValueError):self.check(alt=alt)
+
+    def test_any_official_ohlcv_disagreement_blocks(self):
+        for col in ['open','high','low','close','volume']:
+            alt=self.alt.copy();alt.loc[alt.index[-1],col]+=1
+            with self.subTest(col=col),self.assertRaises(ValueError):self.check(alt=alt)
+
+    def test_missing_or_changed_factors_block(self):
+        alt=self.alt.copy();alt.loc[alt.index[7],'adj_close']*=.9
+        with self.assertRaisesRegex(ValueError,'factors disagree'):self.check(alt=alt)
+        alt=self.alt.copy();alt.loc[alt.index[-1],'adj_factor_cumulative']=.5
+        with self.assertRaisesRegex(ValueError,'factor'):self.check(alt=alt)
+        with self.assertRaisesRegex(ValueError,'Insufficient'):self.check(old=self.old.tail(125))
+
+    def test_missing_or_duplicate_intervening_session_blocks(self):
+        with self.assertRaises(ValueError):self.check(official=self.official.iloc[0:0])
+        with self.assertRaises(ValueError):self.check(alt=pd.concat([self.alt,self.alt.tail(1)]))
+        with self.assertRaisesRegex(ValueError,'omitted a recent'):self.check(alt=self.alt.drop(self.alt.index[-2]))
+
+    def test_actual_capture_and_publisher_clocks_are_required(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'x';p.write_bytes(b'original')
+            r={'source_asof':'2026-11-18','publisher_revision':'1'*40,
+               'publisher_commit_utc':'2026-11-18T14:00:00Z',
+               'first_retrieved_utc':'2026-11-18T14:30:00Z',
+               'source_url':'https://huggingface.co/datasets/tejhq/indian-markets/resolve/'+('1'*40)+'/prices_adjusted/nse_2026.parquet?download=true','bytes':len(b'original'),
+               'sha256':hashlib.sha256(b'original').hexdigest()}
+            validate_receipt(r,p,'2026-11-18')
+            for field,value in [('publisher_commit_utc','2026-11-18T16:31:00Z'),
+                                ('first_retrieved_utc','2026-11-18T16:31:00Z'),
+                                ('first_retrieved_utc','2026-11-18T14:30:00'),
+                                ('publisher_revision','a'*39),('sha256','0'*64)]:
+                q={**r,field:value}
+                with self.subTest(field=field,value=value),self.assertRaises(ValueError):validate_receipt(q,p,'2026-11-18')
+            with self.assertRaises(ValueError):validate_receipt(r,p,'2026-11-19')
+
+    def test_absent_or_late_snapshot_is_blocked(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)/'v13_state';root.mkdir()
+            data,status=load(root,'2026-11-18')
+            self.assertIsNone(data);self.assertEqual(status['status'],'NO_TIMELY_PUBLIC_FALLBACK_SNAPSHOT')
+            folder=Path(d)/'v13_public_breadth_snapshot';folder.mkdir()
+            (folder/'nse_adjusted.parquet').write_bytes(b'raw')
+            (folder/'receipt.json').write_text(json.dumps({'source_asof':'2026-11-18',
+              'publisher_revision':'1'*40,'publisher_commit_utc':'2026-11-18T21:41:00Z',
+              'first_retrieved_utc':'2026-11-19T04:00:00Z','sha256':hashlib.sha256(b'raw').hexdigest()}))
+            data,status=load(root,'2026-11-18')
+            self.assertIsNone(data);self.assertEqual(status['status'],'BLOCKED_SNAPSHOT')
+
+    def test_worker_scores_fallback_without_changing_outcome_history(self):
+        from v13_runner import current_frame
+        with tempfile.TemporaryDirectory() as d:
+            base=Path(d);root=base/'v13_state';hist=root/'history'/'securities';hist.mkdir(parents=True)
+            official=root/'official';official.mkdir();audit=root/'action_audit';audit.mkdir()
+            p=hist/'ABC.parquet';self.old.to_parquet(p,index=False);before=p.read_bytes()
+            self.official.to_parquet(official/'2026-11-18_official_market.parquet',index=False)
+            (audit/'calendar_2026.json').write_text(json.dumps({'year':2026,'holidays':[],'source_sha256':'a'*64}))
+            snap=base/'v13_public_breadth_snapshot';snap.mkdir()
+            data=snap/'nse_adjusted.parquet';self.alt.to_parquet(data,index=False)
+            receipt={'source_asof':'2026-11-18','publisher_revision':'1'*40,
+              'publisher_commit_utc':'2026-11-18T14:00:00Z','first_retrieved_utc':'2026-11-18T14:20:00Z',
+              'source_url':'https://huggingface.co/datasets/tejhq/indian-markets/resolve/'+('1'*40)+'/prices_adjusted/nse_2026.parquet?download=true','bytes':data.stat().st_size,
+              'sha256':hashlib.sha256(data.read_bytes()).hexdigest()}
+            (snap/'receipt.json').write_text(json.dumps(receipt))
+            def features(bars,asof):
+                result=bars.copy()
+                for col in ('log_ret63','log_ret20','momentum126','momentum252_skip21','volume_confirmation','log_liquidity63'):
+                    result[col]=1.
+                result['feature_eligible']=True
+                return result
+            with patch('v13_runner.features.daily_features',side_effect=features):frame,history=current_frame(root,'2026-11-18')
+            self.assertEqual(len(frame),1,(root/'evidence'/'market_coverage_funnel.json').read_text())
+            self.assertEqual(frame.iloc[0].scoring_price_history_source,'ALTERNATIVE_ADJUSTED_SCORING_ONLY')
+            self.assertEqual(history['INE000000001'].date.max(),pd.Timestamp('2026-11-17'))
+            self.assertEqual(p.read_bytes(),before)
+            funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
+            self.assertEqual(funnel['scoring_only_fallback']['accepted_before_feature_gate'],1)
+            self.assertFalse(funnel['scoring_only_fallback']['entry_or_outcome_certified'])
+
+    def test_new_registry_freezes_fallback_provenance(self):
+        from v13_lifecycle import register,validate_registry
+        row={'date':pd.Timestamp('2026-11-18'),'isin':'INE000000001','symbol':'ABC',
+          'p6':.1,'p12':.2,'loss12':.3,'joint12':.1,
+          'scoring_price_history_source':'ALTERNATIVE_ADJUSTED_SCORING_ONLY',
+          'scoring_fallback_source_sha256':'c'*64,'scoring_fallback_action_interval_certified':False}
+        with tempfile.TemporaryDirectory() as d:
+            path=register(pd.DataFrame([row]),'d'*64,d,registered_at='2026-11-18T14:30:00Z')
+            rec=validate_registry(path)['records'][0]
+            self.assertEqual(rec['scoring_fallback_source_sha256'],'c'*64)
+            self.assertFalse(rec['scoring_fallback_action_interval_certified'])
+
+    def test_capture_requires_an_immutable_current_publisher_revision(self):
+        from v13_breadth_capture import capture
+        rev='1'*40
+        tree=json.dumps([{'path':'prices_adjusted/nse_2026.parquet',
+          'lastCommit':{'id':rev,'date':'2026-11-18T14:00:00Z'}}]).encode()
+        raw=self.alt.to_parquet(index=False)
+        with tempfile.TemporaryDirectory() as d,patch('v13_breadth_capture.get',side_effect=[tree,raw]) as fetch,patch('v13_breadth_capture.datetime') as clock:
+            clock.now.return_value=datetime(2026,11,18,14,20,tzinfo=timezone.utc)
+            receipt=capture('2026-11-18',d)
+            self.assertIn('/'+rev+'/',fetch.call_args_list[1].args[0])
+            self.assertEqual(receipt['sha256'],hashlib.sha256(raw).hexdigest())
+            self.assertEqual(receipt['first_retrieved_utc'],'2026-11-18T14:20:00+00:00')
+            self.assertTrue((Path(d)/'receipt.json').exists())
+        late=json.dumps([{'path':'prices_adjusted/nse_2026.parquet',
+          'lastCommit':{'id':rev,'date':'2026-11-18T17:00:00Z'}}]).encode()
+        with tempfile.TemporaryDirectory() as d,patch('v13_breadth_capture.get',return_value=late):
+            with self.assertRaisesRegex(ValueError,'cutoff'):capture('2026-11-18',d)
+
+    def test_early_year_capture_preserves_previous_year_original_and_hash(self):
+        from v13_breadth_capture import capture
+        rev='1'*40;old_rev='2'*40
+        tree=json.dumps([
+          {'path':'prices_adjusted/nse_2026.parquet','lastCommit':{'id':rev,'date':'2026-01-07T12:00:00Z'}},
+          {'path':'prices_adjusted/nse_2025.parquet','lastCommit':{'id':old_rev,'date':'2025-12-31T12:00:00Z'}}]).encode()
+        older=self.alt.head(130).copy();older['date']=pd.bdate_range(end='2025-12-31',periods=130)
+        current=self.alt.tail(5).copy();current['date']=pd.bdate_range(end='2026-01-07',periods=5)
+        with tempfile.TemporaryDirectory() as d:
+            folder=Path(d)/'v13_public_breadth_snapshot';root=Path(d)/'v13_state';root.mkdir()
+            with patch('v13_breadth_capture.get',side_effect=[tree,current.to_parquet(index=False),older.to_parquet(index=False)]),patch('v13_breadth_capture.datetime') as clock:
+                clock.now.return_value=datetime(2026,1,7,12,20,tzinfo=timezone.utc)
+                receipt=capture('2026-01-07',folder)
+            self.assertEqual(receipt['previous_year']['year'],2025)
+            data,status=load(root,'2026-01-07')
+            self.assertEqual(status['status'],'TIMELY_SNAPSHOT_VERIFIED');self.assertEqual(len(data[0]),135)
+            (folder/'nse_adjusted_previous.parquet').write_bytes(b'tampered')
+            data,status=load(root,'2026-01-07')
+            self.assertIsNone(data);self.assertEqual(status['status'],'BLOCKED_SNAPSHOT')
+
+
+if __name__=='__main__':unittest.main()

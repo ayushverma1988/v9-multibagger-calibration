@@ -89,6 +89,16 @@ def last_completed_session(root,day):
 def current_frame(root,asof,primary_volume_research=False):
     rows=[];history={};low,_=collection.bounds(asof)
     funnel={'history_files':0,'empty_after_window':0,'no_source_date_bar':0,'source_date_feature_ineligible':0,'feature_eligible_source_date':0}
+    # The alternate source is strictly scoring-only: the returned `history`
+    # remains the original provider data used by entry and outcome audits.
+    import v13_breadth_fallback as breadth_fallback
+    fallback, fallback_status=breadth_fallback.load(root,asof)
+    if fallback is not None:
+        (root/'evidence').mkdir(exist_ok=True)
+        receipt_path=root/'evidence'/('breadth_fallback_receipt_'+asof+'_'+fallback[1]['sha256'][:16]+'.json')
+        if not receipt_path.exists():receipt_path.write_text(json.dumps(fallback[1],indent=2)+'\n')
+    fallback_groups={k:g for k,g in fallback[0].groupby('symbol',sort=False)} if fallback is not None else {}
+    fallback_official_cache={};fallback_blocked={};fallback_attempted=0;fallback_accepted=0
     primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
     volume_overlays=0
     from v13_history_views import histories
@@ -105,18 +115,39 @@ def current_frame(root,asof,primary_volume_research=False):
         bars=bars.copy();bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
         if bars.empty:funnel['empty_after_window']+=1;continue
         history[bars['isin'].iloc[0]]=bars
+        fallback_proof=None
+        if fallback is not None and bars.date.max()<pd.Timestamp(asof):
+            fallback_attempted+=1
+            try:
+                symbol=bars.symbol.iloc[0];isin=bars['isin'].iloc[0]
+                if symbol not in fallback_groups:raise ValueError('Alternative symbol missing')
+                start=bars.date.max()+pd.Timedelta(days=1);key=str(start.date())
+                if key not in fallback_official_cache:
+                    fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof)
+                sessions,originals=fallback_official_cache[key]
+                bars,fallback_proof=breadth_fallback.extend(bars,fallback_groups[symbol],originals,sessions,asof,symbol,isin,fallback[1]['sha256'])
+                fallback_accepted+=1
+            except (ValueError,KeyError,TypeError,OSError) as exc:
+                reason=str(exc)[:180];fallback_blocked[reason]=fallback_blocked.get(reason,0)+1
         if primary_volume_research:
             from v13_primary_volume import reconcile
             bars,changed=reconcile(bars,primary,asof);volume_overlays+=int(changed)
         d=features.daily_features(bars,asof)
         current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
-        if len(current)==1:rows.append(current.iloc[0].to_dict())
+        if len(current)==1:
+            row=current.iloc[0].to_dict()
+            row['scoring_price_history_source']='ALTERNATIVE_ADJUSTED_SCORING_ONLY' if fallback_proof else 'ORIGINAL_ADJUSTED_PROVIDER'
+            row['scoring_fallback_source_sha256']=fallback_proof['source_sha256'] if fallback_proof else None
+            row['scoring_fallback_action_interval_certified']=False if fallback_proof else None
+            rows.append(row)
         elif not d.date.eq(pd.Timestamp(asof)).any():funnel['no_source_date_bar']+=1
         else:funnel['source_date_feature_ineligible']+=1
     funnel['feature_eligible_source_date']=len(rows)
     out=root/('primary_volume_research' if primary_volume_research else 'evidence');out.mkdir(exist_ok=True)
     funnel['primary_volume_overlays']=volume_overlays
     funnel['independent_volume_agreement_required']=not primary_volume_research
+    funnel['scoring_only_fallback']={**fallback_status,'attempted':fallback_attempted,'accepted_before_feature_gate':fallback_accepted,
+      'blocked_reasons':fallback_blocked,'original_histories_unchanged':True,'entry_or_outcome_certified':False}
     if not rows:
         (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':0},indent=2))
         return pd.DataFrame(),history
