@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 58510f5d4020de033bc1684cf732f52ee419ff6a
+          ref: 899ad0d14d1927ad1302db9c10a60ff3ddd5bf32
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -42,5 +42,7 @@ jobs:
           path: |
             v13_public_breadth_snapshot/nse_adjusted.parquet
             v13_public_breadth_snapshot/nse_adjusted_previous.parquet
+            v13_public_breadth_snapshot/nse_source_session.zip
+            v13_public_breadth_snapshot/nse_holiday_calendar.json
             v13_public_breadth_snapshot/receipt.json
           retention-days: 30
