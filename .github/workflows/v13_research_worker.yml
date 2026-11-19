@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 275b1903f3f7eaa8ffdaae159adc86fde4d66142
+          ref: 58510f5d4020de033bc1684cf732f52ee419ff6a
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -42,6 +42,38 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements_v13_storage.txt
+      - name: Locate the latest pre-cutoff public adjusted-price capture
+        id: breadth_capture
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let runs;
+            try {
+              runs = await github.paginate(github.rest.actions.listWorkflowRuns, {...context.repo, workflow_id: 'v13_breadth_capture.yml', status: 'success', per_page: 20});
+            } catch (error) {
+              core.info('Public fallback capture unavailable; the original collector continues.');
+              return;
+            }
+            for (const run of runs.slice(0, 20)) {
+              let result;
+              try { result = await github.rest.actions.listWorkflowRunArtifacts({...context.repo, run_id: run.id, per_page: 100}); }
+              catch (error) { core.info('A public capture could not be inspected; continuing without it.'); continue; }
+              const artifact = result.data.artifacts.find(a => !a.expired && /^v13-public-breadth-\d{4}-\d{2}-\d{2}$/.test(a.name));
+              if (artifact) {
+                core.setOutput('run_id', String(run.id));
+                core.setOutput('artifact_name', artifact.name);
+                break;
+              }
+            }
+      - name: Load the optional public adjusted-price capture
+        if: steps.breadth_capture.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.breadth_capture.outputs.artifact_name }}
+          run-id: ${{ steps.breadth_capture.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: v13_public_breadth_snapshot
       - name: Stream and verify the latest worker backup before source refresh
         env:
           GITHUB_TOKEN: ${{ github.token }}
