@@ -101,12 +101,14 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         receipt_path=root/'evidence'/('breadth_fallback_receipt_'+asof+'_'+fallback[1]['sha256'][:16]+'.json')
         if not receipt_path.exists():receipt_path.write_text(json.dumps(fallback[1],indent=2)+'\n')
     fallback_groups={k:g for k,g in fallback[0].groupby('symbol',sort=False)} if fallback is not None else {}
-    fallback_history_receipts=breadth_fallback.timely_history_receipts(root,asof) if fallback is not None else {}
+    # The newly relaxed liquidity path also needs an actually timely original
+    # provider receipt, even when there is no public fallback snapshot.
+    fallback_history_receipts=breadth_fallback.timely_history_receipts(root,asof)
     prior_index_path=Path(fallback_prior_dir)/'index.json' if fallback_prior_dir else None
     try:prior_index=json.loads(prior_index_path.read_text()) if prior_index_path and prior_index_path.exists() else {}
     except (ValueError,OSError):prior_index={};fallback_prior_dir=None
     fallback_official_cache={};fallback_blocked={};fallback_attempted=0;fallback_accepted=0
-    single_attempted=0;single_accepted=0;single_new_identity=0;single_blocked={}
+    single_attempted=0;single_accepted=0;single_new_identity=0;single_blocked={};low_liquidity_timing_blocked=0
     primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
     volume_overlays=0
     from v13_history_views import histories
@@ -182,6 +184,16 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
         if len(current)==1:
             row=current.iloc[0].to_dict()
+            original_receipt=None;original_hash=None
+            if (row.get('scoring_liquidity_status')=='BELOW_25_LAKH_OUTSIDE_TRAINING_BAND'
+                    and fallback_proof is None):
+                hashes=set(bars.source_sha256) if 'source_sha256' in bars else set()
+                original_hash=next(iter(hashes)) if len(hashes)==1 else None
+                original_receipt=fallback_history_receipts.get((bars.symbol.iloc[0],bars['isin'].iloc[0],original_hash))
+                close=(pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
+                if original_receipt is None or original_receipt<close:
+                    low_liquidity_timing_blocked+=1
+                    continue
             row['scoring_price_history_source']=fallback_proof['source_status'] if fallback_proof else 'ORIGINAL_ADJUSTED_PROVIDER'
             row['scoring_fallback_source_sha256']=fallback_proof['source_sha256'] if fallback_proof else None
             row['scoring_fallback_action_interval_certified']=False if fallback_proof else None
@@ -190,6 +202,8 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
             row['scoring_fallback_reference_status']=fallback_proof.get('reference_status') if fallback_proof else None
             row['scoring_fallback_overlap_sessions']=fallback_proof.get('overlap_sessions') if fallback_proof else None
             row['scoring_history_series_transition_unverified']=fallback_proof.get('historical_series_transition_unverified') if fallback_proof else None
+            row['scoring_original_provider_sha256']=original_hash
+            row['scoring_original_provider_first_retrieved_utc']=original_receipt.isoformat() if original_receipt is not None else None
             rows.append(row)
         elif not d.date.eq(pd.Timestamp(asof)).any():funnel['no_source_date_bar']+=1
         else:funnel['source_date_feature_ineligible']+=1
@@ -228,6 +242,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     funnel['single_source_scoring_only']={'attempted':single_attempted,'accepted_before_feature_gate':single_accepted,
       'new_identities_without_provider_history':single_new_identity,'blocked_reasons':single_blocked,
       'adjustment_independently_verified':False,'entry_or_outcome_certified':False}
+    funnel['low_liquidity_original_timing_blocked']=low_liquidity_timing_blocked
     if not rows:
         (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':0},indent=2))
         return pd.DataFrame(),history
@@ -260,6 +275,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     funnel['liquidity_research_scoring']={
       'below_25_lakh_outside_training_band':int(d.scoring_liquidity_status.eq('BELOW_25_LAKH_OUTSIDE_TRAINING_BAND').sum()),
       'standard_25_lakh_turnover':int(d.scoring_liquidity_status.eq('STANDARD_25_LAKH_TURNOVER').sum()),
+      'original_provider_low_liquidity_blocked_without_timely_receipt':low_liquidity_timing_blocked,
       'original_training_and_frozen_forecasts_unchanged':True,'accuracy_approved':False}
     d=market_context(d)
     d['market_context_scope']='OFFICIAL_RECONCILED_CURRENT_PARTIAL_UNIVERSE'

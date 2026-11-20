@@ -151,6 +151,36 @@ class BreadthFallbackTests(unittest.TestCase):
             self.assertEqual(funnel['single_source_scoring_only']['new_identities_without_provider_history'],1)
             self.assertFalse(funnel['single_source_scoring_only']['entry_or_outcome_certified'])
 
+    def test_original_low_liquidity_requires_a_real_pre_cutoff_receipt(self):
+        from v13_runner import current_frame
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)/'v13_state';hist=root/'history'/'securities';hist.mkdir(parents=True)
+            official=root/'official';official.mkdir()
+            source=root/'sources'/'2026-11-18';source.mkdir(parents=True)
+            history=self.alt.assign(source_sha256='a'*64)
+            history.to_parquet(hist/'ABC.parquet',index=False)
+            self.official.to_parquet(official/'2026-11-18_official_market.parquet',index=False)
+            receipt=source/'history_refresh_test.json'
+            def save_clock(clock):
+                receipt.write_text(json.dumps([{'symbol':'ABC','info':{'symbol':'ABC','isin':'INE000000001',
+                  'source_sha256':'a'*64,'first_retrieved_utc':clock}}]))
+            save_clock('2026-11-18T16:31:00Z')
+            late,_=current_frame(root,'2026-11-18')
+            self.assertTrue(late.empty)
+            funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
+            self.assertEqual(funnel['low_liquidity_original_timing_blocked'],1)
+            save_clock('2026-11-18T14:30:00Z')
+            timely,_=current_frame(root,'2026-11-18')
+            self.assertEqual(len(timely),1)
+            self.assertEqual(timely.iloc[0].scoring_original_provider_sha256,'a'*64)
+            self.assertEqual(timely.iloc[0].scoring_original_provider_first_retrieved_utc,'2026-11-18T14:30:00+00:00')
+            from v13_lifecycle import register,validate_registry
+            row=timely.assign(p6=.1,p12=.2,loss12=.3,joint12=.1,information_cutoff_utc='2026-11-18T14:30:00Z')
+            p=register(row,'d'*64,root/'registries'/'champion',registered_at='2026-11-18T14:40:00Z')
+            frozen=validate_registry(p)['records'][0]
+            self.assertEqual(frozen['scoring_original_provider_sha256'],'a'*64)
+            self.assertEqual(frozen['scoring_original_provider_first_retrieved_utc'],'2026-11-18T14:30:00+00:00')
+
     def test_wrong_isin_or_series_blocks(self):
         for col,value in [('isin','INE999999999'),('series','BE')]:
             alt=self.alt.copy();alt.loc[alt.index[-1],col]=value

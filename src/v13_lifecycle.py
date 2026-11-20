@@ -35,7 +35,10 @@ def register(frame, model_sha, folder, registered_at=None, context=None):
                'scoring_fallback_action_interval_certified','scoring_fallback_provider_sha256',
                'scoring_fallback_provider_first_retrieved_utc','scoring_fallback_reference_status',
                'scoring_fallback_overlap_sessions','scoring_history_series_transition_unverified')}
-             if r.get('scoring_price_history_source')=='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY' else {})})
+             if r.get('scoring_price_history_source')=='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY' else {}),
+          **({k:r[k] for k in ('scoring_original_provider_sha256','scoring_original_provider_first_retrieved_utc')}
+             if r.get('scoring_price_history_source')=='ORIGINAL_ADJUSTED_PROVIDER'
+             and r.get('scoring_liquidity_status')=='BELOW_25_LAKH_OUTSIDE_TRAINING_BAND' else {})})
     obj={'version':'V13-prospective-research','registered_at_utc':now.isoformat(),'model_sha256':model_sha,
       'first_entry':'FIRST_VERIFIED_NSE_SESSION_OPEN_STRICTLY_AFTER_REGISTRATION',
       'all_scoreable_NSE_names_registered':True,'accuracy_approved':False,'records':sorted(records,key=lambda r:r['isin']),
