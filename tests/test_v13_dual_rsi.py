@@ -47,6 +47,11 @@ class DualRSI(unittest.TestCase):
 
     def test_both_lists_are_exported_even_when_only_the_lower_screen_has_names(self):
         frame, wide = self.population(); frame['rsi14'] = 60.
+        frame['scoring_price_history_source']='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY'
+        frame['scoring_fallback_reference_status']='NO_TIMELY_COMPARABLE_PROVIDER'
+        frame['scoring_fallback_overlap_sessions']=0
+        frame['scoring_history_series_transition_unverified']=True
+        frame['scoring_liquidity_status']='BELOW_25_LAKH_OUTSIDE_TRAINING_BAND'
         with tempfile.TemporaryDirectory() as folder:
             out = Path(folder)/'available_financial_research'; out.mkdir()
             receipt = {'replay_verified': True}
@@ -60,6 +65,12 @@ class DualRSI(unittest.TestCase):
             self.assertTrue((Path(folder)/'priority_research/latest_RSI70.md').exists())
             self.assertTrue((Path(folder)/'priority_research/latest_RSI50.md').exists())
             self.assertTrue(combined['same_model_and_probabilities'])
+            row=combined['lists']['50']['records'][0]
+            self.assertEqual(row['scoring_price_history_source'],'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY')
+            self.assertEqual(row['scoring_fallback_reference_status'],'NO_TIMELY_COMPARABLE_PROVIDER')
+            self.assertTrue(row['scoring_history_series_transition_unverified'])
+            self.assertEqual(row['scoring_liquidity_status'],'BELOW_25_LAKH_OUTSIDE_TRAINING_BAND')
+            self.assertIn('UNVERIFIED',(Path(folder)/'priority_research/latest_RSI50.md').read_text())
 
     def test_unavailable_data_produces_two_explicit_blocked_lists(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -28,9 +28,14 @@ def register(frame, model_sha, folder, registered_at=None, context=None):
         records.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(pd.Timestamp(r['date']).date()),
           'p6':float(r['p6']),'p12':float(r['p12']),'loss12':float(r['loss12']),'joint12':float(r['joint12']),
           'selected_verified':bool(r.get('selected_verified',False)),'selected_discovery':bool(r.get('selected_discovery',False)),
-          **{k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256','information_cutoff_utc') if k in r},
+          **{k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','scoring_liquidity_status','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256','information_cutoff_utc') if k in r},
           **({k:r[k] for k in ('scoring_price_history_source','scoring_fallback_source_sha256','scoring_fallback_action_interval_certified','scoring_fallback_provider_sha256','scoring_fallback_provider_first_retrieved_utc')}
-             if r.get('scoring_price_history_source')=='ALTERNATIVE_ADJUSTED_SCORING_ONLY' else {})})
+             if r.get('scoring_price_history_source')=='ALTERNATIVE_ADJUSTED_SCORING_ONLY' else {}),
+          **({k:r[k] for k in ('scoring_price_history_source','scoring_fallback_source_sha256',
+               'scoring_fallback_action_interval_certified','scoring_fallback_provider_sha256',
+               'scoring_fallback_provider_first_retrieved_utc','scoring_fallback_reference_status',
+               'scoring_fallback_overlap_sessions','scoring_history_series_transition_unverified')}
+             if r.get('scoring_price_history_source')=='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY' else {})})
     obj={'version':'V13-prospective-research','registered_at_utc':now.isoformat(),'model_sha256':model_sha,
       'first_entry':'FIRST_VERIFIED_NSE_SESSION_OPEN_STRICTLY_AFTER_REGISTRATION',
       'all_scoreable_NSE_names_registered':True,'accuracy_approved':False,'records':sorted(records,key=lambda r:r['isin']),

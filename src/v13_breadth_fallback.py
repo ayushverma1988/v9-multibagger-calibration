@@ -307,3 +307,98 @@ def extend(previous, alternative, official, sessions, asof, symbol, isin, source
       'source_sha256':source_sha256,'source_status':'ALTERNATIVE_ADJUSTED_SCORING_ONLY',
       'lagged_adjusted_source_extended_with_primary_raw':bool(lagged),
       'action_interval_certified':False,'entry_or_outcome_certified':False}
+
+
+def single_source_view(alternative, official, sessions, asof, symbol, isin,
+                       source_sha256, source_day_action_symbols=(), reference=None):
+    """Use one timely adjusted source for a provisional *scoring* view.
+
+    The caller must first validate the capture receipt and the current NSE
+    source hash. A lack of another provider is not called independent
+    adjustment verification. Any observed overlap disagreement is still a
+    conflict. Neither this view nor its receipt can certify an outcome.
+    """
+    if not re.fullmatch(r'[0-9a-f]{64}', str(source_sha256)):
+        raise ValueError('Missing alternative source hash')
+    alt = alternative.copy()
+    alt['date'] = pd.to_datetime(alt.date)
+    if alt.empty or set(alt.symbol) != {symbol} or set(alt['isin']) != {isin}:
+        raise ValueError('Single-source identity is ambiguous')
+    if not alt.series.isin(['EQ','BE','BZ','SM','ST']).all():
+        raise ValueError('Single-source series is unsupported or missing')
+    if alt.date.duplicated().any() or (alt.date > pd.Timestamp(asof)).any():
+        raise ValueError('Single-source dates are duplicate or future')
+    alt = alt.sort_values('date').reset_index(drop=True)
+    fields = ['open','high','low','close','adj_close','adj_factor_cumulative','volume']
+    for col in fields:
+        alt[col] = pd.to_numeric(alt[col], errors='coerce')
+    numbers = alt[fields].to_numpy(float)
+    if not np.isfinite(numbers).all() or (numbers[:,:6] <= 0).any() or (numbers[:,6] < 0).any():
+        raise ValueError('Single-source prices or factors are invalid')
+    if not np.allclose(alt.adj_close, alt.close * alt.adj_factor_cumulative,
+                       rtol=FACTOR_RTOL, atol=.001):
+        raise ValueError('Single-source declared adjustment factors disagree')
+    if symbol in set(source_day_action_symbols):
+        raise ValueError('Primary exchange corporate action requires adjustment review')
+
+    overlap = 0
+    if reference is not None:
+        old = reference.copy()
+        old['date'] = pd.to_datetime(old.date)
+        if old.empty or set(old.symbol) != {symbol} or set(old['isin']) != {isin} or old.date.duplicated().any():
+            raise ValueError('Reference history has ambiguous identity')
+        joined = old[['date','adj_close']].merge(alt[['date','adj_close']], on='date',
+                                                   suffixes=('_reference','_alternative'), validate='1:1')
+        joined = joined.sort_values('date').tail(126)
+        overlap = len(joined)
+        if overlap:
+            a = pd.to_numeric(joined.adj_close_reference, errors='coerce').to_numpy(float)
+            b = pd.to_numeric(joined.adj_close_alternative, errors='coerce').to_numpy(float)
+            if (not np.isfinite(a).all() or (a <= 0).any()
+                    or not np.allclose(a, b, rtol=FACTOR_RTOL, atol=.001)):
+                raise ValueError('Observed provider adjustment conflict')
+
+    valid = official[(official.symbol == symbol) & (official['isin'] == isin)].copy()
+    valid['date'] = pd.to_datetime(valid.date)
+    valid = valid[valid.date.isin(sessions) & valid.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')]
+    if valid.date.duplicated().any() or set(valid.date) != set(sessions):
+        raise ValueError('Single-source exchange session or identity is missing')
+    # Past trading-series changes may belong to the same ISIN. Retain them
+    # for the user's wider paper scan, with an explicit unresolved-transition
+    # flag. The current series must still match the primary exchange.
+    if set(valid.series) != {alt.iloc[-1].series}:
+        raise ValueError('Single-source current exchange series changed')
+    series_transition = alt.series.nunique() > 1
+    lagged = alt.date.max() < pd.Timestamp(asof)
+    if lagged:
+        # Only the immediately following exchange session may be appended:
+        # the capture contains a source-day action directory, not an audit of
+        # all earlier action intervals.
+        if list(sessions) != [pd.Timestamp(asof)]:
+            raise ValueError('Single-source lag exceeds one exchange session')
+        incoming = valid[['date','symbol','isin','series','open','high','low','close','volume']].copy()
+        incoming['adj_close'] = incoming.close
+        incoming['adj_factor_cumulative'] = 1.0
+        alt = pd.concat([alt, incoming], ignore_index=True)
+    current = alt[alt.date.eq(pd.Timestamp(asof))]
+    if len(current) != 1:
+        raise ValueError('Single-source current session missing')
+    current = current.iloc[0]
+    original = valid[valid.date.eq(pd.Timestamp(asof))]
+    if len(original) != 1:
+        raise ValueError('Single-source official current session missing')
+    original = original.iloc[0]
+    for col in ('open','high','low','close'):
+        if abs(float(current[col]) - float(original[col])) > .011:
+            raise ValueError('Single-source exchange OHLC conflict')
+    if float(current.volume) != float(original.volume):
+        raise ValueError('Single-source exchange volume conflict')
+    if abs(float(current.adj_factor_cumulative) - 1) > FACTOR_RTOL:
+        raise ValueError('Single-source current adjustment factor is not one')
+    alt['source_sha256'] = source_sha256
+    return alt, {'source_sha256':source_sha256, 'overlap_sessions':overlap,
+      'source_status':'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY',
+      'reference_status':('OVERLAP_MATCHED' if overlap else 'NO_TIMELY_COMPARABLE_PROVIDER'),
+      'historical_series_transition_unverified':bool(series_transition),
+      'lagged_adjusted_source_extended_with_primary_raw':bool(lagged),
+      'action_interval_certified':False, 'entry_or_outcome_certified':False}

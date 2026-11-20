@@ -106,6 +106,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     try:prior_index=json.loads(prior_index_path.read_text()) if prior_index_path and prior_index_path.exists() else {}
     except (ValueError,OSError):prior_index={};fallback_prior_dir=None
     fallback_official_cache={};fallback_blocked={};fallback_attempted=0;fallback_accepted=0
+    single_attempted=0;single_accepted=0;single_new_identity=0;single_blocked={}
     primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
     volume_overlays=0
     from v13_history_views import histories
@@ -118,6 +119,15 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     funnel['history_files']=identity_audit['files']
     funnel['conflicting_history_identities']=len(identity_audit['quarantined'])
     funnel['redundant_history_files']=identity_audit['redundant_files']
+    def single_source(group,symbol,isin,reference=None):
+        terminal=pd.to_datetime(group.date).max()
+        start=min(terminal+pd.Timedelta(days=1),pd.Timestamp(asof))
+        key=str(start.date())
+        if key not in fallback_official_cache:
+            fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof,fallback[1],fallback[2])
+        sessions,originals=fallback_official_cache[key]
+        return breadth_fallback.single_source_view(group,originals,sessions,asof,symbol,isin,
+          fallback[1]['sha256'],fallback[1].get('source_day_action_symbols',()),reference)
     for path,bars in canonical.values():
         bars=bars.copy();bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
         if bars.empty:funnel['empty_after_window']+=1;continue
@@ -125,6 +135,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         fallback_proof=None
         if fallback is not None and bars.date.max()<pd.Timestamp(asof):
             fallback_attempted+=1
+            provider_clock=None; reference=None
             try:
                 symbol=bars.symbol.iloc[0];isin=bars['isin'].iloc[0]
                 if symbol not in fallback_groups:raise ValueError('Alternative symbol missing')
@@ -139,6 +150,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
                 last_close=bars.date.max().tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
                 if provider_clock is None or provider_clock<last_close.tz_convert('UTC'):
                     raise ValueError('No pre-cutoff original provider adjustment receipt')
+                reference=bars
                 start=bars.date.max()+pd.Timedelta(days=1);key=str(start.date())
                 if key not in fallback_official_cache:
                     fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof,fallback[1],fallback[2])
@@ -149,27 +161,73 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
                 fallback_accepted+=1
             except (ValueError,KeyError,TypeError,OSError) as exc:
                 reason=str(exc)[:180];fallback_blocked[reason]=fallback_blocked.get(reason,0)+1
+                # A single timely public adjusted history is useful for paper
+                # scoring when a second provider is unavailable or has fewer
+                # than 126 overlapping sessions. Known disagreements remain
+                # quarantined; a later provider observation is never used.
+                if reason in ('No pre-cutoff original provider adjustment receipt',
+                              'Insufficient independent adjusted-close overlap') and symbol in fallback_groups:
+                    single_attempted+=1
+                    try:
+                        bars,fallback_proof=single_source(fallback_groups[symbol],symbol,isin,reference)
+                        fallback_proof['provider_source_sha256']=provider_hash if reference is not None else None
+                        fallback_proof['provider_first_retrieved_utc']=provider_clock.isoformat() if reference is not None else None
+                        single_accepted+=1;fallback_accepted+=1
+                    except (ValueError,KeyError,TypeError,OSError) as single_exc:
+                        detail=str(single_exc)[:180];single_blocked[detail]=single_blocked.get(detail,0)+1
         if primary_volume_research:
             from v13_primary_volume import reconcile
             bars,changed=reconcile(bars,primary,asof);volume_overlays+=int(changed)
-        d=features.daily_features(bars,asof)
+        d=features.relax_scoring_liquidity(features.daily_features(bars,asof))
         current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
         if len(current)==1:
             row=current.iloc[0].to_dict()
-            row['scoring_price_history_source']='ALTERNATIVE_ADJUSTED_SCORING_ONLY' if fallback_proof else 'ORIGINAL_ADJUSTED_PROVIDER'
+            row['scoring_price_history_source']=fallback_proof['source_status'] if fallback_proof else 'ORIGINAL_ADJUSTED_PROVIDER'
             row['scoring_fallback_source_sha256']=fallback_proof['source_sha256'] if fallback_proof else None
             row['scoring_fallback_action_interval_certified']=False if fallback_proof else None
-            row['scoring_fallback_provider_sha256']=fallback_proof['provider_source_sha256'] if fallback_proof else None
-            row['scoring_fallback_provider_first_retrieved_utc']=fallback_proof['provider_first_retrieved_utc'] if fallback_proof else None
+            row['scoring_fallback_provider_sha256']=fallback_proof.get('provider_source_sha256') if fallback_proof else None
+            row['scoring_fallback_provider_first_retrieved_utc']=fallback_proof.get('provider_first_retrieved_utc') if fallback_proof else None
+            row['scoring_fallback_reference_status']=fallback_proof.get('reference_status') if fallback_proof else None
+            row['scoring_fallback_overlap_sessions']=fallback_proof.get('overlap_sessions') if fallback_proof else None
+            row['scoring_history_series_transition_unverified']=fallback_proof.get('historical_series_transition_unverified') if fallback_proof else None
             rows.append(row)
         elif not d.date.eq(pd.Timestamp(asof)).any():funnel['no_source_date_bar']+=1
         else:funnel['source_date_feature_ineligible']+=1
+    # The original loop cannot visit listings with no stored provider file.
+    # Add only current-universe identities from the timed adjusted snapshot;
+    # do not write those histories or add them to outcome adjudication.
+    if fallback is not None and wanted is not None:
+        for isin,symbol in sorted(wanted-set(canonical)):
+            if (isin,symbol) in identity_audit['quarantined'] or symbol not in fallback_groups:continue
+            single_attempted+=1
+            try:
+                bars,proof=single_source(fallback_groups[symbol],symbol,isin)
+                single_accepted+=1
+                d=features.relax_scoring_liquidity(features.daily_features(bars,asof))
+                current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
+                if len(current)!=1:
+                    single_blocked['SOURCE_DATE_FEATURE_INELIGIBLE']=single_blocked.get('SOURCE_DATE_FEATURE_INELIGIBLE',0)+1
+                    continue
+                row=current.iloc[0].to_dict()
+                row.update(scoring_price_history_source=proof['source_status'],
+                  scoring_fallback_source_sha256=proof['source_sha256'],
+                  scoring_fallback_action_interval_certified=False,
+                  scoring_fallback_provider_sha256=None,scoring_fallback_provider_first_retrieved_utc=None,
+                  scoring_fallback_reference_status=proof['reference_status'],
+                  scoring_fallback_overlap_sessions=proof['overlap_sessions'],
+                  scoring_history_series_transition_unverified=proof['historical_series_transition_unverified'])
+                rows.append(row);single_new_identity+=1
+            except (ValueError,KeyError,TypeError,OSError) as exc:
+                detail=str(exc)[:180];single_blocked[detail]=single_blocked.get(detail,0)+1
     funnel['feature_eligible_source_date']=len(rows)
     out=root/('primary_volume_research' if primary_volume_research else 'evidence');out.mkdir(exist_ok=True)
     funnel['primary_volume_overlays']=volume_overlays
     funnel['independent_volume_agreement_required']=not primary_volume_research
     funnel['scoring_only_fallback']={**fallback_status,'attempted':fallback_attempted,'accepted_before_feature_gate':fallback_accepted,
       'blocked_reasons':fallback_blocked,'original_histories_unchanged':True,'entry_or_outcome_certified':False}
+    funnel['single_source_scoring_only']={'attempted':single_attempted,'accepted_before_feature_gate':single_accepted,
+      'new_identities_without_provider_history':single_new_identity,'blocked_reasons':single_blocked,
+      'adjustment_independently_verified':False,'entry_or_outcome_certified':False}
     if not rows:
         (out/'market_coverage_funnel.json').write_text(json.dumps({'source_asof':asof,**funnel,'scored':0},indent=2))
         return pd.DataFrame(),history
@@ -198,6 +256,11 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     valid=m.symbol.eq(m.symbol_official)&m.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&m.volume.eq(m.volume_official)
     for c in ('open','high','low','close'):valid&=(m[c]-m[c+'_official']).abs().le(.011)
     d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official
+    funnel['single_source_scoring_only']['scored_after_official_reconciliation']=int(d.scoring_price_history_source.eq('SINGLE_SOURCE_ADJUSTED_SCORING_ONLY').sum())
+    funnel['liquidity_research_scoring']={
+      'below_25_lakh_outside_training_band':int(d.scoring_liquidity_status.eq('BELOW_25_LAKH_OUTSIDE_TRAINING_BAND').sum()),
+      'standard_25_lakh_turnover':int(d.scoring_liquidity_status.eq('STANDARD_25_LAKH_TURNOVER').sum()),
+      'original_training_and_frozen_forecasts_unchanged':True,'accuracy_approved':False}
     d=market_context(d)
     d['market_context_scope']='OFFICIAL_RECONCILED_CURRENT_PARTIAL_UNIVERSE'
     d['earnings_market_confirmation']=d.quarter_pat_yoy*d.relative_strength63

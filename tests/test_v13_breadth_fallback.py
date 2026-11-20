@@ -6,7 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from v13_breadth_fallback import extend,load,validate_receipt
+from v13_breadth_fallback import extend,load,validate_receipt,single_source_view
 
 
 class BreadthFallbackTests(unittest.TestCase):
@@ -61,6 +61,95 @@ class BreadthFallbackTests(unittest.TestCase):
         self.assertFalse(proof['action_interval_certified'])
         self.assertFalse(proof['entry_or_outcome_certified'])
         self.assertEqual(view.iloc[-1].source_sha256,'c'*64)
+
+    def test_single_source_view_allows_short_or_absent_reference_but_labels_it(self):
+        original=self.alt.copy(deep=True)
+        view,proof=single_source_view(self.alt,self.official,self.sessions,'2026-11-18',
+          'ABC','INE000000001','c'*64,reference=self.old.tail(10))
+        pd.testing.assert_frame_equal(self.alt,original)
+        self.assertEqual(proof['overlap_sessions'],10)
+        self.assertEqual(proof['reference_status'],'OVERLAP_MATCHED')
+        self.assertFalse(proof['action_interval_certified'])
+        self.assertFalse(proof['entry_or_outcome_certified'])
+        self.assertEqual(len(view),len(self.alt))
+        _,proof=single_source_view(self.alt,self.official,self.sessions,'2026-11-18',
+          'ABC','INE000000001','c'*64)
+        self.assertEqual(proof['reference_status'],'NO_TIMELY_COMPARABLE_PROVIDER')
+
+    def test_single_source_view_never_waives_known_conflicts(self):
+        bad=self.old.tail(10).copy();bad.loc[bad.index[-1],'adj_close']*=.9
+        with self.assertRaisesRegex(ValueError,'conflict'):
+            single_source_view(self.alt,self.official,self.sessions,'2026-11-18',
+              'ABC','INE000000001','c'*64,reference=bad)
+        with self.assertRaisesRegex(ValueError,'corporate action'):
+            single_source_view(self.alt,self.official,self.sessions,'2026-11-18',
+              'ABC','INE000000001','c'*64,('ABC',))
+        bad=self.alt.copy();bad.loc[bad.index[-1],'isin']='INE999999999'
+        with self.assertRaisesRegex(ValueError,'identity'):
+            single_source_view(bad,self.official,self.sessions,'2026-11-18','ABC','INE000000001','c'*64)
+        bad=self.official.copy();bad.loc[bad.index[-1],'volume']+=1
+        with self.assertRaisesRegex(ValueError,'volume conflict'):
+            single_source_view(self.alt,bad,self.sessions,'2026-11-18','ABC','INE000000001','c'*64)
+        bad=self.alt.copy();bad.loc[bad.index[0],'adj_close']*=.9
+        with self.assertRaisesRegex(ValueError,'factors disagree'):
+            single_source_view(bad,self.official,self.sessions,'2026-11-18','ABC','INE000000001','c'*64)
+
+    def test_single_source_lag_is_only_one_session(self):
+        view,proof=single_source_view(self.alt.iloc[:-1],self.official,self.sessions,'2026-11-18',
+          'ABC','INE000000001','c'*64)
+        self.assertTrue(proof['lagged_adjusted_source_extended_with_primary_raw'])
+        self.assertEqual(view.iloc[-1].adj_close,181.)
+        previous=self.official.copy();previous['date']=pd.Timestamp('2026-11-17')
+        with self.assertRaisesRegex(ValueError,'one exchange session'):
+            single_source_view(self.alt.iloc[:-2],pd.concat([previous,self.official]),
+              [pd.Timestamp('2026-11-17'),pd.Timestamp('2026-11-18')],
+              '2026-11-18','ABC','INE000000001','c'*64)
+
+    def test_single_source_retains_same_isin_series_change_but_flags_it(self):
+        alt=self.alt.copy();alt.loc[alt.index[:40],'series']='BE'
+        _,proof=single_source_view(alt,self.official,self.sessions,'2026-11-18',
+          'ABC','INE000000001','c'*64)
+        self.assertTrue(proof['historical_series_transition_unverified'])
+        alt.loc[alt.index[-1],'series']='BE'
+        with self.assertRaisesRegex(ValueError,'current exchange series'):
+            single_source_view(alt,self.official,self.sessions,'2026-11-18','ABC','INE000000001','c'*64)
+
+    def test_low_turnover_expands_scoring_but_keeps_history_quality_gates(self):
+        from v13_features import daily_features,relax_scoring_liquidity
+        standard=daily_features(self.alt,'2026-11-18')
+        self.assertFalse(bool(standard.iloc[-1].feature_eligible))
+        expanded=relax_scoring_liquidity(standard)
+        self.assertTrue(bool(expanded.iloc[-1].feature_eligible))
+        self.assertFalse(bool(expanded.iloc[-1].feature_eligible_standard))
+        self.assertEqual(expanded.iloc[-1].scoring_liquidity_status,'BELOW_25_LAKH_OUTSIDE_TRAINING_BAND')
+        broken=standard.copy();broken.loc[broken.index[-1],'gap_max63']=11
+        self.assertFalse(bool(relax_scoring_liquidity(broken).iloc[-1].feature_eligible))
+
+    def test_single_source_worker_adds_identity_without_mutating_history_or_outcomes(self):
+        from v13_runner import current_frame
+        with tempfile.TemporaryDirectory() as d:
+            base=Path(d);root=base/'v13_state';(root/'history'/'securities').mkdir(parents=True)
+            official=root/'official';official.mkdir()
+            pd.DataFrame([{'isin':'INE000000001','nse_current_symbol':'ABC'}]).to_parquet(root/'universe.parquet',index=False)
+            snap=base/'v13_public_breadth_snapshot';snap.mkdir()
+            data=snap/'nse_adjusted.parquet';self.alt.to_parquet(data,index=False)
+            receipt={'source_asof':'2026-11-18','publisher_revision':'1'*40,
+              'publisher_commit_utc':'2026-11-18T14:00:00Z','first_retrieved_utc':'2026-11-18T14:20:00Z',
+              'source_url':'https://huggingface.co/datasets/tejhq/indian-markets/resolve/'+('1'*40)+'/prices_adjusted/nse_2026.parquet?download=true',
+              'bytes':data.stat().st_size,'sha256':hashlib.sha256(data.read_bytes()).hexdigest()}
+            self.add_primary(snap,receipt,'2026-11-18','2026-11-18T14:20:00Z')
+            self.official.assign(source_sha256=receipt['nse_original']['sha256']).to_parquet(official/'2026-11-18_official_market.parquet',index=False)
+            (snap/'receipt.json').write_text(json.dumps(receipt))
+            frame,history=current_frame(root,'2026-11-18')
+            self.assertEqual(len(frame),1)
+            self.assertEqual(frame.iloc[0].scoring_price_history_source,'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY')
+            self.assertEqual(frame.iloc[0].scoring_fallback_reference_status,'NO_TIMELY_COMPARABLE_PROVIDER')
+            self.assertEqual(frame.iloc[0].scoring_liquidity_status,'BELOW_25_LAKH_OUTSIDE_TRAINING_BAND')
+            self.assertEqual(history,{})
+            self.assertEqual(list((root/'history'/'securities').glob('*.parquet')),[])
+            funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
+            self.assertEqual(funnel['single_source_scoring_only']['new_identities_without_provider_history'],1)
+            self.assertFalse(funnel['single_source_scoring_only']['entry_or_outcome_certified'])
 
     def test_wrong_isin_or_series_blocks(self):
         for col,value in [('isin','INE999999999'),('series','BE')]:
@@ -187,8 +276,13 @@ class BreadthFallbackTests(unittest.TestCase):
             self.official.assign(source_sha256=receipt['nse_original']['sha256']).to_parquet(official/'2026-11-18_official_market.parquet',index=False)
             (source/'history_refresh_test.json').write_text(json.dumps([{'symbol':'ABC','info':{'symbol':'ABC','isin':'INE000000001',
               'source_sha256':'a'*64,'first_retrieved_utc':'2026-11-18T16:31:00Z'}}]))
-            with patch('v13_runner.features.daily_features',side_effect=features):blocked,history2=current_frame(root,'2026-11-18')
-            self.assertTrue(blocked.empty)
+            with patch('v13_runner.features.daily_features',side_effect=features):single,history2=current_frame(root,'2026-11-18')
+            # The independently timed alternate remains usable as a labelled
+            # single source; the later provider is not a comparison input.
+            self.assertEqual(len(single),1)
+            self.assertEqual(single.iloc[0].scoring_price_history_source,'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY')
+            self.assertEqual(single.iloc[0].scoring_fallback_reference_status,'NO_TIMELY_COMPARABLE_PROVIDER')
+            self.assertIsNone(single.iloc[0].scoring_fallback_provider_sha256)
             self.assertEqual(history2['INE000000001'].date.max(),pd.Timestamp('2026-11-17'))
             self.assertEqual(p.read_bytes(),before)
             funnel=json.loads((root/'evidence'/'market_coverage_funnel.json').read_text())
@@ -206,6 +300,16 @@ class BreadthFallbackTests(unittest.TestCase):
             rec=validate_registry(path)['records'][0]
             self.assertEqual(rec['scoring_fallback_source_sha256'],'c'*64)
             self.assertFalse(rec['scoring_fallback_action_interval_certified'])
+            row.update(scoring_price_history_source='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY',
+              scoring_fallback_provider_sha256=None,scoring_fallback_provider_first_retrieved_utc=None,
+              scoring_fallback_reference_status='NO_TIMELY_COMPARABLE_PROVIDER',scoring_fallback_overlap_sessions=0,
+              scoring_history_series_transition_unverified=True)
+            path=register(pd.DataFrame([row]),'d'*64,d,registered_at='2026-11-18T14:30:00Z')
+            rec=validate_registry(path)['records'][0]
+            self.assertEqual(rec['scoring_price_history_source'],'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY')
+            self.assertEqual(rec['scoring_fallback_reference_status'],'NO_TIMELY_COMPARABLE_PROVIDER')
+            self.assertIsNone(rec['scoring_fallback_provider_sha256'])
+            self.assertTrue(rec['scoring_history_series_transition_unverified'])
 
     def test_capture_requires_an_immutable_current_publisher_revision(self):
         from v13_breadth_capture import capture

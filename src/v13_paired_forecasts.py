@@ -16,7 +16,8 @@ def scored(heads,frame,policy='legacy'):
     v,q,b=model.gates(d)
     d['financial_tier']=['verified' if a else 'known_failure' if c else 'discovery' for a,c in zip(v,b)]
     d['market_regime']=d.market_breadth63.map(lambda x:'UNKNOWN' if pd.isna(x) else 'BROAD_UPTREND' if x>=.6 else 'BROAD_DOWNTREND' if x<=.4 else 'MIXED')
-    d['liquidity_tier']=d.median_turnover63.map(lambda x:'GE_1_CRORE' if x>=1e7 else '25_LAKH_TO_1_CRORE')
+    d['liquidity_tier']=d.median_turnover63.map(lambda x:'UNKNOWN' if pd.isna(x) else
+      'GE_1_CRORE' if x>=1e7 else '25_LAKH_TO_1_CRORE' if x>=2_500_000 else 'BELOW_25_LAKH_UNVALIDATED')
     for tier in ('verified','discovery'):
         picks=model.ranked(d,tier) if policy=='legacy' else selective(d,tier)
         d['selected_'+tier]=d['isin'].isin(picks['isin'])

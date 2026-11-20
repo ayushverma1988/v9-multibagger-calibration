@@ -26,7 +26,9 @@ def _export_one(scored,wide,root,replay_receipt,rsi_min=70,assessed=None):
     d,assessments,audit=assessed if assessed is not None else available_screen(scored,wide,rsi_min=rsi_min)
     d=rank(d,d.available_research_eligible)
     cols=['isin','symbol','series','source_close_INR','rsi14','p6','p12','joint12','loss12',
-      'available_financial_tier','available_research_group','priority_score','priority_rank']
+      'available_financial_tier','available_research_group','priority_score','priority_rank',
+      'scoring_price_history_source','scoring_fallback_reference_status','scoring_fallback_overlap_sessions',
+      'scoring_history_series_transition_unverified','scoring_liquidity_status']
     for c in cols:
         if c not in d:d[c]=None
     records=json.loads(d[d.priority_rank.notna()].sort_values('priority_rank')[cols].to_json(orient='records',double_precision=15))
@@ -51,12 +53,15 @@ def _export_one(scored,wide,root,replay_receipt,rsi_min=70,assessed=None):
     lines=[f"# Six-month-priority research — {obj['source_asof']}",'',
       f'Frozen-model estimates, not validated probabilities or trade instructions. RSI >{rsi_min}; no nominal price band; 200-DMA proximity is optional.',
       'Ranking: 70% six-month probability percentile, 25% twelve-month joint-outcome percentile, 5% optional 200-DMA proximity. No 24-month probability is invented.','',
-      '| Rank | Share | Series | Source close INR | RSI | 2x / 6m | 2x / 12m | 30% loss event | Financial evidence |',
-      '|---:|---|---|---:|---:|---:|---:|---:|---|']
+      '| Rank | Share | Series | Source close INR | RSI | 2x / 6m | 2x / 12m | 30% loss event | Financial evidence | Price history source | Series transition | Liquidity |',
+      '|---:|---|---|---:|---:|---:|---:|---:|---|---|---|---|']
     for r in records:
         price=r['source_close_INR'];price='—' if price is None else f'{price:,.2f}'
-        lines.append(f"| {int(r['priority_rank'])} | {r['symbol']} | {r['series']} | {price} | {r['rsi14']:.2f} | {100*r['p6']:.2f}% | {100*r['p12']:.2f}% | {100*r['loss12']:.2f}% | {r['available_financial_tier']} |")
-    lines+=['','Missing fundamentals, complete execution and forward valuation proof remain explicitly separate. A changed ranking is not evidence of improved returns.']
+        source=r.get('scoring_price_history_source') or 'UNKNOWN'
+        transition='UNVERIFIED' if r.get('scoring_history_series_transition_unverified') else 'unknown / not flagged'
+        liquidity=r.get('scoring_liquidity_status') or 'UNKNOWN_LIQUIDITY'
+        lines.append(f"| {int(r['priority_rank'])} | {r['symbol']} | {r['series']} | {price} | {r['rsi14']:.2f} | {100*r['p6']:.2f}% | {100*r['p12']:.2f}% | {100*r['loss12']:.2f}% | {r['available_financial_tier']} | {source} | {transition} | {liquidity} |")
+    lines+=['','Single-source adjusted histories have not been independently verified for all corporate actions. Scores below the Rs 25 lakh median-turnover training floor are out of the training band and unvalidated; execution and slippage may be worse. Missing fundamentals, complete execution and forward valuation proof remain explicitly separate. A changed ranking is not evidence of improved returns.']
     (out/(stem+'.md')).write_text('\n'.join(lines)+'\n')
     if rsi_min==70:(out/'latest_RSI70.md').write_text('\n'.join(lines)+'\n')
     return {k:v for k,v in obj.items() if k not in ['records','prediction_replay']}

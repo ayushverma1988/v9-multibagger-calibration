@@ -42,6 +42,30 @@ def daily_features(bars, asof):
        &d.gap_max63.le(10)&d.jump_max63.le(np.log(1.4))&d.observed_sessions35d.ge(18)&d.history_start_used.notna())
     return d.replace([np.inf,-np.inf],np.nan)
 
+
+def relax_scoring_liquidity(d):
+    """Prospective paper scoring below the training liquidity floor.
+
+    Keep source/history quality checks and the original eligibility result.
+    The fixed heads were trained with the INR 25 lakh median-turnover floor;
+    lower-turnover scores are explicitly out-of-domain and unvalidated.
+    Historical training/refits continue to call ``daily_features`` unchanged.
+    """
+    d=d.copy()
+    required={'median_turnover63','median_turnover20','gap_max63','jump_max63',
+              'observed_sessions35d','history_start_used','feature_eligible'}
+    if not required.issubset(d):
+        d['scoring_liquidity_status']='UNKNOWN_LIQUIDITY'
+        return d
+    standard=d.feature_eligible.fillna(False).astype(bool)
+    valid=(d.median_turnover63.gt(0)&d.median_turnover20.gt(0)&d.gap_max63.le(10)
+      &d.jump_max63.le(np.log(1.4))&d.observed_sessions35d.ge(18)&d.history_start_used.notna())
+    d['feature_eligible_standard']=standard
+    d['feature_eligible']=valid
+    d['scoring_liquidity_status']=np.where(standard,'STANDARD_25_LAKH_TURNOVER',
+      np.where(valid,'BELOW_25_LAKH_OUTSIDE_TRAINING_BAND','INSUFFICIENT_PRICE_HISTORY'))
+    return d
+
 def build(history_path, previous_matrix, output, asof,current_pairs=None):
     out=Path(output);out.mkdir(parents=True,exist_ok=True)
     old=pd.read_parquet(previous_matrix).set_index(['date','isin'])
