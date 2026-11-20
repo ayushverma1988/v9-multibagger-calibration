@@ -1,7 +1,7 @@
 name: V13 Breadth Fallback Validation
 on:
   push:
-    branches: [v13-breadth-fallback-20261119, v13-breadth-clock-guard-20261119]
+    branches: [v13-breadth-fallback-20261119, v13-breadth-clock-guard-20261119, v13-breadth-lagged-fallback-20261120]
 permissions:
   contents: read
 jobs:
