@@ -30,6 +30,12 @@ This does not change the historical training or frozen heads. Both
 strict RSI screens continue to use the same fixed head, identity, observed
 financial-weakness and source-conflict rules.
 
+The bounded alternative-financial queues are enlarged prospectively: NSE
+master requests 480/120 seconds, Yahoo statements 960/450 seconds, and the
+missing-web queue 640/180 seconds. Existing source rate limits, 403/429 stops,
+actual retrieval dates and unknown/contradictory fact handling remain in force.
+The budgets are maximums, not promises of downloaded or verified facts.
+
 Only sources actually captured by the real information cutoff can support a
 new cohort. Post-cutoff implementation diagnostics are not forecasts, are not
 used to enlarge an already registered cohort, and are not promotion evidence.

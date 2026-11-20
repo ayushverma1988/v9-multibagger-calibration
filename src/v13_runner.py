@@ -374,18 +374,18 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
           workers=collection_workers,seconds=filing_seconds)
         try:
             from v13_alternate_sources import collect as collect_alternates,sector_master
-            report['steps']['additional_master_sources']=collect_alternates(root,budget=160,seconds=60,sources=('NSE',))
+            report['steps']['additional_master_sources']=collect_alternates(root,budget=480,seconds=120,sources=('NSE',))
             report['steps']['sector_master']=sector_master(root)
         except Exception as exc:
             report['steps']['additional_master_sources']={'status':'SOURCE_COLLECTION_INCOMPLETE','error':str(exc)[:200]}
         try:
             from v13_yahoo_financials import collect as collect_yahoo_financials
-            report['steps']['yahoo_statement_sources']=collect_yahoo_financials(root,budget=480,seconds=300,asof=asof)
+            report['steps']['yahoo_statement_sources']=collect_yahoo_financials(root,budget=960,seconds=450,asof=asof)
         except Exception as exc:
             report['steps']['yahoo_statement_sources']={'status':'SOURCE_COLLECTION_INCOMPLETE','error':str(exc)[:200]}
         try:
             from v13_web_missing_data import collect as collect_missing_web
-            report['steps']['missing_web_inputs']=collect_missing_web(root,budget=160,seconds=60,google_budget=1)
+            report['steps']['missing_web_inputs']=collect_missing_web(root,budget=640,seconds=180,google_budget=1)
         except Exception as exc:
             report['steps']['missing_web_inputs']={'status':'SOURCE_COLLECTION_INCOMPLETE','error':str(exc)[:200]}
         try:
