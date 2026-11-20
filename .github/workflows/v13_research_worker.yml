@@ -220,3 +220,5 @@ jobs:
 # Resume 6 November collection after the NSE SME master source timed out; preserve the failed-run checkpoint.
 
 # Deploy tested same-day original master recovery for the authorised 6 November collection.
+
+# Process the verified 20 November 2026 source-day breadth capture.
