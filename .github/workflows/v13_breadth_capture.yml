@@ -1,6 +1,9 @@
 name: V13 Public Adjusted-Price Capture
 on:
   schedule:
+    - cron: '30 13 * * 1-5'
+    - cron: '30 14 * * 1-5'
+    - cron: '30 15 * * 1-5'
     - cron: '10 16 * * 1-5'
   workflow_dispatch:
 permissions:
@@ -44,5 +47,6 @@ jobs:
             v13_public_breadth_snapshot/nse_adjusted_previous.parquet
             v13_public_breadth_snapshot/nse_source_session.zip
             v13_public_breadth_snapshot/nse_holiday_calendar.json
+            v13_public_breadth_snapshot/nse_corporate_actions.json
             v13_public_breadth_snapshot/receipt.json
           retention-days: 30

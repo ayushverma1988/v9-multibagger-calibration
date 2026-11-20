@@ -15,6 +15,7 @@ import pandas as pd
 API='https://huggingface.co/api/datasets/tejhq/indian-markets/tree/main/prices_adjusted?recursive=false&expand=true'
 BASE='https://huggingface.co/datasets/tejhq/indian-markets/resolve/'
 MAX_BYTES=60_000_000
+NSE_ACTIONS='https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={day}&to_date={day}'
 
 
 def get(url,limit):
@@ -35,8 +36,8 @@ def capture(asof,folder):
     published=pd.Timestamp(commit['date'])
     close=pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
     ceiling=close.normalize()+pd.Timedelta(hours=22)
-    if published.tzinfo is None or not close<=published<=ceiling:
-        raise ValueError('Current source-day public revision is not available before the cutoff')
+    if published.tzinfo is None or published>ceiling:
+        raise ValueError('Public adjusted revision is not available before the cutoff')
     url=BASE+revision+'/'+name+'?download=true'
     raw=get(url,MAX_BYTES)
     captured=datetime.now(timezone.utc).isoformat()
@@ -45,12 +46,15 @@ def capture(asof,folder):
     # Date-only scan, before the bytes are made eligible for the worker.
     dates=pd.read_parquet(temp,columns=['date'])['date']
     dates=pd.to_datetime(dates)
-    if not dates.eq(pd.Timestamp(asof)).any() or dates.max()>pd.Timestamp(asof):
-        temp.unlink(missing_ok=True);raise ValueError('Public file lacks the day or contains future sessions')
+    adjusted_through=pd.Timestamp(dates.max()).normalize()
+    if adjusted_through>pd.Timestamp(asof) or adjusted_through < pd.Timestamp(asof)-pd.Timedelta(days=10):
+        temp.unlink(missing_ok=True);raise ValueError('Public adjusted file is future-dated or too stale')
     digest=hashlib.sha256(raw).hexdigest()
     receipt={'source_asof':asof,'source_url':url,'publisher_revision':revision,
       'publisher_commit_utc':published.isoformat(),'first_retrieved_utc':captured,
       'sha256':digest,'bytes':len(raw),'scope':'PUBLIC_ADJUSTED_PRICES_SCORING_ONLY',
+      'adjusted_through_asof':str(adjusted_through.date()),
+      'source_day_in_public_file':bool(adjusted_through==pd.Timestamp(asof)),
       'entry_or_outcome_certified':False}
     from v13_breadth_fallback import MIN_CURRENT_YEAR_SESSIONS
     if dates.nunique()<MIN_CURRENT_YEAR_SESSIONS:
@@ -84,6 +88,16 @@ def capture(asof,folder):
     (folder/'nse_holiday_calendar.json').write_bytes(calendar_raw)
     receipt['nse_calendar']={'source_url':NSE_CALENDAR_URL,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
       'sha256':hashlib.sha256(calendar_raw).hexdigest(),'bytes':len(calendar_raw)}
+    action_day=pd.Timestamp(asof).strftime('%d-%m-%Y')
+    actions_url=NSE_ACTIONS.format(day=action_day)
+    actions_raw=get(actions_url,5_000_000)
+    actions=json.loads(actions_raw)
+    if not isinstance(actions,list):raise ValueError('Unexpected primary exchange corporate-action directory')
+    (folder/'nse_corporate_actions.json').write_bytes(actions_raw)
+    receipt['nse_corporate_actions']={'source_url':actions_url,
+      'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
+      'sha256':hashlib.sha256(actions_raw).hexdigest(),'bytes':len(actions_raw),
+      'rows':len(actions),'no_action_interval_certified':False}
     from v13_breadth_fallback import validate_receipt
     validate_receipt(receipt,temp,asof)
     temp.replace(folder/'nse_adjusted.parquet')

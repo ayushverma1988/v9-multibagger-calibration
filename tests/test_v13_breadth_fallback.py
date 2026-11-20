@@ -25,6 +25,13 @@ class BreadthFallbackTests(unittest.TestCase):
           'first_retrieved_utc':at,'sha256':hashlib.sha256(nse).hexdigest(),'bytes':len(nse)}
         receipt['nse_calendar']={'source_url':'https://www.nseindia.com/api/holiday-master?type=trading',
           'first_retrieved_utc':at,'sha256':hashlib.sha256(calendar).hexdigest(),'bytes':len(calendar)}
+        actions=b'[]';(folder/'nse_corporate_actions.json').write_bytes(actions)
+        day=pd.Timestamp(asof).strftime('%d-%m-%Y')
+        receipt['nse_corporate_actions']={'source_url':'https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date='+day+'&to_date='+day,
+          'first_retrieved_utc':at,'sha256':hashlib.sha256(actions).hexdigest(),'bytes':len(actions),
+          'rows':0,'no_action_interval_certified':False}
+        receipt.setdefault('adjusted_through_asof',asof)
+        receipt.setdefault('source_day_in_public_file',True)
         return receipt
 
     def setUp(self):
@@ -76,6 +83,18 @@ class BreadthFallbackTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.check(official=self.official.iloc[0:0])
         with self.assertRaises(ValueError):self.check(alt=pd.concat([self.alt,self.alt.tail(1)]))
         with self.assertRaisesRegex(ValueError,'omitted a recent'):self.check(alt=self.alt.drop(self.alt.index[-2]))
+
+    def test_lagged_public_adjusted_file_extends_scoring_only_from_primary_raw(self):
+        view,proof=extend(self.old,self.alt.iloc[:-1],self.official,self.sessions,
+          '2026-11-18','ABC','INE000000001','c'*64,())
+        self.assertEqual(view.iloc[-1].date,pd.Timestamp('2026-11-18'))
+        self.assertEqual(view.iloc[-1].adj_close,181.)
+        self.assertTrue(proof['lagged_adjusted_source_extended_with_primary_raw'])
+        self.assertFalse(proof['action_interval_certified'])
+        self.assertFalse(proof['entry_or_outcome_certified'])
+        with self.assertRaisesRegex(ValueError,'corporate action'):
+            extend(self.old,self.alt.iloc[:-1],self.official,self.sessions,
+              '2026-11-18','ABC','INE000000001','c'*64,('ABC',))
 
     def test_actual_capture_and_publisher_clocks_are_required(self):
         with tempfile.TemporaryDirectory() as d:
@@ -195,7 +214,7 @@ class BreadthFallbackTests(unittest.TestCase):
           'lastCommit':{'id':rev,'date':'2026-11-18T14:00:00Z'}}]).encode()
         raw=self.alt.to_parquet(index=False)
         nse,calendar=self.primary_bytes()
-        with tempfile.TemporaryDirectory() as d,patch('v13_breadth_capture.get',side_effect=[tree,raw,nse,calendar]) as fetch,patch('v13_breadth_capture.datetime') as clock:
+        with tempfile.TemporaryDirectory() as d,patch('v13_breadth_capture.get',side_effect=[tree,raw,nse,calendar,b'[]']) as fetch,patch('v13_breadth_capture.datetime') as clock:
             clock.now.return_value=datetime(2026,11,18,14,20,tzinfo=timezone.utc)
             receipt=capture('2026-11-18',d)
             self.assertIn('/'+rev+'/',fetch.call_args_list[1].args[0])
@@ -218,7 +237,7 @@ class BreadthFallbackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             folder=Path(d)/'v13_public_breadth_snapshot';root=Path(d)/'v13_state';root.mkdir()
             nse,calendar=self.primary_bytes()
-            with patch('v13_breadth_capture.get',side_effect=[tree,current.to_parquet(index=False),older.to_parquet(index=False),nse,calendar]),patch('v13_breadth_capture.datetime') as clock:
+            with patch('v13_breadth_capture.get',side_effect=[tree,current.to_parquet(index=False),older.to_parquet(index=False),nse,calendar,b'[]']),patch('v13_breadth_capture.datetime') as clock:
                 clock.now.return_value=datetime(2026,1,7,12,20,tzinfo=timezone.utc)
                 receipt=capture('2026-01-07',folder)
             self.assertEqual(receipt['previous_year']['year'],2025)

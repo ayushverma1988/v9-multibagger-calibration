@@ -20,6 +20,7 @@ MAX_MISSING_SESSIONS = 5
 MIN_CURRENT_YEAR_SESSIONS = 150
 SOURCE_BASE='https://huggingface.co/datasets/tejhq/indian-markets/resolve/'
 NSE_CALENDAR_URL='https://www.nseindia.com/api/holiday-master?type=trading'
+NSE_ACTIONS='https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={day}&to_date={day}'
 
 
 def _aware(value):
@@ -45,7 +46,7 @@ def validate_receipt(receipt, path, asof):
     ceiling = close.normalize() + pd.Timedelta(hours=22)
     captured = _aware(receipt.get('first_retrieved_utc'))
     published = _aware(receipt.get('publisher_commit_utc'))
-    if not (close.tz_convert('UTC') <= published <= captured <= ceiling.tz_convert('UTC')):
+    if not (published <= captured and close.tz_convert('UTC') <= captured <= ceiling.tz_convert('UTC')):
         raise ValueError('Fallback source was published or captured outside the permitted information window')
     if not re.fullmatch(r'[0-9a-f]{40}', str(receipt.get('publisher_revision', ''))):
         raise ValueError('Missing immutable public source revision')
@@ -65,6 +66,20 @@ def validate_receipt(receipt, path, asof):
         original=Path(path).parent/name
         if not original.exists() or obj.get('bytes')!=original.stat().st_size or not re.fullmatch(r'[0-9a-f]{64}',str(obj.get('sha256',''))) or _sha(original)!=obj['sha256']:
             raise ValueError('Primary NSE source hash mismatch: '+key)
+    action_day=pd.Timestamp(asof).strftime('%d-%m-%Y')
+    key='nse_corporate_actions';name='nse_corporate_actions.json';url=NSE_ACTIONS.format(day=action_day)
+    obj=receipt.get(key)
+    if not isinstance(obj,dict) or obj.get('source_url')!=url or obj.get('no_action_interval_certified') is not False:
+        raise ValueError('Missing timed primary NSE source: '+key)
+    clock=_aware(obj.get('first_retrieved_utc'))
+    original=Path(path).parent/name
+    if not close.tz_convert('UTC')<=clock<=ceiling.tz_convert('UTC') or not original.exists() or obj.get('bytes')!=original.stat().st_size or _sha(original)!=obj.get('sha256'):
+        raise ValueError('Primary NSE corporate-action directory mismatch')
+    actions=json.loads(original.read_text())
+    if not isinstance(actions,list) or obj.get('rows')!=len(actions):raise ValueError('Primary NSE corporate-action directory schema changed')
+    adjusted_through=pd.Timestamp(receipt.get('adjusted_through_asof'))
+    if adjusted_through>pd.Timestamp(asof) or adjusted_through<pd.Timestamp(asof)-pd.Timedelta(days=10):
+        raise ValueError('Adjusted source is future-dated or too stale')
     previous=receipt.get('previous_year')
     if previous is not None:
         if not isinstance(previous,dict) or previous.get('year') != int(asof[:4])-1:
@@ -105,8 +120,9 @@ def load(root, asof):
         if (data.date > pd.Timestamp(asof)).any():
             raise ValueError('Snapshot contains future sessions')
         data = data[data.date.between(low, pd.Timestamp(asof))].copy()
-        if not data.date.eq(pd.Timestamp(asof)).any():
-            raise ValueError('Snapshot lacks the source session')
+        adjusted_through=pd.Timestamp(receipt['adjusted_through_asof'])
+        if data.date.max().normalize()!=adjusted_through:
+            raise ValueError('Adjusted source terminal date changed')
         if data.duplicated(['date','symbol','isin','series']).any():
             raise ValueError('Duplicate alternative source identity/date')
         calendar=json.loads((folder/'nse_holiday_calendar.json').read_text())
@@ -117,7 +133,11 @@ def load(root, asof):
             value=pd.to_datetime(row['tradingDate'],format='%d-%b-%Y')
             if value.year==int(asof[:4]):holidays.append(str(value.date()))
         if not holidays:raise ValueError('Captured exchange calendar omits the current year')
-        return (data, receipt, {'year':int(asof[:4]),'years':[int(asof[:4])],'holidays':holidays}), {'status':'TIMELY_SNAPSHOT_VERIFIED', 'source_sha256':receipt['sha256'],
+        actions=json.loads((folder/'nse_corporate_actions.json').read_text())
+        action_symbols=sorted({str(r.get('symbol') or r.get('symbolName') or '').strip() for r in actions if isinstance(r,dict) and (r.get('symbol') or r.get('symbolName'))})
+        receipt={**receipt,'source_day_action_symbols':action_symbols}
+        status='TIMELY_SNAPSHOT_VERIFIED' if adjusted_through==pd.Timestamp(asof) else 'TIMELY_LAGGED_SNAPSHOT_VERIFIED_FOR_SCORING_ONLY'
+        return (data, receipt, {'year':int(asof[:4]),'years':[int(asof[:4])],'holidays':holidays}), {'status':status, 'source_sha256':receipt['sha256'],
           'first_retrieved_utc':receipt['first_retrieved_utc'], 'publisher_commit_utc':receipt['publisher_commit_utc']}
     except (ValueError, KeyError, TypeError, OSError) as exc:
         return None, {'status':'BLOCKED_SNAPSHOT', 'reason':str(exc)[:200]}
@@ -216,7 +236,7 @@ def prior_history(folder,isin,symbol,receipts,index=None):
     return bars
 
 
-def extend(previous, alternative, official, sessions, asof, symbol, isin, source_sha256):
+def extend(previous, alternative, official, sessions, asof, symbol, isin, source_sha256, source_day_action_symbols=()):
     """Build an in-memory scoring view after factor, identity and raw checks."""
     if previous.empty or set(previous.symbol)!={symbol} or set(previous['isin'])!={isin}:
         raise ValueError('Original provider history has ambiguous identity')
@@ -239,8 +259,24 @@ def extend(previous, alternative, official, sessions, asof, symbol, isin, source
     if not np.allclose(a,b,rtol=FACTOR_RTOL,atol=.001):
         raise ValueError('Provider adjustment factors disagree')
     incoming=alt[alt.date.gt(old.date.max()) & alt.date.le(pd.Timestamp(asof))].sort_values('date').copy()
-    if incoming.empty or incoming.date.max()!=pd.Timestamp(asof):
-        raise ValueError('Alternative lacks the completed source session')
+    lagged=incoming.empty or incoming.date.max()!=pd.Timestamp(asof)
+    if lagged:
+        if symbol in set(source_day_action_symbols):
+            raise ValueError('Primary exchange corporate action requires a current adjusted factor')
+        valid=official[(official.symbol==symbol)&(official['isin']==isin)].copy()
+        valid['date']=pd.to_datetime(valid.date)
+        valid=valid[valid.date.isin(sessions)&valid.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')]
+        if valid.empty or valid.date.duplicated().any() or set(valid.date)!=set(sessions):
+            raise ValueError('Lagged adjusted source and official intervening sessions differ')
+        series=set(alt.series.dropna())
+        if len(series)!=1 or set(valid.series)!=series:raise ValueError('Lagged alternative/exchange series changed')
+        incoming=valid[['date','symbol','isin','series','open','high','low','close','volume']].copy()
+        # Current adjusted close equals the official raw close only for a name
+        # absent from the timed NSE action directory. This remains a scoring
+        # view and never certifies a no-action interval, entry or outcome.
+        incoming['adj_factor_cumulative']=1.0
+        incoming['adj_close']=incoming['close']
+    if incoming.empty or incoming.date.max()!=pd.Timestamp(asof):raise ValueError('Alternative lacks the completed source session')
     for col in ('open','high','low','close','adj_close','adj_factor_cumulative','volume'):
         incoming[col]=pd.to_numeric(incoming[col],errors='coerce')
     numeric=incoming[['open','high','low','close','adj_close','adj_factor_cumulative','volume']].to_numpy(float)
@@ -269,4 +305,5 @@ def extend(previous, alternative, official, sessions, asof, symbol, isin, source
     out=pd.concat([old,incoming.reindex(columns=old.columns)],ignore_index=True).sort_values('date')
     return out, {'overlap_sessions':len(joined),'new_sessions':len(incoming),
       'source_sha256':source_sha256,'source_status':'ALTERNATIVE_ADJUSTED_SCORING_ONLY',
+      'lagged_adjusted_source_extended_with_primary_raw':bool(lagged),
       'action_interval_certified':False,'entry_or_outcome_certified':False}

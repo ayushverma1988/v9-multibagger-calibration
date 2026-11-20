@@ -143,7 +143,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
                 if key not in fallback_official_cache:
                     fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof,fallback[1],fallback[2])
                 sessions,originals=fallback_official_cache[key]
-                bars,fallback_proof=breadth_fallback.extend(bars,fallback_groups[symbol],originals,sessions,asof,symbol,isin,fallback[1]['sha256'])
+                bars,fallback_proof=breadth_fallback.extend(bars,fallback_groups[symbol],originals,sessions,asof,symbol,isin,fallback[1]['sha256'],fallback[1].get('source_day_action_symbols',()))
                 fallback_proof['provider_source_sha256']=provider_hash
                 fallback_proof['provider_first_retrieved_utc']=provider_clock.isoformat()
                 fallback_accepted+=1
