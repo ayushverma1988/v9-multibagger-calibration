@@ -1,6 +1,8 @@
 name: V13 Public Adjusted-Price Capture
 on:
   schedule:
+    - cron: '30 11 * * 1-5'
+    - cron: '30 12 * * 1-5'
     - cron: '30 13 * * 1-5'
     - cron: '30 14 * * 1-5'
     - cron: '30 15 * * 1-5'
@@ -18,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d198cbade667c85b1a0d6ecc869f3cf494fc04f9
+          ref: bbcba2884f80aa4ebded5a5fc37991991f94cb69
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
