@@ -1,6 +1,6 @@
 {
-  "checked_at_utc": "2026-11-20T04:31:43.446Z",
-  "workflow_run": 44661297112,
+  "checked_at_utc": "2026-11-20T06:33:36.738Z",
+  "workflow_run": 44667069075,
   "job_state": "success",
   "attempt_phase": "COMPLETED",
   "result_is_from_this_run": true,
@@ -12,7 +12,7 @@
   "errors": 0,
   "market_rows": 607,
   "public_universe_rows": 3214,
-  "financial_errors": 612,
+  "financial_errors": 1067,
   "financial_complete_rows": 420,
   "financial_quality_pass_rows": 207,
   "financial_known_failure_rows": 324,
@@ -26,30 +26,30 @@
     "single_source_allowed": true,
     "supplementary_financial_catalyst_valuation_inputs_optional": true,
     "tiers": {
-      "OBSERVED_CURRENT_FINANCIAL_WEAKNESS": 124,
-      "INCOMPLETE_FINANCIAL_DISCOVERY": 90,
-      "AVAILABLE_CURRENT_FINANCIALS_RESEARCH": 118,
+      "OBSERVED_CURRENT_FINANCIAL_WEAKNESS": 131,
+      "INCOMPLETE_FINANCIAL_DISCOVERY": 82,
+      "AVAILABLE_CURRENT_FINANCIALS_RESEARCH": 119,
       "QUARANTINED_SOURCE_CONFLICT": 105,
       "AVAILABLE_SEVEN_CHECK_PASS_RESEARCH": 165,
       "TURNAROUND_RESEARCH": 5
     },
     "check_states": {
-      "OBSERVED_PASS": 3081,
+      "OBSERVED_PASS": 3091,
       "TURNAROUND_COMPARISON_NOT_PERCENT_GROWTH": 22,
-      "OBSERVED_WEAKNESS": 511,
-      "MISSING_OR_AMBIGUOUS_INPUT": 310,
-      "NOT_APPLICABLE_INDUSTRIAL_RATIO_FOR_FINANCIAL_SECTOR": 258,
+      "OBSERVED_WEAKNESS": 521,
+      "MISSING_OR_AMBIGUOUS_INPUT": 319,
+      "NOT_APPLICABLE_INDUSTRIAL_RATIO_FOR_FINANCIAL_SECTOR": 228,
       "OBSERVED_NONPOSITIVE_BASE_REQUIRES_INTERPRETATION": 64,
-      "NOT_APPLICABLE_ZERO_INTEREST_AND_NO_BORROWINGS": 3
+      "NOT_APPLICABLE_ZERO_INTEREST_AND_NO_BORROWINGS": 4
     },
     "classified_check_positions": 4249,
     "total_required_check_positions": 4249,
     "classification_is_not_fact_completeness_or_accuracy": true,
-    "eligible": 98,
+    "eligible": 96,
     "selected": 41,
     "eligible_by_group": {
       "available_current_financials": 70,
-      "incomplete_discovery": 27,
+      "incomplete_discovery": 25,
       "turnaround": 1
     },
     "selected_by_group": {
@@ -69,7 +69,6 @@
       "AMBUJACEM",
       "LIBERTSHOE",
       "SIGNATURE",
-      "BAJAJFINSV",
       "WOCKPHARMA",
       "JIOFIN",
       "HINDPETRO",
@@ -96,7 +95,6 @@
       "SHRIRAMFIN",
       "PETRONET",
       "BEL",
-      "IREDA",
       "MARUTI",
       "BAJFINANCE",
       "VOLTAS",
@@ -118,9 +116,9 @@
     "formal_forecasts_changed": false,
     "existing_model_missing_value_handling": "TRAIN_ONLY_MEDIAN_PLUS_EXPLICIT_MISSING_INDICATOR_FOR_EVERY_FEATURE",
     "new_head_trained_or_promoted": false,
-    "snapshot_sha256": "d031c0ca881c9a2311f380124f32032a76fe866a6b252baf972693aec3e15d25",
+    "snapshot_sha256": "a9749a618740a0ac28cc02bddc9498a4243a96f56dc5e3eff3b784c84b9e7dbc",
     "source_asof": "2026-11-19",
-    "reviewed_at_utc": "2026-11-20T04:07:25.481787+00:00"
+    "reviewed_at_utc": "2026-11-20T06:07:54.957421+00:00"
   },
   "priority_research": {
     "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103",
@@ -139,14 +137,14 @@
     "model_retrained": false,
     "frozen_probabilities_changed": false,
     "unsupported_24month_probability_invented": false,
-    "eligible": 98,
+    "eligible": 96,
     "selected": 25,
     "loss_ceiling_sensitivity": {
-      "0.95": 98,
-      "0.8": 97,
-      "0.7": 93,
-      "0.6": 80,
-      "0.5": 60
+      "0.95": 96,
+      "0.8": 95,
+      "0.7": 91,
+      "0.6": 78,
+      "0.5": 59
     },
     "default_loss_ceiling_unchanged": 0.95,
     "historical_validation_required_before_model_promotion": true,
@@ -169,14 +167,14 @@
         "model_retrained": false,
         "frozen_probabilities_changed": false,
         "unsupported_24month_probability_invented": false,
-        "eligible": 196,
+        "eligible": 191,
         "selected": 25,
         "loss_ceiling_sensitivity": {
-          "0.95": 196,
-          "0.8": 195,
-          "0.7": 187,
-          "0.6": 151,
-          "0.5": 100
+          "0.95": 191,
+          "0.8": 190,
+          "0.7": 182,
+          "0.6": 147,
+          "0.5": 97
         },
         "default_loss_ceiling_unchanged": 0.95,
         "historical_validation_required_before_model_promotion": true
@@ -198,14 +196,14 @@
         "model_retrained": false,
         "frozen_probabilities_changed": false,
         "unsupported_24month_probability_invented": false,
-        "eligible": 98,
+        "eligible": 96,
         "selected": 25,
         "loss_ceiling_sensitivity": {
-          "0.95": 98,
-          "0.8": 97,
-          "0.7": 93,
-          "0.6": 80,
-          "0.5": 60
+          "0.95": 96,
+          "0.8": 95,
+          "0.7": 91,
+          "0.6": 78,
+          "0.5": 59
         },
         "default_loss_ceiling_unchanged": 0.95,
         "historical_validation_required_before_model_promotion": true
@@ -231,14 +229,14 @@
       "model_retrained": false,
       "frozen_probabilities_changed": false,
       "unsupported_24month_probability_invented": false,
-      "eligible": 196,
+      "eligible": 191,
       "selected": 25,
       "loss_ceiling_sensitivity": {
-        "0.95": 196,
-        "0.8": 195,
-        "0.7": 187,
-        "0.6": 151,
-        "0.5": 100
+        "0.95": 191,
+        "0.8": 190,
+        "0.7": 182,
+        "0.6": 147,
+        "0.5": 97
       },
       "default_loss_ceiling_unchanged": 0.95,
       "historical_validation_required_before_model_promotion": true
@@ -260,30 +258,30 @@
       "model_retrained": false,
       "frozen_probabilities_changed": false,
       "unsupported_24month_probability_invented": false,
-      "eligible": 98,
+      "eligible": 96,
       "selected": 25,
       "loss_ceiling_sensitivity": {
-        "0.95": 98,
-        "0.8": 97,
-        "0.7": 93,
-        "0.6": 80,
-        "0.5": 60
+        "0.95": 96,
+        "0.8": 95,
+        "0.7": 91,
+        "0.6": 78,
+        "0.5": 59
       },
       "default_loss_ceiling_unchanged": 0.95,
       "historical_validation_required_before_model_promotion": true
     }
   },
-  "history_errors": 912,
-  "history_usable": 2288,
-  "history_fresh_official_aligned": 649,
+  "history_errors": 918,
+  "history_usable": 1640,
+  "history_fresh_official_aligned": 1,
   "universe_financial_coverage": {
     "source_asof": "2026-11-19",
     "information_cutoff_utc": "2026-11-19T16:30:00+00:00",
     "scope": "FULL_PUBLIC_UNIVERSE_INDEPENDENT_OF_PRICE_OR_SELECTION",
     "public_universe_issuers": 3214,
     "issuers_with_financial_observations": 2952,
-    "original_period_basis_version_rows": 102054,
-    "nonmissing_numeric_fact_observations": 1049722,
+    "original_period_basis_version_rows": 102142,
+    "nonmissing_numeric_fact_observations": 1050625,
     "unique_source_document_hashes": 49832,
     "unique_issuer_period_basis_kind_rows": 97779,
     "fresh_preferred_basis_quarter_issuers": 2388,
@@ -308,15 +306,15 @@
   },
   "financial_crosschecks": {
     "source_asof": "2026-11-19",
-    "observations_compared": 152780,
+    "observations_compared": 153043,
     "issuers_compared": 3207,
     "status_counts": {
-      "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 52375,
-      "PRIMARY_FACT_MISSING_OR_AMBIGUOUS": 51332,
-      "PROFIT_DEFINITION_REVIEW_REQUIRED": 37496,
-      "NUMERIC_CONFLICT_REVIEW_REQUIRED": 11577
+      "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 52415,
+      "PRIMARY_FACT_MISSING_OR_AMBIGUOUS": 51411,
+      "PROFIT_DEFINITION_REVIEW_REQUIRED": 37636,
+      "NUMERIC_CONFLICT_REVIEW_REQUIRED": 11581
     },
-    "primary_plus_two_provider_agreements": 7767,
+    "primary_plus_two_provider_agreements": 7780,
     "truth_certified": false,
     "definition_and_period_matching_required": true,
     "canonical_facts_overwritten": false
@@ -324,45 +322,82 @@
   "master_issuers": 3214,
   "master_original_cells": 67097,
   "master_original_missing_cells": 19681,
-  "master_missing_cells": 9044,
-  "master_recovered_cells": 9304,
-  "master_current_two_source_cells": 34188,
+  "master_missing_cells": 8994,
+  "master_recovered_cells": 9485,
+  "master_current_two_source_cells": 34489,
   "required_additional_sources": 0,
-  "master_current_three_source_cells": 8507,
-  "master_current_usable_cells": 75550,
+  "master_current_three_source_cells": 8597,
+  "master_current_usable_cells": 75731,
   "cross_source_validation_required": false,
   "master_validation_complete": null,
   "three_source_sector_issuers": 20,
   "paired_rows_per_model": null,
-  "catalyst_documents": 17276,
+  "catalyst_documents": 17501,
   "verified_entries": 22268,
   "independently_verified_mature_outcomes": 0,
+  "paired_registration_coverage_gate": {
+    "passed": false,
+    "current_rows": 607,
+    "minimum_rows": 818,
+    "reference_recent_rows": [
+      1639,
+      1634,
+      1635
+    ],
+    "reference_median_rows": 1635,
+    "status": "BLOCKED_COLLAPSED_CURRENT_COVERAGE"
+  },
+  "coverage_status": "DEGRADED_COLLAPSED_COVERAGE",
+  "price_scoring_fallback": {
+    "status": "NO_TIMELY_PUBLIC_FALLBACK_SNAPSHOT",
+    "attempted": 0,
+    "accepted_before_feature_gate": 0,
+    "blocked_reasons": {},
+    "original_histories_unchanged": true,
+    "entry_or_outcome_certified": false
+  },
+  "single_source_scoring_only": {
+    "attempted": 0,
+    "accepted_before_feature_gate": 0,
+    "new_identities_without_provider_history": 0,
+    "blocked_reasons": {},
+    "adjustment_independently_verified": false,
+    "entry_or_outcome_certified": false,
+    "scored_after_official_reconciliation": 0
+  },
+  "liquidity_research_scoring": {
+    "below_25_lakh_outside_training_band": 0,
+    "standard_25_lakh_turnover": 607,
+    "original_provider_low_liquidity_blocked_without_timely_receipt": 49,
+    "original_training_and_frozen_forecasts_unchanged": true,
+    "accuracy_approved": false
+  },
   "checkpoint_storage_mode": "PRIVATE_ARCHIVE_PUBLISHED",
   "remote_checkpoint_publication_confirmed": true,
   "archive_capacity_blocked": false,
   "storage_retention": {
-    "checked_at_utc": "2026-11-20T04:31:43.253497+00:00",
+    "checked_at_utc": "2026-11-20T06:33:36.533732+00:00",
     "mode": "WORKING_CORE_ONLY",
     "restart_caches_target": 1,
     "minimum_new_data_retention_days": 730,
     "target_archive_bytes": 1000000000,
-    "current_tree_stored_bytes": 539683710,
+    "current_tree_stored_bytes": 545788910,
     "current_tree_under_one_gb": true,
-    "provider_used_storage_bytes": 536879084,
+    "provider_used_storage_bytes": 542959097,
     "raw_originals_and_old_snapshots_retired": true,
     "working_values_and_frozen_forecasts_deleted": false,
     "deleted_paths": [
-      "v13/working_core/6a6d73f33d2c469f37eddaea17f1dbbe250caa01142acd6ab8c97a7c41bfbf3e.zip",
-      "v13/working_core/d6fea6303f30f64c2ba2a9516f2e2363a1d4fd0cafb743316816d45741511df0.zip",
-      "v13/working_core/ffd4ddf7f3aab53588ced9db1daf6ada608c099c70bf2da86817d806b18ec2aa.zip",
-      "v13/state/snapshots/20261120T005858Z_1b1fffb9ce9d.json",
-      "v13/state/snapshots/20261120T030924Z_9e43c0a626fc.json",
-      "v13/state/snapshots/20261120T040020Z_b80c3d5dcc25.json"
+      "v13/working_core/894f64cd82623d4b2f335396d3a6240596d2c95dc66590add2b00435be51c23d.zip",
+      "v13/working_core/a328d537599d77023c826bf95a28e6c740443a2196066b0fffbde2d363b7914b.zip",
+      "v13/working_core/db795669fa92d0127e1cc5d2ad5d70db7a892d051b55fc91bb061b29c0dbe202.zip",
+      "v13/state/snapshots/20261120T043014Z_23959bb8c6ff.json",
+      "v13/state/snapshots/20261120T050344Z_f015802e485e.json",
+      "v13/state/snapshots/20261120T055952Z_f09d1417a3e3.json"
     ],
     "retired_lfs_objects_purged": 6,
-    "retired_lfs_bytes_purged": 1594479108,
+    "retired_lfs_bytes_purged": 1616483451,
     "fresh_restart_before_and_after_retirement_verified": true,
-    "current_manifest_sha256": "23959bb8c6ff931868e115005bb0a9239437ba6ca3b14ea096fa61cd41ae5e45",
+    "current_manifest_sha256": "32c01ee5636191fb64e477125f4de367bac1f83c28567105e999a824c62d1ecc",
     "history_squashed": true,
     "storage_budget_warning": false
   }
