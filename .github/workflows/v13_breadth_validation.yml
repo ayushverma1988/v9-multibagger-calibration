@@ -1,7 +1,7 @@
 name: V13 Breadth Fallback Validation
 on:
   push:
-    branches: [v13-breadth-fallback-20261119, v13-breadth-clock-guard-20261119, v13-breadth-lagged-fallback-20261120, v13-breadth-single-source-20261120]
+    branches: [v13-breadth-fallback-20261119, v13-breadth-clock-guard-20261119, v13-breadth-lagged-fallback-20261120, v13-breadth-single-source-20261120, v13-collector-recovery-20261123]
 permissions:
   contents: read
 jobs:
@@ -20,3 +20,33 @@ jobs:
         env:
           PYTHONPATH: src
         run: python -m unittest discover -s tests -p 'test_v13*.py'
+  public-sme-source-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check public exchange master endpoints without weakening identity rules
+        run: |
+          python - <<'PY'
+          import csv, hashlib, io, json, urllib.error, urllib.request
+          urls = ['https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv',
+                  'https://nsearchives.nseindia.com/content/equities/SME_EQUITY_L.csv']
+          for url in urls:
+              try:
+                  request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.nseindia.com/'})
+                  with urllib.request.urlopen(request, timeout=20) as response:
+                      body = response.read(); status = response.status
+                  head = body[:8192].lower()
+                  blocked = any(token in head for token in (b'access denied', b'captcha', b'forbidden', b'rate limit', b'bot detection', b'challenge-platform'))
+                  required = {'SYMBOL','NAME OF COMPANY','SERIES','DATE OF LISTING','ISIN NUMBER'}
+                  reader = csv.DictReader(io.StringIO(body.decode('utf-8-sig')))
+                  columns = {(name or '').strip().replace('_',' ') for name in (reader.fieldnames or [])}
+                  rows = sum(1 for _ in reader) if required.issubset(columns) else 0
+                  print(json.dumps({'url':url,'http_status':status,'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest(),
+                                    'required_columns_present':required.issubset(columns),'rows_if_schema_matched':rows,'access_challenge_detected':blocked}))
+                  if blocked: break
+              except urllib.error.HTTPError as exc:
+                  print(json.dumps({'url':url,'http_status':exc.code}))
+                  if exc.code in (401,403,429): break
+              except Exception as exc:
+                  print(json.dumps({'url':url,'error':type(exc).__name__}))
+          PY

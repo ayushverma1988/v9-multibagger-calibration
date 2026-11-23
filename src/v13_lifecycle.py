@@ -10,6 +10,23 @@ import v12_four_year_model as core
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
+def _registry_optional_values(values):
+    """Represent absent optional provenance as JSON null, never as a fact.
+
+    DataFrame concatenation can turn a missing field into a floating NaN even
+    when the original row held None. Forecast heads are checked separately;
+    this helper applies only to optional metadata, and infinities still fail
+    the strict JSON encoder.
+    """
+    result={}
+    for key,value in values.items():
+        if value is None or value is pd.NA or value is pd.NaT or (
+                isinstance(value,(float,np.floating)) and np.isnan(value)):
+            result[key]=None
+        else:
+            result[key]=value.item() if isinstance(value,np.generic) else value
+    return result
+
 def register(frame, model_sha, folder, registered_at=None, context=None):
     out=Path(folder);out.mkdir(parents=True,exist_ok=True)
     now=pd.Timestamp(registered_at or datetime.now(timezone.utc))
@@ -25,18 +42,20 @@ def register(frame, model_sha, folder, registered_at=None, context=None):
         values=[float(r[c]) for c in ('p6','p12','loss12','joint12')]
         if not all(np.isfinite(v) and 0<=v<=1 for v in values):raise ValueError('Incomplete forecast heads')
         if values[0]>values[1]+1e-12 or values[3]>values[1]+1e-12 or values[3]+values[2]>1+1e-12:raise ValueError('Incoherent probabilities')
+        for label in ('selected_verified','selected_discovery'):
+            if label in r and pd.isna(r[label]):raise ValueError('Missing selection flag')
         records.append({'isin':r['isin'],'symbol':r['symbol'],'source_asof':str(pd.Timestamp(r['date']).date()),
           'p6':float(r['p6']),'p12':float(r['p12']),'loss12':float(r['loss12']),'joint12':float(r['joint12']),
           'selected_verified':bool(r.get('selected_verified',False)),'selected_discovery':bool(r.get('selected_discovery',False)),
-          **{k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','scoring_liquidity_status','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256','information_cutoff_utc') if k in r},
-          **({k:r[k] for k in ('scoring_price_history_source','scoring_fallback_source_sha256','scoring_fallback_action_interval_certified','scoring_fallback_provider_sha256','scoring_fallback_provider_first_retrieved_utc')}
+          **_registry_optional_values({k:r[k] for k in ('financial_tier','market_regime','liquidity_tier','scoring_liquidity_status','evidence_status','baseline_p6','baseline_p12','series','source_close_INR','official_source_sha256','information_cutoff_utc') if k in r}),
+          **(_registry_optional_values({k:r[k] for k in ('scoring_price_history_source','scoring_fallback_source_sha256','scoring_fallback_action_interval_certified','scoring_fallback_provider_sha256','scoring_fallback_provider_first_retrieved_utc')})
              if r.get('scoring_price_history_source')=='ALTERNATIVE_ADJUSTED_SCORING_ONLY' else {}),
-          **({k:r[k] for k in ('scoring_price_history_source','scoring_fallback_source_sha256',
+          **(_registry_optional_values({k:r[k] for k in ('scoring_price_history_source','scoring_fallback_source_sha256',
                'scoring_fallback_action_interval_certified','scoring_fallback_provider_sha256',
                'scoring_fallback_provider_first_retrieved_utc','scoring_fallback_reference_status',
-               'scoring_fallback_overlap_sessions','scoring_history_series_transition_unverified')}
+               'scoring_fallback_overlap_sessions','scoring_history_series_transition_unverified')})
              if r.get('scoring_price_history_source')=='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY' else {}),
-          **({k:r[k] for k in ('scoring_original_provider_sha256','scoring_original_provider_first_retrieved_utc')}
+          **(_registry_optional_values({k:r[k] for k in ('scoring_original_provider_sha256','scoring_original_provider_first_retrieved_utc')})
              if r.get('scoring_price_history_source')=='ORIGINAL_ADJUSTED_PROVIDER'
              and r.get('scoring_liquidity_status')=='BELOW_25_LAKH_OUTSIDE_TRAINING_BAND' else {})})
     obj={'version':'V13-prospective-research','registered_at_utc':now.isoformat(),'model_sha256':model_sha,
