@@ -50,3 +50,16 @@ jobs:
               except Exception as exc:
                   print(json.dumps({'url':url,'error':type(exc).__name__}))
           PY
+  export-public-parquet-reader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip download --only-binary=:all: --no-deps pyarrow==25.0.1 --dest wheels
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-parquet-reader-wheel
+          path: wheels/*.whl
+          retention-days: 1
