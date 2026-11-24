@@ -1,0 +1,38 @@
+name: V13 original action notices review
+on:
+  push:
+    branches: [v13-notices-review-20261124]
+permissions:
+  contents: read
+jobs:
+  originals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Retrieve original exchange notices
+        run: |
+          python - <<'PY'
+          import datetime,hashlib,json,pathlib,urllib.request
+          docs={
+            'pashupati_bonus_allotment.pdf':'https://nsearchives.nseindia.com/corporate/PASHUPATI_16112026105934_PCL_Outcome_of_BM_16112026.pdf',
+            'pashupati_nse_listing.pdf':'https://nsearchives.nseindia.com/content/circulars/CML77357.pdf',
+            'pashupati_dividend.pdf':'https://nsearchives.nseindia.com/corporate/PASHUPATI_06112026134537_Outcome_of_BM.pdf',
+            'concord_bonus_allotment.pdf':'https://nsearchives.nseindia.com/corporate/CONCORD_05112026180857_Concord_Intimation_of_Allotment.pdf'}
+          out=pathlib.Path('original_notices');out.mkdir()
+          receipts=[]
+          for name,url in docs.items():
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+              with urllib.request.urlopen(req,timeout=60) as response:
+                  data=response.read();status=response.status
+              if status!=200 or not data.startswith(b'%PDF-'):raise ValueError('Unexpected original document '+name)
+              (out/name).write_bytes(data)
+              receipts.append({'filename':name,'source_url':url,'status':status,'bytes':len(data),
+                'sha256':hashlib.sha256(data).hexdigest(),'retrieved_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                'publication_intraday_time':'UNKNOWN_UNLESS_IN_EXCHANGE_METADATA'})
+          (out/'receipt.json').write_text(json.dumps(receipts,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-reviewed-action-originals-20261124
+          path: original_notices/
+          retention-days: 7
