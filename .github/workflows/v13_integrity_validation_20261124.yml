@@ -1,0 +1,24 @@
+name: V13 Integrity Repair Validation
+on:
+  push:
+    branches: [v13-integrity-repair-20261124]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements_v13_storage.txt
+      - name: Run all V13 tests
+        env:
+          PYTHONPATH: src
+          V13_COMPACT_ARCHIVE: '0'
+          V13_WORKING_CORE_ARCHIVE: '0'
+        run: python -m unittest discover -s tests -p 'test_v13*.py'

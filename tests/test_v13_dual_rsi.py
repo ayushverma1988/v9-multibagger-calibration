@@ -45,6 +45,22 @@ class DualRSI(unittest.TestCase):
             self.assertFalse(d.available_research_eligible.any())
             self.assertTrue(all(r['tier'] == 'OBSERVED_CURRENT_FINANCIAL_WEAKNESS' for r in rows))
 
+    def test_fixed_model_observed_failures_remain_blocked_on_both_screens(self):
+        frame, wide = self.population()
+        frame['rsi14'] = 80.
+        frame['financial_quality_status'] = ''
+        frame['financial_tier'] = ''
+        frame.loc[0, 'financial_quality_status'] = 'KNOWN_FINANCIAL_FAILURE'
+        frame.loc[1, 'financial_tier'] = 'known_failure'
+        before = frame.copy(deep=True)
+        for d, rows, _ in available.screen_many(frame, wide).values():
+            self.assertEqual(d.loc[d.available_research_eligible, 'symbol'].tolist(), ['A2', 'A3'])
+            for i in (0, 1):
+                self.assertIn('OBSERVED_WEAKNESS_OR_SOURCE_CONFLICT', rows[i]['exclusion_reasons'])
+            pd.testing.assert_frame_equal(d[['p6', 'p12', 'joint12', 'loss12']],
+                                          before[['p6', 'p12', 'joint12', 'loss12']])
+        pd.testing.assert_frame_equal(frame, before)
+
     def test_both_lists_are_exported_even_when_only_the_lower_screen_has_names(self):
         frame, wide = self.population(); frame['rsi14'] = 60.
         frame['scoring_price_history_source']='SINGLE_SOURCE_ADJUSTED_SCORING_ONLY'

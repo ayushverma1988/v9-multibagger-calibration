@@ -179,6 +179,15 @@ def attach(frame, history):
     records = []
     for isin, rows in out.groupby('isin', sort=False):
         for _, row in rows.iterrows():
+            # Scoring-only alternative histories were never persisted as the
+            # exact provider history. A same-symbol cached provider file may
+            # be different or stale, so do not silently substitute it.
+            if row.get('scoring_price_history_source') in {
+                    'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY',
+                    'ALTERNATIVE_ADJUSTED_SCORING_ONLY'}:
+                records.append({'date':row.date, 'isin':isin,
+                    'chart_history_status':'SCORING_ONLY_HISTORY_NOT_STORED'})
+                continue
             # The collector stores symbol-hashed filenames; ISIN/date inside
             # the file remain authoritative across renames and replacements.
             symbol_key = hashlib.sha256(str(row.get('symbol', '')).encode()).hexdigest()

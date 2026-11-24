@@ -1,7 +1,7 @@
 import hashlib,io,json,tarfile,tempfile,unittest,zipfile
 from pathlib import Path
 import pandas as pd
-from v13_chart_snapshot import read_snapshot, verify_forecast_export
+from v13_chart_snapshot import read_snapshot, verify_forecast_export, exact_history_plan
 
 
 def snapshot(path,recovery=False,wrong_model=False,mixed_dates=False):
@@ -33,6 +33,22 @@ def snapshot(path,recovery=False,wrong_model=False,mixed_dates=False):
 
 
 class ChartSnapshot(unittest.TestCase):
+    def test_scoring_only_rows_can_abstain_but_stored_history_is_still_required(self):
+        frame = pd.DataFrame([
+            {'symbol':'ALPHA','scoring_price_history_source':'ORIGINAL_ADJUSTED_PROVIDER'},
+            {'symbol':'BETA','scoring_price_history_source':'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY'},
+            {'symbol':'GAMMA','scoring_price_history_source':'ALTERNATIVE_ADJUSTED_SCORING_ONLY'}])
+        path = 'history/securities/'+hashlib.sha256(b'ALPHA').hexdigest()+'.parquet'
+        manifest = {'files':[{'path':path,'sha256':'a'*64,'bytes':5}]}
+        items, missing = exact_history_plan(frame, manifest)
+        self.assertEqual(items, manifest['files'])
+        self.assertEqual(missing, 2)
+        with self.assertRaisesRegex(ValueError, 'missing from exact snapshot'):
+            exact_history_plan(frame, {'files':[]})
+        # Legacy records without a source tag still fail closed.
+        with self.assertRaises(ValueError):
+            exact_history_plan(frame[['symbol']], {'files':[]})
+
     def export_round_trip(self, ranks):
         frame = pd.DataFrame({'isin':['INE000000001','INE000000002'],
             'p6':[.04,.07], 'p12':[.1,.2], 'loss12':[.3,.4],

@@ -49,16 +49,25 @@ def verify_forecast_export(frame, result):
     pd.testing.assert_frame_equal(left, right, check_exact=True)
 
 
+def exact_history_plan(frame, manifest):
+    """Require stored source history, and explicitly abstain for scoring-only views."""
+    source = frame.get('scoring_price_history_source', pd.Series('', index=frame.index))
+    scoring_only = source.isin({'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY',
+                               'ALTERNATIVE_ADJUSTED_SCORING_ONLY'})
+    wanted = {'history/securities/'+hashlib.sha256(str(s).encode()).hexdigest()+'.parquet'
+              for s in frame.loc[~scoring_only, 'symbol']}
+    items = [r for r in manifest['files'] if r['path'] in wanted]
+    if len(items) != len(wanted):
+        raise ValueError('Scored history objects missing from exact snapshot')
+    return items, int(scoring_only.sum())
+
+
 def run(artifact, output='chart_snapshot', restore_root=None):
     from v13_checkpoint import VerifiedObjectDownloader, materialize_one
     frame, manifest, receipt, replay = read_snapshot(artifact)
     out = Path(output);out.mkdir(parents=True, exist_ok=True)
     restore = Path(restore_root) if restore_root is not None else out
-    wanted = {'history/securities/'+hashlib.sha256(s.encode()).hexdigest()+'.parquet'
-              for s in frame.symbol}
-    items = [r for r in manifest['files'] if r['path'] in wanted]
-    if len(items) != len(wanted):
-        raise ValueError('Scored history objects missing from exact snapshot')
+    items, scoring_only_unavailable = exact_history_plan(frame, manifest)
     recovered = extract_delta_histories(artifact, manifest, items, restore)
     missing = []
     for item in items:
@@ -75,6 +84,7 @@ def run(artifact, output='chart_snapshot', restore_root=None):
     verify_forecast_export(frame, result)
     summary.update({'executed_at_utc':datetime.now(timezone.utc).isoformat(),
         'history_files_hash_verified':len(items), 'source_snapshot':receipt['snapshot'],
+        'scoring_only_history_not_stored_rows':scoring_only_unavailable,
         'source_manifest_sha256':receipt['manifest_sha256'],
         'source_manifest_kind':receipt['manifest_kind'],
         'source_remote_publication_confirmed':receipt.get('remote_publication_confirmed',True),

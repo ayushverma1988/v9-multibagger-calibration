@@ -175,6 +175,22 @@ class ChartEvidence(unittest.TestCase):
         b['high']=b.close+1;b['low']=b.close-1
         self.assertEqual(chart.rounded_handle_proxy(b)['chart_rounded_handle_proxy'],0.)
 
+    def test_scoring_only_view_never_uses_a_same_symbol_provider_cache(self):
+        with tempfile.TemporaryDirectory() as temp:
+            history = bars()
+            row = history.iloc[-1]
+            path = Path(temp)/(hashlib.sha256(b'ALPHA').hexdigest()+'.parquet')
+            history.to_parquet(path, index=False)
+            frame = pd.DataFrame([{'date':row.date, 'isin':row['isin'], 'symbol':'ALPHA',
+                                   'close':row.close, 'p6':.1, 'p12':.2, 'loss12':.3,
+                                   'scoring_price_history_source':'SINGLE_SOURCE_ADJUSTED_SCORING_ONLY'}])
+            original = frame.copy(deep=True)
+            result = chart.attach(frame, temp)
+            self.assertEqual(result.iloc[0].chart_history_status, 'SCORING_ONLY_HISTORY_NOT_STORED')
+            self.assertTrue(pd.isna(result.iloc[0].chart_atr14))
+            self.assertEqual(result.iloc[0].p6, .1)
+            pd.testing.assert_frame_equal(frame, original)
+
     def test_attach_clips_future_and_never_substitutes_date(self):
         b = bars()
         last = b.iloc[-2]

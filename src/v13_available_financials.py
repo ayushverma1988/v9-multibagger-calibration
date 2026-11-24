@@ -266,6 +266,11 @@ def _screen_enriched(scored, enriched, assessments, rsi_min):
         & col('p6').le(col('p12')+1e-12) & col('joint12').le(col('p12')+1e-12)
         & (col('joint12')+col('loss12')).le(1+1e-12))
     permitted = d.available_financial_tier.isin(QUALIFIED | {TURNAROUND, DISCOVERY})
+    # The current overlay can be less complete than the fixed-model financial
+    # check. An observed failure in either source cannot become eligible just
+    # because an alternate overlay omitted that check.
+    permitted &= ~d.get('financial_quality_status', pd.Series('', index=d.index)).eq('KNOWN_FINANCIAL_FAILURE')
+    permitted &= ~d.get('financial_tier', pd.Series('', index=d.index)).eq('known_failure')
     eligible = market & identity & probability_ok & permitted
     execution = d.get('evidence_status', pd.Series('', index=d.index)).eq('FINANCIAL_AND_EXECUTION_SUPPORTED')
     valuation = (d.get('earnings_scenario_status', pd.Series('', index=d.index)).eq('SCENARIO_NOT_PROBABILITY')
