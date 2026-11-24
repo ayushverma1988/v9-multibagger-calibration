@@ -1,0 +1,35 @@
+name: V13 current candidate original disclosures
+on:
+  push:
+    branches: [v13-gyftr-originals-20261124]
+permissions:
+  contents: read
+jobs:
+  originals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Capture original company disclosures
+        run: |
+          python - <<'PY'
+          import datetime,hashlib,json,pathlib,urllib.request
+          docs={
+            'gyftr_pnb_service_agreement.pdf':'https://nsearchives.nseindia.com/corporate/GYFTR_14082026114536_Intimation.pdf',
+            'gyftr_results_2026_09.pdf':'https://nsearchives.nseindia.com/corporate/GYFTR_13112026175839_Outcome_of_BM.pdf',
+            'gyftr_action_tesa_partnership.pdf':'https://nsearchives.nseindia.com/corporate/GYFTR_23092026150952_Intimation.pdf'}
+          out=pathlib.Path('disclosures');out.mkdir();receipts=[]
+          for name,url in docs.items():
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+              with urllib.request.urlopen(req,timeout=60) as response:data=response.read();status=response.status
+              if status!=200 or not data.startswith(b'%PDF-'):raise ValueError('Unexpected PDF '+name)
+              (out/name).write_bytes(data)
+              receipts.append({'filename':name,'source_url':url,'status':status,'bytes':len(data),
+                'sha256':hashlib.sha256(data).hexdigest(),'retrieved_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                'publication_intraday_time':'UNKNOWN'})
+          (out/'receipt.json').write_text(json.dumps(receipts,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-gyftr-original-disclosures-20261124
+          path: disclosures/
+          retention-days: 7
