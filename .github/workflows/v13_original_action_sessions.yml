@@ -1,0 +1,35 @@
+name: V13 original action-date NSE sessions
+on:
+  push:
+    branches: [v13-action-sessions-20261124]
+permissions:
+  contents: read
+jobs:
+  sessions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Retrieve original unadjusted sessions
+        run: |
+          python - <<'PY'
+          import datetime,hashlib,json,pathlib,urllib.request,zipfile,io
+          out=pathlib.Path('sessions');out.mkdir()
+          receipts=[]
+          for day in ['20261103','20261104','20261112','20261113']:
+              url='https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_'+day+'_F_0000.csv.zip'
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+              with urllib.request.urlopen(req,timeout=60) as response: data=response.read();status=response.status
+              if status!=200:raise ValueError('Unexpected NSE response '+day)
+              with zipfile.ZipFile(io.BytesIO(data)) as z:
+                  if len(z.namelist())!=1:raise ValueError('Unexpected NSE archive '+day)
+              name='nse_'+day+'.zip';(out/name).write_bytes(data)
+              receipts.append({'filename':name,'source_url':url,'status':status,'bytes':len(data),
+                'sha256':hashlib.sha256(data).hexdigest(),'retrieved_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                'original_unadjusted':True,'no_action_interval_certified':False})
+          (out/'receipt.json').write_text(json.dumps(receipts,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v13-action-original-nse-sessions-20261124
+          path: sessions/
+          retention-days: 7
