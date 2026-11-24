@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 30bd1d6945bde4e85fdd926f3d40b7f34587884f
+          ref: b8fb7c8ed88092b093bb9139e68b3b471f819e34
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
