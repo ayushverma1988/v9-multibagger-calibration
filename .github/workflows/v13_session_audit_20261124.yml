@@ -1,0 +1,44 @@
+name: V13 original NSE session evidence
+on:
+  push:
+    branches: [v13-public-session-audit-20261124]
+permissions:
+  contents: read
+jobs:
+  originals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Retrieve dated public original evidence
+        run: |
+          python - <<'PY'
+          import datetime,hashlib,json,pathlib,urllib.request,zipfile,io
+          output=pathlib.Path('public_session');output.mkdir()
+          sources=[
+            ('nse_20261123.zip','https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20261123_F_0000.csv.zip'),
+            ('nse_2026_holidays.pdf','https://archives.nseindia.com/content/circulars/CMTR71775.pdf')]
+          receipts=[]
+          for name,url in sources:
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.nseindia.com/'})
+                  with urllib.request.urlopen(req,timeout=30) as r: raw=r.read();status=r.status
+                  if name.endswith('.zip'):
+                      with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                          if z.testzip() is not None or len(z.namelist())!=1:raise ValueError('Invalid exchange archive')
+                  elif not raw.startswith(b'%PDF-'):raise ValueError('Invalid exchange PDF')
+                  (output/name).write_bytes(raw)
+                  receipts.append({'filename':name,'url':url,'status':status,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),
+                     'retrieved_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                     'retrospective_monitoring_only':True,'source_day_cutoff_compliance_claimed':False})
+              except Exception as e:
+                  receipts.append({'filename':name,'url':url,'error_type':type(e).__name__,'retrieved_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()})
+                  if getattr(e,'code',None) in (401,403,429):break
+          (output/'receipt.json').write_text(json.dumps(receipts,indent=2))
+          print(json.dumps(receipts))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v13-nse-original-session-20261123
+          path: public_session/
+          retention-days: 7
