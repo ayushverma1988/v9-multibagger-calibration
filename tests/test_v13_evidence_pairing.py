@@ -156,6 +156,7 @@ class EvidencePairing(unittest.TestCase):
                 # inference and research gates have their own real-head tests.
                 stack.enter_context(patch('v13_prediction_replay.snapshot',return_value={'replay_verified':True}))
                 stack.enter_context(patch('v13_research_selection.export',return_value={}))
+                stack.enter_context(patch('v13_registration_time.registration_time_gate',return_value={'passed':True,'status':'TEST_VERIFIED'}))
                 result=runner.run(root,seed,'2026-10-12',local=True)
             self.assertEqual(old.read_bytes(),original);self.assertEqual(result['paired_registration']['rows_per_model'],2)
             self.assertLess(phases.index('collect_histories'),phases.index('collect_financials'))

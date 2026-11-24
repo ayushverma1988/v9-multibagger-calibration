@@ -185,13 +185,13 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         if len(current)==1:
             row=current.iloc[0].to_dict()
             original_receipt=None;original_hash=None
-            if (row.get('scoring_liquidity_status')=='BELOW_25_LAKH_OUTSIDE_TRAINING_BAND'
-                    and fallback_proof is None):
+            if fallback_proof is None:
                 hashes=set(bars.source_sha256) if 'source_sha256' in bars else set()
                 original_hash=next(iter(hashes)) if len(hashes)==1 else None
                 original_receipt=fallback_history_receipts.get((bars.symbol.iloc[0],bars['isin'].iloc[0],original_hash))
                 close=(pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)).tz_convert('UTC')
-                if original_receipt is None or original_receipt<close:
+                if (row.get('scoring_liquidity_status')=='BELOW_25_LAKH_OUTSIDE_TRAINING_BAND'
+                        and (original_receipt is None or original_receipt<close)):
                     low_liquidity_timing_blocked+=1
                     continue
             row['scoring_price_history_source']=fallback_proof['source_status'] if fallback_proof else 'ORIGINAL_ADJUSTED_PROVIDER'
@@ -262,7 +262,8 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         if c not in d:d[c]=np.nan
     # Check raw latest OHLC and volume against whole-market official data.
     o=pd.read_parquet(root/'official'/(asof+'_official_market.parquet'))
-    m=d.merge(o[['isin','symbol','series','open','high','low','close','volume','source_status','source_sha256']],on='isin',suffixes=('','_official'),validate='1:1')
+    o['official_first_retrieved_utc']=o.get('first_retrieved_utc',None)
+    m=d.merge(o[['isin','symbol','series','open','high','low','close','volume','source_status','source_sha256','official_first_retrieved_utc']],on='isin',suffixes=('','_official'),validate='1:1')
     funnel['official_identity_absent']=len(d)-len(m)
     funnel['official_invalid_session']=int(m.source_status.ne('VALID_POSITIVE_VOLUME_SESSION').sum())
     funnel['symbol_mismatch']=int(m.symbol.ne(m.symbol_official).sum())
@@ -271,6 +272,17 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     valid=m.symbol.eq(m.symbol_official)&m.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&m.volume.eq(m.volume_official)
     for c in ('open','high','low','close'):valid&=(m[c]-m[c+'_official']).abs().le(.011)
     d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official
+    # This receipt was fully validated (hashes, identities and capture times)
+    # by breadth_fallback.load before it was made available here.
+    if fallback is not None:
+        receipt=fallback[1]
+        clocks=[receipt['first_retrieved_utc'],receipt['nse_original']['first_retrieved_utc'],
+          receipt['nse_calendar']['first_retrieved_utc'],receipt['nse_corporate_actions']['first_retrieved_utc']]
+        if receipt.get('previous_year'):clocks.append(receipt['previous_year']['first_retrieved_utc'])
+        d['scoring_snapshot_ready_utc']=max(pd.Timestamp(x) for x in clocks).isoformat()
+        d['scoring_snapshot_sha256']=receipt['sha256']
+        d['scoring_snapshot_nse_sha256']=receipt['nse_original']['sha256']
+        d['scoring_snapshot_nse_retrieved_utc']=receipt['nse_original']['first_retrieved_utc']
     funnel['single_source_scoring_only']['scored_after_official_reconciliation']=int(d.scoring_price_history_source.eq('SINGLE_SOURCE_ADJUSTED_SCORING_ONLY').sum())
     funnel['liquidity_research_scoring']={
       'below_25_lakh_outside_training_band':int(d.scoring_liquidity_status.eq('BELOW_25_LAKH_OUTSIDE_TRAINING_BAND').sum()),
@@ -564,13 +576,20 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
                     report['two_x_research']={'status':'BLOCKED_DIAGNOSTICS_ONLY','error':str(exc)[:200]}
                 coverage_gate=paired_registration_coverage_gate(root,len(frame))
                 report['paired_registration_coverage_gate']=coverage_gate
-                if coverage_gate['passed']:
+                from v13_registration_time import registration_time_gate
+                time_gate=registration_time_gate(frame)
+                report['paired_registration_time_gate']=time_gate
+                if coverage_gate['passed'] and time_gate['passed']:
                     pair=register_pair(frame,a,b,hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest(),sha,root)
                     export_watchlists(root,pair)
                     report['paired_registration']={k:v for k,v in pair.items() if k!='isins'}
                     report['champion_registry']=pair['champion_registry'];report['challenger_registry']=pair['challenger_registry']
-                else:
+                elif not coverage_gate['passed']:
                     report['paired_registration']={'status':'BLOCKED_LOW_CURRENT_COVERAGE',**coverage_gate}
+                    report['priority_research']=unavailable_priority(root,asof,'BLOCKED_NO_NEW_REGISTERED_PAIR')
+                else:
+                    report['paired_registration']={'status':'BLOCKED_UNPROVEN_SOURCE_TIME',**time_gate}
+                    report['priority_research']=unavailable_priority(root,asof,'BLOCKED_UNPROVEN_SOURCE_TIME')
             else:report['paired_registration']={'status':'BLOCKED_NO_COMPLETE_CHALLENGER'}
         try:
             from v13_example_history_audit import audit as audit_examples
@@ -615,6 +634,12 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             paired=paired_observations(pd.DataFrame(observations),challenger_sha,comparison_contract=COMPARISON_CONTRACT)
             paired.to_parquet(root/'paired_mature_observations.parquet',index=False,compression='zstd',compression_level=9)
             report['promotion']=promotion_gate(paired,freeze['frozen_at_utc'],source_complete=promotion_coverage(root,observed,challenger_sha),require_baseline=True)
+            # Existing values are immutable. This cohort is held from future
+            # promotion evidence until its complete source clocks are audited.
+            held='c5a5521e8f213460f94be0552ec3d469453ff1059af5f28a0720714823a50741'
+            if 'cohort_id' in observed and observed.cohort_id.eq(held).any():
+                report['promotion']['promote']=False
+                report['promotion'].setdefault('reasons',[]).append('cohort_source_time_integrity_review_pending')
             if report['promotion']['promote']:
                 backup=root/'retired_models'/hashlib.sha256((root/'active_heads.joblib').read_bytes()).hexdigest()
                 backup.parent.mkdir(exist_ok=True);shutil.copy2(root/'active_heads.joblib',backup)
