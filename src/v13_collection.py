@@ -14,26 +14,11 @@ import requests
 from v13_price_policy import valid_price
 import time
 from v13_parallel_collection import source_access_stop
+from v13_filing_batch import financial_wide, partition as partition_filings
 
 def _rate_limit_observed(errors):
     """Report an actual provider stop, not a configured possibility."""
     return any(source_access_stop(item) for item in errors)
-
-def financial_wide(extra):
-    keys=['symbol','security_isin','reporting_mode','period_kind','period_end','available_at_utc','source_sha256']
-    x=extra.drop_duplicates(keys+['metric','value'])
-    if (x.groupby(keys+['metric'],dropna=False).value.nunique()>1).any():raise ValueError('Conflicting original facts')
-    w=x.pivot(index=keys,columns='metric',values='value').reset_index()
-    # Preserve source URL, explicit economic start and retrieval time through
-    # the pivot; comparative periods retain their original document identity.
-    meta=[c for c in ('period_start','source_url','first_retrieved_utc','original_document_symbol',
-      'original_publication_utc','identity_mapping_source_sha256','identity_mapping_first_seen_utc','identity_source') if c in x]
-    if meta:
-        m=x[keys+meta].drop_duplicates()
-        if m.duplicated(keys).any():raise ValueError('Conflicting financial source metadata')
-        w=w.merge(m,on=keys,validate='1:1')
-    w['period']=pd.to_datetime(w.period_end);w['available']=pd.to_datetime(w.available_at_utc,utc=True,format='mixed')
-    return w
 
 def merge_financial_versions(previous,fresh):
     # A later identity review must not erase an already valid, earlier ISIN-
@@ -492,6 +477,8 @@ def collect_financials(root,asof,budget=800,workers=4,seconds=900):
     completion=pd.concat([completion,public_completion],ignore_index=True)
     queue=pd.concat([completion,priority_queue(remainder,planning,asof,max(0,budget-len(completion)))],ignore_index=True)
     rows=[];errors=[];started=time.monotonic();attempted=0
+    conflict_count=0;clean_fact_count=0;settled=set()
+    source_records={}
     def fetch(r):
         try:
             store=Store(root/'filing_raw'/sha(r['available_at_utc'].encode()))
@@ -510,21 +497,38 @@ def collect_financials(root,asof,budget=800,workers=4,seconds=900):
     for r,result in bounded_map(queue.drop_duplicates('version_key').to_dict('records'),fetch,workers=workers,seconds=seconds):
         attempted+=1
         if result.get('facts'):
-            rows.extend(result['facts']);accepted.add(r['version_key']);parsed.add(r['version_key'])
-            journal.pop(r['version_key'],None)
+            rows.extend(result['facts'])
+            source_records[r['version_key']]=r
         else:
             errors.append({'source_url':r['source_url'],'error':result['error']})
             journal[r['version_key']]=note_failure(result['error'],datetime.now(timezone.utc),parser_signature,identity_signature.get(r['symbol']))
         attempts[r['version_key']]=asof
         if attempted%100==0:atomic_json(retry_path,journal)
     if rows:
-        fresh=financial_wide(pd.DataFrame(rows));path=root/'financial_wide.parquet'
-        previous=pd.read_parquet(path) if path.exists() else pd.DataFrame()
-        combined=merge_financial_versions(previous,fresh)
-        combined.to_parquet(path,index=False,compression='zstd',compression_level=9)
-    accepted_path.write_text(json.dumps(sorted(accepted)))
-    parsed_path.write_text(json.dumps(sorted(parsed)))
-    attempts_path.write_text(json.dumps(attempts))
+        fresh,settled,conflicts,clean_fact_count=partition_filings(pd.DataFrame(rows))
+        conflict_count=len(conflicts)
+        for key,contexts in conflicts.items():
+            record=source_records[key]
+            error='Conflicting original financial facts or source metadata; document review required'
+            failure=note_failure(error,datetime.now(timezone.utc),parser_signature,identity_signature.get(record['symbol']))
+            journal[key]={**failure,'source_url':record['source_url'],'publication_utc':record['available_at_utc'],
+                          'contexts':contexts}
+            errors.append({'source_url':record['source_url'],'error':error,'contexts':contexts})
+        if not fresh.empty:
+            path=root/'financial_wide.parquet'
+            combined=merge_financial_versions(wide,fresh)
+            temporary=path.with_suffix('.parquet.tmp')
+            try:
+                combined.to_parquet(temporary,index=False,compression='zstd',compression_level=9)
+                temporary.replace(path)
+            finally:
+                temporary.unlink(missing_ok=True)
+            # Write version markers only after the validated parquet is in place.
+            accepted.update(settled);parsed.update(settled)
+            for key in settled:journal.pop(key,None)
+    atomic_json(accepted_path,sorted(accepted))
+    atomic_json(parsed_path,sorted(parsed))
+    atomic_json(attempts_path,attempts)
     atomic_json(retry_path,journal)
     current=pd.read_parquet(root/'financial_wide.parquet') if (root/'financial_wide.parquet').exists() else pd.DataFrame()
     after=financial_profile(balancing_quarters(current),master,scoreable_symbols,asof)
@@ -534,7 +538,10 @@ def collect_financials(root,asof,budget=800,workers=4,seconds=900):
        'fixed_cohort_comparison':comparison,'pool_policy':'50_PERCENT_BASIC_20_OWNER_15_BASIS_PUBLIC_REMAINDER',
        'source_workers':max(1,min(int(workers),8)),'launch_interval_seconds':.25,
        'source_rate_limited':_rate_limit_observed(errors),'frozen_forecasts_changed':False})
-    return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':len(rows),'errors':errors,
+    return {'requested':attempted,'remaining':int(len(cat[~cat.version_key.isin(accepted)])),'accepted_total':len(accepted),'new_facts':clean_fact_count,'errors':errors,
+      'validated_filing_versions':len(settled),'quarantined_filing_versions':conflict_count,
+      'quarantined_fact_rows':len(rows)-clean_fact_count,'versions_pending_current_parser':int((~cat.version_key.isin(parsed)).sum()),
+      'filing_batch_status':('PARTIAL_SOURCE_CONFLICT' if settled else 'NO_VALIDATED_NEW_FILINGS_SOURCE_CONFLICT') if conflict_count else 'NO_SOURCE_CONFLICT_DETECTED_IN_BATCH',
       'retry_queue':retry_audit,'budget':budget,'seconds_budget':seconds,
       'fixed_public_cohort_recovery':comparison,
       'completion_bundle_filings':len(completion),'completion_bundle_issuers':int(completion.symbol.nunique()),

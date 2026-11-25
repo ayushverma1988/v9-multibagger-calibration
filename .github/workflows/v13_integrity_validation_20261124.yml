@@ -1,7 +1,7 @@
 name: V13 Integrity Repair Validation
 on:
   push:
-    branches: [v13-integrity-repair-20261124]
+    branches: [v13-integrity-repair-20261124, v13-filing-repair-20261125]
 permissions:
   contents: read
 jobs:
