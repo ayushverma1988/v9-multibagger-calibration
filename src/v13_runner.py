@@ -100,7 +100,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         (root/'evidence').mkdir(exist_ok=True)
         receipt_path=root/'evidence'/('breadth_fallback_receipt_'+asof+'_'+fallback[1]['sha256'][:16]+'.json')
         if not receipt_path.exists():receipt_path.write_text(json.dumps(fallback[1],indent=2)+'\n')
-    fallback_groups={k:g for k,g in fallback[0].groupby('symbol',sort=False)} if fallback is not None else {}
+    fallback_groups={k:g for k,g in fallback[0].groupby(['symbol','isin'],sort=False)} if fallback is not None else {}
     # The newly relaxed liquidity path also needs an actually timely original
     # provider receipt, even when there is no public fallback snapshot.
     fallback_history_receipts=breadth_fallback.timely_history_receipts(root,asof)
@@ -112,11 +112,12 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     primary=pd.read_parquet(root/'official'/(asof+'_official_market.parquet')) if primary_volume_research else pd.DataFrame()
     volume_overlays=0
     from v13_history_views import histories
-    wanted=None
+    wanted=None;master_series=None
     if (root/'universe.parquet').exists():
         u=pd.read_parquet(root/'universe.parquet')
         symbol_col='nse_current_symbol' if 'nse_current_symbol' in u else 'symbol'
         wanted=set(zip(u['isin'],u[symbol_col]))
+        if 'nse_current_series' in u:master_series=u.set_index('isin').nse_current_series
     canonical,identity_audit=histories(root/'history'/'securities',wanted)
     funnel['history_files']=identity_audit['files']
     funnel['conflicting_history_identities']=len(identity_audit['quarantined'])
@@ -130,17 +131,54 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
         sessions,originals=fallback_official_cache[key]
         return breadth_fallback.single_source_view(group,originals,sessions,asof,symbol,isin,
           fallback[1]['sha256'],fallback[1].get('source_day_action_symbols',()),reference)
+    same_day_recovered=0;timing_held=[]
     for path,bars in canonical.values():
         bars=bars.copy();bars.date=pd.to_datetime(bars.date);bars=bars[bars.date.ge(low)]
         if bars.empty:funnel['empty_after_window']+=1;continue
         history[bars['isin'].iloc[0]]=bars
         fallback_proof=None
+        if fallback is not None and bars.date.max()==pd.Timestamp(asof):
+            # A fresh row may have been downloaded after the cutoff. Use a
+            # fully witnessed alternate view if it exists. Do not stamp the
+            # unproven provider with the alternate's clock or use it for outcomes.
+            symbol=bars.symbol.iloc[0];isin=bars['isin'].iloc[0]
+            hashes=set(bars.source_sha256) if 'source_sha256' in bars else set()
+            raw_digest=next(iter(hashes)) if len(hashes)==1 else None
+            stamp=fallback_history_receipts.get((symbol,isin,raw_digest))
+            close=pd.Timestamp(asof,tz='Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
+            if stamp is None or stamp<close:
+                single_attempted+=1
+                try:
+                    if (symbol,isin) not in fallback_groups:raise ValueError('No timed alternative for this identity')
+                    original_today=bars.iloc[-1]
+                    daykey=str(pd.Timestamp(asof).date())
+                    if daykey not in fallback_official_cache:
+                        fallback_official_cache[daykey]=breadth_fallback._calendar_and_official(root,pd.Timestamp(asof),asof,fallback[1],fallback[2])
+                    official_day=fallback_official_cache[daykey][1]
+                    match=official_day[official_day['isin'].eq(isin)&official_day.symbol.eq(symbol)]
+                    if len(match)!=1:raise ValueError('Ambiguous current official identity')
+                    exchange=match.iloc[0]
+                    if (original_today.get('series',exchange.series)!=exchange.series or
+                        any(not np.isfinite(float(original_today[c])) or abs(float(original_today[c])-float(exchange[c]))>.011 for c in ('open','high','low','close')) or
+                        original_today.volume!=exchange.volume):raise ValueError('Observed same-day OHLCV or series conflict')
+                    prior=breadth_fallback.prior_history(fallback_prior_dir,isin,symbol,fallback_history_receipts,prior_index)
+                    # An already-observed contradiction must not become eligible
+                    # via a second path. Compare for exclusion only; never use
+                    # late values as model features or as timing evidence.
+                    compare=prior if prior is not None else bars
+                    bars,fallback_proof=single_source(fallback_groups[(symbol,isin)],symbol,isin,compare)
+                    fallback_proof['reference_status']='EARLIER_RECEIPT_COMPARED' if prior is not None else 'LATER_HISTORY_CONFLICT_CHECK_ONLY'
+                    single_accepted+=1;same_day_recovered+=1
+                except (ValueError,KeyError,TypeError,OSError) as exc:
+                    reason=str(exc)[:180];single_blocked[reason]=single_blocked.get(reason,0)+1
+                    timing_held.append({'isin':isin,'symbol':symbol,'reason':reason})
+                    continue
         if fallback is not None and bars.date.max()<pd.Timestamp(asof):
             fallback_attempted+=1
             provider_clock=None; reference=None
             try:
                 symbol=bars.symbol.iloc[0];isin=bars['isin'].iloc[0]
-                if symbol not in fallback_groups:raise ValueError('Alternative symbol missing')
+                if (symbol,isin) not in fallback_groups:raise ValueError('Alternative symbol missing')
                 source_hashes=set(bars.source_sha256)
                 provider_hash=next(iter(source_hashes)) if len(source_hashes)==1 else None
                 provider_clock=fallback_history_receipts.get((symbol,isin,provider_hash))
@@ -157,7 +195,7 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
                 if key not in fallback_official_cache:
                     fallback_official_cache[key]=breadth_fallback._calendar_and_official(root,start,asof,fallback[1],fallback[2])
                 sessions,originals=fallback_official_cache[key]
-                bars,fallback_proof=breadth_fallback.extend(bars,fallback_groups[symbol],originals,sessions,asof,symbol,isin,fallback[1]['sha256'],fallback[1].get('source_day_action_symbols',()))
+                bars,fallback_proof=breadth_fallback.extend(bars,fallback_groups[(symbol,isin)],originals,sessions,asof,symbol,isin,fallback[1]['sha256'],fallback[1].get('source_day_action_symbols',()))
                 fallback_proof['provider_source_sha256']=provider_hash
                 fallback_proof['provider_first_retrieved_utc']=provider_clock.isoformat()
                 fallback_accepted+=1
@@ -168,10 +206,10 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
                 # than 126 overlapping sessions. Known disagreements remain
                 # quarantined; a later provider observation is never used.
                 if reason in ('No pre-cutoff original provider adjustment receipt',
-                              'Insufficient independent adjusted-close overlap') and symbol in fallback_groups:
+                              'Insufficient independent adjusted-close overlap') and (symbol,isin) in fallback_groups:
                     single_attempted+=1
                     try:
-                        bars,fallback_proof=single_source(fallback_groups[symbol],symbol,isin,reference)
+                        bars,fallback_proof=single_source(fallback_groups[(symbol,isin)],symbol,isin,reference)
                         fallback_proof['provider_source_sha256']=provider_hash if reference is not None else None
                         fallback_proof['provider_first_retrieved_utc']=provider_clock.isoformat() if reference is not None else None
                         single_accepted+=1;fallback_accepted+=1
@@ -212,10 +250,10 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     # do not write those histories or add them to outcome adjudication.
     if fallback is not None and wanted is not None:
         for isin,symbol in sorted(wanted-set(canonical)):
-            if (isin,symbol) in identity_audit['quarantined'] or symbol not in fallback_groups:continue
+            if (isin,symbol) in identity_audit['quarantined'] or (symbol,isin) not in fallback_groups:continue
             single_attempted+=1
             try:
-                bars,proof=single_source(fallback_groups[symbol],symbol,isin)
+                bars,proof=single_source(fallback_groups[(symbol,isin)],symbol,isin)
                 single_accepted+=1
                 d=features.relax_scoring_liquidity(features.daily_features(bars,asof))
                 current=d[d.date.eq(pd.Timestamp(asof))&d.feature_eligible]
@@ -240,7 +278,9 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     funnel['scoring_only_fallback']={**fallback_status,'attempted':fallback_attempted,'accepted_before_feature_gate':fallback_accepted,
       'blocked_reasons':fallback_blocked,'original_histories_unchanged':True,'entry_or_outcome_certified':False}
     funnel['single_source_scoring_only']={'attempted':single_attempted,'accepted_before_feature_gate':single_accepted,
-      'new_identities_without_provider_history':single_new_identity,'blocked_reasons':single_blocked,
+      'new_identities_without_provider_history':single_new_identity,
+      'same_day_unproven_original_recovered':same_day_recovered,'only_late_or_conflicting_inputs':timing_held,
+      'blocked_reasons':single_blocked,
       'adjustment_independently_verified':False,'entry_or_outcome_certified':False}
     funnel['low_liquidity_original_timing_blocked']=low_liquidity_timing_blocked
     if not rows:
@@ -271,6 +311,9 @@ def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=Non
     funnel['OHLC_mismatch']=int(pd.concat([(m[c]-m[c+'_official']).abs().gt(.011) for c in ('open','high','low','close')],axis=1).any(axis=1).sum())
     valid=m.symbol.eq(m.symbol_official)&m.source_status.eq('VALID_POSITIVE_VOLUME_SESSION')&m.volume.eq(m.volume_official)
     for c in ('open','high','low','close'):valid&=(m[c]-m[c+'_official']).abs().le(.011)
+    if master_series is not None:
+        series_col='series_official' if 'series_official' in m else 'series'
+        matches=m['isin'].map(master_series).eq(m[series_col]);funnel['master_series_mismatch']=int((~matches).sum());valid&=matches
     d=m.loc[valid].copy();d['source_close_INR']=d.close_official;d['official_source_sha256']=d.source_sha256_official
     # This receipt was fully validated (hashes, identities and capture times)
     # by breadth_fallback.load before it was made available here.

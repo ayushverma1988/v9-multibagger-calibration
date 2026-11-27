@@ -9,6 +9,7 @@ from urllib.request import Request,urlopen
 from zoneinfo import ZoneInfo
 import hashlib,json,sys,time
 import io,zipfile
+from v13_breadth_primary import read_primary, retain, late_reference
 
 import pandas as pd
 
@@ -71,13 +72,20 @@ def capture(asof,folder):
           'publisher_commit_utc':old_commit['date'],'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
           'sha256':hashlib.sha256(old_raw).hexdigest(),'bytes':len(old_raw)}
     nse_url='https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_'+asof.replace('-','')+'_F_0000.csv.zip'
-    nse_raw=get(nse_url,10_000_000)
+    # Reuse only a validated, same-session original with its actual capture time.
+    primary=read_primary(asof,folder/'partial_primary')
+    if primary is None:
+        nse_raw=get(nse_url,10_000_000)
+        nse_time=datetime.now(timezone.utc).isoformat()
+    else:
+        nse_raw,primary_receipt=primary
+        nse_time=primary_receipt['first_retrieved_utc']
     if not zipfile.is_zipfile(io.BytesIO(nse_raw)):raise ValueError('Current NSE original is not a ZIP')
     with zipfile.ZipFile(io.BytesIO(nse_raw)) as archive:
         if archive.testzip() is not None or not any(n.lower().endswith('.csv') for n in archive.namelist()):
             raise ValueError('Current NSE original archive is invalid')
     (folder/'nse_source_session.zip').write_bytes(nse_raw)
-    receipt['nse_original']={'source_url':nse_url,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),
+    receipt['nse_original']={'source_url':nse_url,'first_retrieved_utc':nse_time,
       'sha256':hashlib.sha256(nse_raw).hexdigest(),'bytes':len(nse_raw)}
     from v13_breadth_fallback import NSE_CALENDAR_URL
     calendar_raw=get(NSE_CALENDAR_URL,2_000_000)
@@ -111,11 +119,14 @@ def main():
     asof=local.date().isoformat()
     start=pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)
     end=pd.Timestamp(asof).tz_localize('Asia/Kolkata')+pd.Timedelta(hours=21,minutes=58)
-    last_error='Not attempted'
+    # Reserve time to write failure evidence before the 25-minute job limit.
+    end=min(end,pd.Timestamp.now(tz='Asia/Kolkata')+pd.Timedelta(minutes=12))
+    last_error='Outside the post-close capture window'
     if pd.Timestamp.now(tz='Asia/Kolkata')<start:
         last_error='Exchange session has not closed'
     while start<=pd.Timestamp.now(tz='Asia/Kolkata')<end:
         try:
+            retain(asof,folder/'partial_primary',get)
             receipt=capture(asof,folder)
             print(json.dumps({'status':'CAPTURED','source_asof':asof,'sha256':receipt['sha256'],'first_retrieved_utc':receipt['first_retrieved_utc']}),flush=True)
             return 0
@@ -131,4 +142,11 @@ def main():
     return 0
 
 
-if __name__=='__main__':sys.exit(main())
+if __name__=='__main__':
+    if sys.argv[1:]==['--late-nse-reference']:
+        obj=late_reference(Path('v13_late_nse_reference'),get)
+        print(json.dumps({'scope':obj['scope'],'source_asof':obj['source_asof'],'rows':obj['nse_rows']}))
+    elif sys.argv[1:]:
+        sys.exit('Unknown command')
+    else:
+        sys.exit(main())
