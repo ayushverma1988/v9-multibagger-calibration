@@ -10,9 +10,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/v13_breadth_capture.yml']
+    paths: ['.github/workflows/v13_breadth_capture.yml', 'operational/v13_public_input_receipts/*.json']
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: v13-public-breadth-capture
   cancel-in-progress: false
@@ -23,13 +24,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 9547c16ba171f3595ceb88e7038314faa21c3e20
+          ref: a0325a418e7136441ef880979aead3d313df9268
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install numpy==2.3.5 pandas==2.2.3 pyarrow==25.0.1
+      - name: Read a public capture witnessed by this push
+        id: handoff
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const commit = await github.rest.repos.getCommit({...context.repo, ref: context.sha});
+            const files = (commit.data.files || []).filter(f => f.status === 'added' && /^operational\/v13_public_input_receipts\/\d{4}-\d{2}-\d{2}\.json$/.test(f.filename));
+            if (files.length !== 1) return;
+            const run = await github.rest.actions.getWorkflowRun({...context.repo, run_id: context.runId});
+            if (run.data.head_sha !== context.sha || run.data.event !== 'push' || run.data.head_branch !== 'main') return;
+            const reply = await github.rest.repos.getContent({...context.repo, path: files[0].filename, ref: context.sha});
+            if (reply.data.size > 850000 || reply.data.encoding !== 'base64') return;
+            const bytes = Buffer.from(reply.data.content, 'base64');
+            const packet = JSON.parse(bytes.toString('utf8'));
+            if (!files[0].filename.endsWith('/' + packet.receipt.source_asof + '.json')) return;
+            fs.writeFileSync('v13_capture_handoff.json', bytes);
+            core.setOutput('created', run.data.created_at);
+      - name: Verify the witnessed originals and the immutable adjusted series
+        if: steps.handoff.outputs.created != ''
+        continue-on-error: true
+        env:
+          PYTHONPATH: src
+          WITNESSED_AT: ${{ steps.handoff.outputs.created }}
+        run: python -m v13_breadth_handoff --packet v13_capture_handoff.json --witness "$WITNESSED_AT" --commit "$GITHUB_SHA" --out v13_public_breadth_snapshot
       - name: Capture original public bytes before the information cutoff
+        if: hashFiles('v13_public_breadth_snapshot/receipt.json') == ''
         env:
           PYTHONPATH: src
         run: python -m v13_breadth_capture
@@ -54,6 +82,7 @@ jobs:
             v13_public_breadth_snapshot/nse_holiday_calendar.json
             v13_public_breadth_snapshot/nse_corporate_actions.json
             v13_public_breadth_snapshot/receipt.json
+            v13_public_breadth_snapshot/public_handoff_witness.json
           retention-days: 30
       - name: Keep the exact reason and any primary original when no timely bundle exists
         if: ${{ !cancelled() && steps.snapshot.outputs.asof == '' }}
@@ -70,6 +99,12 @@ jobs:
         env:
           PYTHONPATH: src
         run: python -m v13_breadth_capture --late-nse-reference
+      - name: Compare late whole-market prices to one dated public source
+        if: ${{ !cancelled() && hashFiles('v13_late_nse_reference/primary.json') != '' }}
+        continue-on-error: true
+        env:
+          PYTHONPATH: src
+        run: python -m v13_late_bulk_reference
       - name: Keep late NSE originals outside the prospective artifact namespace
         if: ${{ !cancelled() && hashFiles('v13_late_nse_reference/primary.json') != '' }}
         uses: actions/upload-artifact@v4
