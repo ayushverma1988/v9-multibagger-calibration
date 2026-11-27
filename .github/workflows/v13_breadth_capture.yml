@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 66fec240224585c9db4e6ef6ef898cc99d0272ad
+          ref: 9547c16ba171f3595ceb88e7038314faa21c3e20
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -55,3 +55,26 @@ jobs:
             v13_public_breadth_snapshot/nse_corporate_actions.json
             v13_public_breadth_snapshot/receipt.json
           retention-days: 30
+      - name: Keep the exact reason and any primary original when no timely bundle exists
+        if: ${{ !cancelled() && steps.snapshot.outputs.asof == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-capture-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            v13_public_breadth_snapshot/unavailable.json
+            v13_public_breadth_snapshot/partial_primary/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Recover the most recent closed NSE session for retrospective checks
+        if: ${{ !cancelled() && steps.snapshot.outputs.asof == '' && (github.event_name != 'schedule' || github.event.schedule == '10 16 * * 1-5') }}
+        env:
+          PYTHONPATH: src
+        run: python -m v13_breadth_capture --late-nse-reference
+      - name: Keep late NSE originals outside the prospective artifact namespace
+        if: ${{ !cancelled() && hashFiles('v13_late_nse_reference/primary.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-late-nse-reference-${{ github.run_id }}-${{ github.run_attempt }}
+          path: v13_late_nse_reference/
+          if-no-files-found: error
+          retention-days: 14
