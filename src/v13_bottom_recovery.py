@@ -22,8 +22,8 @@ def select(scored):
         return pd.to_numeric(d.get(name, pd.Series(np.nan, index=d.index)), errors='coerce')
 
     financial = pd.DataFrame({k: col(k) for k in REQUIRED}, index=d.index)
-    bad_financial = pd.Series([financial_quality(r)['status'] == 'KNOWN_FINANCIAL_FAILURE'
-                               for r in financial.to_dict('records')], index=d.index)
+    bad_financial = pd.Series([financial_quality(r,source_asof=day)['status'] == 'KNOWN_FINANCIAL_FAILURE'
+                               for r,day in zip(financial.to_dict('records'),d.get('date',[None]*len(d)))], index=d.index,dtype=bool)
     owner_bad = col('owner_PAT_yoy').lt(0) | col('owner_PAT_margin').le(0)
     known_owner_failure = d.get('current_owner_profit_status', pd.Series('', index=d.index)).eq(
         'UNKNOWN_OWNER_PLUS_MINORITY_DOES_NOT_RECONCILE_TOTAL_PAT')

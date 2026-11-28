@@ -2,6 +2,7 @@
 import hashlib,json
 from pathlib import Path
 import numpy as np,pandas as pd
+import v13_screening_policy as screening
 from v13_available_financials import screen as available_screen,screen_many,validate_exact_replay
 
 POLICY='V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103'
@@ -34,7 +35,9 @@ def _export_one(scored,wide,root,replay_receipt,rsi_min=70,assessed=None):
     records=json.loads(d[d.priority_rank.notna()].sort_values('priority_rank')[cols].to_json(orient='records',double_precision=15))
     sensitivities={str(x):int((d.available_research_eligible&d.loss12.le(x)).sum()) for x in [.95,.8,.7,.6,.5]}
     policy=POLICY if rsi_min==70 else 'V13_SIX_MONTH_PRIORITY_RSI_GT50_NO_PRICE_BAND_20261112'
-    obj={'policy':policy,'source_asof':str(pd.Timestamp(d.date.max()).date()),'prediction_replay':replay_receipt,
+    source_asof=str(pd.Timestamp(d.date.max()).date())
+    obj={'policy':policy,'source_asof':source_asof,'prediction_replay':replay_receipt,
+      'annual_CFO_PAT_minimum':screening.annual_cfo_pat_min(source_asof),
       'RSI_rule':f'strict >{rsi_min}; simple rolling 14 sessions','rsi_strictly_greater_than':rsi_min,'price_band':None,'DMA_band_optional':True,
       'ranking_weights':WEIGHTS,'ranking_score_is_probability':False,'accuracy_approved':False,
       'model_retrained':False,'frozen_probabilities_changed':False,'unsupported_24month_probability_invented':False,
@@ -51,7 +54,7 @@ def _export_one(scored,wide,root,replay_receipt,rsi_min=70,assessed=None):
     atomic_json(out/(stem+'.json'),{**obj,'snapshot_sha256':key})
     if rsi_min==70:atomic_json(out/'latest_RSI70.json',{**obj,'snapshot_sha256':key})
     lines=[f"# Six-month-priority research — {obj['source_asof']}",'',
-      f'Frozen-model estimates, not validated probabilities or trade instructions. RSI >{rsi_min}; no nominal price band; 200-DMA proximity is optional.',
+      f'Frozen-model estimates, not validated probabilities or trade instructions. RSI >{rsi_min}; minimum annual operating cash flow / PAT {obj["annual_CFO_PAT_minimum"]:.0%}; no nominal price band; 200-DMA proximity is optional.',
       'Ranking: 70% six-month probability percentile, 25% twelve-month joint-outcome percentile, 5% optional 200-DMA proximity. No 24-month probability is invented.','',
       '| Rank | Share | Series | Source close INR | RSI | 2x / 6m | 2x / 12m | 30% loss event | Financial evidence | Price history source | Series transition | Liquidity |',
       '|---:|---|---|---:|---:|---:|---:|---:|---|---|---|---|']
@@ -79,6 +82,7 @@ def export(scored,wide,root,replay_receipt):
     from v13_capture_policy import atomic_json
     atomic_json(out/'latest_dual.json',{'source_asof':lists['70']['source_asof'],
       'required_RSI_thresholds':[70,50],'lists':lists,'eligible_70_is_subset_of_50':True,
+      'annual_CFO_PAT_minimum':lists['70']['annual_CFO_PAT_minimum'],
       'screens_overlap':True,'same_model_and_probabilities':True,'frozen_forecasts_changed':False})
     (out/'latest_dual.md').write_text('\n\n'.join((out/f'latest_RSI{k}.md').read_text() for k in (70,50)))
     return {**summaries['70'],'dual_RSI_required':True,'dual_RSI':summaries}

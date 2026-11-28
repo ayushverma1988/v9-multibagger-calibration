@@ -22,7 +22,8 @@ def screen(scored):
     d=scored.copy();verified,discovery,_=model.gates(d)
     def col(name):return pd.to_numeric(d.get(name,pd.Series(np.nan,index=d.index)),errors='coerce')
     financial=pd.DataFrame({k:col(k) for k in REQUIRED},index=d.index)
-    quality=[financial_quality(r) for r in financial.to_dict('records')]
+    quality=[financial_quality(r,source_asof=day) for r,day in
+             zip(financial.to_dict('records'),d.get('date',[None]*len(d)))]
     known_failure=pd.Series([q['status']=='KNOWN_FINANCIAL_FAILURE' for q in quality],index=d.index,dtype=bool)
     complete=pd.Series([q['quality_pass'] for q in quality],index=d.index,dtype=bool)
     owner_bad=col('owner_PAT_yoy').lt(0)|col('owner_PAT_margin').le(0)|d.get(

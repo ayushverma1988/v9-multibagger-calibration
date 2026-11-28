@@ -91,7 +91,7 @@ def run(root, out, publish=False):
     financial['reported_diluted_EPS_yoy_same_document']=latest['reported_diluted_EPS_yoy_same_document']
     current=old.copy()
     for key,value in financial.items():current[key]=value
-    quality=financial_quality(financial)
+    quality=financial_quality(financial,source_asof="2026-11-12")
     current['financial_complete']=quality['complete'];current['financial_quality_pass']=quality['quality_pass']
     current['financial_unknown_fields']='|'.join(quality['unknown_fields']);current['financial_quality_status']=quality['status']
     values=probabilities(heads,current)

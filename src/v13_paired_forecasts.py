@@ -4,6 +4,7 @@ from datetime import datetime,timezone
 import json,hashlib
 import pandas as pd
 import v13_model as model
+import v13_screening_policy as screening
 from v13_lifecycle import digest,register,validate_registry
 
 COMPARISON_CONTRACT='V13_OBSERVED_AFTER_CLOSE_PROJECT_LOW_FIRST_EVENT_PE_INTEGRITY_POLICY_20261014'
@@ -69,6 +70,9 @@ def register_pair(frame,champion,challenger,champion_sha,challenger_sha,root,reg
     identity={'source_asof':date,'registered_at_utc':now.isoformat(),'input_sha256':hashlib.sha256(raw).hexdigest(),
       'champion_sha256':champion_sha,'challenger_sha256':challenger_sha,'isins':sorted(frame['isin'].tolist()),
       'comparison_contract':COMPARISON_CONTRACT}
+    # Historical cohort identity is unchanged; future records state the active screening floor.
+    if date>=screening.CFO_PAT_EFFECTIVE_FROM:
+        identity['annual_CFO_PAT_minimum']=screening.annual_cfo_pat_min(date)
     cohort_id=digest(identity);context={'cohort_id':cohort_id,'input_sha256':identity['input_sha256'],'comparison':'SAME_CLOCK_SAME_INPUTS_ALL_NAMES','comparison_contract':COMPARISON_CONTRACT}
     registries={}
     for label,d in [('champion',champion),('challenger',challenger)]:

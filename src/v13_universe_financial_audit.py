@@ -24,7 +24,7 @@ def audit(universe,wide,asof,root):
     for r in universe.to_dict('records'):
         isin=r['isin'];w=groups.get(isin,pd.DataFrame())
         f,_=features(w,date) if not w.empty else ({},[])
-        quality=financial_quality(f);readiness=financial_readiness(w,date,f)
+        quality=financial_quality(f,source_asof=date);readiness=financial_readiness(w,date,f)
         rows.append({'symbol':r.get('nse_current_symbol',r.get('symbol')),'isin':isin,
           'source_asof':asof,'has_original_financials':not w.empty,
           'financial_observation_rows':len(w),'financial_complete':quality['complete'],

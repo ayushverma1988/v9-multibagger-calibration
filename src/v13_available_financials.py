@@ -25,6 +25,7 @@ from v13_financial_evidence import (REQUIRED, balancing_quarters,
 from v13_information_clock import cutoff
 from v13_price_policy import valid_price
 import v13_model as model
+import v13_screening_policy as screening
 
 POLICY = 'V13_AVAILABLE_FINANCIALS_SECTOR_AWARE_RSI_GT70_20261103'
 RSI_MIN = 70
@@ -69,7 +70,7 @@ def assess(known, date, sector='UNKNOWN'):
     basis = preferred_reporting_basis(known, date)
     d = known[known.reporting_mode.eq(basis)] if not known.empty else known
     f, _ = features(known, date) if not known.empty else ({}, [])
-    quality = financial_quality(f)
+    quality = financial_quality(f, source_asof=date)
     ready = financial_readiness(known, date, f)
     q = _latest(d, 'quarter', date, 190) if not d.empty else {}
     a = _latest(d, 'annual', date, 450) if not d.empty else {}
@@ -306,6 +307,7 @@ def _screen_enriched(scored, enriched, assessments, rsi_min):
     states = Counter(v for r in rows for v in r['check_states'].values())
     return d, rows, {'policy': POLICY, 'rows': len(d), 'RSI_rule': f'strict >{rsi_min:g}; simple rolling 14 sessions', 'rsi_strictly_greater_than': rsi_min,
         'price_band': None, 'DMA_band_optional': True, 'single_source_allowed': True,
+        'annual_CFO_PAT_minimum':screening.annual_cfo_pat_min(d.date.max()) if 'date' in d else screening.CFO_PAT_LEGACY_MIN,
         'supplementary_financial_catalyst_valuation_inputs_optional': True,
         'tiers': dict(Counter(r['tier'] for r in rows)), 'check_states': dict(states),
         'classified_check_positions': sum(states.values()), 'total_required_check_positions': len(d)*len(REQUIRED),

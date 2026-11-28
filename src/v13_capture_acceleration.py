@@ -53,7 +53,7 @@ def financial_profile(wide, master, symbols, asof):
         if not known.empty:
             known = known[known.available.le(cut) & known.period.between(low, day)]
         f, _ = features(known, day) if not known.empty else ({}, [])
-        quality = financial_quality(f)
+        quality = financial_quality(f, source_asof=day)
         ready = financial_readiness(known, day, f)
         reasons = ready['unknown_reasons']
         missing = [k for k, reason in reasons.items() if reason != NONPOSITIVE]

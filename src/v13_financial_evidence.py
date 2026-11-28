@@ -5,23 +5,27 @@ import numpy as np
 import pandas as pd
 from v12_5_features import features,pick,number,owner_pat,owner_profit_status,FINANCIAL,UNSUPPORTED,preferred_reporting_basis,reporting_basis_status
 from v12_public_history import bounds
+import v13_screening_policy as screening
+import v13_screening_policy as screening
 
 REQUIRED=('four_profitable_quarters','quarter_sales_yoy','quarter_pat_yoy','quarter_pat_margin',
           'annual_CFO_PAT','dated_debt_equity','annual_EBIT_proxy_interest_coverage')
 
-def financial_quality(f):
-    """Audit existing seven-input checks, without changing forecasts or policy.
+def financial_quality(f, *, source_asof=None):
+    """Audit the seven checks under the policy for the market source date.
 
     Complete data can show a weak issuer. Missing checks are kept distinct from
     observed failures; a zero denominator remains unknown in source features.
     This is not a forward-profitability or investment-accuracy certification.
     """
+    min_cfo_pat=screening.annual_cfo_pat_min(f.get('date') if source_asof is None else source_asof)
+    min_cfo_pat=screening.annual_cfo_pat_min(f.get('date') if source_asof is None else source_asof)
     checks={
       'four_profitable_quarters':lambda x:x==1,
       'quarter_sales_yoy':lambda x:x>=0,
       'quarter_pat_yoy':lambda x:x>0,
       'quarter_pat_margin':lambda x:x>0,
-      'annual_CFO_PAT':lambda x:x>=.4,
+      'annual_CFO_PAT':lambda x:x>=min_cfo_pat,
       'dated_debt_equity':lambda x:x<=1.5,
       'annual_EBIT_proxy_interest_coverage':lambda x:x>=1.5}
     unknown=[k for k in REQUIRED if not np.isfinite(f.get(k,np.nan))]
@@ -327,7 +331,7 @@ def enrich_evidence(frame,wide,root,asof):
         cut=cutoff(r)
         w=wide[wide.security_isin.eq(r['isin'])&wide.available.le(cut)&wide.period.le(date)&wide.period.ge(low)] if not wide.empty else pd.DataFrame()
         f,used=features(w,date) if not w.empty else ({},[])
-        quality=financial_quality(f);unknown=quality['unknown_fields']
+        quality=financial_quality(f,source_asof=date);unknown=quality['unknown_fields']
         readiness=financial_readiness(w,date,f)
         d.at[i,'financial_complete']=not unknown;d.at[i,'financial_unknown_fields']='|'.join(unknown)
         d.at[i,'financial_quality_pass']=quality['quality_pass'];d.at[i,'financial_quality_status']=quality['status']

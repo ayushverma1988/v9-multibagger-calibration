@@ -19,6 +19,8 @@ import v12_coherent_hazard_model as coherent
 import v12_5_expanded_model as old
 from v13_features import EXTRA
 from v13_price_policy import valid_price
+import v13_screening_policy as screening
+import v13_screening_policy as screening
 
 FEATURES=list(dict.fromkeys([*old.FEATURES,*EXTRA]))
 HIT_LOSS='loss_given_hit12';NOHIT_LOSS='loss_given_nohit12'
@@ -101,7 +103,7 @@ def probabilities(heads,d):
     return out
 
 def gates(d):
-    known_bad=(d.four_profitable_quarters.eq(0)|d.quarter_pat_margin.le(0)|d.annual_CFO_PAT.lt(.4)
+    known_bad=(d.four_profitable_quarters.eq(0)|d.quarter_pat_margin.le(0)|d.annual_CFO_PAT.lt(screening.annual_cfo_pat_min(d.get('date')))
       |d.dated_debt_equity.gt(1.5)|d.annual_EBIT_proxy_interest_coverage.lt(1.5))
     market=valid_price(d.close)&d.distance_ma50.gt(0)&d.log_ret63.le(np.log(2.5))
     financial=np.isfinite(d[list(old.BASE_FIELDS)].to_numpy(float)).all(axis=1)

@@ -11,7 +11,7 @@ from v13_financial_evidence import REQUIRED,financial_quality
 def eligible(d):
     valid=d.feature_eligible.fillna(False).astype(bool) if 'feature_eligible' in d else pd.Series(False,index=d.index)
     valid &= d.close.between(20,2000)&d.distance_ma50.gt(0)&d.log_ret63.le(np.log(2.5))&d.rsi14.gt(70)
-    failed=pd.Series([financial_quality({k:r.get(k,np.nan) for k in REQUIRED})['status']=='KNOWN_FINANCIAL_FAILURE' for r in d.to_dict('records')],index=d.index)
+    failed=pd.Series([financial_quality({k:r.get(k,np.nan) for k in REQUIRED},source_asof=r.get('date'))['status']=='KNOWN_FINANCIAL_FAILURE' for r in d.to_dict('records')],index=d.index)
     return valid&~failed
 
 def run(matrix,output,asof):
