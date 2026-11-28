@@ -1,49 +1,439 @@
 {
-  "checked_at_utc": "2026-11-28T03:56:21.495Z",
-  "workflow_run": 46104933550,
-  "job_state": "failure",
-  "attempt_phase": "SAVING_VERIFIED_CHECKPOINT",
+  "checked_at_utc": "2026-11-28T06:01:49.809Z",
+  "workflow_run": 46107413112,
+  "job_state": "success",
+  "attempt_phase": "COMPLETED",
   "result_is_from_this_run": true,
   "previous_completed_source_asof": null,
   "previous_completed_market_rows": null,
-  "source_asof": null,
+  "source_asof": "2026-11-27",
   "mode": "PAPER_RESEARCH",
   "accuracy_approved": false,
-  "errors": 1,
-  "market_rows": null,
-  "public_universe_rows": null,
-  "financial_errors": null,
-  "financial_complete_rows": null,
-  "financial_quality_pass_rows": null,
-  "financial_known_failure_rows": null,
-  "available_financial_research": null,
-  "priority_research": null,
-  "dual_RSI_required": false,
-  "dual_RSI": null,
-  "history_errors": null,
-  "history_usable": null,
-  "history_fresh_official_aligned": null,
-  "universe_financial_coverage": null,
-  "financial_crosschecks": null,
-  "master_issuers": null,
-  "master_original_cells": null,
-  "master_original_missing_cells": null,
-  "master_missing_cells": null,
-  "master_recovered_cells": null,
-  "master_current_two_source_cells": null,
-  "required_additional_sources": null,
-  "master_current_three_source_cells": null,
-  "master_current_usable_cells": null,
-  "cross_source_validation_required": null,
-  "master_validation_complete": false,
-  "three_source_sector_issuers": null,
-  "paired_rows_per_model": null,
-  "catalyst_documents": null,
-  "verified_entries": null,
-  "independently_verified_mature_outcomes": null,
-  "paired_registration_coverage_gate": null,
-  "coverage_status": "COVERAGE_GATE_NOT_ASSESSED",
-  "checkpoint_storage_mode": "UNCONFIRMED",
-  "remote_checkpoint_publication_confirmed": false,
-  "archive_capacity_blocked": false
+  "errors": 0,
+  "market_rows": 2098,
+  "public_universe_rows": 3219,
+  "financial_errors": 4000,
+  "financial_complete_rows": 1105,
+  "financial_quality_pass_rows": 459,
+  "financial_known_failure_rows": 1172,
+  "available_financial_research": {
+    "policy": "V13_AVAILABLE_FINANCIALS_SECTOR_AWARE_RSI_GT70_20261103",
+    "rows": 2098,
+    "RSI_rule": "strict >70; simple rolling 14 sessions",
+    "rsi_strictly_greater_than": 70,
+    "price_band": null,
+    "DMA_band_optional": true,
+    "single_source_allowed": true,
+    "annual_CFO_PAT_minimum": 0.4,
+    "supplementary_financial_catalyst_valuation_inputs_optional": true,
+    "tiers": {
+      "OBSERVED_CURRENT_FINANCIAL_WEAKNESS": 566,
+      "INCOMPLETE_FINANCIAL_DISCOVERY": 428,
+      "AVAILABLE_CURRENT_FINANCIALS_RESEARCH": 340,
+      "QUARANTINED_SOURCE_CONFLICT": 373,
+      "AVAILABLE_SEVEN_CHECK_PASS_RESEARCH": 364,
+      "TURNAROUND_RESEARCH": 27
+    },
+    "check_states": {
+      "OBSERVED_WEAKNESS": 2310,
+      "OBSERVED_NONPOSITIVE_BASE_REQUIRES_INTERPRETATION": 522,
+      "OBSERVED_PASS": 8507,
+      "TURNAROUND_COMPARISON_NOT_PERCENT_GROWTH": 139,
+      "MISSING_OR_AMBIGUOUS_INPUT": 2654,
+      "NOT_APPLICABLE_INDUSTRIAL_RATIO_FOR_FINANCIAL_SECTOR": 540,
+      "NOT_APPLICABLE_ZERO_INTEREST_AND_NO_BORROWINGS": 14
+    },
+    "classified_check_positions": 14686,
+    "total_required_check_positions": 14686,
+    "classification_is_not_fact_completeness_or_accuracy": true,
+    "eligible": 51,
+    "selected": 40,
+    "eligible_by_group": {
+      "available_current_financials": 28,
+      "incomplete_discovery": 23
+    },
+    "selected_by_group": {
+      "incomplete_discovery": 20,
+      "available_current_financials": 20
+    },
+    "legacy_eligible_at_same_RSI_gt70": 51,
+    "newly_eligible_at_same_RSI_gt70": [],
+    "removed_at_same_RSI_gt70": [],
+    "ranking_weights": {
+      "joint12_percentile": 0.75,
+      "financial_evidence": 0.1,
+      "complete_execution": 0.05,
+      "source_supported_net_2x": 0.05,
+      "within_200dma_band": 0.05
+    },
+    "ranking_score_is_probability": false,
+    "weights_fitted_to_outcomes": false,
+    "accuracy_approved": false,
+    "strict_financial_bars_changed": false,
+    "formal_forecasts_changed": false,
+    "existing_model_missing_value_handling": "TRAIN_ONLY_MEDIAN_PLUS_EXPLICIT_MISSING_INDICATOR_FOR_EVERY_FEATURE",
+    "new_head_trained_or_promoted": false,
+    "snapshot_sha256": "00d47b7cc405c453ec20d28b58a3deb30b0f3a2d6065a46cf199f76793eb8c17",
+    "source_asof": "2026-11-27",
+    "reviewed_at_utc": "2026-11-28T05:36:58.952746+00:00"
+  },
+  "priority_research": {
+    "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103",
+    "source_asof": "2026-11-27",
+    "annual_CFO_PAT_minimum": 0.4,
+    "RSI_rule": "strict >70; simple rolling 14 sessions",
+    "rsi_strictly_greater_than": 70,
+    "price_band": null,
+    "DMA_band_optional": true,
+    "ranking_weights": {
+      "p6_percentile": 0.7,
+      "joint12_percentile": 0.25,
+      "optional_dma200": 0.05
+    },
+    "ranking_score_is_probability": false,
+    "accuracy_approved": false,
+    "model_retrained": false,
+    "frozen_probabilities_changed": false,
+    "unsupported_24month_probability_invented": false,
+    "eligible": 51,
+    "selected": 25,
+    "loss_ceiling_sensitivity": {
+      "0.95": 51,
+      "0.8": 51,
+      "0.7": 50,
+      "0.6": 44,
+      "0.5": 35
+    },
+    "default_loss_ceiling_unchanged": 0.95,
+    "historical_validation_required_before_model_promotion": true,
+    "dual_RSI_required": true,
+    "dual_RSI": {
+      "50": {
+        "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT50_NO_PRICE_BAND_20261112",
+        "source_asof": "2026-11-27",
+        "annual_CFO_PAT_minimum": 0.4,
+        "RSI_rule": "strict >50; simple rolling 14 sessions",
+        "rsi_strictly_greater_than": 50,
+        "price_band": null,
+        "DMA_band_optional": true,
+        "ranking_weights": {
+          "p6_percentile": 0.7,
+          "joint12_percentile": 0.25,
+          "optional_dma200": 0.05
+        },
+        "ranking_score_is_probability": false,
+        "accuracy_approved": false,
+        "model_retrained": false,
+        "frozen_probabilities_changed": false,
+        "unsupported_24month_probability_invented": false,
+        "eligible": 256,
+        "selected": 25,
+        "loss_ceiling_sensitivity": {
+          "0.95": 256,
+          "0.8": 256,
+          "0.7": 242,
+          "0.6": 202,
+          "0.5": 152
+        },
+        "default_loss_ceiling_unchanged": 0.95,
+        "historical_validation_required_before_model_promotion": true
+      },
+      "70": {
+        "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103",
+        "source_asof": "2026-11-27",
+        "annual_CFO_PAT_minimum": 0.4,
+        "RSI_rule": "strict >70; simple rolling 14 sessions",
+        "rsi_strictly_greater_than": 70,
+        "price_band": null,
+        "DMA_band_optional": true,
+        "ranking_weights": {
+          "p6_percentile": 0.7,
+          "joint12_percentile": 0.25,
+          "optional_dma200": 0.05
+        },
+        "ranking_score_is_probability": false,
+        "accuracy_approved": false,
+        "model_retrained": false,
+        "frozen_probabilities_changed": false,
+        "unsupported_24month_probability_invented": false,
+        "eligible": 51,
+        "selected": 25,
+        "loss_ceiling_sensitivity": {
+          "0.95": 51,
+          "0.8": 51,
+          "0.7": 50,
+          "0.6": 44,
+          "0.5": 35
+        },
+        "default_loss_ceiling_unchanged": 0.95,
+        "historical_validation_required_before_model_promotion": true
+      }
+    }
+  },
+  "dual_RSI_required": true,
+  "dual_RSI": {
+    "50": {
+      "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT50_NO_PRICE_BAND_20261112",
+      "source_asof": "2026-11-27",
+      "annual_CFO_PAT_minimum": 0.4,
+      "RSI_rule": "strict >50; simple rolling 14 sessions",
+      "rsi_strictly_greater_than": 50,
+      "price_band": null,
+      "DMA_band_optional": true,
+      "ranking_weights": {
+        "p6_percentile": 0.7,
+        "joint12_percentile": 0.25,
+        "optional_dma200": 0.05
+      },
+      "ranking_score_is_probability": false,
+      "accuracy_approved": false,
+      "model_retrained": false,
+      "frozen_probabilities_changed": false,
+      "unsupported_24month_probability_invented": false,
+      "eligible": 256,
+      "selected": 25,
+      "loss_ceiling_sensitivity": {
+        "0.95": 256,
+        "0.8": 256,
+        "0.7": 242,
+        "0.6": 202,
+        "0.5": 152
+      },
+      "default_loss_ceiling_unchanged": 0.95,
+      "historical_validation_required_before_model_promotion": true
+    },
+    "70": {
+      "policy": "V13_SIX_MONTH_PRIORITY_RSI_GT70_NO_PRICE_BAND_20261103",
+      "source_asof": "2026-11-27",
+      "annual_CFO_PAT_minimum": 0.4,
+      "RSI_rule": "strict >70; simple rolling 14 sessions",
+      "rsi_strictly_greater_than": 70,
+      "price_band": null,
+      "DMA_band_optional": true,
+      "ranking_weights": {
+        "p6_percentile": 0.7,
+        "joint12_percentile": 0.25,
+        "optional_dma200": 0.05
+      },
+      "ranking_score_is_probability": false,
+      "accuracy_approved": false,
+      "model_retrained": false,
+      "frozen_probabilities_changed": false,
+      "unsupported_24month_probability_invented": false,
+      "eligible": 51,
+      "selected": 25,
+      "loss_ceiling_sensitivity": {
+        "0.95": 51,
+        "0.8": 51,
+        "0.7": 50,
+        "0.6": 44,
+        "0.5": 35
+      },
+      "default_loss_ceiling_unchanged": 0.95,
+      "historical_validation_required_before_model_promotion": true
+    }
+  },
+  "history_errors": 1321,
+  "history_usable": 663,
+  "history_fresh_official_aligned": 657,
+  "universe_financial_coverage": {
+    "source_asof": "2026-11-27",
+    "information_cutoff_utc": "2026-11-27T16:30:00+00:00",
+    "scope": "FULL_PUBLIC_UNIVERSE_INDEPENDENT_OF_PRICE_OR_SELECTION",
+    "public_universe_issuers": 3219,
+    "issuers_with_financial_observations": 2957,
+    "original_period_basis_version_rows": 103595,
+    "nonmissing_numeric_fact_observations": 1065825,
+    "unique_source_document_hashes": 49849,
+    "unique_issuer_period_basis_kind_rows": 97819,
+    "fresh_preferred_basis_quarter_issuers": 2391,
+    "complete_seven_check_issuers": 1417,
+    "quality_pass_issuers": 591,
+    "known_failure_issuers": 1456,
+    "unknown_no_observed_failure_issuers": 1172,
+    "underlying_required_facts_complete_issuers": 1833,
+    "latest_reported_diluted_EPS_available_issuers": 2226,
+    "required_check_nonmissing": {
+      "four_profitable_quarters": 2055,
+      "quarter_sales_yoy": 1980,
+      "quarter_pat_yoy": 1648,
+      "quarter_pat_margin": 2268,
+      "annual_CFO_PAT": 1845,
+      "dated_debt_equity": 2109,
+      "annual_EBIT_proxy_interest_coverage": 2128
+    },
+    "consolidated_basis_gap_issuers": 306,
+    "all_financial_data_complete": false,
+    "source_agreement_is_not_truth_certification": true
+  },
+  "financial_crosschecks": {
+    "source_asof": "2026-11-27",
+    "observations_compared": 153919,
+    "issuers_compared": 3211,
+    "status_counts": {
+      "NUMERIC_AGREEMENT_WITHIN_DISPLAY_ROUNDING": 52583,
+      "PRIMARY_FACT_MISSING_OR_AMBIGUOUS": 51772,
+      "PROFIT_DEFINITION_REVIEW_REQUIRED": 37976,
+      "NUMERIC_CONFLICT_REVIEW_REQUIRED": 11588
+    },
+    "primary_plus_two_provider_agreements": 7822,
+    "truth_certified": false,
+    "definition_and_period_matching_required": true,
+    "canonical_facts_overwritten": false
+  },
+  "master_issuers": 3219,
+  "master_original_cells": 67162,
+  "master_original_missing_cells": 19751,
+  "master_missing_cells": 8770,
+  "master_recovered_cells": 10146,
+  "master_current_two_source_cells": 36998,
+  "required_additional_sources": 0,
+  "master_current_three_source_cells": 9179,
+  "master_current_usable_cells": 76457,
+  "cross_source_validation_required": false,
+  "master_validation_complete": null,
+  "three_source_sector_issuers": 20,
+  "paired_rows_per_model": 1455,
+  "catalyst_documents": 19719,
+  "verified_entries": 31942,
+  "independently_verified_mature_outcomes": 0,
+  "paired_registration_coverage_gate": {
+    "passed": true,
+    "current_rows": 2098,
+    "minimum_rows": 818,
+    "reference_recent_rows": [
+      1635,
+      2408,
+      1455
+    ],
+    "reference_median_rows": 1635,
+    "status": "PASS"
+  },
+  "coverage_status": "COVERAGE_GATE_PASSED",
+  "price_scoring_fallback": {
+    "status": "TIMELY_LAGGED_SNAPSHOT_VERIFIED_FOR_SCORING_ONLY",
+    "source_sha256": "bcde0a97557f1902daa446660339b5da4dede15590bb6faf358b5e0a86764095",
+    "first_retrieved_utc": "2026-11-27T15:17:10.287394+00:00",
+    "publisher_commit_utc": "2026-11-26T22:26:34+00:00",
+    "attempted": 12,
+    "accepted_before_feature_gate": 1,
+    "blocked_reasons": {
+      "No pre-cutoff original provider adjustment receipt": 5,
+      "Stale provider gap exceeds bounded fallback limit": 4,
+      "Alternative identity or series changed": 3
+    },
+    "original_histories_unchanged": true,
+    "entry_or_outcome_certified": false
+  },
+  "single_source_scoring_only": {
+    "attempted": 997,
+    "accepted_before_feature_gate": 975,
+    "new_identities_without_provider_history": 230,
+    "same_day_unproven_original_recovered": 650,
+    "only_late_or_conflicting_inputs": [
+      {
+        "isin": "INE987B01026",
+        "symbol": "NATCOPHARM",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE844O01030",
+        "symbol": "GUJENERGY",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE294B01019",
+        "symbol": "SMLMAH",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE669C01036",
+        "symbol": "TECHM",
+        "reason": "Observed same-day OHLCV or series conflict"
+      },
+      {
+        "isin": "INE727B01026",
+        "symbol": "GENESYS",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE00M901018",
+        "symbol": "INTERARCH",
+        "reason": "Observed same-day OHLCV or series conflict"
+      },
+      {
+        "isin": "INE0D0K01022",
+        "symbol": "SIGACHI",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE06ZD01017",
+        "symbol": "SHANTIGOLD",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE0LXG01040",
+        "symbol": "OLAELEC",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE142A01012",
+        "symbol": "OSWALAGRO",
+        "reason": "Observed provider adjustment conflict"
+      },
+      {
+        "isin": "INE016A01026",
+        "symbol": "DABUR",
+        "reason": "Observed provider adjustment conflict"
+      }
+    ],
+    "blocked_reasons": {
+      "Stale provider gap exceeds bounded fallback limit": 3,
+      "Observed provider adjustment conflict": 9,
+      "Observed same-day OHLCV or series conflict": 2,
+      "Single-source exchange session or identity is missing": 7,
+      "SOURCE_DATE_FEATURE_INELIGIBLE": 94,
+      "Primary exchange corporate action requires adjustment review": 1
+    },
+    "adjustment_independently_verified": false,
+    "entry_or_outcome_certified": false,
+    "scored_after_official_reconciliation": 874
+  },
+  "liquidity_research_scoring": {
+    "below_25_lakh_outside_training_band": 774,
+    "standard_25_lakh_turnover": 1324,
+    "original_provider_low_liquidity_blocked_without_timely_receipt": 0,
+    "original_training_and_frozen_forecasts_unchanged": true,
+    "accuracy_approved": false
+  },
+  "checkpoint_storage_mode": "PRIVATE_ARCHIVE_PUBLISHED",
+  "remote_checkpoint_publication_confirmed": true,
+  "archive_capacity_blocked": false,
+  "storage_retention": {
+    "checked_at_utc": "2026-11-28T06:01:49.614664+00:00",
+    "mode": "WORKING_CORE_ONLY",
+    "restart_caches_target": 1,
+    "minimum_new_data_retention_days": 730,
+    "target_archive_bytes": 1000000000,
+    "current_tree_stored_bytes": 625829069,
+    "current_tree_under_one_gb": true,
+    "provider_used_storage_bytes": 622747626,
+    "raw_originals_and_old_snapshots_retired": true,
+    "working_values_and_frozen_forecasts_deleted": false,
+    "deleted_paths": [
+      "v13/working_core/61a6641bf3b156b80fe023e549712edaa47c9136b2533355d37e9872897970f0.zip",
+      "v13/working_core/b56b2d2124c04e698b9defe41508fed1587c7dd45193c92513b112856f74254d.zip",
+      "v13/working_core/d34d711a70ecacf572099bcdaf3f59dc3f0187b53ad508a750989acd65ae7dca.zip",
+      "v13/working_core/f72c5c25f4fd74af8ca7887e645432425fa2f41da0f2bca5b5d47582d0376afb.zip",
+      "v13/state/snapshots/20261128T015610Z_d2a48b8e3f4e.json",
+      "v13/state/snapshots/20261128T044324Z_f38a05dd47ee.json",
+      "v13/state/snapshots/20261128T053138Z_072e184a4630.json"
+    ],
+    "retired_lfs_objects_purged": 7,
+    "retired_lfs_bytes_purged": 2454106917,
+    "fresh_restart_before_and_after_retirement_verified": true,
+    "current_manifest_sha256": "c129d6a6c9bcb47e296114c29afce6d09c42ad6fb11b40f3fcc83819fbcee7c4",
+    "history_squashed": true,
+    "storage_budget_warning": false
+  }
 }
