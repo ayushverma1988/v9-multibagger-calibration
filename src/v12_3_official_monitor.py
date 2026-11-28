@@ -45,21 +45,35 @@ def parse_bhavcopy(raw,date,receipt):
     return x[['date','isin','symbol','series',*cols,'source_status','source_sha256','first_retrieved_utc','venue','currency','corporate_actions_verified']]
 
 
-def collect(date,output):
+def collect(date,output,*,timed_capture=None):
     out=Path(output);rawdir=out/'raw';rawdir.mkdir(parents=True,exist_ok=True)
     day=pd.Timestamp(date).normalize();now=pd.Timestamp.now(tz='UTC')
     if day.tz_localize('Asia/Kolkata')+pd.Timedelta(hours=15,minutes=30)>now:raise ValueError('Do not request future or unfinished session')
     url=official_url(day);key=hashlib.sha256(url.encode()).hexdigest();body=rawdir/(key+'.bin');meta=rawdir/(key+'.json')
-    if body.exists() and meta.exists():raw=body.read_bytes();receipt=json.loads(meta.read_text())
+    cached=body.exists() and meta.exists()
+    if timed_capture is not None:
+        raw,proof=timed_capture
+        receipt={'requested_url':proof['source_url'],'status':200,'first_retrieved_utc':proof['first_retrieved_utc'],
+          'sha256':proof['sha256'],'bytes':proof['bytes'],'body_file':body.name,
+          'collection_source':'VERIFIED_TIMED_NSE_CAPTURE'}
+        if cached:
+            existing=body.read_bytes();record=json.loads(meta.read_text())
+            parse_bhavcopy(existing,day,record)
+            if raw!=existing:raise ValueError('Conflicting original NSE captures for the same session')
+    elif cached:
+        raw=body.read_bytes();receipt=json.loads(meta.read_text())
     else:
         r=requests.get(url,headers={'User-Agent':'Mozilla/5.0','Accept':'text/csv,application/zip,*/*','Referer':'https://www.nseindia.com/'},timeout=(30,45))
         r.raise_for_status()
         if r.url!=url:raise ValueError('Unexpected official source redirect')
         raw=r.content;receipt={'requested_url':url,'status':r.status_code,'first_retrieved_utc':datetime.now(timezone.utc).isoformat(),'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'body_file':body.name}
-        body.write_bytes(raw);meta.write_text(json.dumps(receipt,indent=2))
     frame=parse_bhavcopy(raw,day,receipt)
+    if frame.empty:raise ValueError('Official archive has no NSE equity rows')
+    if not cached:
+        body.write_bytes(raw);meta.write_text(json.dumps(receipt,indent=2))
     frame.to_parquet(out/(str(day.date())+'_official_market.parquet'),index=False)
-    result={'date':str(day.date()),'official_equity_rows':len(frame),'source_status':frame.source_status.value_counts().to_dict(),'source_sha256':receipt['sha256'],'prices':'UNADJUSTED_PRIMARY_EXCHANGE','unseen_outcomes_adjudicated':0}
+    result={'date':str(day.date()),'official_equity_rows':len(frame),'source_status':frame.source_status.value_counts().to_dict(),'source_sha256':receipt['sha256'],'source_url':url,
+      'first_retrieved_utc':receipt['first_retrieved_utc'],'collection_source':receipt.get('collection_source','DIRECT_NSE_OR_LOCAL_ORIGINAL'),'prices':'UNADJUSTED_PRIMARY_EXCHANGE','unseen_outcomes_adjudicated':0}
     (out/(str(day.date())+'_collection_receipt.json')).write_text(json.dumps(result,indent=2))
     return result
 

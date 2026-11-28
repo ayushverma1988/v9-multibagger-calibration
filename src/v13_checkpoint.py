@@ -261,7 +261,7 @@ def restore(root):
     print('Checkpoint restore completed',json.dumps({'method':method,'files':count,'seconds':round(time.monotonic()-started,2)}),flush=True)
     return True
 
-def save(root,preserved_raw_aliases=()):
+def save(root,preserved_raw_aliases=(),*,source_asof=None):
     from huggingface_hub import HfApi,CommitOperationAdd
     from v13_checkpoint_writes import MAX_BATCH,UploadProgress,spec,write,recovery_delta
     from v13_checkpoint_packs import MAX_PACK_BYTES,build_packs
@@ -270,7 +270,7 @@ def save(root,preserved_raw_aliases=()):
     from v13_working_archive import enabled as working_core_enabled,save as save_working_core
     previous_path=root/'remote_manifest.json'
     if working_core_enabled(json.loads(previous_path.read_text()) if previous_path.exists() else None):
-        return save_working_core(root,api)
+        return save_working_core(root,api,source_asof=source_asof)
     data=manifest(root,preserved_raw_aliases);old=root/'remote_manifest.json'
     base_raw=old.read_bytes() if old.exists() else json.dumps({'format':'V13-content-addressed-checkpoint-1','files':[]}).encode()
     previous=json.loads(base_raw)

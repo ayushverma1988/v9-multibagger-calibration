@@ -33,6 +33,8 @@ def restore_delta(bundle, root, fetch, expected_sha256=None):
         else:
             for item in base['files']:
                 if not item['raw_source']:materialize_one(item,root,fetch)
+        latest=root/'latest_run.json'
+        base_report=latest.read_bytes() if latest.is_file() else None
         for item in planned['files']:
             if item['sha256'] in objects:
                 target=root/item['path'];target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(objects[item['sha256']])
@@ -46,6 +48,11 @@ def restore_delta(bundle, root, fetch, expected_sha256=None):
                     materialize_one(item,root,fetch)
                     valid=target.is_file() and target.stat().st_size==item['bytes'] and digest(target.read_bytes())==item['sha256']
                 if not valid:raise ValueError('Restored checkpoint differs from planned manifest: '+item['path'])
+        # A legacy pre-session failure could put an undated attempt into the
+        # delta's latest_run slot. Keep the verified base summary separately
+        # for status reporting, without changing any byte of the recovered plan.
+        if base_report and latest.is_file() and not json.loads(latest.read_text()).get('asof'):
+            (root.parent/'v13_restored_base_report.json').write_bytes(base_report)
         (root/'remote_manifest.json').write_bytes(base_raw)
         (root/'pending_checkpoint_manifest.json').write_bytes(planned_raw)
         (root/'state_manifest.json').write_text(json.dumps({'files':[x for x in planned['files'] if (root/x['path']).is_file()]},indent=2))

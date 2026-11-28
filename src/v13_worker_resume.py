@@ -20,7 +20,8 @@ def select_recovery(runs,list_artifacts,download,folder='.',flushed_through=0):
     for run in sorted(runs,key=lambda r:r['id'],reverse=True):
         if run['head_branch']!='main' or run['id']<=flushed_through:continue
         items=list_artifacts(run['id'])
-        a=next((x for x in items if not x['expired'] and x['name']==f"v13-private-research-state-{run['id']}"),None)
+        names={f"v13-private-research-state-{run['id']}",f"v13-private-research-deferred-{run['id']}"}
+        a=next((x for x in items if not x['expired'] and x['name'] in names),None)
         if a is None:continue
         download(a,target)
         if 'sha256:'+sha_file(target)!=a['digest']:

@@ -19,6 +19,8 @@ import v13_catalyst_execution as catalyst_execution
 import v13_action_audit as action_audit
 import v13_research_evaluation as evaluation
 
+from v13_official_session import SourceUnavailable,read_capture,unavailable_reason,window
+
 ARCHIVE='ayushverma1988/v10-multibagger-archive'
 
 def paired_registration_coverage_gate(root,current_rows):
@@ -70,21 +72,38 @@ def initialize(root,seed):
     (folder/(digest(reg)+'.json')).write_text(json.dumps(reg,indent=2))
     (root/'active_model.json').write_text(json.dumps({'mode':'PAPER_RESEARCH','accuracy_approved':False,'sha256':manifest['files']['active_heads.joblib'],'version':'V13','initialised_at_utc':datetime.now(timezone.utc).isoformat()},indent=2))
 
-def save(root):
+def save(root,source_asof=None):
     from v13_checkpoint import save as save_incremental
     from v13_artifact_checkpoint import save_with_quota_fallback
-    return save_with_quota_fallback(root,save_incremental)
+    return save_with_quota_fallback(root,lambda path:save_incremental(path,source_asof=source_asof))
 
-def last_completed_session(root,day):
+def last_completed_session(root,day,*,now=None):
+    now=now or datetime.now(timezone.utc)
     errors=[]
     for offset in range(8):
         candidate=pd.Timestamp(day)-pd.Timedelta(days=offset)
-        if candidate.weekday()>4:continue
+        asof=str(candidate.date())
+        if now<window(asof)[0]:continue
+        capture=read_capture(root,asof,now=now)
+        if capture is None and candidate.weekday()>4:continue
         try:
-            report=collect_official(str(candidate.date()),root/'official')
-            return str(candidate.date()),report,errors
-        except Exception as e:errors.append({'date':str(candidate.date()),'error':str(e)[:160]})
-    raise RuntimeError('No verified completed NSE session; '+json.dumps(errors))
+            report=collect_official(asof,root/'official',timed_capture=capture)
+            return asof,report,errors
+        except Exception as exc:
+            reason=unavailable_reason(exc)
+            if reason is None:raise
+            errors.append({'date':asof,'reason':reason})
+            # Only a missing file is a reason to check an older date. A denied
+            # or interrupted request tells us nothing about that session.
+            if reason not in {'HTTP_404','HTTP_410'}:break
+    raise SourceUnavailable(errors)
+
+def previous_completed_report(root):
+    for path in (root/'latest_run.json',root.parent/'v13_restored_base_report.json'):
+        if not path.exists():continue
+        item=json.loads(path.read_text())
+        if item.get('asof') and item.get('completed_at_utc'):return item
+    return {}
 
 def current_frame(root,asof,primary_volume_research=False,fallback_prior_dir=None):
     rows=[];history={};low,_=collection.bounds(asof)
@@ -367,8 +386,8 @@ def forecasts(heads,frame,root,label):
 def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=False,catalyst_budget=360,
         collection_workers=4,filing_seconds=900,catalyst_seconds=360):
     root=Path(root);seed=Path(seed)
-    def phase(name):
-        item={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'phase':name,'updated_at_utc':datetime.now(timezone.utc).isoformat()}
+    def phase(name,**details):
+        item={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'phase':name,'updated_at_utc':datetime.now(timezone.utc).isoformat(),**details}
         path=root.parent/'v13_worker_attempt.json';temp=path.with_suffix('.tmp');temp.write_text(json.dumps(item,indent=2));temp.replace(path)
         print('V13 worker phase',name,item['updated_at_utc'],flush=True)
     phase('RESTORING_CHECKPOINT' if not local else 'LOCAL_RESEARCH_START')
@@ -379,6 +398,29 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         seed_hashes=[r['source_sha256'] for r in json.loads(review_seed.read_text())] if review_seed.exists() else []
         restore_review_originals(root,additional_hashes=seed_hashes)
     report={'workflow_run':os.environ.get('GITHUB_RUN_ID'),'started_at_utc':datetime.now(timezone.utc).isoformat(),'mode':'PAPER_RESEARCH','accuracy_approved':False,'steps':{},'errors':[]}
+    prior=previous_completed_report(root)
+    phase('OFFICIAL_SESSION_AND_PUBLIC_CATALOGUES')
+    try:
+        asof,official,errors=last_completed_session(root,day)
+        if prior.get('asof','')>asof:
+            raise SourceUnavailable([*errors,{'date':asof,'reason':'OLDER_THAN_LAST_COMPLETED_SOURCE'}])
+        try:
+            collection.universe(root,asof)
+        except Exception as exc:
+            reason=unavailable_reason(exc)
+            if reason is None:raise
+            raise SourceUnavailable([{'date':asof,'stage':'NSE_UNIVERSE','reason':reason}]) from exc
+    except SourceUnavailable as exc:
+        report.update(status='SOURCE_UNAVAILABLE',source_attempts=exc.attempts,
+          previous_completed_source_asof=prior.get('asof'),
+          previous_completed_market_rows=prior.get('current_verified_market_rows'))
+        phase('SOURCE_UNAVAILABLE',source_attempts=exc.attempts,
+          previous_completed_source_asof=prior.get('asof'),
+          previous_completed_market_rows=prior.get('current_verified_market_rows'))
+        return report
+    report['asof']=asof
+    report['steps']['official']=official
+    report['steps']['official_session_search']=errors
     from v13_frozen_integrity import FrozenGuard
     guard=FrozenGuard(root)
     prior_cache=None
@@ -386,11 +428,6 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
         if not local:
             from v13_history_integrity import recover_from_seed
             report['steps']['entry_history_recovery']=recover_from_seed(root,seed.parent/'v13_evidence_seed/entry_history_recovery.json')
-        phase('OFFICIAL_SESSION_AND_PUBLIC_CATALOGUES')
-        asof,official,errors=last_completed_session(root,day);report['asof']=asof;report['steps']['official']=official
-        # Every completed phase is checkpointed. Interrupted work resumes from
-        # accepted filing versions and the public-history age queue.
-        collection.universe(root,asof)
         report['steps']['catalogs']=collection.current_catalogs(root,asof)
         report['steps']['catalogue_recovery']=collection.recover_public_catalogue(root,seed.parent/'v13_evidence_seed/catalogue_recovery',asof)
         # Fresh public prices must exist before financial completion chooses
@@ -412,7 +449,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             phase('SAVING_HISTORY_CHECKPOINT')
-            save(root)
+            save(root,source_asof=asof)
         phase('ORIGINAL_FINANCIAL_COLLECTION')
         from v13_financial_recovery_seed import apply as apply_financial_recovery_seed
         report['steps']['verified_original_financial_recovery']=apply_financial_recovery_seed(root,seed.parent/'v13_evidence_seed/financial_primary_recovery_20261020.json',asof)
@@ -481,7 +518,7 @@ def run(root,seed,day,history_budget=800,filing_budget=800,retrain=False,local=F
             path=root/'prospective_observations.parquet'
             guard.check(pd.read_parquet(path) if path.exists() else pd.DataFrame())
             phase('SAVING_FINANCIAL_CHECKPOINT')
-            save(root)
+            save(root,source_asof=asof)
         phase('CURRENT_SOURCE_ALIGNED_MODEL_INPUTS')
         frame,history=current_frame(root,asof,fallback_prior_dir=prior_cache.name if prior_cache is not None else None)
         report['current_verified_market_rows']=len(frame)

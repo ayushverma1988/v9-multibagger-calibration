@@ -1,6 +1,6 @@
 """Budgeted working-only checkpoints after explicit retirement of raw history."""
 import hashlib,json,os,re,shutil,tempfile,threading,time,zipfile
-from datetime import datetime,timezone
+from datetime import date as iso_date, datetime, timezone
 from pathlib import Path
 from v13_archive_codec import sha_file
 
@@ -117,24 +117,29 @@ def preserve_provenance(root,base_raw,previous):
         target=folder/'capture_receipts'/(day+'_'+name+'.jsonl.zst');target.parent.mkdir(exist_ok=True)
         target.write_bytes(zstd.ZstdCompressor(level=12,write_checksum=True).compress(raw))
 
-def save(root,api):
+def save(root,api,*,source_asof=None):
     from v13_checkpoint import ARCHIVE,manifest
     from v13_checkpoint_writes import spec,recovery_delta,CheckpointTemporaryError
     from v13_storage_migrate import commit
     from v13_compact_core import build_core
     from v13_archive_codec import archive_download
-    root=Path(root);old=root/'remote_manifest.json';base_raw=old.read_bytes() if old.exists() else b'{"files":[]}'
+    root=Path(root);latest=root/'latest_run.json'
+    summary=json.loads(latest.read_text()) if latest.exists() else {}
+    asof=source_asof if source_asof is not None else summary.get('asof')
+    if not isinstance(asof,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',asof):
+        raise ValueError('Cannot publish a V13 working checkpoint without a verified source session')
+    iso_date.fromisoformat(asof)
+    old=root/'remote_manifest.json';base_raw=old.read_bytes() if old.exists() else b'{"files":[]}'
     previous=json.loads(base_raw);preserve_provenance(root,base_raw,previous)
     data=manifest(root)
     data['files']=[{k:v for k,v in r.items() if k not in {'storage_pack','pack_offset','storage_core'}} for r in data['files'] if not r['raw_source']]
     data.update(format=FORMAT,storage_policy=POLICY,
       migration_source_manifest_sha256=previous.get('migration_source_manifest_sha256',hashlib.sha256(base_raw).hexdigest()),
-      source_worker_run=json.loads((root/'latest_run.json').read_text()).get('workflow_run') if (root/'latest_run.json').exists() else None)
+      source_worker_run=summary.get('workflow_run'))
     known={r['sha256'] for r in previous.get('files',[])};entries=list({r['sha256']:r for r in data['files'] if r['sha256'] not in known}.values())
     recovery_delta(root,data,entries,base_raw)
     staging=root.parent/'v13_core_staging';shutil.rmtree(staging,ignore_errors=True);staging.mkdir()
     raw_inner=json.dumps(data,sort_keys=True,indent=2).encode()
-    asof=json.loads((root/'latest_run.json').read_text()).get('asof') if (root/'latest_run.json').exists() else datetime.now(timezone.utc).date().isoformat()
     try:
         built=build_core(root,raw_inner,staging,asof,data['source_worker_run'],target_bytes=BUDGET-10_000_000)
         shutil.rmtree(staging/'fresh_verified_state')

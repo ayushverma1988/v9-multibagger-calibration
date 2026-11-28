@@ -3,14 +3,15 @@ from pathlib import Path
 from v13_worker_resume import select_recovery
 
 class WorkerRecoverySelection(unittest.TestCase):
-    def scenario(self,t,contents,bad=False,floor=0):
+    def scenario(self,t,contents,bad=False,floor=0,deferred=()):
         p=Path(t);payloads={};artifacts={};downloads=[]
         for run_id,members in contents:
             path=p/f'{run_id}.zip'
             with zipfile.ZipFile(path,'w') as z:
                 for name,body in members.items():z.writestr(name,json.dumps(body))
             raw=path.read_bytes();payloads[run_id]=raw
-            artifacts[run_id]=[{'id':run_id,'name':f'v13-private-research-state-{run_id}',
+            kind='deferred' if run_id in deferred else 'state'
+            artifacts[run_id]=[{'id':run_id,'name':f'v13-private-research-{kind}-{run_id}',
               'expired':False,'digest':'sha256:'+('a'*64 if bad else hashlib.sha256(raw).hexdigest())}]
         def download(a,path):downloads.append(a['id']);Path(path).write_bytes(payloads[a['id']])
         runs=[{'id':n,'head_branch':'main'} for n,_ in contents]
@@ -26,6 +27,12 @@ class WorkerRecoverySelection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             r,calls,path=self.scenario(t,[(3,{'v13_checkpoint_recovery.json':{}}),(2,{'v13_checkpoint_recovery.json':{}})])
             self.assertEqual(calls,[3]);self.assertTrue(path.exists())
+
+    def test_deferred_artifact_keeps_existing_verified_recovery_discoverable(self):
+        with tempfile.TemporaryDirectory() as t:
+            r,calls,path=self.scenario(t,[(3,{'v13_checkpoint_recovery.json':{}})],deferred=(3,))
+            self.assertEqual(calls,[3]);self.assertTrue(path.exists())
+            self.assertEqual(r['status'],'VERIFIED_RECOVERY_SELECTED')
 
     def test_incomplete_artifact_is_skipped(self):
         with tempfile.TemporaryDirectory() as t:
