@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ea5ad4f5d925d4696ef96f7d965ab9c1a39f0802
+          ref: e73113f3830ce45a2d994f2d6abcc0d3e1ebe8bf
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -95,14 +95,37 @@ jobs:
           print('Retrying durable archive publication; verified quota fallback remains enabled')
           PY
       - name: Run resumable whole-public-NSE research worker
+        id: research_worker
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
-        run: python -m v13_runner --state v13_state --seed v13_seed --history-budget 3200 --filing-budget 4000 --catalyst-budget 600 --collection-workers 6 --filing-seconds 1500 --catalyst-seconds 600
+        run: |
+          python -m v13_runner --state v13_state --seed v13_seed --history-budget 3200 --filing-budget 4000 --catalyst-budget 600 --collection-workers 6 --filing-seconds 1500 --catalyst-seconds 600
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          attempt=json.loads(Path('v13_worker_attempt.json').read_text())
+          if attempt['phase']=='SOURCE_UNAVAILABLE':
+              print('source_unavailable=true')
+          PY
+      - name: Carry forward an existing verified restart delta on source deferral
+        if: steps.research_worker.outputs.source_unavailable == 'true'
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from zipfile import ZipFile
+          source=Path('previous_verified_recovery.tar.gz')
+          if source.is_file():
+              with ZipFile('previous_worker.zip') as archive:
+                  receipt=archive.read('v13_checkpoint_recovery.json')
+              os.link(source, 'v13_checkpoint_recovery.tar.gz')
+              Path('v13_checkpoint_recovery.json').write_bytes(receipt)
+          PY
       - name: Preserve complete restart state even after a failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v13-private-research-state-${{ github.run_id }}
+          name: ${{ steps.research_worker.outputs.source_unavailable == 'true' && 'v13-private-research-deferred' || 'v13-private-research-state' }}-${{ github.run_id }}
           path: |
             v13_state.tar.gz
             archive_receipt.json
@@ -158,6 +181,7 @@ jobs:
           retention-days: 30
 
       - name: Keep two restart caches and all original dated data
+        if: steps.research_worker.outputs.source_unavailable != 'true'
         env:
           HF_ARCHIVE_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
         run: python -m v13_storage_retention
@@ -172,7 +196,7 @@ jobs:
             let report = {};
             if (fs.existsSync('v13_state/latest_run.json')) report = JSON.parse(fs.readFileSync('v13_state/latest_run.json', 'utf8'));
             const attempt = fs.existsSync('v13_worker_attempt.json') ? JSON.parse(fs.readFileSync('v13_worker_attempt.json', 'utf8')) : {};
-            const fresh = String(report.workflow_run || '') === String(context.runId);
+            const fresh = Boolean(report.completed_at_utc) && String(report.workflow_run || '') === String(context.runId);
             const previous = report;
             if (!fresh) report = {};
             const health = { checked_at_utc: new Date().toISOString(), workflow_run: context.runId, job_state: '${{ job.status }}', attempt_phase: attempt.phase || null, result_is_from_this_run: fresh, previous_completed_source_asof: fresh ? null : previous.asof || null, previous_completed_market_rows: fresh ? null : previous.current_verified_market_rows || null, source_asof: report.asof || null, mode: 'PAPER_RESEARCH', accuracy_approved: false, errors: fresh ? (report.errors || []).length : null, market_rows: fresh ? report.current_verified_market_rows ?? null : null, public_universe_rows: report.public_universe_rows ?? null, financial_errors: report.steps?.financials?.errors?.length ?? null, financial_complete_rows: report.financial_complete_rows ?? null, financial_quality_pass_rows: report.financial_quality_pass_rows ?? null, financial_known_failure_rows: report.financial_known_failure_rows ?? null, available_financial_research: report.available_financial_research ?? null, priority_research: report.priority_research ?? null, dual_RSI_required: report.priority_research?.dual_RSI_required ?? false, dual_RSI: report.priority_research?.dual_RSI ?? null, history_errors: report.steps?.history?.errors?.length ?? null, history_usable: report.steps?.history?.usable ?? null, history_fresh_official_aligned: report.steps?.history?.fresh_official_aligned ?? null, universe_financial_coverage: report.universe_financial_coverage ?? null, financial_crosschecks: report.steps?.financial_crosschecks ?? null, master_issuers: report.master_data?.issuers ?? null, master_original_cells: report.master_data?.original_observed_cells ?? null, master_original_missing_cells: report.master_data?.missing_or_ambiguous_original_cells ?? null, master_missing_cells: report.master_data?.remaining_missing_or_unresolved_cells ?? report.master_data?.missing_or_ambiguous_original_cells ?? null, master_recovered_cells: report.master_data?.recovered_missing_original_cells ?? null, master_current_two_source_cells: report.master_data?.current_two_source_input_cells ?? null, required_additional_sources: report.master_data?.required_additional_sources ?? null, master_current_three_source_cells: report.master_data?.current_three_source_input_cells ?? null, master_current_usable_cells: report.master_data?.current_usable_input_cells ?? null, cross_source_validation_required: report.master_data?.cross_source_validation_required ?? null, master_validation_complete: report.master_data?.cross_source_validation_required === false ? null : report.master_data?.analysis_ready_under_two_source_requirement ?? false, three_source_sector_issuers: report.master_data?.three_source_sector_issuers ?? null, paired_rows_per_model: report.paired_registration?.rows_per_model ?? null, catalyst_documents: report.steps?.catalysts?.documents ?? null, verified_entries: report.steps?.independent_entry_actions?.verified_entries ?? null, independently_verified_mature_outcomes: report.independently_verified_mature_outcomes ?? null };
@@ -189,6 +213,12 @@ jobs:
                 health.single_source_scoring_only = funnel.single_source_scoring_only ?? null;
                 health.liquidity_research_scoring = funnel.liquidity_research_scoring ?? null;
               }
+            }
+            if (attempt.phase === 'SOURCE_UNAVAILABLE') {
+              health.collection_status = 'DEFERRED_SOURCE_UNAVAILABLE';
+              health.source_attempts = attempt.source_attempts ?? [];
+              health.previous_completed_source_asof = attempt.previous_completed_source_asof ?? null;
+              health.previous_completed_market_rows = attempt.previous_completed_market_rows ?? null;
             }
             const checkpoint = fs.existsSync('archive_receipt.json') ? JSON.parse(fs.readFileSync('archive_receipt.json','utf8')) : {};
             health.checkpoint_storage_mode = checkpoint.storage_mode || (checkpoint.snapshot ? 'PRIVATE_ARCHIVE_PUBLISHED' : 'UNCONFIRMED');
